@@ -1,0 +1,631 @@
+<!DOCTYPE html><html lang="fr"><head><meta charset="utf-8"><meta content="width=device-width, initial-scale=1.0" name="viewport"><meta content="web_dashboard" name="shell-type"><link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet"><link href="https://fonts.googleapis.com" rel="preconnect"><link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"><link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&amp;family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,400&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"><style>@layer base { html, body { margin: 0; padding: 0; } body { overscroll-behavior: none; } main > :first-child { margin-top: 0 !important; } main > :last-child { margin-bottom: 0 !important; } } ::-webkit-scrollbar { display: none; }</style><script src="https://cdn.tailwindcss.com"></script><script id="tailwind-config">tailwind.config = { darkMode: "class", theme: { extend: { "colors": { "on-tertiary": "#ffffff", "background": "#f3fafe", "surface-container-lowest": "#ffffff", "on-tertiary-container": "#fdfcff", "surface-variant": "#dce4e7", "primary-container": "#00818c", "inverse-surface": "#2a3135", "tertiary-fixed-dim": "#b0c8eb", "surface-container": "#e8eff3", "on-tertiary-fixed-variant": "#314865", "surface-bright": "#f3fafe", "surface-dim": "#d4dbdf", "surface-container-low": "#eef5f9", "secondary-fixed": "#ffdead", "on-error": "#ffffff", "secondary-fixed-dim": "#fabc4f", "on-secondary-fixed-variant": "#604100", "primary-fixed-dim": "#6fd5e2", "tertiary-fixed": "#d2e4ff", "tertiary": "#465d7b", "primary-fixed": "#8cf2ff", "on-primary-fixed": "#001f23", "on-primary-container": "#f6feff", "primary": "#00666f", "on-surface": "#161d20", "on-tertiary-fixed": "#001c37", "on-secondary-container": "#714d00", "inverse-primary": "#6fd5e2", "on-primary-fixed-variant": "#004f56", "on-primary": "#ffffff", "surface-tint": "#006972", "on-secondary-fixed": "#281900", "surface-container-high": "#e2e9ed", "secondary": "#7e5700", "outline": "#6d797b", "on-secondary": "#ffffff", "on-error-container": "#93000a", "outline-variant": "#bdc9ca", "on-background": "#161d20", "error": "#ba1a1a", "on-surface-variant": "#3d494a", "tertiary-container": "#5f7695", "error-container": "#ffdad6", "surface": "#f3fafe", "secondary-container": "#fdbe51", "inverse-on-surface": "#ebf2f6", "surface-container-highest": "#dce4e7" }, "borderRadius": { "DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px" }, "spacing": { "gutter-sm": "1rem", "space-sm": "0.5rem", "space-md": "1rem", "margin": "2rem", "gutter": "1.5rem", "space-lg": "1.5rem", "space-xl": "2.5rem", "margin-sm": "1rem", "space-xs": "0.25rem" }, "fontFamily": { "label-currency": [ "Manrope" ], "title-md": [ "Manrope" ], "body-lg": [ "Manrope" ], "display-lg-mobile": [ "Newsreader" ], "headline-lg": [ "Newsreader" ], "headline-lg-mobile": [ "Newsreader" ], "headline-md": [ "Newsreader" ], "headline-sm": [ "Newsreader" ], "label-lg": [ "Manrope" ], "body-md": [ "Manrope" ], "display-lg": [ "Newsreader" ], "title-lg": [ "Manrope" ], "label-md": [ "Manrope" ], "body-sm": [ "Manrope" ] }, "fontSize": { "label-currency": [ "16px", { "lineHeight": "20px", "letterSpacing": "-0.01em", "fontWeight": "700" } ], "title-md": [ "16px", { "lineHeight": "24px", "fontWeight": "600" } ], "body-lg": [ "16px", { "lineHeight": "26px", "fontWeight": "400" } ], "display-lg-mobile": [ "32px", { "lineHeight": "40px", "letterSpacing": "-0.01em", "fontWeight": "400" } ], "headline-lg": [ "32px", { "lineHeight": "40px", "letterSpacing": "-0.01em", "fontWeight": "500" } ], "headline-lg-mobile": [ "26px", { "lineHeight": "34px", "letterSpacing": "-0.01em", "fontWeight": "500" } ], "headline-md": [ "24px", { "lineHeight": "32px", "fontWeight": "500" } ], "headline-sm": [ "20px", { "lineHeight": "28px", "fontWeight": "600" } ], "label-lg": [ "14px", { "lineHeight": "20px", "letterSpacing": "0.01em", "fontWeight": "600" } ], "body-md": [ "14px", { "lineHeight": "22px", "fontWeight": "400" } ], "display-lg": [ "48px", { "lineHeight": "56px", "letterSpacing": "-0.02em", "fontWeight": "400" } ], "title-lg": [ "18px", { "lineHeight": "26px", "fontWeight": "700" } ], "label-md": [ "12px", { "lineHeight": "16px", "letterSpacing": "0.02em", "fontWeight": "600" } ], "body-sm": [ "13px", { "lineHeight": "18px", "fontWeight": "500" } ] } } } };</script></head><body class="bg-surface text-on-surface font-body-md text-body-md antialiased selection:bg-primary selection:text-on-primary"><aside class="fixed left-0 top-0 h-full w-64 bg-inverse-surface z-50 flex flex-col justify-between shadow-[0_1px_8px_rgba(0,0,0,0.06)]"><div class="flex flex-col"><div class="h-20 flex items-center gap-space-md px-gutter"><div class="w-10 h-10 rounded-xl bg-primary flex items-center justify-center text-on-primary shadow-sm"><span class="material-symbols-outlined text-[24px]">tsunami</span></div><div class="flex flex-col justify-center min-w-0"><span class="font-headline-sm text-headline-sm text-surface-bright tracking-tight truncate leading-tight">Résidence Blue</span><span class="font-label-md text-label-md text-outline-variant uppercase tracking-wider truncate">Hôtel Boutique • Saly</span></div></div><div class="px-space-md py-space-sm"><div class="px-space-md py-space-xs mb-space-xs font-label-md text-label-md text-outline-variant uppercase tracking-wider">Exploitation 12 Clés</div><nav class="flex flex-col gap-space-xs" data-active-classes="bg-primary text-on-primary font-title-md"><a class="flex items-center gap-space-md px-space-md py-space-sm rounded-lg text-surface-container-high hover:bg-surface-variant/20 hover:text-surface-bright transition-colors font-title-md text-title-md" data-path="tableau-de-bord" href="#"><span class="material-symbols-outlined text-[20px]">dashboard</span><span class="">Tableau de bord</span></a><a class="flex items-center gap-space-md px-space-md py-space-sm rounded-lg text-surface-container-high hover:bg-surface-variant/20 hover:text-surface-bright transition-colors font-title-md text-title-md" data-path="planning" href="#"><span class="material-symbols-outlined text-[20px]">calendar_month</span><span class="">Planning</span></a><a class="flex items-center gap-space-md px-space-md py-space-sm rounded-lg text-surface-container-high hover:bg-surface-variant/20 hover:text-surface-bright transition-colors font-title-md text-title-md" data-path="chambres" href="#"><span class="material-symbols-outlined text-[20px]">bed</span><span class="">Chambres</span></a><a class="flex items-center gap-space-md px-space-md py-space-sm rounded-lg text-surface-container-high hover:bg-surface-variant/20 hover:text-surface-bright transition-colors font-title-md text-title-md" data-path="clients" href="#"><span class="material-symbols-outlined text-[20px]">group</span><span class="">Clients</span></a><a class="flex items-center gap-space-md px-space-md py-space-sm rounded-lg text-surface-container-high hover:bg-surface-variant/20 hover:text-surface-bright transition-colors font-title-md text-title-md" data-path="restaurant" href="#"><span class="material-symbols-outlined text-[20px]">restaurant</span><span class="">Restaurant</span></a><a class="flex items-center gap-space-md px-space-md py-space-sm rounded-lg text-surface-container-high hover:bg-surface-variant/20 hover:text-surface-bright transition-colors font-title-md text-title-md" data-path="housekeeping" href="#"><span class="material-symbols-outlined text-[20px]">cleaning_services</span><span class="">Housekeeping</span></a><a aria-current="page" class="flex items-center gap-space-md px-space-md py-space-sm rounded-lg transition-colors bg-primary text-on-primary font-title-md" data-path="maintenance" href="#"><span class="material-symbols-outlined text-[20px]">build</span><span class="">Maintenance</span></a><a class="flex items-center gap-space-md px-space-md py-space-sm rounded-lg text-surface-container-high hover:bg-surface-variant/20 hover:text-surface-bright transition-colors font-title-md text-title-md" data-path="facturation" href="#"><span class="material-symbols-outlined text-[20px]">receipt_long</span><span class="">Facturation</span></a><a class="flex items-center gap-space-md px-space-md py-space-sm rounded-lg text-surface-container-high hover:bg-surface-variant/20 hover:text-surface-bright transition-colors font-title-md text-title-md" data-path="rapports" href="#"><span class="material-symbols-outlined text-[20px]">analytics</span><span class="">Rapports</span></a><a class="flex items-center gap-space-md px-space-md py-space-sm rounded-lg text-surface-container-high hover:bg-surface-variant/20 hover:text-surface-bright transition-colors font-title-md text-title-md" data-path="parametres" href="#"><span class="material-symbols-outlined text-[20px]">settings</span><span class="">Paramètres</span></a></nav></div></div><div class="p-gutter"><div class="bg-surface-variant/10 rounded-xl p-space-md flex items-center justify-between"><div class="flex flex-col"><span class="font-label-md text-label-md text-surface-container-high">Front de Mer</span><span class="font-body-sm text-body-sm text-outline-variant">Marée haute • 28°C</span></div><span class="material-symbols-outlined text-primary-fixed-dim text-[20px]">wb_sunny</span></div></div></aside><div class="pl-64"><header class="fixed top-0 left-64 right-0 h-20 bg-surface/90 backdrop-blur-xl shadow-[0_1px_8px_rgba(0,0,0,0.04)] z-40 flex items-center justify-between px-margin"><div class="flex items-center gap-gutter flex-1 max-w-xl"><div class="relative w-full"><span class="material-symbols-outlined absolute left-space-md top-1/2 -translate-y-1/2 text-outline text-[20px]">search</span><input class="w-full h-11 pl-11 pr-space-md rounded-xl bg-surface-container-lowest text-on-surface placeholder:text-outline font-body-sm text-body-sm outline-none shadow-[0_2px_8px_rgba(10,37,64,0.04)] focus:ring-2 focus:ring-primary/20 transition-all" placeholder="Rechercher une réservation, client, chambre..." type="text"></div></div><div class="flex items-center gap-gutter"><a class="inline-flex items-center gap-space-sm h-11 px-gutter bg-primary hover:bg-primary-container text-on-primary rounded-xl font-label-lg text-label-lg shadow-sm transition-all" data-path="nouvelle-reservation" href="#"><span class="material-symbols-outlined text-[18px]">add</span><span class="">Nouvelle réservation</span></a><button class="relative w-11 h-11 rounded-xl bg-surface-container-lowest flex items-center justify-center text-on-surface-variant hover:text-on-surface shadow-[0_2px_8px_rgba(10,37,64,0.04)] transition-colors" type="button"><span class="material-symbols-outlined text-[22px]">notifications</span><span class="absolute top-2.5 right-2.5 w-2 h-2 rounded-full bg-secondary ring-2 ring-surface-container-lowest"></span></button><div class="h-8 w-px bg-surface-variant/60"></div><div class="flex items-center gap-space-md"><div class="w-8 h-8 rounded-full bg-primary flex items-center justify-center shadow-sm"><span class="material-symbols-outlined text-on-primary text-[18px]">person</span></div><div class="hidden xl:flex flex-col text-left"><div class="flex items-center gap-space-xs"><span class="font-label-lg text-label-lg text-on-surface leading-tight">Aïssatou Ba</span><span class="w-1.5 h-1.5 rounded-full bg-primary"></span></div><span class="font-label-md text-label-md text-on-surface-variant">Directrice Générale</span></div></div></div></header><main class="relative w-full pt-20 px-margin bg-surface"><div class="flex flex-col w-full">
+<!-- Subtle Atmospheric Top Bar Background Glow -->
+<div class="relative w-full pb-margin">
+<!-- Top Header: Title & Direct Action -->
+<div class="flex flex-col lg:flex-row lg:items-end justify-between gap-space-md mb-space-lg">
+<div class="flex flex-col">
+<div class="flex items-center gap-space-sm mb-space-xs">
+<span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-primary/10 text-primary font-label-md text-label-md">
+<span class="w-1.5 h-1.5 rounded-full bg-primary animate-pulse"></span>
+            Supervision Technique • Saly Portudal
+          </span>
+<span class="text-outline font-label-md text-label-md">• Climatisation &amp; Énergies Côtières</span>
+</div>
+<h1 class="font-headline-lg text-headline-lg text-on-surface tracking-tight">
+          Maintenance &amp; Entretien Technique
+        </h1>
+<p class="font-body-md text-body-md text-on-surface-variant max-w-2xl mt-0.5">
+          Suivi des équipements, chambres et espaces communs • 12 clés, piscine à débordement et installations du domaine.
+        </p>
+</div>
+<div class="flex items-center gap-space-sm self-start lg:self-auto">
+<button class="h-11 px-space-md rounded-xl bg-surface-container hover:bg-surface-container-high text-on-surface font-label-lg text-label-lg transition-colors flex items-center gap-space-xs shadow-sm" type="button">
+<span class="material-symbols-outlined text-[18px]">build_circle</span>
+<span class="">Inventaire pièces</span>
+</button>
+<button class="h-11 px-gutter bg-primary hover:bg-primary-container text-on-primary rounded-xl font-label-lg text-label-lg shadow-md transition-all flex items-center gap-space-xs active:scale-95" type="button">
+<span class="material-symbols-outlined text-[20px]">add</span>
+<span class="">Nouveau ticket</span>
+</button>
+</div>
+</div>
+<!-- 4 KPI Metrics Bento Strip -->
+<div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-gutter mb-space-xl">
+<!-- Card 1: Tickets Actifs -->
+<div class="relative overflow-hidden rounded-xl bg-surface-container-lowest p-space-lg shadow-sm">
+<div class="flex items-start justify-between">
+<div class="flex flex-col">
+<span class="font-label-md text-label-md text-outline-variant uppercase tracking-wider">Tickets Actifs</span>
+<span class="font-display-lg text-display-lg text-on-surface tracking-tight leading-none mt-2">4</span>
+<span class="font-body-sm text-body-sm text-primary flex items-center gap-1 mt-2">
+<span class="material-symbols-outlined text-[16px]">hourglass_top</span>
+              Dont 2 interventions sur site
+            </span>
+</div>
+<div class="w-12 h-12 rounded-xl bg-primary/10 text-primary flex items-center justify-center">
+<span class="material-symbols-outlined text-[24px]">engineering</span>
+</div>
+</div>
+<div class="mt-4 w-full bg-surface-container h-1.5 rounded-full overflow-hidden">
+<div class="bg-primary h-full rounded-full" style="width: 44%;"></div>
+</div>
+</div>
+<!-- Card 2: Urgences Critiques -->
+<div class="relative overflow-hidden rounded-xl bg-surface-container-lowest p-space-lg shadow-sm">
+<div class="absolute -right-6 -bottom-6 w-24 h-24 rounded-full bg-error/5 blur-xl pointer-events-none"></div>
+<div class="flex items-start justify-between">
+<div class="flex flex-col">
+<span class="font-label-md text-label-md text-error uppercase tracking-wider font-bold flex items-center gap-1">
+<span class="w-2 h-2 rounded-full bg-error animate-ping"></span>
+              Alerte Critique
+            </span>
+<span class="font-display-lg text-display-lg text-error tracking-tight leading-none mt-2">1</span>
+<span class="font-body-sm text-body-sm text-on-surface-variant mt-2 line-clamp-1">Ch. 301 (Suite Océan) • Climatisation E4</span>
+</div>
+<div class="w-12 h-12 rounded-xl bg-error-container text-on-error-container flex items-center justify-center">
+<span class="material-symbols-outlined text-[24px]">thermostat</span>
+</div>
+</div>
+<div class="mt-4 flex items-center justify-between text-body-sm font-label-md text-error">
+<span class="">T° Intérieure mesurée : 28.5°C</span>
+<span class="underline cursor-pointer">Voir suite</span>
+</div>
+</div>
+<!-- Card 3: Temps moyen résolution -->
+<div class="relative overflow-hidden rounded-xl bg-surface-container-lowest p-space-lg shadow-sm">
+<div class="flex items-start justify-between">
+<div class="flex flex-col">
+<span class="font-label-md text-label-md text-outline-variant uppercase tracking-wider">Délai Moyen Résolution</span>
+<span class="font-display-lg text-display-lg text-on-surface tracking-tight leading-none mt-2">1h 45m</span>
+<span class="font-body-sm text-body-sm text-secondary flex items-center gap-1 mt-2">
+<span class="material-symbols-outlined text-[16px]">trending_down</span>
+              -25m vs moyenne saisonnière
+            </span>
+</div>
+<div class="w-12 h-12 rounded-xl bg-secondary-fixed text-on-secondary-fixed-variant flex items-center justify-center">
+<span class="material-symbols-outlined text-[24px]">timer</span>
+</div>
+</div>
+<!-- Sparkline Minimal SVG -->
+<div class="mt-4 flex items-end justify-between h-5">
+<svg class="w-full h-full text-secondary" preserveAspectRatio="none" viewBox="0 0 120 20">
+<path d="M0,15 Q30,5 60,12 T120,4" fill="none" stroke="currentColor" stroke-linecap="round" stroke-width="2.5"></path>
+</svg>
+</div>
+</div>
+<!-- Card 4: Taux résolution < 24h -->
+<div class="relative overflow-hidden rounded-xl bg-surface-container-lowest p-space-lg shadow-sm">
+<div class="flex items-start justify-between">
+<div class="flex flex-col">
+<span class="font-label-md text-label-md text-outline-variant uppercase tracking-wider">Résolution &lt; 24h</span>
+<span class="font-display-lg text-display-lg text-on-surface tracking-tight leading-none mt-2">94 %</span>
+<span class="font-body-sm text-body-sm text-tertiary flex items-center gap-1 mt-2">
+<span class="material-symbols-outlined text-[16px]">verified</span>
+              Objectif qualité hôtelière 90%
+            </span>
+</div>
+<!-- Gauge SVG -->
+<div class="w-12 h-12 relative flex items-center justify-center">
+<svg class="w-12 h-12 transform -rotate-90" viewBox="0 0 36 36">
+<path class="text-surface-container" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="currentColor" stroke-width="3.5"></path>
+<path class="text-primary" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="currentColor" stroke-dasharray="94, 100" stroke-linecap="round" stroke-width="3.5"></path>
+</svg>
+<span class="absolute font-label-md text-label-md text-primary font-bold">12/12</span>
+</div>
+</div>
+<div class="mt-4 text-outline font-label-md text-label-md">
+          Conformité Charte Boutique Hôtel
+        </div>
+</div>
+</div>
+<!-- Main Workspace Split: Interactive Table & Right Details Drawer/Panel -->
+<div class="grid grid-cols-1 xl:grid-cols-12 gap-gutter items-start">
+<!-- Left Column: Filters & Master Table (7 cols on large desktop) -->
+<div class="xl:col-span-7 flex flex-col gap-space-md">
+<!-- Filter Bar & Search controls -->
+<div class="bg-surface-container-lowest rounded-xl p-space-md shadow-sm flex flex-col gap-space-md">
+<!-- Filter Tabs -->
+<div class="flex items-center gap-space-xs overflow-x-auto pb-1 text-nowrap">
+<button class="px-3.5 py-1.5 rounded-lg bg-primary text-on-primary font-label-md text-label-md transition-all shadow-sm" type="button">
+              Tous les tickets (6)
+            </button>
+<button class="px-3.5 py-1.5 rounded-lg bg-surface-container hover:bg-surface-container-high text-on-surface font-label-md text-label-md transition-colors flex items-center gap-1.5" type="button">
+<span class="w-2 h-2 rounded-full bg-error"></span>
+              Urgents (2)
+            </button>
+<button class="px-3.5 py-1.5 rounded-lg bg-surface-container hover:bg-surface-container-high text-on-surface font-label-md text-label-md transition-colors" type="button">
+              En cours (3)
+            </button>
+<button class="px-3.5 py-1.5 rounded-lg bg-surface-container hover:bg-surface-container-high text-on-surface font-label-md text-label-md transition-colors" type="button">
+              En attente pièces (1)
+            </button>
+<button class="px-3.5 py-1.5 rounded-lg bg-surface-container hover:bg-surface-container-high text-on-surface font-label-md text-label-md transition-colors" type="button">
+              Résolus aujourd'hui (4)
+            </button>
+</div>
+<!-- Sub Filters & Quick Technician Select -->
+<div class="flex flex-col sm:flex-row items-center gap-space-sm pt-space-xs">
+<div class="relative w-full sm:flex-1">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-outline text-[18px]">filter_list</span>
+<input class="w-full h-10 pl-9 pr-3 rounded-lg bg-surface-container text-on-surface placeholder:text-outline font-body-sm text-body-sm outline-none focus:bg-surface-container-lowest focus:shadow-[0_0_0_2px_rgba(0,102,111,0.2)] transition-all" placeholder="Filtrer chambre, panne, mot-clé..." type="text">
+</div>
+<div class="flex items-center gap-space-sm w-full sm:w-auto">
+<div class="relative w-full sm:w-56">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-outline text-[18px]">account_circle</span>
+<select class="w-full h-10 pl-9 pr-8 rounded-lg bg-surface-container text-on-surface font-body-sm text-body-sm outline-none appearance-none cursor-pointer focus:bg-surface-container-lowest">
+<option value="all">Tous techniciens</option>
+<option value="cheikh">Cheikh N. (Chef Tech)</option>
+<option value="idrissa">Idrissa Sow</option>
+<option value="prestataire">Clim-Saly Express</option>
+<option value="piscine">AquaSaly Piscines</option>
+</select>
+<span class="material-symbols-outlined absolute right-2.5 top-1/2 -translate-y-1/2 text-outline text-[18px] pointer-events-none">expand_more</span>
+</div>
+<button class="h-10 px-3 rounded-lg bg-surface-container hover:bg-surface-container-high text-on-surface flex items-center justify-center shrink-0" title="Actualiser la liste" type="button">
+<span class="material-symbols-outlined text-[18px]">sync</span>
+</button>
+</div>
+</div>
+</div>
+<!-- Tickets List / Table Wrapper -->
+<div class="bg-surface-container-lowest rounded-xl shadow-sm overflow-hidden flex flex-col">
+<div class="px-space-lg py-space-md flex items-center justify-between bg-surface-container-low/50">
+<span class="font-title-md text-title-md text-on-surface flex items-center gap-2">
+<span class="material-symbols-outlined text-primary text-[20px]">assignment</span>
+              Registre Opérationnel en Direct
+            </span>
+<span class="font-label-md text-label-md text-outline">Mis à jour il y a 3 min</span>
+</div>
+<div class="overflow-x-auto">
+<table class="w-full text-left border-collapse">
+<thead>
+<tr class="bg-surface-container-low text-on-surface-variant font-label-md text-label-md">
+<th class="py-3 px-space-md">Réf. &amp; Date</th>
+<th class="py-3 px-space-md">Emplacement</th>
+<th class="py-3 px-space-md">Problème Signalé</th>
+<th class="py-3 px-space-md">Priorité</th>
+<th class="py-3 px-space-md">Intervenant</th>
+<th class="py-3 px-space-md">Statut</th>
+<th class="py-3 px-space-md text-right">Action</th>
+</tr>
+</thead>
+<tbody class="divide-y-0 text-body-sm font-body-sm">
+<!-- ROW 1 : ACTIVE / SELECTED DEFAULT (CH. 302) -->
+<tr class="bg-primary/5 hover:bg-primary/10 transition-colors cursor-pointer group">
+<td class="py-3.5 px-space-md whitespace-nowrap">
+<div class="flex items-center gap-2">
+<span class="w-1.5 h-6 rounded-full bg-primary"></span>
+<div>
+<div class="font-title-md text-on-surface font-semibold">#MNT-2024-089</div>
+<div class="text-outline text-label-md">Aujourd'hui 10:15</div>
+</div>
+</div>
+</td>
+<td class="py-3.5 px-space-md whitespace-nowrap"><span class="font-title-md text-on-surface block">Ch. 301</span>
+<span class="text-primary font-label-md text-label-md">Suite Océan Panoramique</span></td>
+<td class="py-3.5 px-space-md max-w-xs">
+<p class="text-on-surface font-medium line-clamp-1">Climatisation en panne - code E4</p>
+<span class="text-error font-label-md text-label-md">Arrêt complet du compresseur</span>
+</td>
+<td class="py-3.5 px-space-md whitespace-nowrap">
+<span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-error-container text-on-error-container font-label-md text-label-md font-bold">
+<span class="w-1.5 h-1.5 rounded-full bg-error"></span>
+                      Urgente
+                    </span>
+</td>
+<td class="py-3.5 px-space-md whitespace-nowrap">
+<div class="flex items-center gap-2">
+<div class="w-7 h-7 rounded-full bg-primary text-on-primary flex items-center justify-center font-bold text-label-md">
+                        CN
+                      </div>
+<div class="flex flex-col">
+<span class="text-on-surface font-medium leading-tight">Cheikh N.</span>
+<span class="text-outline text-label-md">Tech. en chef</span>
+</div>
+</div>
+</td>
+<td class="py-3.5 px-space-md whitespace-nowrap">
+<span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-secondary-fixed text-on-secondary-fixed-variant font-label-md text-label-md font-semibold">
+<span class="material-symbols-outlined text-[14px]">home_repair_service</span>
+                      Sur place
+                    </span>
+</td>
+<td class="py-3.5 px-space-md text-right whitespace-nowrap">
+<span class="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-primary text-on-primary shadow-sm">
+<span class="material-symbols-outlined text-[18px]">visibility</span>
+</span>
+</td>
+</tr>
+<!-- ROW 2 : CH. 104 -->
+<tr class="hover:bg-surface-container transition-colors cursor-pointer group">
+<td class="py-3.5 px-space-md whitespace-nowrap">
+<div class="flex items-center gap-2">
+<span class="w-1.5 h-6 rounded-full bg-transparent group-hover:bg-surface-variant"></span>
+<div>
+<div class="font-title-md text-on-surface font-semibold">#MNT-2024-088</div>
+<div class="text-outline text-label-md">Aujourd'hui 09:40</div>
+</div>
+</div>
+</td>
+<td class="py-3.5 px-space-md whitespace-nowrap">
+<span class="font-title-md text-on-surface block">Ch. 104</span>
+<span class="text-outline font-label-md text-label-md">Standard Patio</span>
+</td>
+<td class="py-3.5 px-space-md max-w-xs">
+<p class="text-on-surface font-medium line-clamp-1">Fuite d'eau mitigeur vasque SDB</p>
+<span class="text-outline font-label-md text-label-md">Joint cartouche céramique usé</span>
+</td>
+<td class="py-3.5 px-space-md whitespace-nowrap">
+<span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-secondary-fixed/40 text-on-secondary-container font-label-md text-label-md font-medium">
+<span class="w-1.5 h-1.5 rounded-full bg-secondary"></span>
+                      Haute
+                    </span>
+</td>
+<td class="py-3.5 px-space-md whitespace-nowrap">
+<div class="flex items-center gap-2">
+<div class="w-7 h-7 rounded-full bg-tertiary text-on-tertiary flex items-center justify-center font-bold text-label-md">
+                        IS
+                      </div>
+<div class="flex flex-col">
+<span class="text-on-surface font-medium leading-tight">Idrissa Sow</span>
+<span class="text-outline text-label-md">Plomberie</span>
+</div>
+</div>
+</td>
+<td class="py-3.5 px-space-md whitespace-nowrap">
+<span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-tertiary-fixed text-on-tertiary-fixed-variant font-label-md text-label-md font-semibold">
+<span class="material-symbols-outlined text-[14px]">search</span>
+                      Diagnostic
+                    </span>
+</td>
+<td class="py-3.5 px-space-md text-right whitespace-nowrap">
+<span class="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-surface-container hover:bg-surface-container-high text-on-surface">
+<span class="material-symbols-outlined text-[18px]">chevron_right</span>
+</span>
+</td>
+</tr>
+<!-- ROW 3 : Piscine Principale -->
+<tr class="hover:bg-surface-container transition-colors cursor-pointer group">
+<td class="py-3.5 px-space-md whitespace-nowrap">
+<div class="flex items-center gap-2">
+<span class="w-1.5 h-6 rounded-full bg-transparent group-hover:bg-surface-variant"></span>
+<div>
+<div class="font-title-md text-on-surface font-semibold">#MNT-2024-087</div>
+<div class="text-outline text-label-md">Aujourd'hui 08:15</div>
+</div>
+</div>
+</td>
+<td class="py-3.5 px-space-md whitespace-nowrap">
+<span class="font-title-md text-on-surface block">Piscine Lagon</span>
+<span class="text-outline font-label-md text-label-md">Espace Commun Ext.</span>
+</td>
+<td class="py-3.5 px-space-md max-w-xs">
+<p class="text-on-surface font-medium line-clamp-1">Buse refoulement filtration ralentie</p>
+<span class="text-outline font-label-md text-label-md">Nettoyage préfiltre pompe sable</span>
+</td>
+<td class="py-3.5 px-space-md whitespace-nowrap">
+<span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-surface-container-high text-on-surface font-label-md text-label-md">
+<span class="w-1.5 h-1.5 rounded-full bg-outline"></span>
+                      Normale
+                    </span>
+</td>
+<td class="py-3.5 px-space-md whitespace-nowrap">
+<div class="flex items-center gap-2">
+<div class="w-7 h-7 rounded-full bg-surface-variant text-on-surface-variant flex items-center justify-center font-bold text-label-md">
+                        AP
+                      </div>
+<div class="flex flex-col">
+<span class="text-on-surface font-medium leading-tight">AquaSaly</span>
+<span class="text-outline text-label-md">Sous-traitant</span>
+</div>
+</div>
+</td>
+<td class="py-3.5 px-space-md whitespace-nowrap">
+<span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-surface-variant text-on-surface-variant font-label-md text-label-md font-semibold">
+<span class="material-symbols-outlined text-[14px]">inventory_2</span>
+                      Attente pièce
+                    </span>
+</td>
+<td class="py-3.5 px-space-md text-right whitespace-nowrap">
+<span class="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-surface-container hover:bg-surface-container-high text-on-surface">
+<span class="material-symbols-outlined text-[18px]">chevron_right</span>
+</span>
+</td>
+</tr>
+<!-- ROW 4 : Ch. 201 (Deluxe Mer) -->
+<tr class="hover:bg-surface-container transition-colors cursor-pointer group">
+<td class="py-3.5 px-space-md whitespace-nowrap">
+<div class="flex items-center gap-2">
+<span class="w-1.5 h-6 rounded-full bg-transparent group-hover:bg-surface-variant"></span>
+<div>
+<div class="font-title-md text-on-surface font-semibold">#MNT-2024-085</div>
+<div class="text-outline text-label-md">Hier 17:20</div>
+</div>
+</div>
+</td>
+<td class="py-3.5 px-space-md whitespace-nowrap">
+<span class="font-title-md text-on-surface block">Ch. 201</span>
+<span class="text-outline font-label-md text-label-md">Deluxe Vue Mer</span>
+</td>
+<td class="py-3.5 px-space-md max-w-xs">
+<p class="text-on-surface font-medium line-clamp-1">Porte coulissante baie vitrée grippée</p>
+<span class="text-outline font-label-md text-label-md">Embruns marins &amp; sel sur rail alu</span>
+</td>
+<td class="py-3.5 px-space-md whitespace-nowrap">
+<span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-surface-container-high text-on-surface font-label-md text-label-md">
+<span class="w-1.5 h-1.5 rounded-full bg-outline"></span>
+                      Normale
+                    </span>
+</td>
+<td class="py-3.5 px-space-md whitespace-nowrap">
+<div class="flex items-center gap-2">
+<div class="w-7 h-7 rounded-full bg-primary text-on-primary flex items-center justify-center font-bold text-label-md">
+                        CN
+                      </div>
+<div class="flex flex-col">
+<span class="text-on-surface font-medium leading-tight">Cheikh N.</span>
+<span class="text-outline text-label-md">Tech. en chef</span>
+</div>
+</div>
+</td>
+<td class="py-3.5 px-space-md whitespace-nowrap">
+<span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-primary-fixed text-on-primary-fixed-variant font-label-md text-label-md font-semibold">
+<span class="material-symbols-outlined text-[14px]">check_circle</span>
+                      Résolu
+                    </span>
+</td>
+<td class="py-3.5 px-space-md text-right whitespace-nowrap">
+<span class="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-surface-container hover:bg-surface-container-high text-on-surface">
+<span class="material-symbols-outlined text-[18px]">chevron_right</span>
+</span>
+</td>
+</tr>
+<!-- ROW 5 : Restaurant La Teranga -->
+<tr class="hover:bg-surface-container transition-colors cursor-pointer group">
+<td class="py-3.5 px-space-md whitespace-nowrap">
+<div class="flex items-center gap-2">
+<span class="w-1.5 h-6 rounded-full bg-transparent group-hover:bg-surface-variant"></span>
+<div>
+<div class="font-title-md text-on-surface font-semibold">#MNT-2024-084</div>
+<div class="text-outline text-label-md">Hier 14:00</div>
+</div>
+</div>
+</td>
+<td class="py-3.5 px-space-md whitespace-nowrap">
+<span class="font-title-md text-on-surface block">Resto Teranga</span>
+<span class="text-outline font-label-md text-label-md">Terrasse Pergola</span>
+</td>
+<td class="py-3.5 px-space-md max-w-xs">
+<p class="text-on-surface font-medium line-clamp-1">Variateur éclairage terrasse défaillant</p>
+<span class="text-outline font-label-md text-label-md">Scintillement leds d'ambiance</span>
+</td>
+<td class="py-3.5 px-space-md whitespace-nowrap">
+<span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-surface-container text-on-surface font-label-md text-label-md">
+<span class="w-1.5 h-1.5 rounded-full bg-outline-variant"></span>
+                      Faible
+                    </span>
+</td>
+<td class="py-3.5 px-space-md whitespace-nowrap">
+<div class="flex items-center gap-2">
+<div class="w-7 h-7 rounded-full bg-tertiary text-on-tertiary flex items-center justify-center font-bold text-label-md">
+                        IS
+                      </div>
+<div class="flex flex-col">
+<span class="text-on-surface font-medium leading-tight">Idrissa Sow</span>
+<span class="text-outline text-label-md">Polyvalent</span>
+</div>
+</div>
+</td>
+<td class="py-3.5 px-space-md whitespace-nowrap">
+<span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-primary-fixed text-on-primary-fixed-variant font-label-md text-label-md font-semibold">
+<span class="material-symbols-outlined text-[14px]">check_circle</span>
+                      Résolu
+                    </span>
+</td>
+<td class="py-3.5 px-space-md text-right whitespace-nowrap">
+<span class="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-surface-container hover:bg-surface-container-high text-on-surface">
+<span class="material-symbols-outlined text-[18px]">chevron_right</span>
+</span>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+<!-- Bottom Table Pagination & Summary -->
+<div class="px-space-lg py-space-md bg-surface-container-low/30 flex items-center justify-between text-body-sm text-outline">
+<span class="">Affichage de 5 interventions sur 6 tickets récents</span>
+<div class="flex items-center gap-space-xs">
+<button class="px-3 py-1 rounded-md bg-surface-container text-on-surface font-label-md text-label-md disabled:opacity-50" disabled="" type="button">Précédent</button>
+<button class="px-3 py-1 rounded-md bg-primary text-on-primary font-label-md text-label-md" type="button">1</button>
+<button class="px-3 py-1 rounded-md bg-surface-container text-on-surface font-label-md text-label-md" type="button">2</button>
+<button class="px-3 py-1 rounded-md bg-surface-container text-on-surface font-label-md text-label-md" type="button">Suivant</button>
+</div>
+</div>
+</div>
+<!-- Technical Tips / Coastal Climate Maintenance Advisory -->
+<div class="rounded-xl bg-gradient-to-r from-surface-container-lowest to-surface-container-low p-space-md flex items-center gap-space-md shadow-sm">
+<div class="w-10 h-10 rounded-full bg-secondary/15 text-secondary flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined text-[22px]">air</span>
+</div>
+<div class="flex flex-col">
+<span class="font-title-md text-title-md text-on-surface">Protocole corrosion &amp; Embruns marins</span>
+<p class="font-body-sm text-body-sm text-on-surface-variant">
+              Rinçage à l'eau douce préconisé tous les mardis matin sur les compresseurs extérieurs des chambres front de mer (Suite Filaos &amp; Chambres 201-204).
+            </p>
+</div>
+</div>
+</div>
+<!-- Right Column: Focus Detail & Timeline Drawer (5 cols on large desktop) -->
+<div class="xl:col-span-5 flex flex-col gap-space-md">
+<div class="bg-surface-container-lowest rounded-xl shadow-md overflow-hidden sticky top-24">
+<!-- Detail Header Banner -->
+<div class="p-space-lg bg-surface-container-low relative">
+<div class="flex items-start justify-between gap-space-sm mb-space-sm">
+<div class="flex items-center gap-2">
+<span class="px-2.5 py-1 rounded-full bg-error-container text-on-error-container font-label-md text-label-md font-bold flex items-center gap-1.5">
+<span class="w-1.5 h-1.5 rounded-full bg-error animate-ping"></span>
+                  Priorité Haute / Urgente
+                </span>
+<span class="text-outline font-label-md text-label-md">Réf: #MNT-2024-089</span>
+</div>
+<button class="w-8 h-8 rounded-lg bg-surface-container hover:bg-surface-container-high text-on-surface flex items-center justify-center transition-colors" type="button">
+<span class="material-symbols-outlined text-[18px]">more_vert</span>
+</button>
+</div>
+<h2 class="font-headline-md text-headline-md text-on-surface tracking-tight">
+              Climatisation DAIKIN Split — Arrêt E4
+            </h2>
+<div class="flex items-center gap-2 mt-1"><span class="font-title-md text-title-md text-primary font-bold">Chambre 301</span>
+<span class="text-outline">•</span>
+<span class="font-body-md text-body-md text-on-surface-variant">Suite Océan Panoramique (Étage 1, Front de Mer)</span></div>
+</div>
+<!-- VIP Guest Impact Warning Box -->
+<div class="p-space-md mx-space-lg mt-space-md rounded-xl bg-secondary-fixed/30 text-on-secondary-fixed-variant flex items-start gap-space-sm">
+<span class="material-symbols-outlined text-secondary text-[22px] shrink-0 mt-0.5">star</span>
+<div class="flex flex-col">
+<div class="flex items-center gap-2">
+<span class="font-label-lg text-label-lg font-bold">Impact Hôte VIP Gold</span>
+<span class="px-2 py-0.5 rounded-full bg-secondary-container text-on-secondary-container text-[11px] font-bold uppercase tracking-wider">En Séjour</span>
+</div>
+<p class="font-body-sm text-body-sm mt-0.5">
+                Client : <strong>M. Mamadou Diop</strong> (Séjour 5 nuits). Priorité absolue de dépannage sous 1h ou proposition immédiate de la Suite Saloum en relogement fraîcheur.
+              </p>
+</div>
+</div>
+<!-- Assigned Personnel Section -->
+<div class="px-space-lg pt-space-md">
+<span class="font-label-md text-label-md text-outline-variant uppercase tracking-wider block mb-space-xs">
+              Équipe Affectée
+            </span>
+<div class="flex items-center justify-between p-space-sm rounded-xl bg-surface-container-low">
+<div class="flex items-center gap-space-sm">
+<div class="relative">
+<div class="w-10 h-10 rounded-full bg-primary text-on-primary flex items-center justify-center font-bold text-label-lg">
+                    CN
+                  </div>
+<span class="absolute bottom-0 right-0 w-3 h-3 rounded-full bg-primary ring-2 ring-surface-container-lowest"></span>
+</div>
+<div class="flex flex-col">
+<span class="font-title-md text-title-md text-on-surface">Cheikh Ndiaye</span>
+<span class="font-body-sm text-body-sm text-outline">Technicien Référent Froid &amp; Élec</span>
+</div>
+</div>
+<div class="flex items-center gap-1.5">
+<a class="w-9 h-9 rounded-lg bg-surface-container hover:bg-surface-container-high text-on-surface flex items-center justify-center" href="tel:+221770000000" title="Appeler le technicien">
+<span class="material-symbols-outlined text-[18px]">call</span>
+</a>
+<button class="w-9 h-9 rounded-lg bg-surface-container hover:bg-surface-container-high text-on-surface flex items-center justify-center" title="Assigner un autre agent" type="button">
+<span class="material-symbols-outlined text-[18px]">person_add</span>
+</button>
+</div>
+</div>
+<div class="mt-2 flex items-center justify-between text-body-sm text-outline px-1">
+<span class="flex items-center gap-1">
+<span class="material-symbols-outlined text-[16px]">business</span>
+                Partenaire externe : Clim-Saly Express
+              </span>
+<span class="text-primary font-semibold">Contacté à 11:20</span>
+</div>
+</div>
+<!-- Diagnostic Photo Evidence Thumbnail -->
+<div class="px-space-lg pt-space-md">
+<span class="font-label-md text-label-md text-outline-variant uppercase tracking-wider block mb-space-xs">
+              Constat Visuel &amp; Unité Extérieure
+            </span>
+<div class="relative rounded-xl overflow-hidden h-36 bg-surface-container">
+<img class="w-full h-full object-cover" data-alt="A modern DAIKIN split air conditioner unit mounted on a pristine whitewashed coastal hotel terrace with subtle terracotta tiles and lush tropical palm leaves in the background under soft daylight in Saly Senegal." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCpM3M25eaE_9FasgohbMcKBKb8S0CBlnbUTbc0YCr3lW9E3zYlzcswtIhoe7ESxX853ZeVbHChCDpMlcqmgBOXlaENElWrEphm7_Bzp6jzC8wojhIhxuug3IXlqUQ9N5wa1_5QTErFLiVKUtLgkGN6s3S7j5DI4PThq2TeZNzdcNelKDBwW440Kooz0X5pxmTNk6bg0rt7dWTuwLBQ_Yge4_WN6fXoWeVwW-84t3_F">
+<div class="absolute inset-0 bg-gradient-to-t from-inverse-surface/80 via-transparent to-transparent flex items-end p-space-sm justify-between">
+<span class="text-on-primary font-label-md text-label-md">Unité Ch. 301 • Terrasse front de mer</span>
+<span class="px-2 py-0.5 rounded bg-surface-container-lowest/80 backdrop-blur-sm text-on-surface font-label-md text-label-md">Photo prise à 10:35</span>
+</div>
+</div>
+</div>
+<!-- Interactive Timeline of Intervention -->
+<div class="px-space-lg pt-space-md pb-space-sm">
+<span class="font-label-md text-label-md text-outline-variant uppercase tracking-wider block mb-space-sm">
+              Chronologie de Résolution
+            </span>
+<div class="relative pl-6 space-y-4">
+<!-- Continuous Timeline Line -->
+<div class="absolute left-2.5 top-2 bottom-3 w-0.5 bg-surface-variant"></div>
+<!-- Step 1: Signalement -->
+<div class="relative flex items-start gap-3">
+<div class="absolute -left-6 top-1 w-3.5 h-3.5 rounded-full bg-error ring-4 ring-surface-container-lowest"></div>
+<div class="flex flex-col">
+<div class="flex items-center gap-2">
+<span class="font-title-md text-title-md text-on-surface font-semibold">10:15 — Signalement Réception</span>
+<span class="font-label-md text-label-md text-outline">Aïssatou Ba</span>
+</div>
+<p class="font-body-sm text-body-sm text-on-surface-variant mt-0.5">
+                    Appel chambre de M. Diop. Sensation d'étouffement thermique (28°C constaté) et voyant orange clignotant.
+                  </p>
+</div>
+</div>
+<!-- Step 2: Diagnostic Initial -->
+<div class="relative flex items-start gap-3">
+<div class="absolute -left-6 top-1 w-3.5 h-3.5 rounded-full bg-primary ring-4 ring-surface-container-lowest"></div>
+<div class="flex flex-col">
+<div class="flex items-center gap-2">
+<span class="font-title-md text-title-md text-on-surface font-semibold">10:30 — Diagnostic sur site</span>
+<span class="font-label-md text-label-md text-outline">Cheikh N.</span>
+</div>
+<p class="font-body-sm text-body-sm text-on-surface-variant mt-0.5">
+                    Filtres vérifiés propres. Code erreur E4 relevé sur console Daikin. Déclenchement thermique du compresseur.
+                  </p>
+</div>
+</div>
+<!-- Step 3: Dépêchement pièces -->
+<div class="relative flex items-start gap-3">
+<div class="absolute -left-6 top-1 w-3.5 h-3.5 rounded-full bg-secondary ring-4 ring-surface-container-lowest"></div>
+<div class="flex flex-col">
+<div class="flex items-center gap-2">
+<span class="font-title-md text-title-md text-on-surface font-semibold">11:15 — Récupération composant</span>
+<span class="font-label-md text-label-md text-outline">Quincaillerie Mbour</span>
+</div>
+<p class="font-body-sm text-body-sm text-on-surface-variant mt-0.5">
+                    Condensateur de démarrage 35µF 450V récupéré par le coursier de l'hôtel.
+                  </p>
+</div>
+</div>
+<!-- Step 4: Intervention active -->
+<div class="relative flex items-start gap-3">
+<div class="absolute -left-6 top-1 w-3.5 h-3.5 rounded-full bg-primary animate-ping ring-4 ring-surface-container-lowest"></div>
+<div class="flex flex-col">
+<div class="flex items-center gap-2">
+<span class="font-title-md text-title-md text-primary font-bold">11:45 (En cours) — Remplacement &amp; Test</span>
+</div>
+<p class="font-body-sm text-body-sm text-on-surface font-medium mt-0.5">
+                    Cheikh N. procède au câblage du condensateur neuf et effectue la purge de condensation. Soufflage froid prévu d'ici 12:05.
+                  </p>
+</div>
+</div>
+</div>
+</div>
+<!-- Quick Note Form & Resolution CTA -->
+<div class="p-space-lg bg-surface-container-low/70 flex flex-col gap-space-sm mt-space-sm">
+<label class="font-label-md text-label-md text-on-surface font-semibold flex items-center justify-between">
+<span class="">Ajouter une observation d'intervention :</span>
+<span class="text-outline font-normal">Privé équipe</span>
+</label>
+<div class="relative">
+<textarea class="w-full p-space-sm rounded-xl bg-surface-container-lowest text-on-surface placeholder:text-outline font-body-sm text-body-sm outline-none resize-none focus:ring-2 focus:ring-primary/20 transition-all" placeholder="Ex: Soufflage mesuré à 19°C, fermeture du capot validée..." rows="2"></textarea>
+</div>
+<div class="flex items-center gap-space-sm pt-1">
+<button class="flex-1 h-11 bg-primary hover:bg-primary-container text-on-primary rounded-xl font-label-lg text-label-lg shadow-sm transition-all flex items-center justify-center gap-space-xs active:scale-95" type="button">
+<span class="material-symbols-outlined text-[20px]">task_alt</span>
+<span class="">Marquer comme Résolu</span>
+</button>
+<button class="h-11 px-space-md bg-surface-container-lowest hover:bg-surface-container text-on-surface rounded-xl font-label-lg text-label-lg transition-colors flex items-center justify-center" title="Imprimer fiche d'incident" type="button">
+<span class="material-symbols-outlined text-[20px]">print</span>
+</button>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div></main></div>
+
+</body></html>

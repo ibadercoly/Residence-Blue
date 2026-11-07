@@ -1,0 +1,662 @@
+<!DOCTYPE html>
+
+<html lang="fr"><head><meta charset="utf-8"/><meta content="width=device-width, initial-scale=1.0" name="viewport"/><meta content="web_dashboard" name="shell-type"/><link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet"/><link href="https://fonts.googleapis.com" rel="preconnect"/><link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/><link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&amp;family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,400&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/><style>@layer base { html, body { margin: 0; padding: 0; } body { overscroll-behavior: none; } main > :first-child { margin-top: 0 !important; } main > :last-child { margin-bottom: 0 !important; } } ::-webkit-scrollbar { display: none; }</style><script src="https://cdn.tailwindcss.com"></script><script id="tailwind-config">tailwind.config = { darkMode: "class", theme: { extend: { "colors": { "on-tertiary": "#ffffff", "background": "#f3fafe", "surface-container-lowest": "#ffffff", "on-tertiary-container": "#fdfcff", "surface-variant": "#dce4e7", "primary-container": "#00818c", "inverse-surface": "#2a3135", "tertiary-fixed-dim": "#b0c8eb", "surface-container": "#e8eff3", "on-tertiary-fixed-variant": "#314865", "surface-bright": "#f3fafe", "surface-dim": "#d4dbdf", "surface-container-low": "#eef5f9", "secondary-fixed": "#ffdead", "on-error": "#ffffff", "secondary-fixed-dim": "#fabc4f", "on-secondary-fixed-variant": "#604100", "primary-fixed-dim": "#6fd5e2", "tertiary-fixed": "#d2e4ff", "tertiary": "#465d7b", "primary-fixed": "#8cf2ff", "on-primary-fixed": "#001f23", "on-primary-container": "#f6feff", "primary": "#00666f", "on-surface": "#161d20", "on-tertiary-fixed": "#001c37", "on-secondary-container": "#714d00", "inverse-primary": "#6fd5e2", "on-primary-fixed-variant": "#004f56", "on-primary": "#ffffff", "surface-tint": "#006972", "on-secondary-fixed": "#281900", "surface-container-high": "#e2e9ed", "secondary": "#7e5700", "outline": "#6d797b", "on-secondary": "#ffffff", "on-error-container": "#93000a", "outline-variant": "#bdc9ca", "on-background": "#161d20", "error": "#ba1a1a", "on-surface-variant": "#3d494a", "tertiary-container": "#5f7695", "error-container": "#ffdad6", "surface": "#f3fafe", "secondary-container": "#fdbe51", "inverse-on-surface": "#ebf2f6", "surface-container-highest": "#dce4e7" }, "borderRadius": { "DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px" }, "spacing": { "gutter-sm": "1rem", "space-sm": "0.5rem", "space-md": "1rem", "margin": "2rem", "gutter": "1.5rem", "space-lg": "1.5rem", "space-xl": "2.5rem", "margin-sm": "1rem", "space-xs": "0.25rem" }, "fontFamily": { "label-currency": [ "Manrope" ], "title-md": [ "Manrope" ], "body-lg": [ "Manrope" ], "display-lg-mobile": [ "Newsreader" ], "headline-lg": [ "Newsreader" ], "headline-lg-mobile": [ "Newsreader" ], "headline-md": [ "Newsreader" ], "headline-sm": [ "Newsreader" ], "label-lg": [ "Manrope" ], "body-md": [ "Manrope" ], "display-lg": [ "Newsreader" ], "title-lg": [ "Manrope" ], "label-md": [ "Manrope" ], "body-sm": [ "Manrope" ] }, "fontSize": { "label-currency": [ "16px", { "lineHeight": "20px", "letterSpacing": "-0.01em", "fontWeight": "700" } ], "title-md": [ "16px", { "lineHeight": "24px", "fontWeight": "600" } ], "body-lg": [ "16px", { "lineHeight": "26px", "fontWeight": "400" } ], "display-lg-mobile": [ "32px", { "lineHeight": "40px", "letterSpacing": "-0.01em", "fontWeight": "400" } ], "headline-lg": [ "32px", { "lineHeight": "40px", "letterSpacing": "-0.01em", "fontWeight": "500" } ], "headline-lg-mobile": [ "26px", { "lineHeight": "34px", "letterSpacing": "-0.01em", "fontWeight": "500" } ], "headline-md": [ "24px", { "lineHeight": "32px", "fontWeight": "500" } ], "headline-sm": [ "20px", { "lineHeight": "28px", "fontWeight": "600" } ], "label-lg": [ "14px", { "lineHeight": "20px", "letterSpacing": "0.01em", "fontWeight": "600" } ], "body-md": [ "14px", { "lineHeight": "22px", "fontWeight": "400" } ], "display-lg": [ "48px", { "lineHeight": "56px", "letterSpacing": "-0.02em", "fontWeight": "400" } ], "title-lg": [ "18px", { "lineHeight": "26px", "fontWeight": "700" } ], "label-md": [ "12px", { "lineHeight": "16px", "letterSpacing": "0.02em", "fontWeight": "600" } ], "body-sm": [ "13px", { "lineHeight": "18px", "fontWeight": "500" } ] } } } };</script></head><body class="bg-surface text-on-surface font-body-md text-body-md antialiased selection:bg-primary selection:text-on-primary"><aside class="fixed left-0 top-0 h-full w-64 bg-inverse-surface z-50 flex flex-col justify-between shadow-[0_1px_8px_rgba(0,0,0,0.06)]"><div class="flex flex-col"><div class="h-20 flex items-center gap-space-md px-gutter"><div class="w-10 h-10 rounded-xl bg-primary flex items-center justify-center text-on-primary shadow-sm"><span class="material-symbols-outlined text-[24px]">tsunami</span></div><div class="flex flex-col justify-center min-w-0"><span class="font-headline-sm text-headline-sm text-surface-bright tracking-tight truncate leading-tight">Résidence Blue</span><span class="font-label-md text-label-md text-outline-variant uppercase tracking-wider truncate">Hôtel Boutique • Saly</span></div></div><div class="px-space-md py-space-sm"><div class="px-space-md py-space-xs mb-space-xs font-label-md text-label-md text-outline-variant uppercase tracking-wider">Exploitation 12 Clés</div><nav class="flex flex-col gap-space-xs" data-active-classes="bg-primary text-on-primary font-title-md"><a class="flex items-center gap-space-md px-space-md py-space-sm rounded-lg text-surface-container-high hover:bg-surface-variant/20 hover:text-surface-bright transition-colors font-title-md text-title-md" data-path="tableau-de-bord" href="#"><span class="material-symbols-outlined text-[20px]">dashboard</span><span>Tableau de bord</span></a><a class="flex items-center gap-space-md px-space-md py-space-sm rounded-lg text-surface-container-high hover:bg-surface-variant/20 hover:text-surface-bright transition-colors font-title-md text-title-md" data-path="planning" href="#"><span class="material-symbols-outlined text-[20px]">calendar_month</span><span>Planning</span></a><a class="flex items-center gap-space-md px-space-md py-space-sm rounded-lg text-surface-container-high hover:bg-surface-variant/20 hover:text-surface-bright transition-colors font-title-md text-title-md" data-path="chambres" href="#"><span class="material-symbols-outlined text-[20px]">bed</span><span>Chambres</span></a><a class="flex items-center gap-space-md px-space-md py-space-sm rounded-lg text-surface-container-high hover:bg-surface-variant/20 hover:text-surface-bright transition-colors font-title-md text-title-md" data-path="clients" href="#"><span class="material-symbols-outlined text-[20px]">group</span><span>Clients</span></a><a class="flex items-center gap-space-md px-space-md py-space-sm rounded-lg text-surface-container-high hover:bg-surface-variant/20 hover:text-surface-bright transition-colors font-title-md text-title-md" data-path="restaurant" href="#"><span class="material-symbols-outlined text-[20px]">restaurant</span><span>Restaurant</span></a><a class="flex items-center gap-space-md px-space-md py-space-sm rounded-lg text-surface-container-high hover:bg-surface-variant/20 hover:text-surface-bright transition-colors font-title-md text-title-md" data-path="housekeeping" href="#"><span class="material-symbols-outlined text-[20px]">cleaning_services</span><span>Housekeeping</span></a><a class="flex items-center gap-space-md px-space-md py-space-sm rounded-lg text-surface-container-high hover:bg-surface-variant/20 hover:text-surface-bright transition-colors font-title-md text-title-md" data-path="maintenance" href="#"><span class="material-symbols-outlined text-[20px]">build</span><span>Maintenance</span></a><a class="flex items-center gap-space-md px-space-md py-space-sm rounded-lg text-surface-container-high hover:bg-surface-variant/20 hover:text-surface-bright transition-colors font-title-md text-title-md" data-path="facturation" href="#"><span class="material-symbols-outlined text-[20px]">receipt_long</span><span>Facturation</span></a><a class="flex items-center gap-space-md px-space-md py-space-sm rounded-lg text-surface-container-high hover:bg-surface-variant/20 hover:text-surface-bright transition-colors font-title-md text-title-md" data-path="rapports" href="#"><span class="material-symbols-outlined text-[20px]">analytics</span><span>Rapports</span></a><a class="flex items-center gap-space-md px-space-md py-space-sm rounded-lg text-surface-container-high hover:bg-surface-variant/20 hover:text-surface-bright transition-colors font-title-md text-title-md" data-path="parametres" href="#"><span class="material-symbols-outlined text-[20px]">settings</span><span>Paramètres</span></a></nav></div></div><div class="p-gutter"><div class="bg-surface-variant/10 rounded-xl p-space-md flex items-center justify-between"><div class="flex flex-col"><span class="font-label-md text-label-md text-surface-container-high">Front de Mer</span><span class="font-body-sm text-body-sm text-outline-variant">Marée haute • 28°C</span></div><span class="material-symbols-outlined text-primary-fixed-dim text-[20px]">wb_sunny</span></div></div></aside><div class="pl-64"><header class="fixed top-0 left-64 right-0 h-20 bg-surface/90 backdrop-blur-xl shadow-[0_1px_8px_rgba(0,0,0,0.04)] z-40 flex items-center justify-between px-margin"><div class="flex items-center gap-gutter flex-1 max-w-xl"><div class="relative w-full"><span class="material-symbols-outlined absolute left-space-md top-1/2 -translate-y-1/2 text-outline text-[20px]">search</span><input class="w-full h-11 pl-11 pr-space-md rounded-xl bg-surface-container-lowest text-on-surface placeholder:text-outline font-body-sm text-body-sm outline-none shadow-[0_2px_8px_rgba(10,37,64,0.04)] focus:ring-2 focus:ring-primary/20 transition-all" placeholder="Rechercher une réservation, client, chambre..." type="text"/></div></div><div class="flex items-center gap-gutter"><a class="inline-flex items-center gap-space-sm h-11 px-gutter bg-primary hover:bg-primary-container text-on-primary rounded-xl font-label-lg text-label-lg shadow-sm transition-all" data-path="nouvelle-reservation" href="#"><span class="material-symbols-outlined text-[18px]">add</span><span>Nouvelle réservation</span></a><button class="relative w-11 h-11 rounded-xl bg-surface-container-lowest flex items-center justify-center text-on-surface-variant hover:text-on-surface shadow-[0_2px_8px_rgba(10,37,64,0.04)] transition-colors" type="button"><span class="material-symbols-outlined text-[22px]">notifications</span><span class="absolute top-2.5 right-2.5 w-2 h-2 rounded-full bg-secondary ring-2 ring-surface-container-lowest"></span></button><div class="h-8 w-px bg-surface-variant/60"></div><div class="flex items-center gap-space-md"><div class="w-8 h-8 rounded-full bg-primary flex items-center justify-center shadow-sm"><span class="material-symbols-outlined text-on-primary text-[18px]">person</span></div><div class="hidden xl:flex flex-col text-left"><div class="flex items-center gap-space-xs"><span class="font-label-lg text-label-lg text-on-surface leading-tight">Aïssatou Ba</span><span class="w-1.5 h-1.5 rounded-full bg-primary"></span></div><span class="font-label-md text-label-md text-on-surface-variant">Directrice Générale</span></div></div></div></header><main class="relative w-full pt-20 px-margin bg-surface"><div class="flex flex-col w-full pb-16">
+<!-- TOP BREADCRUMB & CONTEXT -->
+<div class="flex flex-col gap-space-sm mb-space-lg">
+<div class="flex items-center gap-space-sm text-outline font-label-md text-label-md uppercase tracking-wider">
+<span>Analytics &amp; Direction</span>
+<span class="material-symbols-outlined text-[14px]">chevron_right</span>
+<span class="text-primary font-bold">Rapports Financiers &amp; Activité</span>
+</div>
+<!-- MAIN VIEW HEADER & ACTIONS -->
+<div class="flex flex-col lg:flex-row lg:items-end justify-between gap-gutter">
+<div>
+<h1 class="font-headline-lg text-headline-lg text-on-surface tracking-tight">Rapports d'Activité &amp; Performance Financière</h1>
+<p class="font-body-md text-body-md text-on-surface-variant mt-1">
+          Données consolidées • 12 Clés &amp; Restaurant La Teranga • Période en cours : <span class="font-bold text-on-surface">Mai 2024</span>
+</p>
+</div>
+<!-- TOOLBAR ACTIONS -->
+<div class="flex flex-wrap items-center gap-space-sm">
+<!-- Date Selector -->
+<div class="relative bg-surface-container-lowest rounded-xl shadow-sm px-space-md py-2 flex items-center gap-space-sm text-on-surface cursor-pointer hover:bg-surface-container-low transition-colors">
+<span class="material-symbols-outlined text-[18px] text-primary">calendar_today</span>
+<select class="bg-transparent text-on-surface font-title-md text-title-md outline-none cursor-pointer pr-space-xs appearance-none">
+<option selected="">Ce mois-ci (Mai 2024)</option>
+<option>Dernier trimestre (T1 2024)</option>
+<option>Année 2024 (YTD)</option>
+</select>
+<span class="material-symbols-outlined text-[18px] text-outline pointer-events-none">expand_more</span>
+</div>
+<!-- Segment Filter -->
+<div class="relative bg-surface-container-lowest rounded-xl shadow-sm px-space-md py-2 flex items-center gap-space-sm text-on-surface cursor-pointer hover:bg-surface-container-low transition-colors">
+<span class="material-symbols-outlined text-[18px] text-primary">filter_list</span>
+<select class="bg-transparent text-on-surface font-title-md text-title-md outline-none cursor-pointer pr-space-xs appearance-none">
+<option selected="">Tous départements</option>
+<option>Hébergement seul (12 Clés)</option>
+<option>Restauration &amp; Bar</option>
+</select>
+<span class="material-symbols-outlined text-[18px] text-outline pointer-events-none">expand_more</span>
+</div>
+<!-- Export PDF -->
+<button class="flex items-center gap-space-xs px-space-md py-2.5 rounded-xl bg-surface-container-lowest hover:bg-surface-container text-on-surface shadow-sm font-label-lg text-label-lg transition-all group" type="button">
+<span class="material-symbols-outlined text-[18px] text-error group-hover:scale-110 transition-transform">picture_as_pdf</span>
+<span>Exporter en PDF</span>
+</button>
+<!-- Export Excel -->
+<button class="flex items-center gap-space-xs px-space-md py-2.5 rounded-xl bg-primary hover:bg-primary-container text-on-primary shadow-sm font-label-lg text-label-lg transition-all group" type="button">
+<span class="material-symbols-outlined text-[18px] group-hover:rotate-6 transition-transform">table_chart</span>
+<span>Exporter Excel (.xlsx)</span>
+</button>
+</div>
+</div>
+</div>
+<!-- EXECUTIVE SUMMARY KPIS (4 CARDS) -->
+<div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-gutter mb-gutter">
+<!-- KPI 1: Chiffre d'Affaires -->
+<div class="bg-surface-container-lowest rounded-xl p-space-lg shadow-sm hover:shadow-md transition-shadow relative overflow-hidden flex flex-col justify-between">
+<div class="absolute -right-4 -bottom-4 w-28 h-28 rounded-full bg-primary/5 pointer-events-none"></div>
+<div class="flex items-start justify-between">
+<span class="font-label-md text-label-md uppercase tracking-wider text-outline">Chiffre d'Affaires Global</span>
+<span class="p-2 rounded-xl bg-primary/10 text-primary">
+<span class="material-symbols-outlined text-[20px]">payments</span>
+</span>
+</div>
+<div class="mt-space-md">
+<div class="font-headline-md text-headline-md text-on-surface font-semibold tracking-tight">
+          24 850 000 <span class="text-label-md font-label-md text-outline">FCFA</span>
+</div>
+<div class="flex items-center gap-space-xs mt-space-xs">
+<span class="inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full bg-surface-container-low text-primary text-label-md font-label-md font-bold">
+<span class="material-symbols-outlined text-[14px]">trending_up</span>
+            +14.2%
+          </span>
+<span class="font-body-sm text-body-sm text-on-surface-variant">vs Mai N-1 (21.7M)</span>
+</div>
+</div>
+<!-- Mini Sparkline inline visual -->
+<div class="mt-space-md pt-space-xs">
+<svg class="w-full h-8 overflow-visible" preserveaspectratio="none" viewbox="0 0 100 24">
+<path class="text-primary" d="M 0,18 Q 20,12 35,16 T 65,8 T 100,3" fill="none" stroke="currentColor" stroke-linecap="round" stroke-width="2.5"></path>
+<path class="text-primary/10" d="M 0,18 Q 20,12 35,16 T 65,8 T 100,3 L 100,24 L 0,24 Z" fill="currentColor"></path>
+</svg>
+</div>
+</div>
+<!-- KPI 2: Taux d'Occupation -->
+<div class="bg-surface-container-lowest rounded-xl p-space-lg shadow-sm hover:shadow-md transition-shadow relative overflow-hidden flex flex-col justify-between">
+<div class="absolute -right-4 -bottom-4 w-28 h-28 rounded-full bg-secondary-fixed/20 pointer-events-none"></div>
+<div class="flex items-start justify-between">
+<span class="font-label-md text-label-md uppercase tracking-wider text-outline">Taux d'Occupation Moyen</span>
+<span class="p-2 rounded-xl bg-secondary-container/20 text-secondary">
+<span class="material-symbols-outlined text-[20px]">hotel</span>
+</span>
+</div>
+<div class="mt-space-md">
+<div class="font-headline-md text-headline-md text-on-surface font-semibold tracking-tight">
+          82.5 %
+        </div>
+<div class="flex items-center gap-space-xs mt-space-xs">
+<span class="inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full bg-surface-container-low text-primary text-label-md font-label-md font-bold">
+<span class="material-symbols-outlined text-[14px]">arrow_upward</span>
+            +6.8 pts
+          </span>
+<span class="font-body-sm text-body-sm text-on-surface-variant">Benchmark 12 Clés (307 nuitées)</span>
+</div>
+</div>
+<!-- Horizontal status gauge -->
+<div class="mt-space-md pt-space-xs">
+<div class="w-full h-2 rounded-full bg-surface-container overflow-hidden">
+<div class="h-full bg-primary rounded-full" style="width: 82.5%;"></div>
+</div>
+<div class="flex justify-between items-center mt-1 text-on-surface-variant font-label-md text-[10px]">
+<span>Obj. 75%</span>
+<span class="text-primary font-bold">Capacité 9.9 clés / jour</span>
+</div>
+</div>
+</div>
+<!-- KPI 3: RevPAR -->
+<div class="bg-surface-container-lowest rounded-xl p-space-lg shadow-sm hover:shadow-md transition-shadow relative overflow-hidden flex flex-col justify-between">
+<div class="absolute -right-4 -bottom-4 w-28 h-28 rounded-full bg-tertiary-fixed/20 pointer-events-none"></div>
+<div class="flex items-start justify-between">
+<span class="font-label-md text-label-md uppercase tracking-wider text-outline">RevPAR (Rev. / Dispo)</span>
+<span class="p-2 rounded-xl bg-tertiary-container/10 text-tertiary">
+<span class="material-symbols-outlined text-[20px]">analytics</span>
+</span>
+</div>
+<div class="mt-space-md">
+<div class="font-headline-md text-headline-md text-on-surface font-semibold tracking-tight">
+          56 700 <span class="text-label-md font-label-md text-outline">FCFA</span>
+</div>
+<div class="flex items-center gap-space-xs mt-space-xs">
+<span class="inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full bg-surface-container-low text-primary text-label-md font-label-md font-bold">
+<span class="material-symbols-outlined text-[14px]">trending_up</span>
+            +8.4%
+          </span>
+<span class="font-body-sm text-body-sm text-on-surface-variant">ADR : 68 720 FCFA</span>
+</div>
+</div>
+<div class="mt-space-md pt-space-xs flex items-center justify-between text-on-surface-variant font-label-md text-label-md">
+<span>Rentabilité par clé :</span>
+<span class="text-on-surface font-bold">1 757 700 FCFA/m</span>
+</div>
+</div>
+<!-- KPI 4: Panier Moyen -->
+<div class="bg-surface-container-lowest rounded-xl p-space-lg shadow-sm hover:shadow-md transition-shadow relative overflow-hidden flex flex-col justify-between">
+<div class="absolute -right-4 -bottom-4 w-28 h-28 rounded-full bg-secondary-fixed-dim/20 pointer-events-none"></div>
+<div class="flex items-start justify-between">
+<span class="font-label-md text-label-md uppercase tracking-wider text-outline">Panier Moyen Client</span>
+<span class="p-2 rounded-xl bg-secondary-fixed/50 text-secondary">
+<span class="material-symbols-outlined text-[20px]">room_service</span>
+</span>
+</div>
+<div class="mt-space-md">
+<div class="font-headline-md text-headline-md text-on-surface font-semibold tracking-tight">
+          945 000 <span class="text-label-md font-label-md text-outline">FCFA</span>
+</div>
+<div class="flex items-center gap-space-xs mt-space-xs">
+<span class="inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full bg-surface-container-low text-primary text-label-md font-label-md font-bold">
+<span class="material-symbols-outlined text-[14px]">add</span>
+            +12.1%
+          </span>
+<span class="font-body-sm text-body-sm text-on-surface-variant">Séjour moy : 3.4 nuits</span>
+</div>
+</div>
+<div class="mt-space-md pt-space-xs flex items-center justify-between text-on-surface-variant font-label-md text-label-md">
+<span>Dépenses annexes/client :</span>
+<span class="text-on-surface font-bold">285 000 FCFA</span>
+</div>
+</div>
+</div>
+<!-- MAIN ANALYTICAL GRID (12 COLS: 8 LEFT / 4 RIGHT) -->
+<div class="grid grid-cols-1 lg:grid-cols-12 gap-gutter">
+<!-- LEFT COLUMN (8/12): CHARTS & ROOM BREAKDOWN -->
+<div class="lg:col-span-8 flex flex-col gap-gutter">
+<!-- OCCUPANCY & REVPAR EVOLUTION CARD -->
+<div class="bg-surface-container-lowest rounded-xl p-space-lg shadow-sm">
+<div class="flex flex-col sm:flex-row sm:items-center justify-between gap-space-md pb-space-md">
+<div>
+<div class="flex items-center gap-space-xs">
+<span class="material-symbols-outlined text-primary text-[20px]">stacked_line_chart</span>
+<h2 class="font-headline-sm text-headline-sm text-on-surface">Évolution de l'Occupation &amp; RevPAR Journalier</h2>
+</div>
+<p class="font-body-sm text-body-sm text-on-surface-variant mt-0.5">Courbe quotidienne Mai 2024 • Effet weekends côtiers &amp; ponts fériés</p>
+</div>
+<!-- Toggle period buttons -->
+<div class="flex items-center p-1 bg-surface-container rounded-lg self-start sm:self-auto">
+<button class="px-space-md py-1 rounded-md bg-surface-container-lowest text-primary font-label-md text-label-md shadow-xs" type="button">30 Derniers Jours</button>
+<button class="px-space-md py-1 rounded-md text-on-surface-variant hover:text-on-surface font-label-md text-label-md transition-colors" type="button">12 Mois (YTD)</button>
+</div>
+</div>
+<!-- Legend / Indicators -->
+<div class="flex flex-wrap items-center gap-gutter text-label-md font-label-md mb-space-md">
+<div class="flex items-center gap-space-xs">
+<span class="w-3 h-3 rounded-full bg-primary"></span>
+<span class="text-on-surface">Taux d'Occupation (%)</span>
+</div>
+<div class="flex items-center gap-space-xs">
+<span class="w-3 h-3 rounded-md bg-secondary-container"></span>
+<span class="text-on-surface">RevPAR Journalier (k FCFA)</span>
+</div>
+<div class="flex items-center gap-space-xs ml-auto text-primary font-bold">
+<span class="w-2 h-2 rounded-full bg-primary animate-ping"></span>
+<span>Pic Ascension (09-12 Mai) : 100% Complet</span>
+</div>
+</div>
+<!-- SVG OCCUPANCY CURVE & REVPAR BARS -->
+<div class="relative w-full h-72 pt-4">
+<svg class="w-full h-full overflow-visible" preserveaspectratio="none" viewbox="0 0 760 220">
+<defs>
+<lineargradient id="occupancyGradient" x1="0%" x2="0%" y1="0%" y2="100%">
+<stop offset="0%" stop-color="#00666f" stop-opacity="0.28"></stop>
+<stop offset="100%" stop-color="#00666f" stop-opacity="0.0"></stop>
+</lineargradient>
+</defs>
+<!-- Horizontal Grid lines -->
+<line stroke="#e8eff3" stroke-dasharray="4 4" stroke-width="1" x1="0" x2="760" y1="20" y2="20"></line>
+<text fill="#6d797b" font-family="Manrope" font-size="10" x="5" y="16">100% (Complet - 12 Clés)</text>
+<line stroke="#e8eff3" stroke-dasharray="4 4" stroke-width="1" x1="0" x2="760" y1="70" y2="70"></line>
+<text fill="#6d797b" font-family="Manrope" font-size="10" x="5" y="66">80%</text>
+<line stroke="#e8eff3" stroke-dasharray="4 4" stroke-width="1" x1="0" x2="760" y1="120" y2="120"></line>
+<text fill="#6d797b" font-family="Manrope" font-size="10" x="5" y="116">60%</text>
+<line stroke="#e8eff3" stroke-dasharray="4 4" stroke-width="1" x1="0" x2="760" y1="170" y2="170"></line>
+<text fill="#6d797b" font-family="Manrope" font-size="10" x="5" y="166">40%</text>
+<!-- RevPAR Background Bar Strips (every 2-3 days sample) -->
+<!-- J1-J3 -->
+<rect fill="#fdbe51" height="115" opacity="0.3" rx="3" width="16" x="20" y="85"></rect>
+<rect fill="#fdbe51" height="130" opacity="0.45" rx="3" width="16" x="70" y="70"></rect>
+<!-- J8-J12 Peak Weekend -->
+<rect fill="#fdbe51" height="165" opacity="0.65" rx="3" width="18" x="170" y="35"></rect>
+<rect fill="#fdbe51" height="180" opacity="0.85" rx="3" width="18" x="220" y="20"></rect>
+<rect fill="#fdbe51" height="170" opacity="0.75" rx="3" width="18" x="270" y="30"></rect>
+<!-- Mid month -->
+<rect fill="#fdbe51" height="110" opacity="0.3" rx="3" width="16" x="340" y="90"></rect>
+<rect fill="#fdbe51" height="135" opacity="0.5" rx="3" width="16" x="410" y="65"></rect>
+<rect fill="#fdbe51" height="175" opacity="0.85" rx="3" width="18" x="470" y="25"></rect>
+<!-- End month -->
+<rect fill="#fdbe51" height="120" opacity="0.4" rx="3" width="16" x="540" y="80"></rect>
+<rect fill="#fdbe51" height="150" opacity="0.7" rx="3" width="18" x="610" y="50"></rect>
+<rect fill="#fdbe51" height="165" opacity="0.8" rx="3" width="18" x="680" y="35"></rect>
+<!-- Occupancy Area Fill -->
+<path d="M 10,110 
+                     C 60,95 90,60 140,85 
+                     C 180,60 210,20 230,20 
+                     C 260,20 280,35 310,75 
+                     C 350,115 380,100 420,70 
+                     C 460,35 480,22 510,25 
+                     C 550,55 580,95 620,65 
+                     C 660,40 700,28 750,35 
+                     L 750,200 L 10,200 Z" fill="url(#occupancyGradient)"></path>
+<!-- Occupancy Line Stroke -->
+<path d="M 10,110 
+                     C 60,95 90,60 140,85 
+                     C 180,60 210,20 230,20 
+                     C 260,20 280,35 310,75 
+                     C 350,115 380,100 420,70 
+                     C 460,35 480,22 510,25 
+                     C 550,55 580,95 620,65 
+                     C 660,40 700,28 750,35" fill="none" stroke="#00666f" stroke-linecap="round" stroke-width="3.5"></path>
+<!-- Milestone dots & Tooltips -->
+<!-- Ascension Peak Dot -->
+<circle cx="230" cy="20" fill="#00666f" r="6" stroke="#ffffff" stroke-width="2.5"></circle>
+<!-- Floating Data Flag at peak -->
+<g transform="translate(180, -8)">
+<rect fill="#161d20" height="24" opacity="0.9" rx="6" width="100"></rect>
+<text fill="#f3fafe" font-family="Manrope" font-size="10" font-weight="700" text-anchor="middle" x="50" y="16">10 Mai • 100% (12/12)</text>
+</g>
+<!-- Pentecôte Peak Dot -->
+<circle cx="510" cy="25" fill="#00666f" r="5" stroke="#ffffff" stroke-width="2"></circle>
+<circle cx="700" cy="28" fill="#00666f" r="5" stroke="#ffffff" stroke-width="2"></circle>
+<!-- Bottom axis line -->
+<line stroke="#bdc9ca" stroke-width="1.5" x1="0" x2="760" y1="200" y2="200"></line>
+<!-- X-Axis Labels -->
+<text fill="#6d797b" font-family="Manrope" font-size="11" x="15" y="216">01 Mai</text>
+<text fill="#6d797b" font-family="Manrope" font-size="11" x="135" y="216">06 Mai</text>
+<text fill="#00666f" font-family="Manrope" font-size="11" font-weight="700" x="230" y="216">10 Mai (Ascension)</text>
+<text fill="#6d797b" font-family="Manrope" font-size="11" x="375" y="216">16 Mai</text>
+<text fill="#00666f" font-family="Manrope" font-size="11" font-weight="700" x="500" y="216">20 Mai (Pentecôte)</text>
+<text fill="#6d797b" font-family="Manrope" font-size="11" x="635" y="216">26 Mai</text>
+<text fill="#6d797b" font-family="Manrope" font-size="11" x="720" y="216">31 Mai</text>
+</svg>
+</div>
+<!-- Footer quick facts -->
+<div class="mt-space-lg pt-space-md grid grid-cols-1 sm:grid-cols-3 gap-space-md text-on-surface-variant bg-surface-container-low rounded-xl p-space-md">
+<div class="flex items-center gap-space-sm">
+<span class="material-symbols-outlined text-primary text-[20px]">beach_access</span>
+<div>
+<div class="font-label-md text-label-md uppercase text-outline">Weekend Moyen</div>
+<div class="font-title-md text-title-md text-on-surface font-bold">96.2 % d'occupation</div>
+</div>
+</div>
+<div class="flex items-center gap-space-sm">
+<span class="material-symbols-outlined text-secondary text-[20px]">business_center</span>
+<div>
+<div class="font-label-md text-label-md uppercase text-outline">Semaine (Corporate)</div>
+<div class="font-title-md text-title-md text-on-surface font-bold">71.8 % d'occupation</div>
+</div>
+</div>
+<div class="flex items-center gap-space-sm">
+<span class="material-symbols-outlined text-tertiary text-[20px]">loyalty</span>
+<div>
+<div class="font-label-md text-label-md uppercase text-outline">Direct Bookings</div>
+<div class="font-title-md text-title-md text-on-surface font-bold">78 % via Conciergerie</div>
+</div>
+</div>
+</div>
+</div>
+<!-- PERFORMANCE PAR TYPE DE CHAMBRE (12 KEYS DETAIL) -->
+<div class="bg-surface-container-lowest rounded-xl p-space-lg shadow-sm">
+<div class="flex flex-col sm:flex-row sm:items-center justify-between pb-space-md gap-space-xs">
+<div>
+<h2 class="font-headline-sm text-headline-sm text-on-surface">Rendement par Typologie de Chambre (12 Clés)</h2>
+<p class="font-body-sm text-body-sm text-on-surface-variant">Contribution au chiffre d'affaires hébergement &amp; ratios de remplissage</p>
+</div>
+<span class="inline-flex items-center gap-1 font-label-md text-label-md text-primary bg-primary/10 px-3 py-1 rounded-full">
+<span class="material-symbols-outlined text-[16px]">vpn_key</span>
+            12 Clés Déployées
+          </span>
+</div>
+<div class="flex flex-col gap-space-md mt-space-sm">
+<!-- Room Type 1: Suites Panoramiques -->
+<div class="p-space-md rounded-xl bg-surface-container-low hover:bg-surface-container transition-all flex flex-col md:flex-row md:items-center justify-between gap-space-md">
+<div class="flex items-center gap-space-md">
+<div class="w-12 h-12 rounded-xl bg-primary text-on-primary flex items-center justify-center font-headline-sm text-headline-sm font-bold shadow-sm">
+                S
+              </div>
+<div>
+<div class="flex items-center gap-space-sm">
+<span class="font-title-lg text-title-lg text-on-surface font-bold">Suites Panoramiques</span>
+<span class="text-label-md font-label-md px-2 py-0.5 rounded-full bg-secondary-fixed text-on-secondary-fixed">Ch. 301 • 302</span>
+</div>
+<div class="font-body-sm text-body-sm text-on-surface-variant mt-0.5">
+                  Tarif moy : 140 000 FCFA / nuit • Vue frontale Océan Atlantique &amp; Terrasse privée
+                </div>
+</div>
+</div>
+<!-- Stats & Progress -->
+<div class="flex items-center gap-gutter min-w-[280px] justify-between">
+<div class="flex flex-col w-32">
+<div class="flex justify-between items-center text-label-md font-label-md">
+<span class="text-on-surface-variant">Occupation</span>
+<span class="font-bold text-primary">94 %</span>
+</div>
+<div class="w-full h-2 rounded-full bg-surface-variant mt-1 overflow-hidden">
+<div class="h-full bg-primary rounded-full" style="width: 94%;"></div>
+</div>
+<span class="text-[11px] text-outline mt-0.5">58 / 62 nuitées</span>
+</div>
+<div class="text-right">
+<div class="font-headline-sm text-headline-sm text-on-surface font-semibold">7 800 000 <span class="font-label-md text-label-md text-outline">FCFA</span></div>
+<span class="font-label-md text-label-md text-primary font-bold">31.4% du CA Total</span>
+</div>
+</div>
+</div>
+<!-- Room Type 2: Deluxe Océan -->
+<div class="p-space-md rounded-xl bg-surface-container-low hover:bg-surface-container transition-all flex flex-col md:flex-row md:items-center justify-between gap-space-md">
+<div class="flex items-center gap-space-md">
+<div class="w-12 h-12 rounded-xl bg-tertiary text-on-tertiary flex items-center justify-center font-headline-sm text-headline-sm font-bold shadow-sm">
+                D
+              </div>
+<div>
+<div class="flex items-center gap-space-sm">
+<span class="font-title-lg text-title-lg text-on-surface font-bold">Deluxe Océan</span>
+<span class="text-label-md font-label-md px-2 py-0.5 rounded-full bg-surface-variant text-on-surface-variant">Ch. 201 à 204 (4 clés)</span>
+</div>
+<div class="font-body-sm text-body-sm text-on-surface-variant mt-0.5">
+                  Tarif moy : 85 000 FCFA / nuit • Balcon pleine vue mer, Saly Plage
+                </div>
+</div>
+</div>
+<!-- Stats & Progress -->
+<div class="flex items-center gap-gutter min-w-[280px] justify-between">
+<div class="flex flex-col w-32">
+<div class="flex justify-between items-center text-label-md font-label-md">
+<span class="text-on-surface-variant">Occupation</span>
+<span class="font-bold text-primary">85 %</span>
+</div>
+<div class="w-full h-2 rounded-full bg-surface-variant mt-1 overflow-hidden">
+<div class="h-full bg-primary rounded-full" style="width: 85%;"></div>
+</div>
+<span class="text-[11px] text-outline mt-0.5">105 / 124 nuitées</span>
+</div>
+<div class="text-right">
+<div class="font-headline-sm text-headline-sm text-on-surface font-semibold">9 200 000 <span class="font-label-md text-label-md text-outline">FCFA</span></div>
+<span class="font-label-md text-label-md text-primary font-bold">37.0% du CA Total</span>
+</div>
+</div>
+</div>
+<!-- Room Type 3: Standard Patio -->
+<div class="p-space-md rounded-xl bg-surface-container-low hover:bg-surface-container transition-all flex flex-col md:flex-row md:items-center justify-between gap-space-md">
+<div class="flex items-center gap-space-md">
+<div class="w-12 h-12 rounded-xl bg-surface-variant text-on-surface-variant flex items-center justify-center font-headline-sm text-headline-sm font-bold shadow-sm">
+                P
+              </div>
+<div>
+<div class="flex items-center gap-space-sm">
+<span class="font-title-lg text-title-lg text-on-surface font-bold">Standard Patio &amp; Jardin</span>
+<span class="text-label-md font-label-md px-2 py-0.5 rounded-full bg-surface-variant text-on-surface-variant">Ch. 101 à 106 (6 clés)</span>
+</div>
+<div class="font-body-sm text-body-sm text-on-surface-variant mt-0.5">
+                  Tarif moy : 55 000 FCFA / nuit • Accès direct piscine &amp; jardins tropicaux
+                </div>
+</div>
+</div>
+<!-- Stats & Progress -->
+<div class="flex items-center gap-gutter min-w-[280px] justify-between">
+<div class="flex flex-col w-32">
+<div class="flex justify-between items-center text-label-md font-label-md">
+<span class="text-on-surface-variant">Occupation</span>
+<span class="font-bold text-secondary">74 %</span>
+</div>
+<div class="w-full h-2 rounded-full bg-surface-variant mt-1 overflow-hidden">
+<div class="h-full bg-secondary rounded-full" style="width: 74%;"></div>
+</div>
+<span class="text-[11px] text-outline mt-0.5">138 / 186 nuitées</span>
+</div>
+<div class="text-right">
+<div class="font-headline-sm text-headline-sm text-on-surface font-semibold">7 850 000 <span class="font-label-md text-label-md text-outline">FCFA</span></div>
+<span class="font-label-md text-label-md text-primary font-bold">31.6% du CA Total</span>
+</div>
+</div>
+</div>
+</div>
+<!-- Total Hébergement Recap -->
+<div class="mt-space-md pt-space-md flex flex-col sm:flex-row items-center justify-between text-on-surface-variant gap-space-sm">
+<div class="font-body-sm text-body-sm flex items-center gap-space-xs">
+<span class="material-symbols-outlined text-primary text-[18px]">verified</span>
+            Total Hébergement : <strong class="text-on-surface">24 850 000 FCFA</strong> (dont 15.4M direct nuitées + extras consommés en chambre)
+          </div>
+<button class="font-label-md text-label-md text-primary hover:text-primary-container font-bold flex items-center gap-1" type="button">
+<span>Télécharger l'audit des 12 clés</span>
+<span class="material-symbols-outlined text-[16px]">arrow_forward</span>
+</button>
+</div>
+</div>
+</div>
+<!-- RIGHT COLUMN (4/12): DONUT SPLIT & TOP CLIENTS -->
+<div class="lg:col-span-4 flex flex-col gap-gutter">
+<!-- REVENUE SPLIT DONUT CARD -->
+<div class="bg-surface-container-lowest rounded-xl p-space-lg shadow-sm">
+<div class="flex items-center justify-between pb-space-xs">
+<div>
+<h2 class="font-headline-sm text-headline-sm text-on-surface">Répartition du Chiffre d'Affaires</h2>
+<p class="font-body-sm text-body-sm text-on-surface-variant">Sources de revenus Mai 2024</p>
+</div>
+<span class="material-symbols-outlined text-primary text-[20px]">pie_chart</span>
+</div>
+<!-- DONUT CHART SVG -->
+<div class="relative flex items-center justify-center my-space-md">
+<svg class="w-48 h-48 -rotate-90 transform" viewbox="0 0 100 100">
+<!-- Background circle -->
+<circle cx="50" cy="50" fill="transparent" r="38" stroke="#e8eff3" stroke-width="15"></circle>
+<!-- Segment 1: Hébergement 62% (Circumference ~ 238.76, 62% = 148.0) -->
+<circle cx="50" cy="50" fill="transparent" r="38" stroke="#00666f" stroke-dasharray="148 238.76" stroke-dashoffset="0" stroke-width="15"></circle>
+<!-- Segment 2: Restauration La Teranga 26% (62.0) -->
+<circle cx="50" cy="50" fill="transparent" r="38" stroke="#fdbe51" stroke-dasharray="62 238.76" stroke-dashoffset="-148" stroke-width="15"></circle>
+<!-- Segment 3: Activités / Excursions 7% (16.7) -->
+<circle cx="50" cy="50" fill="transparent" r="38" stroke="#6fd5e2" stroke-dasharray="16.7 238.76" stroke-dashoffset="-210" stroke-width="15"></circle>
+<!-- Segment 4: Spa & Extras 5% (12.0) -->
+<circle cx="50" cy="50" fill="transparent" r="38" stroke="#5f7695" stroke-dasharray="12 238.76" stroke-dashoffset="-226.7" stroke-width="15"></circle>
+</svg>
+<!-- Donut Center Label -->
+<div class="absolute inset-0 flex flex-col items-center justify-center pointer-events-none text-center">
+<span class="font-label-md text-label-md uppercase tracking-wider text-outline">Total CA</span>
+<span class="font-headline-sm text-headline-sm font-bold text-on-surface">24.85M</span>
+<span class="font-label-md text-label-md text-primary font-bold">FCFA</span>
+</div>
+</div>
+<!-- Legend Pills with Detail Amounts -->
+<div class="flex flex-col gap-space-sm mt-space-sm">
+<!-- 1. Hébergement -->
+<div class="flex items-center justify-between p-space-xs rounded-lg hover:bg-surface-container-low transition-colors">
+<div class="flex items-center gap-space-sm">
+<span class="w-3.5 h-3.5 rounded-full bg-primary shrink-0"></span>
+<div class="flex flex-col">
+<span class="font-title-md text-title-md text-on-surface">Hébergement Chambres</span>
+<span class="font-body-sm text-body-sm text-on-surface-variant">12 clés boutique</span>
+</div>
+</div>
+<div class="text-right">
+<span class="font-title-md text-title-md text-on-surface font-bold">15 400 000 F</span>
+<span class="block text-label-md font-label-md text-primary font-bold">62 %</span>
+</div>
+</div>
+<!-- 2. Restaurant La Teranga -->
+<div class="flex items-center justify-between p-space-xs rounded-lg hover:bg-surface-container-low transition-colors">
+<div class="flex items-center gap-space-sm">
+<span class="w-3.5 h-3.5 rounded-full bg-secondary-container shrink-0"></span>
+<div class="flex flex-col">
+<span class="font-title-md text-title-md text-on-surface">Restaurant &amp; Bar</span>
+<span class="font-body-sm text-body-sm text-on-surface-variant">La Teranga Beach Club</span>
+</div>
+</div>
+<div class="text-right">
+<span class="font-title-md text-title-md text-on-surface font-bold">6 460 000 F</span>
+<span class="block text-label-md font-label-md text-secondary font-bold">26 %</span>
+</div>
+</div>
+<!-- 3. Activités & Pêche -->
+<div class="flex items-center justify-between p-space-xs rounded-lg hover:bg-surface-container-low transition-colors">
+<div class="flex items-center gap-space-sm">
+<span class="w-3.5 h-3.5 rounded-full bg-primary-fixed-dim shrink-0"></span>
+<div class="flex flex-col">
+<span class="font-title-md text-title-md text-on-surface">Excursions &amp; Pêche</span>
+<span class="font-body-sm text-body-sm text-on-surface-variant">Catamaran &amp; Sine Saloum</span>
+</div>
+</div>
+<div class="text-right">
+<span class="font-title-md text-title-md text-on-surface font-bold">1 740 000 F</span>
+<span class="block text-label-md font-label-md text-on-surface-variant font-bold">7 %</span>
+</div>
+</div>
+<!-- 4. Spa & Blanchisserie -->
+<div class="flex items-center justify-between p-space-xs rounded-lg hover:bg-surface-container-low transition-colors">
+<div class="flex items-center gap-space-sm">
+<span class="w-3.5 h-3.5 rounded-full bg-tertiary-container shrink-0"></span>
+<div class="flex flex-col">
+<span class="font-title-md text-title-md text-on-surface">Spa, Massages &amp; Extras</span>
+<span class="font-body-sm text-body-sm text-on-surface-variant">Soins marins &amp; transferts</span>
+</div>
+</div>
+<div class="text-right">
+<span class="font-title-md text-title-md text-on-surface font-bold">1 250 000 F</span>
+<span class="block text-label-md font-label-md text-on-surface-variant font-bold">5 %</span>
+</div>
+</div>
+</div>
+</div>
+<!-- TOP CLIENTS & FIDELITE CARD -->
+<div class="bg-surface-container-lowest rounded-xl p-space-lg shadow-sm">
+<div class="flex items-center justify-between pb-space-md">
+<div>
+<h2 class="font-headline-sm text-headline-sm text-on-surface">Top Clients &amp; Fidélité</h2>
+<p class="font-body-sm text-body-sm text-on-surface-variant">Plus grands contributeurs du mois</p>
+</div>
+<span class="material-symbols-outlined text-secondary text-[20px]">stars</span>
+</div>
+<div class="flex flex-col gap-space-md">
+<!-- Client 1 -->
+<div class="flex items-start justify-between p-space-sm rounded-xl bg-surface-container-low hover:bg-surface-container transition-all">
+<div class="flex items-center gap-space-sm">
+<div class="relative">
+<div class="w-10 h-10 rounded-full bg-secondary-fixed text-on-secondary-fixed flex items-center justify-center font-bold text-label-lg">
+                  MD
+                </div>
+<span class="absolute -bottom-1 -right-1 w-4 h-4 bg-primary text-on-primary rounded-full text-[10px] flex items-center justify-center font-bold">1</span>
+</div>
+<div class="flex flex-col min-w-0">
+<div class="flex items-center gap-space-xs">
+<span class="font-title-md text-title-md text-on-surface font-bold truncate">M. Mamadou Diop</span>
+</div>
+<div class="flex items-center gap-1.5 mt-0.5">
+<span class="inline-flex items-center px-1.5 py-0.2 rounded bg-secondary-container/40 text-on-secondary-container text-[11px] font-bold">VIP Gold</span>
+<span class="text-body-sm text-body-sm text-on-surface-variant truncate">Teranga Group Dakar</span>
+</div>
+<span class="text-[11px] text-outline mt-0.5">4 séjours • 18 nuits réservées</span>
+</div>
+</div>
+<div class="text-right shrink-0">
+<div class="font-title-md text-title-md text-on-surface font-bold">3 850 000 <span class="text-[11px] text-outline">F</span></div>
+<a class="font-label-md text-label-md text-primary hover:underline block mt-0.5" href="#">Voir profil</a>
+</div>
+</div>
+<!-- Client 2 -->
+<div class="flex items-start justify-between p-space-sm rounded-xl bg-surface-container-low hover:bg-surface-container transition-all">
+<div class="flex items-center gap-space-sm">
+<div class="relative">
+<div class="w-10 h-10 rounded-full bg-primary-container text-on-primary-container flex items-center justify-center font-bold text-label-lg">
+                  SL
+                </div>
+<span class="absolute -bottom-1 -right-1 w-4 h-4 bg-primary text-on-primary rounded-full text-[10px] flex items-center justify-center font-bold">2</span>
+</div>
+<div class="flex flex-col min-w-0">
+<div class="flex items-center gap-space-xs">
+<span class="font-title-md text-title-md text-on-surface font-bold truncate">Mme Sophie Legrand</span>
+</div>
+<div class="flex items-center gap-1.5 mt-0.5">
+<span class="inline-flex items-center px-1.5 py-0.2 rounded bg-surface-variant text-on-surface-variant text-[11px] font-bold">VIP Prestige</span>
+<span class="text-body-sm text-body-sm text-on-surface-variant truncate">Ambassade de France</span>
+</div>
+<span class="text-[11px] text-outline mt-0.5">Suite 301 • 12 nuits</span>
+</div>
+</div>
+<div class="text-right shrink-0">
+<div class="font-title-md text-title-md text-on-surface font-bold">2 450 000 <span class="text-[11px] text-outline">F</span></div>
+<a class="font-label-md text-label-md text-primary hover:underline block mt-0.5" href="#">Voir profil</a>
+</div>
+</div>
+<!-- Client 3 -->
+<div class="flex items-start justify-between p-space-sm rounded-xl bg-surface-container-low hover:bg-surface-container transition-all">
+<div class="flex items-center gap-space-sm">
+<div class="relative">
+<div class="w-10 h-10 rounded-full bg-tertiary-fixed text-on-tertiary-fixed flex items-center justify-center font-bold text-label-lg">
+                  IN
+                </div>
+<span class="absolute -bottom-1 -right-1 w-4 h-4 bg-primary text-on-primary rounded-full text-[10px] flex items-center justify-center font-bold">3</span>
+</div>
+<div class="flex flex-col min-w-0">
+<div class="flex items-center gap-space-xs">
+<span class="font-title-md text-title-md text-on-surface font-bold truncate">M. Ibrahima Ndiaye</span>
+</div>
+<div class="flex items-center gap-1.5 mt-0.5">
+<span class="inline-flex items-center px-1.5 py-0.2 rounded bg-surface-variant text-on-surface-variant text-[11px] font-bold">VIP Prestige</span>
+<span class="text-body-sm text-body-sm text-on-surface-variant truncate">Somone Invest</span>
+</div>
+<span class="text-[11px] text-outline mt-0.5">Ch. 202 • 9 nuits</span>
+</div>
+</div>
+<div class="text-right shrink-0">
+<div class="font-title-md text-title-md text-on-surface font-bold">2 120 000 <span class="text-[11px] text-outline">F</span></div>
+<a class="font-label-md text-label-md text-primary hover:underline block mt-0.5" href="#">Voir profil</a>
+</div>
+</div>
+<!-- Client 4 -->
+<div class="flex items-start justify-between p-space-sm rounded-xl bg-surface-container-low hover:bg-surface-container transition-all">
+<div class="flex items-center gap-space-sm">
+<div class="relative">
+<div class="w-10 h-10 rounded-full bg-surface-container-high text-on-surface flex items-center justify-center font-bold text-label-lg">
+                  JD
+                </div>
+<span class="absolute -bottom-1 -right-1 w-4 h-4 bg-outline text-on-primary rounded-full text-[10px] flex items-center justify-center font-bold">4</span>
+</div>
+<div class="flex flex-col min-w-0">
+<div class="flex items-center gap-space-xs">
+<span class="font-title-md text-title-md text-on-surface font-bold truncate">M. Jean-Marc Dumont</span>
+</div>
+<div class="flex items-center gap-1.5 mt-0.5">
+<span class="inline-flex items-center px-1.5 py-0.2 rounded bg-secondary-fixed/30 text-secondary text-[11px] font-bold">Club Teranga</span>
+<span class="text-body-sm text-body-sm text-on-surface-variant truncate">Particulier</span>
+</div>
+<span class="text-[11px] text-outline mt-0.5">Ch. 104 • 7 nuits</span>
+</div>
+</div>
+<div class="text-right shrink-0">
+<div class="font-title-md text-title-md text-on-surface font-bold">1 680 000 <span class="text-[11px] text-outline">F</span></div>
+<a class="font-label-md text-label-md text-primary hover:underline block mt-0.5" href="#">Voir profil</a>
+</div>
+</div>
+</div>
+<button class="w-full mt-space-md py-2.5 rounded-lg bg-surface-container-low hover:bg-surface-container text-on-surface font-label-lg text-label-lg transition-colors flex items-center justify-center gap-space-xs" type="button">
+<span>Consulter le registre complet des hôtes</span>
+<span class="material-symbols-outlined text-[16px]">chevron_right</span>
+</button>
+</div>
+<!-- PETITE CÔTE CONTEXT CARD -->
+<div class="rounded-xl p-space-md bg-primary text-on-primary flex items-center justify-between shadow-sm">
+<div class="flex items-center gap-space-md">
+<div class="p-2.5 rounded-xl bg-on-primary/10 text-on-primary">
+<span class="material-symbols-outlined text-[24px]">hotel_class</span>
+</div>
+<div>
+<div class="font-title-md text-title-md font-bold">Positionnement Marché Saly</div>
+<div class="font-body-sm text-body-sm opacity-90">Résidence Blue surclasse l'indice RevPAR local de +21.4%</div>
+</div>
+</div>
+<span class="material-symbols-outlined text-[20px] opacity-75">insights</span>
+</div>
+</div>
+</div>
+</div></main></div></body></html>
