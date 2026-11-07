@@ -1,0 +1,191 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ADMIN
+  MANAGER
+  RECEPTIONIST
+  RESTAURANT_STAFF
+  HOUSEKEEPING
+}
+
+enum RoomType {
+  STANDARD
+  DELUXE
+  SUITE
+}
+
+enum RoomStatus {
+  AVAILABLE
+  OCCUPIED
+  DIRTY
+  CLEANING
+  MAINTENANCE
+}
+
+enum ReservationStatus {
+  PENDING
+  CONFIRMED
+  CHECKED_IN
+  CHECKED_OUT
+  CANCELLED
+  NO_SHOW
+}
+
+enum PaymentMethod {
+  CASH
+  WAVE
+  ORANGE_MONEY
+  CARD
+  BANK_TRANSFER
+}
+
+enum FolioItemType {
+  ROOM_NIGHT
+  RESTAURANT
+  BAR
+  LAUNDRY
+  TOURISM_TAX
+  OTHER
+}
+
+model User {
+  id           String     @id @default(uuid())
+  email        String     @unique
+  passwordHash String
+  fullName     String
+  role         Role
+  isActive     Boolean    @default(true)
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+  auditLogs    AuditLog[]
+
+  @@map("users")
+}
+
+model Room {
+  id            String        @id @default(uuid())
+  number        String        @unique
+  name          String
+  type          RoomType
+  floor         Int
+  basePriceFcfa Int // Montant ENTIER strict en FCFA
+  status        RoomStatus    @default(AVAILABLE)
+  capacity      Int
+  description   String?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+  reservations  Reservation[]
+
+  @@map("rooms")
+}
+
+model Guest {
+  id                  String        @id @default(uuid())
+  firstName           String
+  lastName            String
+  phone               String
+  email               String?
+  nationality         String?
+  // Donnée sensible chiffrée en AES-256-GCM : format iv:authTag:ciphertext
+  encryptedIdDocument String?
+  createdAt           DateTime      @default(now())
+  updatedAt           DateTime      @updatedAt
+  reservations        Reservation[]
+
+  @@map("guests")
+}
+
+model Reservation {
+  id             String            @id @default(uuid())
+  code           String            @unique // Ex: RB-2026-0001
+  idempotencyKey String            @unique // Garantie d'idempotence
+  roomId         String
+  room           Room              @relation(fields: [roomId], references: [id])
+  guestId        String
+  guest          Guest             @relation(fields: [guestId], references: [id])
+  checkInDate    DateTime
+  checkOutDate   DateTime
+  adultsCount    Int               @default(1)
+  childrenCount  Int               @default(0)
+  totalPriceFcfa Int // Montant ENTIER strict en FCFA
+  paidPriceFcfa  Int               @default(0) // Montant ENTIER strict en FCFA
+  status         ReservationStatus @default(CONFIRMED)
+  notes          String?
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+  folios         Folio[]
+  payments       Payment[]
+
+  @@map("reservations")
+}
+
+model Folio {
+  id             String      @id @default(uuid())
+  reservationId  String
+  reservation    Reservation @relation(fields: [reservationId], references: [id], onDelete: Cascade)
+  totalDebitFcfa Int         @default(0) // ENTIER FCFA
+  totalPaidFcfa  Int         @default(0) // ENTIER FCFA
+  isClosed       Boolean     @default(false)
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+  items          FolioItem[]
+
+  @@map("folios")
+}
+
+model FolioItem {
+  id          String        @id @default(uuid())
+  folioId     String
+  folio       Folio         @relation(fields: [folioId], references: [id], onDelete: Cascade)
+  type        FolioItemType
+  description String
+  quantity    Int           @default(1)
+  unitPrice   Int // ENTIER FCFA
+  totalFcfa   Int // ENTIER FCFA
+  createdAt   DateTime      @default(now())
+
+  @@map("folio_items")
+}
+
+model Payment {
+  id             String        @id @default(uuid())
+  idempotencyKey String        @unique
+  reservationId  String
+  reservation    Reservation   @relation(fields: [reservationId], references: [id])
+  amountFcfa     Int // ENTIER FCFA
+  method         PaymentMethod
+  notes          String?
+  receivedAt     DateTime      @default(now())
+  createdAt      DateTime      @default(now())
+
+  @@map("payments")
+}
+
+model IdempotencyLog {
+  id             String   @id @default(uuid())
+  idempotencyKey String   @unique
+  endpoint       String
+  statusCode     Int
+  responseBody   String // JSON sérialisé
+  createdAt      DateTime @default(now())
+
+  @@map("idempotency_logs")
+}
+
+model AuditLog {
+  id        String   @id @default(uuid())
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id])
+  action    String
+  details   String?
+  createdAt DateTime @default(now())
+
+  @@map("audit_logs")
+}
