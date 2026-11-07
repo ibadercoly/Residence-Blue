@@ -1,0 +1,31 @@
+{
+  "name": "residence-blue",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Logiciel de gestion hôtelière pour Résidence Blue (Saly, Sénégal)",
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "scripts": {
+    "build:shared": "npm run build --workspace=@residence-blue/shared",
+    "build:api": "npm run build --workspace=@residence-blue/api",
+    "build:web": "npm run build --workspace=@residence-blue/web",
+    "build": "npm run build:shared && npm run build:api && npm run build:web",
+    "prisma:generate": "npm run prisma:generate --workspace=@residence-blue/api",
+    "lint": "npm run lint --workspaces --if-present",
+    "test:unit": "npm run test --workspace=@residence-blue/shared && npm run test --workspace=@residence-blue/api",
+    "test": "npm run test:unit",
+    "test:integration": "npm run test:integration --workspace=@residence-blue/api",
+    "test:security": "npm run test:security --workspace=@residence-blue/api",
+    "test:e2e": "npm run test:e2e --workspace=@residence-blue/web",
+    "test:all": "npm run test && npm run test:integration && npm run test:security"
+  },
+  "devDependencies": {
+    "@typescript-eslint/eslint-plugin": "^8.16.0",
+    "@typescript-eslint/parser": "^8.16.0",
+    "eslint": "^9.16.0",
+    "prettier": "^3.4.1",
+    "typescript": "^5.6.3"
+  }
+}
