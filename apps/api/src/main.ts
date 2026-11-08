@@ -16,8 +16,10 @@ async function bootstrap() {
     credentials: true,
   });
 
-  // Préfixe global pour toutes les routes API
-  app.setGlobalPrefix('api');
+  // Préfixe global pour toutes les routes API (sauf GET /health exposé aussi à la racine)
+  app.setGlobalPrefix('api', {
+    exclude: ['health', 'api/health'],
+  });
 
   // RÈGLE SÉCURITÉ AGENTS.MD : ValidationPipe stricte (whitelist + forbidNonWhitelisted)
   app.useGlobalPipes(

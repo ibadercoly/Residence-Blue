@@ -2,12 +2,12 @@ import { Controller, Get } from '@nestjs/common';
 import { Public } from '../common/decorators/roles.decorator';
 import { PrismaService } from '../prisma/prisma.service';
 
-@Controller('health')
+@Controller()
 export class HealthController {
   constructor(private readonly prisma: PrismaService) {}
 
   @Public()
-  @Get()
+  @Get(['health', 'api/health'])
   async getHealth() {
     let dbStatus = 'disconnected';
     try {
