@@ -67,8 +67,9 @@ export interface ArrivalItem {
                   <span>{{ guest.nights }}</span>
                   <span aria-hidden="true">•</span>
                   <span
-                    class="inline-flex items-center gap-1 font-medium"
+                    class="inline-flex items-center gap-1"
                     [class.text-secondary]="guest.colorVariant === 'primary'"
+                    [class.font-medium]="guest.colorVariant === 'primary'"
                     [class.text-on-surface-variant]="guest.colorVariant !== 'primary'"
                   >
                     <span class="material-symbols-outlined text-[16px]" aria-hidden="true">schedule</span>

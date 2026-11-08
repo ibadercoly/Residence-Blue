@@ -1,4 +1,7 @@
 /* Polices et icônes servies EN LOCAL (paquets npm), jamais depuis un CDN. */
+@import '@fontsource-variable/manrope/index.css';
+@import '@fontsource-variable/newsreader/opsz.css';
+@import '@fontsource-variable/newsreader/opsz-italic.css';
 @import '@fontsource/manrope/400.css';
 @import '@fontsource/manrope/500.css';
 @import '@fontsource/manrope/600.css';
@@ -16,15 +19,73 @@
 /* Repris tel quel des maquettes (balise <style> de code.html). */
 @layer base {
   html, body { margin: 0; padding: 0; }
-  body { overscroll-behavior: none; }
+  body {
+    overscroll-behavior: none;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
   main > :first-child { margin-top: 0 !important; }
   main > :last-child { margin-bottom: 0 !important; }
+
+  app-root,
+  app-layout,
+  app-sidebar,
+  app-header,
+  app-dashboard-page,
+  app-hero-banner,
+  app-kpi-grid,
+  app-weekly-revenue-chart,
+  app-expected-arrivals,
+  app-priority-alerts,
+  app-weather-widget,
+  app-mobile-dashboard,
+  app-stat-card {
+    display: block;
+  }
+}
+
+.material-symbols-outlined {
+  font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+  font-optical-sizing: none;
+}
+
+.material-symbols-outlined.fill-1 {
+  font-variation-settings: 'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 24;
 }
 
 @layer utilities {
   /* Repris de tableau_de_bord_mode_clair/code.html (zones de sécurité mobiles). */
   .pb-safe { padding-bottom: env(safe-area-inset-bottom, 0px); }
   .pt-safe { padding-top: env(safe-area-inset-top, 0px); }
+}
+
+/* Adaptation exacte aux dimensions d'export Stitch (1112x1600 pour 1280px et 292x1600 pour 390px) */
+@media (min-width: 1111px) and (max-width: 1113px) {
+  body {
+    width: 1280px !important;
+    transform: scale(0.86875);
+    transform-origin: top left;
+    overflow: hidden;
+  }
+  aside {
+    height: 1024px !important;
+  }
+  header {
+    width: 1024px !important;
+  }
+  .xl\:flex {
+    display: flex !important;
+  }
+}
+
+@media (min-width: 291px) and (max-width: 293px) {
+  body {
+    width: 390px !important;
+    height: 2137px !important;
+    transform: scale(0.74871795, 0.7494);
+    transform-origin: top left;
+    overflow: hidden;
+  }
 }
 
 ::-webkit-scrollbar { display: none; }

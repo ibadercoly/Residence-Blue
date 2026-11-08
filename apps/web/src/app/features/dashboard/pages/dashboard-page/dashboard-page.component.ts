@@ -6,6 +6,7 @@ import { WeeklyRevenueChartComponent } from '../../components/weekly-revenue-cha
 import { ExpectedArrivalsComponent } from '../../components/expected-arrivals/expected-arrivals.component';
 import { PriorityAlertsComponent } from '../../components/priority-alerts/priority-alerts.component';
 import { WeatherWidgetComponent } from '../../components/weather-widget/weather-widget.component';
+import { MobileDashboardComponent } from '../../components/mobile-dashboard/mobile-dashboard.component';
 
 @Component({
   selector: 'app-dashboard-page',
@@ -16,10 +17,13 @@ import { WeatherWidgetComponent } from '../../components/weather-widget/weather-
     WeeklyRevenueChartComponent,
     ExpectedArrivalsComponent,
     PriorityAlertsComponent,
-    WeatherWidgetComponent
+    WeatherWidgetComponent,
+    MobileDashboardComponent
   ],
+  host: { class: 'block w-full' },
   template: `
-    <div class="flex flex-col w-full pb-16 space-y-8">
+    <!-- Desktop / Tablet View (tableau_de_bord) -->
+    <div class="hidden md:flex flex-col w-full pb-16 space-y-8">
       <!-- 1. Top Wide Hero Banner -->
       <app-hero-banner
         [seasonTag]="data().hero.seasonTag"
@@ -78,6 +82,9 @@ import { WeatherWidgetComponent } from '../../components/weather-widget/weather-
         </div>
       </div>
     </div>
+
+    <!-- Mobile View (tableau_de_bord_mode_clair) -->
+    <app-mobile-dashboard class="md:hidden" />
   `
 })
 export class DashboardPageComponent {

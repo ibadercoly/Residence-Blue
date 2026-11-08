@@ -13,7 +13,7 @@ export class DashboardMockService {
     },
     hero: {
       seasonTag: 'Haute saison • 9 chambres occupées sur 12',
-      weatherTag: 'Thiès, Grand Standing • 29°C Ensoleillé',
+      weatherTag: 'Saly Portudal • 29°C Ensoleillé',
       title: 'Bienvenue à la Résidence Blue',
       subtitle: 'Boutique Hôtel 12 Chambres • Petite Côte, Sénégal • Vendredi 24 Mai • Service Conciergerie & Exploitation',
       imageUrl: 'assets/images/hero-dashboard.jpg'
