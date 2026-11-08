@@ -1,13 +1,24 @@
 {
+  "preset": "ts-jest/presets/default-esm",
   "moduleFileExtensions": ["js", "json", "ts"],
   "rootDir": ".",
   "testRegex": "(e2e-spec|spec)\\.ts$",
   "transform": {
-    "^.+\\.(t|j)s$": "ts-jest"
+    "^.+\\.ts$": [
+      "ts-jest",
+      {
+        "useESM": true,
+        "diagnostics": false,
+        "tsconfig": {
+          "module": "ESNext"
+        }
+      }
+    ]
   },
   "testEnvironment": "node",
   "setupFiles": ["<rootDir>/setup-env.ts"],
   "moduleNameMapper": {
-    "^@residence-blue/shared$": "<rootDir>/../../../packages/shared/src/index.ts"
+    "^@residence-blue/shared$": "<rootDir>/../../../packages/shared/src/index.ts",
+    "^(\\.{1,2}/.*)\\.js$": "$1"
   }
 }

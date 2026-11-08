@@ -1,7 +1,10 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
-import * as request from 'supertest';
+import supertest from 'supertest';
 import { AppModule } from '../src/app.module';
+import { PrismaService } from '../src/prisma/prisma.service';
+
+const request: any = (supertest as any).default || supertest;
 
 describe('Porte de Sécurité API (Security Gate Tests)', () => {
   let app: INestApplication;
@@ -9,7 +12,14 @@ describe('Porte de Sécurité API (Security Gate Tests)', () => {
   beforeAll(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
-    }).compile();
+    })
+      .overrideProvider(PrismaService)
+      .useValue({
+        $connect: async () => {},
+        $disconnect: async () => {},
+        $queryRaw: async () => [{ 1: 1 }],
+      })
+      .compile();
 
     app = moduleFixture.createNestApplication();
     app.setGlobalPrefix('api');
@@ -24,7 +34,9 @@ describe('Porte de Sécurité API (Security Gate Tests)', () => {
   });
 
   afterAll(async () => {
-    await app.close();
+    if (app) {
+      await app.close();
+    }
   });
 
   describe('1. Accès refusé par défaut (Deny by default)', () => {

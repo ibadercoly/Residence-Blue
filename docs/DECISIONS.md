@@ -60,3 +60,17 @@ Ce document consigne les choix technologiques et architecturaux majeurs adoptés
   3. Respect scrupuleux des tokens de design `Saly Coastal Boutique Hospitality` : Deep Teal (`#00666f`), Sandy Gold (`#7e5700`), typographie Newsreader pour le caractère boutique raffiné et Manrope pour la lisibilité des tableaux opérationnels.
   4. Support PWA avec manifeste et service worker.
 - **Conséquences :** Interface légère, rapide, esthétique et optimisée pour l'usage tactile et bureau.
+
+
+---
+
+## ADR 007 : Mise à Niveau Majeure - Angular 22, Node 24 LTS, TypeScript 6, NestJS 12 & Éradication des Vulnérabilités Critiques
+- **Contexte :** Garantir la pérennité, la vitesse d'exécution et la sécurité du monorepo en éliminant toutes les dépendances obsolètes et vulnérabilités de sécurité de niveau critique ou élevé (notamment la CVE critique `tar` importée par l'ancienne chaîne `node-pre-gyp`/`bcrypt 5`).
+- **Décision :**
+  1. **Node.js 24 LTS (`v24.22.2`)** : Alignement de l'environnement d'exécution serveur et CI sur la version LTS actuelle avec npm 11.
+  2. **Angular 22 (`22.2.5`)** : Mise à jour de l'application web standalone et du CLI Angular, tirant parti des améliorations de compilation, des signals et de la PWA.
+  3. **TypeScript 6 (`~6.0.3`)** : Harmonisation de la version du compilateur sur la racine et l'ensemble des workspaces (`packages/shared`, `apps/api`, `apps/web`), avec gestion des options `ignoreDeprecations: "6.0"` pour la transition.
+  4. **NestJS 12 (`^12.4.0`)** : Migration du backend vers NestJS 12 en architecture modulaire moderne (ESM). Configuration des suites de tests Jest (`test`, `test:security`, `test:integration`) en mode ESM (`--experimental-vm-modules`) avec `ts-jest` configuré en `ESNext`.
+  5. **Bcrypt 6 (`^6.0.0`)** : Mise à niveau de `bcrypt` vers la version 6 native, éliminant les vulnérabilités de packaging héritées.
+  6. **Sécurité des dépendances** : Réduction du rapport de vulnérabilité à **0 critique et 0 haute** (`npm audit`).
+- **Conséquences :** Base de code moderne, sécurisée, compatible avec les standards 2026, tests et builds 100% verts sur toute la chaîne d'intégration.

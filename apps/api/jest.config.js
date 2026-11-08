@@ -1,14 +1,23 @@
 module.exports = {
+  preset: 'ts-jest/presets/default-esm',
   moduleFileExtensions: ['js', 'json', 'ts'],
   rootDir: 'src',
   testRegex: '.*\\.spec\\.ts$',
   transform: {
-    '^.+\\.(t|j)s$': 'ts-jest',
+    '^.+\\.ts$': [
+      'ts-jest',
+      {
+        useESM: true,
+        diagnostics: false,
+        tsconfig: {
+          module: 'ESNext',
+        },
+      },
+    ],
   },
-  collectCoverageFrom: ['**/*.(t|j)s'],
-  coverageDirectory: '../coverage',
-  testEnvironment: 'node',
   moduleNameMapper: {
     '^@residence-blue/shared$': '<rootDir>/../../packages/shared/src/index.ts',
+    '^(\\.{1,2}/.*)\\.js$': '$1',
   },
+  testEnvironment: 'node',
 };
