@@ -34,13 +34,26 @@ export class RolesGuard implements CanActivate {
 
     // 3. Récupérer l'utilisateur courant (injecté par l'authentification ou les headers de test)
     const request = context.switchToHttp().getRequest();
-    const user = request.user || (request.headers['x-user-role'] ? { role: request.headers['x-user-role'] } : null);
+    const user =
+      request.user ||
+      (request.headers['x-user-role'] ? { role: request.headers['x-user-role'] } : null);
 
     if (!user || !user.role) {
-      throw new ForbiddenException('Authentification requise : aucun utilisateur ou rôle identifié.');
+      throw new ForbiddenException(
+        'Authentification requise : aucun utilisateur ou rôle identifié.',
+      );
     }
 
-    const hasRole = requiredRoles.includes(user.role);
+    const normalizedRole =
+      user.role === 'ADMIN' || user.role === 'MANAGER'
+        ? 'DIRECTION'
+        : user.role === 'RECEPTIONIST'
+          ? 'RECEPTION'
+          : user.role === 'RESTAURANT_STAFF'
+            ? 'RESTAURANT'
+            : user.role;
+
+    const hasRole = requiredRoles.includes(user.role) || requiredRoles.includes(normalizedRole);
     if (!hasRole) {
       throw new ForbiddenException(
         `Rôle non autorisé (${user.role}). Rôles autorisés : ${requiredRoles.join(', ')}.`,
