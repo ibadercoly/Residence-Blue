@@ -16,7 +16,7 @@ module.exports = {
     ],
   },
   moduleNameMapper: {
-    '^@residence-blue/shared$': '<rootDir>/../../packages/shared/src/index.ts',
+    '^@residence-blue/shared$': '<rootDir>/../../../packages/shared/src/index.ts',
     '^(\\.{1,2}/.*)\\.js$': '$1',
   },
   testEnvironment: 'node',

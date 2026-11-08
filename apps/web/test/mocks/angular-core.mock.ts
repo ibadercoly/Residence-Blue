@@ -33,6 +33,10 @@ export function signal<T>(initialValue: T): WritableSignal<T> {
   return sig;
 }
 
+export function computed<T>(computation: () => T): () => T {
+  return () => computation();
+}
+
 export function input<T>(defaultValue?: T) {
   return () => defaultValue as T;
 }
