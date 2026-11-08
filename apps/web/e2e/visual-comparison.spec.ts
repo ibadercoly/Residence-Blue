@@ -167,31 +167,19 @@ test.describe('Fidélité Visuelle - Tableau de Bord Résidence Blue', () => {
     expect(fs.existsSync(mobilePath)).toBeTruthy();
   });
 
-  test('Vérification de la bascule Thème Clair / Sombre et persistance', async ({ page }) => {
+  test('Vérification du profil utilisateur et du thème clair unique (aucun mode sombre)', async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 900 });
     await page.goto('/tableau-de-bord', { waitUntil: 'networkidle' });
 
-    const toggleButton = page.getByTestId('theme-toggle');
-    await expect(toggleButton).toBeVisible();
+    const userProfile = page.getByTestId('user-profile');
+    await expect(userProfile).toBeVisible();
 
-    // Clic pour passer en mode sombre
-    await toggleButton.click();
-    await page.waitForTimeout(200);
-
+    // Règle AGENTS.md : pas de classe 'dark', pas de mode sombre
     const isDark = await page.evaluate(() => document.documentElement.classList.contains('dark'));
-    expect(isDark).toBe(true);
+    expect(isDark).toBe(false);
 
-    const storedTheme = await page.evaluate(() => localStorage.getItem('residence_blue_theme'));
-    expect(storedTheme).toBe('dark');
-
-    const darkCapturePath = path.join(compDir, 'tableau_de_bord_mode_sombre.png');
-    await page.screenshot({ path: darkCapturePath, animations: 'disabled' });
-    expect(fs.existsSync(darkCapturePath)).toBeTruthy();
-
-    // Retour en mode clair
-    await toggleButton.click();
-    await page.waitForTimeout(100);
-    const isDarkAfter = await page.evaluate(() => document.documentElement.classList.contains('dark'));
-    expect(isDarkAfter).toBe(false);
+    // Vérifier l'absence de bouton de bascule de thème sombre
+    const toggleButton = page.getByTestId('theme-toggle');
+    await expect(toggleButton).toHaveCount(0);
   });
 });

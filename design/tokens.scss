@@ -1,6 +1,6 @@
 // ==============================================================================
 // DESIGN TOKENS — RÉSIDENCE BLUE (PMS)
-// Fichier généré automatiquement à partir de l'analyse des maquettes Google Stitch
+// Fichier de référence aligné sur les configurations Tailwind des 10 code.html
 // Hôtel Boutique 12 Clés — Grand Standing, Thiès (Sénégal)
 // ==============================================================================
 
@@ -8,11 +8,11 @@
 // 1. VARIABLES SCSS (Compilation & Helpers)
 // ------------------------------------------------------------------------------
 
-// Polices de caractères
+// Polices de caractères (chargées localement)
 $font-family-serif: 'Newsreader', Georgia, 'Times New Roman', serif;
 $font-family-sans: 'Manrope', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
 
-// Couleurs fixes de référence
+// Couleurs fixes de référence (Source de vérité : code.html)
 $color-teal-deep: #00666f;
 $color-teal-container: #00818c;
 $color-teal-light: #8cf2ff;
@@ -33,7 +33,8 @@ $color-status-cleaning: #f59e0b;
 $color-status-maintenance: #64748b;
 
 // ------------------------------------------------------------------------------
-// 2. PROPRIÉTÉS PERSONNALISÉES CSS (Thème dynamique Clair / Sombre)
+// 2. PROPRIÉTÉS PERSONNALISÉES CSS (Thème Unique Clair, Barre latérale #2a3135)
+// Règle AGENTS.md : Il n'y a QU'UN SEUL thème. Aucun mode sombre.
 // ------------------------------------------------------------------------------
 
 :root {
@@ -81,7 +82,7 @@ $color-status-maintenance: #64748b;
   --font-size-currency: 1rem;             // 16px
   --line-height-currency: 1.25rem;        // 20px
 
-  // --- Palette Primaire (Teal Atlantique) ---
+  // --- Palette Primaire (Teal Atlantique / #00666f) ---
   --color-primary: #00666f;
   --color-on-primary: #ffffff;
   --color-primary-container: #00818c;
@@ -92,7 +93,7 @@ $color-status-maintenance: #64748b;
   --color-on-primary-fixed-variant: #004f56;
   --color-inverse-primary: #6fd5e2;
 
-  // --- Palette Secondaire (Or Teranga) ---
+  // --- Palette Secondaire (Or Teranga / #7e5700) ---
   --color-secondary: #7e5700;
   --color-on-secondary: #ffffff;
   --color-secondary-container: #fdbe51;
@@ -112,7 +113,7 @@ $color-status-maintenance: #64748b;
   --color-on-tertiary-fixed: #001c37;
   --color-on-tertiary-fixed-variant: #314865;
 
-  // --- Surfaces & Toile de fond (Mode Clair) ---
+  // --- Surfaces & Toile de fond (Mode Clair Unique) ---
   --color-background: #f3fafe;
   --color-on-background: #161d20;
   --color-surface: #f3fafe;
@@ -129,7 +130,7 @@ $color-status-maintenance: #64748b;
   --color-surface-variant: #dce4e7;
   --color-surface-tint: #006972;
 
-  // --- Barre latérale sombre & Inverse Surface ---
+  // --- Barre latérale sombre & Inverse Surface (#2a3135) ---
   --color-inverse-surface: #2a3135;
   --color-inverse-on-surface: #ebf2f6;
 
@@ -200,59 +201,7 @@ $color-status-maintenance: #64748b;
 }
 
 // ------------------------------------------------------------------------------
-// 3. THÈME SOMBRE (Activation via [data-theme="dark"] ou .dark)
-// ------------------------------------------------------------------------------
-
-[data-theme="dark"], .dark {
-  --color-background: #12181b;
-  --color-on-background: #ebf2f6;
-  --color-surface: #12181b;
-  --color-surface-bright: #192024;
-  --color-surface-dim: #0d1214;
-  --color-on-surface: #ebf2f6;
-  --color-on-surface-variant: #bdc9ca;
-
-  --color-surface-container-lowest: #192024;
-  --color-surface-container-low: #1e262a;
-  --color-surface-container: #242c30;
-  --color-surface-container-high: #2a3338;
-  --color-surface-container-highest: #30393f;
-  --color-surface-variant: #30393f;
-
-  --color-primary: #6fd5e2;
-  --color-on-primary: #00363b;
-  --color-primary-container: #004f56;
-  --color-on-primary-container: #8cf2ff;
-  --color-inverse-primary: #00666f;
-
-  --color-secondary: #fabc4f;
-  --color-on-secondary: #422c00;
-  --color-secondary-container: #604100;
-  --color-on-secondary-container: #ffdead;
-
-  --color-tertiary: #b0c8eb;
-  --color-on-tertiary: #16304c;
-  --color-tertiary-container: #2e4663;
-  --color-on-tertiary-container: #d2e4ff;
-
-  --color-inverse-surface: #f3fafe;
-  --color-inverse-on-surface: #161d20;
-
-  --color-outline: #879395;
-  --color-outline-variant: #3d494a;
-
-  --color-error: #ffb4ab;
-  --color-on-error: #690005;
-  --color-error-container: #93000a;
-  --color-on-error-container: #ffdad6;
-
-  --shadow-sm: 0 1px 8px 0 rgba(0, 0, 0, 0.35);
-  --shadow-md: 0 4px 16px -2px rgba(0, 0, 0, 0.45);
-  --shadow-lg: 0 12px 32px -4px rgba(0, 0, 0, 0.60);
-}
-
-// ------------------------------------------------------------------------------
-// 4. CLASSES UTILITAIRES TYPOGRAPHIQUES
+// 3. CLASSES UTILITAIRES TYPOGRAPHIQUES
 // ------------------------------------------------------------------------------
 
 .font-display-lg {

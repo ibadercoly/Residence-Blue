@@ -1,0 +1,262 @@
+﻿<!DOCTYPE html>
+
+<html lang="fr"><head><meta charset="utf-8"/><meta content="width=device-width, initial-scale=1.0" name="viewport"/><meta content="web_blank" name="shell-type"/>
+<style>@layer base{html,body{margin:0;padding:0;}body{overscroll-behavior:none;}main>:first-child{margin-top:0!important;}main>:last-child{margin-bottom:0!important;}}::-webkit-scrollbar{display:none;}</style>
+    <link rel="stylesheet" href="fonts.css" />
+    <link rel="stylesheet" href="css/connexion_r_sidence_blue_pms.css" />
+  </head><body class="bg-surface font-body-md text-body-md text-on-surface min-h-screen antialiased selection:bg-primary-container selection:text-on-primary-container"><main class="min-h-screen w-full bg-surface flex flex-col justify-center"><div class="flex flex-col w-full">
+<div class="w-full min-h-[calc(100vh-2rem)] flex flex-col lg:flex-row overflow-hidden rounded-2xl bg-surface shadow-xl">
+<!-- Left Column: Visual Showcase (55% desktop) -->
+<div class="relative w-full lg:w-[55%] min-h-[440px] lg:min-h-full flex flex-col justify-between p-6 sm:p-8 lg:p-12 overflow-hidden text-on-primary">
+<!-- Background Image with Scrim -->
+<div class="absolute inset-0 bg-cover bg-center transition-transform duration-1000 scale-105 hover:scale-100" style="background-image: url('../../images/maquettes-originales/connexion_r_sidence_blue_pms-1.jpg');">
+</div>
+<div class="absolute inset-0 bg-gradient-to-t from-on-background/95 via-on-background/40 to-on-background/60"></div>
+<div class="absolute inset-0 bg-gradient-to-r from-primary-container/20 to-transparent mix-blend-overlay"></div>
+<!-- Top Elements -->
+<div class="relative z-10 flex flex-wrap items-center justify-between gap-3">
+<div class="flex items-center gap-2">
+<div class="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-surface-container-lowest/15 backdrop-blur-md">
+<span class="w-2 h-2 rounded-full bg-secondary-fixed-dim animate-pulse"></span>
+<span class="font-label-md text-label-md tracking-wider uppercase text-surface">Thiès (Grand Standing) • Sénégal</span>
+</div>
+<div class="hidden sm:flex items-center px-3 py-1.5 rounded-full bg-surface-container-lowest/10 backdrop-blur-md">
+<span class="font-label-md text-label-md text-surface/90">12 Clés &amp; Restaurant Front de Mer</span>
+</div>
+</div>
+<!-- Live Coastal Status -->
+<div class="flex items-center gap-3 px-3 py-1.5 rounded-full bg-surface-container-lowest/15 backdrop-blur-md">
+<div class="flex items-center gap-1.5 text-surface">
+<span class="material-symbols-outlined text-[16px] text-secondary-fixed-dim">waves</span>
+<span class="font-body-sm text-body-sm">Marée haute</span>
+</div>
+<span class="w-1 h-1 rounded-full bg-surface/50"></span>
+<div class="flex items-center gap-1 text-surface font-label-md text-label-md">
+<span class="material-symbols-outlined text-[15px] text-secondary-fixed-dim">sunny</span>
+<span>28°C</span>
+</div>
+</div>
+</div>
+<!-- Bottom Content: Editorial Quote & Atlantic Tag -->
+<div class="relative z-10 mt-auto pt-16 flex flex-col gap-6">
+<div class="max-w-xl">
+<span class="inline-block px-2.5 py-1 rounded bg-secondary-container/20 text-secondary-fixed-dim font-label-md text-label-md uppercase tracking-widest mb-3 backdrop-blur-sm">
+            Petite-Côte Authentique
+          </span>
+<p class="font-display-lg-mobile lg:font-display-lg text-display-lg-mobile lg:text-display-lg italic leading-tight text-surface drop-shadow-sm font-serif">
+            « L'élégance balnéaire et l'art de recevoir la Teranga au cœur de la Petite-Côte. »
+          </p>
+<div class="flex items-center gap-3 mt-4">
+<div class="w-8 h-[2px] bg-secondary-fixed-dim"></div>
+<p class="font-title-md text-title-md text-surface/90 tracking-wide">
+              Résidence Blue, Établissement Hôtelier &amp; Spa
+            </p>
+</div>
+</div>
+<!-- Maritime Ticker / Features -->
+<div class="flex flex-wrap items-center gap-6 pt-6 bg-surface-container-lowest/5 backdrop-blur-sm px-4 py-3 rounded-xl">
+<div class="flex items-center gap-2 text-surface/85">
+<span class="material-symbols-outlined text-[18px] text-primary-fixed-dim">water_drop</span>
+<span class="font-body-sm text-body-sm">Front de Mer Atlantique</span>
+</div>
+<div class="flex items-center gap-2 text-surface/85">
+<span class="material-symbols-outlined text-[18px] text-primary-fixed-dim">restaurant</span>
+<span class="font-body-sm text-body-sm">Table Gastronomique La Teranga</span>
+</div>
+<div class="flex items-center gap-2 text-surface/85">
+<span class="material-symbols-outlined text-[18px] text-primary-fixed-dim">spa</span>
+<span class="font-body-sm text-body-sm">Espace Balnéaire &amp; Soins</span>
+</div>
+</div>
+</div>
+</div>
+<!-- Right Column: Login Card & Credentials Canvas (45% desktop) -->
+<div class="w-full lg:w-[45%] flex flex-col justify-between p-6 sm:p-10 lg:p-14 bg-surface-container-lowest">
+<!-- Top Utilities (Language + Version) -->
+<div class="flex items-center justify-between w-full pb-6">
+<div class="flex items-center gap-2">
+<button class="font-label-md text-label-md px-2.5 py-1 rounded bg-surface-container-high text-primary font-bold transition-colors" id="lang-fr" type="button">FR</button>
+<span class="text-outline-variant font-body-sm text-body-sm">/</span>
+<button class="font-label-md text-label-md px-2.5 py-1 rounded text-on-surface-variant hover:bg-surface-container transition-colors" id="lang-en" type="button">EN</button>
+</div>
+<div class="flex items-center gap-1.5 px-3 py-1 rounded-full bg-surface-container text-tertiary font-label-md text-label-md">
+<span class="w-1.5 h-1.5 rounded-full bg-primary-container"></span>
+<span>v2.4 PMS Pro</span>
+</div>
+</div>
+<!-- Main Login Section -->
+<div class="w-full max-w-md mx-auto my-auto flex flex-col">
+<!-- Brand Mark -->
+<div class="flex items-center gap-3 mb-6">
+<div class="w-11 h-11 rounded-xl bg-primary flex items-center justify-center shadow-md shadow-primary/20">
+<span class="material-symbols-outlined text-on-primary text-[24px]">tsunami</span>
+</div>
+<div class="flex flex-col">
+<h1 class="font-headline-md text-headline-md tracking-tight font-serif text-on-surface leading-tight">
+              Résidence Blue
+            </h1>
+<span class="font-label-md text-label-md uppercase tracking-widest text-primary font-semibold">
+              HÔTEL BOUTIQUE • GRAND STANDING, THIÈS
+            </span>
+</div>
+</div>
+<!-- Heading & Context -->
+<div class="mb-6">
+<h2 class="font-headline-sm text-headline-sm font-serif text-on-surface">
+            Connexion Collaborateur
+          </h2>
+<p class="font-body-md text-body-md text-on-surface-variant mt-1">
+            Portail de gestion hôtelière 12 clés &amp; restaurant La Teranga
+          </p>
+</div>
+<!-- Quick Role Demo Selector -->
+<div class="mb-6 p-3 rounded-xl bg-surface-container-low flex flex-col gap-2">
+<div class="flex items-center justify-between">
+<span class="font-label-md text-label-md text-on-surface-variant uppercase tracking-wider">
+              Profils rapides de démonstration
+            </span>
+<span class="material-symbols-outlined text-outline text-[16px]">touch_app</span>
+</div>
+<div class="grid grid-cols-1 sm:grid-cols-3 gap-1.5">
+<button class="px-2.5 py-1.5 rounded-lg text-left bg-surface-container-lowest hover:bg-primary/10 transition-colors flex flex-col text-on-surface" onclick="fillDemo('aissatou.ba@residenceblue.sn', 'Directrice d\'Exploitation')" type="button">
+<span class="font-label-md text-label-md font-bold truncate">Direction / Récept.</span>
+<span class="font-body-sm text-body-sm text-outline truncate">Aïssatou Ba</span>
+</button>
+<button class="px-2.5 py-1.5 rounded-lg text-left bg-surface-container-lowest hover:bg-primary/10 transition-colors flex flex-col text-on-surface" onclick="fillDemo('teranga.resto@residenceblue.sn', 'Maître d\'Hôtel')" type="button">
+<span class="font-label-md text-label-md font-bold truncate">Restaurant</span>
+<span class="font-body-sm text-body-sm text-outline truncate">La Teranga</span>
+</button>
+<button class="px-2.5 py-1.5 rounded-lg text-left bg-surface-container-lowest hover:bg-primary/10 transition-colors flex flex-col text-on-surface" onclick="fillDemo('technique@residenceblue.sn', 'Chef Maintenance')" type="button">
+<span class="font-label-md text-label-md font-bold truncate">Maintenance</span>
+<span class="font-body-sm text-body-sm text-outline truncate">Chambres &amp; Parc</span>
+</button>
+</div>
+</div>
+<!-- Authentication Form -->
+<form class="flex flex-col gap-4" id="pms-login-form" onsubmit="handleLogin(event)">
+<!-- Username / Email Field -->
+<div class="flex flex-col gap-1.5">
+<label class="font-label-lg text-label-lg text-on-surface flex items-center justify-between" for="user-login">
+<span>Identifiant ou Email professionnel</span>
+<span class="hidden px-2 py-0.5 rounded text-[11px] bg-secondary-fixed text-on-secondary-fixed font-semibold" id="role-pill"></span>
+</label>
+<div class="relative flex items-center">
+<span class="material-symbols-outlined absolute left-3.5 text-outline text-[20px] pointer-events-none">
+                alternate_email
+              </span>
+<input class="w-full h-12 pl-11 pr-4 rounded-lg bg-surface-container-lowest text-on-surface font-body-md text-body-md shadow-sm outline-none focus:bg-surface-container-low transition-all" id="user-login" placeholder="ex: aissatou.ba@residenceblue.sn" required="" type="text" value="aissatou.ba@residenceblue.sn"/>
+</div>
+</div>
+<!-- Password Field -->
+<div class="flex flex-col gap-1.5">
+<label class="font-label-lg text-label-lg text-on-surface" for="user-password">
+              Mot de passe confidentiel
+            </label>
+<div class="relative flex items-center">
+<span class="material-symbols-outlined absolute left-3.5 text-outline text-[20px] pointer-events-none">
+                lock
+              </span>
+<input class="w-full h-12 pl-11 pr-12 rounded-lg bg-surface-container-lowest text-on-surface font-body-md text-body-md shadow-sm outline-none focus:bg-surface-container-low transition-all" id="user-password" placeholder="••••••••••••" required="" type="password" value="ThiesTeranga2024!"/>
+<button class="absolute right-3 p-1.5 rounded text-outline hover:text-on-surface flex items-center justify-center transition-colors" id="toggle-pwd-btn" onclick="togglePasswordVisibility()" type="button">
+<span class="material-symbols-outlined text-[20px]" id="pwd-icon">visibility</span>
+</button>
+</div>
+</div>
+<!-- Options Row -->
+<div class="flex items-center justify-between pt-1">
+<label class="flex items-center gap-2 cursor-pointer select-none">
+<input checked="" class="w-4 h-4 rounded text-primary accent-primary bg-surface-container-high cursor-pointer" id="remember-me" type="checkbox"/>
+<span class="font-body-sm text-body-sm text-on-surface-variant">Se souvenir de ce poste</span>
+</label>
+<a class="font-label-md text-label-md text-primary hover:underline" href="javascript:void(0)" onclick="alert('Veuillez vous adresser au responsable informatique de Résidence Blue à Thiès pour la réinitialisation de votre badge.')">
+              Mot de passe oublié ?
+            </a>
+</div>
+<!-- Primary Submit Button -->
+<button class="mt-2 w-full h-12 rounded-lg bg-primary hover:bg-primary-container text-on-primary font-title-md text-title-md flex items-center justify-center gap-2 transition-all shadow-md shadow-primary/25 active:scale-[0.99]" id="login-btn" type="submit">
+<span id="btn-text">Se connecter au PMS</span>
+<span class="material-symbols-outlined text-[20px]">arrow_forward</span>
+</button>
+</form>
+<!-- Security Badge -->
+<div class="mt-6 flex items-center justify-center gap-2 py-2 px-3 rounded-lg bg-surface-container-low text-tertiary">
+<span class="material-symbols-outlined text-[16px] text-primary">verified_user</span>
+<span class="font-body-sm text-body-sm">
+            Chiffrement AES-256 • Conforme RGPD &amp; CDP Sénégal
+          </span>
+</div>
+</div>
+<!-- Support Footer -->
+<div class="pt-6 text-center">
+<p class="font-body-sm text-body-sm text-on-surface-variant">
+          Besoin d'assistance ? 
+          <a class="text-primary font-semibold hover:underline inline-flex items-center gap-1" href="tel:+221339570000">
+<span class="material-symbols-outlined text-[14px]">phone_in_talk</span>
+            Support informatique (+221 33 957 00 00)
+          </a>
+</p>
+</div>
+</div>
+</div>
+</div>
+<script>
+  function togglePasswordVisibility() {
+    const input = document.getElementById('user-password');
+    const icon = document.getElementById('pwd-icon');
+    if (!input || !icon) return;
+    if (input.type === 'password') {
+      input.type = 'text';
+      icon.textContent = 'visibility_off';
+    } else {
+      input.type = 'password';
+      icon.textContent = 'visibility';
+    }
+  }
+
+  function fillDemo(email, roleTitle) {
+    const emailInput = document.getElementById('user-login');
+    const pwdInput = document.getElementById('user-password');
+    const rolePill = document.getElementById('role-pill');
+    if (emailInput) emailInput.value = email;
+    if (pwdInput) pwdInput.value = 'ThiesTeranga2024!';
+    if (rolePill) {
+      rolePill.textContent = roleTitle;
+      rolePill.classList.remove('hidden');
+    }
+  }
+
+  function handleLogin(e) {
+    e.preventDefault();
+    const btn = document.getElementById('login-btn');
+    const text = document.getElementById('btn-text');
+    if (btn && text) {
+      const original = text.textContent;
+      text.textContent = 'Ouverture de session PMS...';
+      btn.classList.add('opacity-80', 'cursor-wait');
+      setTimeout(() => {
+        text.textContent = 'Session ouverte • Redirection';
+        btn.classList.remove('bg-primary');
+        btn.classList.add('bg-primary-container');
+      }, 700);
+    }
+  }
+
+  // Language toggle mini interaction
+  const langFr = document.getElementById('lang-fr');
+  const langEn = document.getElementById('lang-en');
+  if (langFr && langEn) {
+    langEn.addEventListener('click', () => {
+      langEn.classList.add('bg-surface-container-high', 'text-primary', 'font-bold');
+      langEn.classList.remove('text-on-surface-variant');
+      langFr.classList.remove('bg-surface-container-high', 'text-primary', 'font-bold');
+      langFr.classList.add('text-on-surface-variant');
+    });
+    langFr.addEventListener('click', () => {
+      langFr.classList.add('bg-surface-container-high', 'text-primary', 'font-bold');
+      langFr.classList.remove('text-on-surface-variant');
+      langEn.classList.remove('bg-surface-container-high', 'text-primary', 'font-bold');
+      langEn.classList.add('text-on-surface-variant');
+    });
+  }
+</script></main></body></html>
+

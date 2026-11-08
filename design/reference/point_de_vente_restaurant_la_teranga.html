@@ -1,0 +1,474 @@
+﻿<!DOCTYPE html><html lang="fr"><head><meta charset="utf-8"><meta content="width=device-width, initial-scale=1.0" name="viewport"><meta content="web_dashboard" name="shell-type">
+
+<style>@layer base { html, body { margin: 0; padding: 0; } body { overscroll-behavior: none; } main > :first-child { margin-top: 0 !important; } main > :last-child { margin-bottom: 0 !important; } } ::-webkit-scrollbar { display: none; }</style>
+    <link rel="stylesheet" href="fonts.css" />
+    <link rel="stylesheet" href="css/point_de_vente_restaurant_la_teranga.css" />
+  </head><body class="bg-surface text-on-surface font-body-md text-body-md antialiased selection:bg-primary selection:text-on-primary"><aside class="fixed left-0 top-0 h-full w-64 bg-inverse-surface z-50 flex flex-col justify-between shadow-[0_1px_8px_rgba(0,0,0,0.06)]"><div class="flex flex-col"><div class="h-20 flex items-center gap-space-md px-gutter"><div class="w-10 h-10 rounded-xl bg-primary flex items-center justify-center text-on-primary shadow-sm"><span class="material-symbols-outlined text-[24px]">tsunami</span></div><div class="flex flex-col justify-center min-w-0"><span class="font-headline-sm text-headline-sm text-surface-bright tracking-tight truncate leading-tight">Résidence Blue</span><span class="font-label-md text-label-md text-outline-variant uppercase tracking-wider truncate">Hôtel Boutique • Grand Standing, Thiès</span></div></div><div class="px-space-md py-space-sm"><div class="px-space-md py-space-xs mb-space-xs font-label-md text-label-md text-outline-variant uppercase tracking-wider">Exploitation 12 Clés</div><nav class="flex flex-col gap-space-xs" data-active-classes="bg-primary text-on-primary font-title-md"><a aria-current="page" class="flex items-center gap-space-md px-space-md py-space-sm rounded-lg transition-colors bg-primary text-on-primary font-title-md" data-path="tableau-de-bord" href="#"><span class="material-symbols-outlined text-[20px]">dashboard</span><span class="">Tableau de bord</span></a><a class="flex items-center gap-space-md px-space-md py-space-sm rounded-lg text-surface-container-high hover:bg-surface-variant/20 hover:text-surface-bright transition-colors font-title-md text-title-md" data-path="planning" href="#"><span class="material-symbols-outlined text-[20px]">calendar_month</span><span class="">Planning</span></a><a class="flex items-center gap-space-md px-space-md py-space-sm rounded-lg text-surface-container-high hover:bg-surface-variant/20 hover:text-surface-bright transition-colors font-title-md text-title-md" data-path="chambres" href="#"><span class="material-symbols-outlined text-[20px]">bed</span><span class="">Chambres</span></a><a class="flex items-center gap-space-md px-space-md py-space-sm rounded-lg text-surface-container-high hover:bg-surface-variant/20 hover:text-surface-bright transition-colors font-title-md text-title-md" data-path="clients" href="#"><span class="material-symbols-outlined text-[20px]">group</span><span class="">Clients</span></a><a class="flex items-center gap-space-md px-space-md py-space-sm rounded-lg text-surface-container-high hover:bg-surface-variant/20 hover:text-surface-bright transition-colors font-title-md text-title-md" data-path="restaurant" href="#"><span class="material-symbols-outlined text-[20px]">restaurant</span><span class="">Restaurant</span></a><a class="flex items-center gap-space-md px-space-md py-space-sm rounded-lg text-surface-container-high hover:bg-surface-variant/20 hover:text-surface-bright transition-colors font-title-md text-title-md" data-path="housekeeping" href="#"><span class="material-symbols-outlined text-[20px]">cleaning_services</span><span class="">Housekeeping</span></a><a class="flex items-center gap-space-md px-space-md py-space-sm rounded-lg text-surface-container-high hover:bg-surface-variant/20 hover:text-surface-bright transition-colors font-title-md text-title-md" data-path="maintenance" href="#"><span class="material-symbols-outlined text-[20px]">build</span><span class="">Maintenance</span></a><a class="flex items-center gap-space-md px-space-md py-space-sm rounded-lg text-surface-container-high hover:bg-surface-variant/20 hover:text-surface-bright transition-colors font-title-md text-title-md" data-path="facturation" href="#"><span class="material-symbols-outlined text-[20px]">receipt_long</span><span class="">Facturation</span></a><a class="flex items-center gap-space-md px-space-md py-space-sm rounded-lg text-surface-container-high hover:bg-surface-variant/20 hover:text-surface-bright transition-colors font-title-md text-title-md" data-path="rapports" href="#"><span class="material-symbols-outlined text-[20px]">analytics</span><span class="">Rapports</span></a><a class="flex items-center gap-space-md px-space-md py-space-sm rounded-lg text-surface-container-high hover:bg-surface-variant/20 hover:text-surface-bright transition-colors font-title-md text-title-md" data-path="parametres" href="#"><span class="material-symbols-outlined text-[20px]">settings</span><span class="">Paramètres</span></a></nav></div></div><div class="p-gutter"><div class="bg-surface-variant/10 rounded-xl p-space-md flex items-center justify-between"><div class="flex flex-col"><span class="font-label-md text-label-md text-surface-container-high">Front de Mer</span><span class="font-body-sm text-body-sm text-outline-variant">Marée haute • 28°C</span></div><span class="material-symbols-outlined text-primary-fixed-dim text-[20px]">wb_sunny</span></div></div></aside><div class="pl-64"><header class="fixed top-0 left-64 right-0 h-20 bg-surface/90 backdrop-blur-xl shadow-[0_1px_8px_rgba(0,0,0,0.04)] z-40 flex items-center justify-between px-margin"><div class="flex items-center gap-gutter flex-1 max-w-xl"><div class="relative w-full"><span class="material-symbols-outlined absolute left-space-md top-1/2 -translate-y-1/2 text-outline text-[20px]">search</span><input class="w-full h-11 pl-11 pr-space-md rounded-xl bg-surface-container-lowest text-on-surface placeholder:text-outline font-body-sm text-body-sm outline-none shadow-[0_2px_8px_rgba(10,37,64,0.04)] focus:ring-2 focus:ring-primary/20 transition-all" placeholder="Rechercher une réservation, client, chambre..." type="text"></div></div><div class="flex items-center gap-gutter"><a class="inline-flex items-center gap-space-sm h-11 px-gutter bg-primary hover:bg-primary-container text-on-primary rounded-xl font-label-lg text-label-lg shadow-sm transition-all" data-path="nouvelle-reservation" href="#"><span class="material-symbols-outlined text-[18px]">add</span><span class="">Nouvelle réservation</span></a><button class="relative w-11 h-11 rounded-xl bg-surface-container-lowest flex items-center justify-center text-on-surface-variant hover:text-on-surface shadow-[0_2px_8px_rgba(10,37,64,0.04)] transition-colors" type="button"><span class="material-symbols-outlined text-[22px]">notifications</span><span class="absolute top-2.5 right-2.5 w-2 h-2 rounded-full bg-secondary ring-2 ring-surface-container-lowest"></span></button><div class="h-8 w-px bg-surface-variant/60"></div><div class="flex items-center gap-space-md"><div class="w-8 h-8 rounded-full bg-primary flex items-center justify-center shadow-sm"><span class="material-symbols-outlined text-on-primary text-[18px]">person</span></div><div class="hidden xl:flex flex-col text-left"><div class="flex items-center gap-space-xs"><span class="font-label-lg text-label-lg text-on-surface leading-tight">Aïssatou Ba</span><span class="w-1.5 h-1.5 rounded-full bg-primary"></span></div><span class="font-label-md text-label-md text-on-surface-variant">Directrice Générale</span></div></div></div></header><main class="relative w-full pt-20 px-margin bg-surface"><div class="flex flex-col w-full pb-8">
+<!-- Operational Header / Status Bar -->
+<div class="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-space-md mb-space-lg">
+<div class="flex flex-col">
+<div class="flex items-center gap-space-sm mb-space-xs">
+<span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-surface-container-high text-on-surface-variant font-label-md text-label-md">
+<span class="w-2 h-2 rounded-full bg-primary-container animate-pulse"></span>
+          Service Déjeuner en cours
+        </span>
+<span class="font-label-md text-label-md text-outline">|</span>
+<span class="font-label-md text-label-md text-on-surface-variant flex items-center gap-1">
+<span class="material-symbols-outlined text-[16px] text-primary">person</span>
+          Moussa Fall (Rang Terrasse)
+        </span>
+</div>
+<div class="flex items-baseline gap-space-md">
+<h1 class="font-headline-lg text-headline-lg text-on-surface tracking-tight">Restaurant &amp; Bar La Teranga</h1>
+<span class="font-body-sm text-body-sm text-outline hidden sm:inline">12 Clés • Front de mer Thiès Grand Standing</span>
+</div>
+</div>
+<!-- Quick Quick-Stats & Quick Action Bar -->
+<div class="flex items-center gap-space-md w-full lg:w-auto overflow-x-auto pb-1 lg:pb-0">
+<div class="flex items-center gap-3 px-4 py-2.5 rounded-xl bg-surface-container-lowest shadow-sm">
+<div class="w-8 h-8 rounded-lg bg-surface-container flex items-center justify-center text-primary">
+<span class="material-symbols-outlined text-[20px]">table_bar</span>
+</div>
+<div class="flex flex-col">
+<span class="font-label-md text-label-md text-outline">Tables occupées</span>
+<span class="font-title-md text-title-md text-on-surface">5 / 8 actives</span>
+</div>
+</div>
+<div class="flex items-center gap-3 px-4 py-2.5 rounded-xl bg-surface-container-lowest shadow-sm">
+<div class="w-8 h-8 rounded-lg bg-secondary-fixed flex items-center justify-center text-secondary">
+<span class="material-symbols-outlined text-[20px]">room_service</span>
+</div>
+<div class="flex flex-col">
+<span class="font-label-md text-label-md text-outline">Envois cuisine</span>
+<span class="font-title-md text-title-md text-on-surface">3 en prép.</span>
+</div>
+</div>
+<button class="h-11 px-4 rounded-xl bg-surface-container-low hover:bg-surface-container text-on-surface flex items-center gap-2 font-label-lg text-label-lg transition-colors shadow-sm ml-auto">
+<span class="material-symbols-outlined text-[18px]">history</span>
+<span class="hidden md:inline">Clôture X</span>
+</button>
+</div>
+</div>
+<!-- Main POS Grid (Catalog 65% + Ticket Panel 35%) -->
+<div class="grid grid-cols-1 xl:grid-cols-12 gap-gutter items-start">
+<!-- LEFT ZONE: Touch Menu Catalog (xl:col-span-8) -->
+<div class="xl:col-span-8 flex flex-col gap-space-md">
+<!-- Search & Filters Container -->
+<div class="bg-surface-container-lowest p-space-md rounded-2xl shadow-sm flex flex-col gap-space-md">
+<div class="flex flex-col md:flex-row gap-space-md items-center justify-between">
+<div class="relative w-full md:w-96">
+<span class="material-symbols-outlined absolute left-3.5 top-1/2 -translate-y-1/2 text-outline text-[20px]">search</span>
+<input class="w-full h-12 pl-11 pr-4 rounded-xl bg-surface-container-low text-on-surface placeholder:text-outline font-body-md text-body-md focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all" placeholder="Rechercher un plat, poisson du jour, cocktail..." type="text">
+</div>
+<!-- Secondary tags -->
+<div class="flex items-center gap-2 w-full md:w-auto overflow-x-auto py-1">
+<button class="px-3.5 py-1.5 rounded-full bg-primary-fixed text-on-primary-fixed font-label-md text-label-md flex items-center gap-1.5 whitespace-nowrap shadow-xs">
+<span class="material-symbols-outlined text-[16px]">stars</span>
+              Spécialités locales
+            </button>
+<button class="px-3.5 py-1.5 rounded-full bg-surface-container-low hover:bg-surface-container text-on-surface-variant font-label-md text-label-md whitespace-nowrap transition-colors">
+              Pêche du jour Saly
+            </button>
+<button class="px-3.5 py-1.5 rounded-full bg-surface-container-low hover:bg-surface-container text-on-surface-variant font-label-md text-label-md whitespace-nowrap transition-colors">
+              Végétarien
+            </button>
+</div>
+</div>
+<!-- Touch Category Tabs -->
+<div class="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
+<button class="h-12 px-5 rounded-xl bg-primary text-on-primary flex items-center gap-2 font-title-md text-title-md whitespace-nowrap shadow-sm transition-transform active:scale-95">
+<span class="material-symbols-outlined text-[20px]">dinner_dining</span>
+<span class="">Plats sénégalais &amp; Mer</span>
+<span class="w-5 h-5 rounded-full bg-on-primary/20 text-on-primary text-[11px] flex items-center justify-center font-bold">8</span>
+</button>
+<button class="h-12 px-5 rounded-xl bg-surface-container-low hover:bg-surface-container text-on-surface flex items-center gap-2 font-title-md text-title-md whitespace-nowrap transition-colors active:scale-95">
+<span class="material-symbols-outlined text-[20px]">local_bar</span>
+<span class="">Boissons &amp; Cocktails</span>
+<span class="w-5 h-5 rounded-full bg-surface-variant text-on-surface-variant text-[11px] flex items-center justify-center font-bold">14</span>
+</button>
+<button class="h-12 px-5 rounded-xl bg-surface-container-low hover:bg-surface-container text-on-surface flex items-center gap-2 font-title-md text-title-md whitespace-nowrap transition-colors active:scale-95">
+<span class="material-symbols-outlined text-[20px]">icecream</span>
+<span class="">Desserts Teranga</span>
+</button>
+<button class="h-12 px-5 rounded-xl bg-surface-container-low hover:bg-surface-container text-on-surface flex items-center gap-2 font-title-md text-title-md whitespace-nowrap transition-colors active:scale-95">
+<span class="material-symbols-outlined text-[20px]">bakery_dining</span>
+<span class="">Petit-déjeuner</span>
+</button>
+<button class="h-12 px-5 rounded-xl bg-surface-container-low hover:bg-surface-container text-on-surface flex items-center gap-2 font-title-md text-title-md whitespace-nowrap transition-colors active:scale-95">
+<span class="material-symbols-outlined text-[20px]">tapas</span>
+<span class="">Entrées &amp; Tapas</span>
+</button>
+</div>
+</div>
+<!-- Dish Cards Grid -->
+<div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-2 2xl:grid-cols-4 gap-gutter">
+<!-- Dish Card 1 -->
+<div class="group bg-surface-container-lowest rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-all flex flex-col justify-between cursor-pointer active:scale-[0.99]">
+<div class="relative h-44 w-full overflow-hidden bg-surface-container">
+<img class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" data-alt="Authentic Senegalese Thieboudienne fish and rice dish served in a handcrafted clay bowl on a seaside teak table, with red spiced broken rice, braised white grouper, simmered carrots, cassava, and green chili pepper, warm Atlantic sun lighting." src="../../images/maquettes-originales/point_de_vente_restaurant_la_teranga-1.jpg">
+<span class="absolute top-3 left-3 px-2.5 py-1 rounded-full bg-secondary-fixed text-on-secondary-fixed font-label-md text-label-md shadow-xs">
+              Spécialité locale
+            </span>
+</div>
+<div class="p-4 flex flex-col flex-1 justify-between gap-3">
+<div>
+<div class="flex items-start justify-between gap-2">
+<h2 class="font-headline-sm text-headline-sm text-on-surface leading-snug">Thiéboudienne Royale</h2>
+</div>
+<p class="font-body-sm text-body-sm text-on-surface-variant line-clamp-2 mt-1">
+                Riz rouge traditionnel Penda Mbaye, mérou blanc frais de Saly, légumes mijotés, gueye &amp; tamarin.
+              </p>
+</div>
+<div class="flex items-center justify-between pt-2">
+<span class="font-label-currency text-label-currency text-primary">4 500 FCFA</span>
+<button class="w-10 h-10 rounded-xl bg-primary text-on-primary hover:bg-primary-container flex items-center justify-center shadow-xs transition-transform active:scale-90">
+<span class="material-symbols-outlined text-[22px]">add</span>
+</button>
+</div>
+</div>
+</div>
+<!-- Dish Card 2 -->
+<div class="group bg-surface-container-lowest rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-all flex flex-col justify-between cursor-pointer active:scale-[0.99]">
+<div class="relative h-44 w-full overflow-hidden bg-surface-container">
+<img class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" data-alt="Senegalese Chicken Yassa dish with grilled tender chicken thighs coated in rich caramelized onion compote, Casamance lime, Dijon mustard, served alongside steaming fragrant white jasmine rice on a luxury ceramic plate." src="../../images/maquettes-originales/point_de_vente_restaurant_la_teranga-2.jpg">
+<span class="absolute top-3 left-3 px-2.5 py-1 rounded-full bg-surface-container-highest text-on-surface font-label-md text-label-md shadow-xs">
+              Populaire
+            </span>
+</div>
+<div class="p-4 flex flex-col flex-1 justify-between gap-3">
+<div>
+<h2 class="font-headline-sm text-headline-sm text-on-surface leading-snug">Yassa Poulet Fermier</h2>
+<p class="font-body-sm text-body-sm text-on-surface-variant line-clamp-2 mt-1">
+                Poulet fermier mariné au citron vert de Casamance, oignons doux caramélisés et riz blanc parfumé.
+              </p>
+</div>
+<div class="flex items-center justify-between pt-2">
+<span class="font-label-currency text-label-currency text-primary">4 000 FCFA</span>
+<button class="w-10 h-10 rounded-xl bg-primary text-on-primary hover:bg-primary-container flex items-center justify-center shadow-xs transition-transform active:scale-90">
+<span class="material-symbols-outlined text-[22px]">add</span>
+</button>
+</div>
+</div>
+</div>
+<!-- Dish Card 3 -->
+<div class="group bg-surface-container-lowest rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-all flex flex-col justify-between cursor-pointer active:scale-[0.99]">
+<div class="relative h-44 w-full overflow-hidden bg-surface-container">
+<img class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" data-alt="Whole fresh Thiof white grouper fish grilled over wood fire with charred herbs, served with golden fried plantains aloco, steamed attieke cassava couscous, and spicy braised tomato relish, luxury oceanfront plating." src="../../images/maquettes-originales/point_de_vente_restaurant_la_teranga-3.jpg">
+<span class="absolute top-3 left-3 px-2.5 py-1 rounded-full bg-primary-fixed text-on-primary-fixed font-label-md text-label-md shadow-xs">
+              Pêche du jour Saly
+            </span>
+</div>
+<div class="p-4 flex flex-col flex-1 justify-between gap-3">
+<div>
+<h2 class="font-headline-sm text-headline-sm text-on-surface leading-snug">Poisson Grillé du Jour</h2>
+<p class="font-body-sm text-body-sm text-on-surface-variant line-clamp-2 mt-1">
+                Thiof ou Capitaine au feu de bois, sauce braisée pimentée douce, accompagnement aloco &amp; attiéké.
+              </p>
+</div>
+<div class="flex items-center justify-between pt-2">
+<span class="font-label-currency text-label-currency text-primary">6 000 FCFA</span>
+<button class="w-10 h-10 rounded-xl bg-primary text-on-primary hover:bg-primary-container flex items-center justify-center shadow-xs transition-transform active:scale-90">
+<span class="material-symbols-outlined text-[22px]">add</span>
+</button>
+</div>
+</div>
+</div>
+<!-- Dish Card 4 -->
+<div class="group bg-surface-container-lowest rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-all flex flex-col justify-between cursor-pointer active:scale-[0.99]">
+<div class="relative h-44 w-full overflow-hidden bg-surface-container">
+<img class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" data-alt="Deep ruby cold Bissap hibiscus iced tea in a tall crystal condensation glass garnished with fresh garden mint leaves and a delicate vanilla bean, warm tropical ambient sunset background." src="../../images/maquettes-originales/point_de_vente_restaurant_la_teranga-4.jpg">
+<span class="absolute top-3 left-3 px-2.5 py-1 rounded-full bg-surface-container-low text-on-surface-variant font-label-md text-label-md shadow-xs">
+              Boisson fraîche
+            </span>
+</div>
+<div class="p-4 flex flex-col flex-1 justify-between gap-3">
+<div>
+<h2 class="font-headline-sm text-headline-sm text-on-surface leading-snug">Jus de Bissap Maison</h2>
+<p class="font-body-sm text-body-sm text-on-surface-variant line-clamp-2 mt-1">
+                Infusion fraîche de fleurs d'hibiscus bio, menthe du jardin côtier et subtile pointe de vanille bourbon.
+              </p>
+</div>
+<div class="flex items-center justify-between pt-2">
+<span class="font-label-currency text-label-currency text-primary">1 500 FCFA</span>
+<button class="w-10 h-10 rounded-xl bg-primary text-on-primary hover:bg-primary-container flex items-center justify-center shadow-xs transition-transform active:scale-90">
+<span class="material-symbols-outlined text-[22px]">add</span>
+</button>
+</div>
+</div>
+</div>
+<!-- Dish Card 5 -->
+<div class="group bg-surface-container-lowest rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-all flex flex-col justify-between cursor-pointer active:scale-[0.99]">
+<div class="relative h-44 w-full overflow-hidden bg-surface-container">
+<img class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" data-alt="Rich traditional Senegalese Mafe beef stew simmered in creamy peanut butter sauce with root vegetables and pumpkin, served with fluffy broken rice in a modern stoneware dish." src="../../images/maquettes-originales/point_de_vente_restaurant_la_teranga-5.jpg">
+</div>
+<div class="p-4 flex flex-col flex-1 justify-between gap-3">
+<div>
+<h2 class="font-headline-sm text-headline-sm text-on-surface leading-snug">Mafé de Bœuf Fondant</h2>
+<p class="font-body-sm text-body-sm text-on-surface-variant line-clamp-2 mt-1">
+                Sauce pâte d'arachide dakaroise onctueuse, mijoté de bœuf tendre, légumes du potager et riz brisé.
+              </p>
+</div>
+<div class="flex items-center justify-between pt-2">
+<span class="font-label-currency text-label-currency text-primary">4 500 FCFA</span>
+<button class="w-10 h-10 rounded-xl bg-primary text-on-primary hover:bg-primary-container flex items-center justify-center shadow-xs transition-transform active:scale-90">
+<span class="material-symbols-outlined text-[22px]">add</span>
+</button>
+</div>
+</div>
+</div>
+<!-- Dish Card 6 -->
+<div class="group bg-surface-container-lowest rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-all flex flex-col justify-between cursor-pointer active:scale-[0.99]">
+<div class="relative h-44 w-full overflow-hidden bg-surface-container">
+<img class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" data-alt="Exotic tropical cocktail Saloum Sunset in an elegant coupe glass, vibrant golden yellow and orange gradient with baobab fruit bouye nectar, aged rum, fresh mango slice and lemongrass stalk, golden hour sun flare." src="../../images/maquettes-originales/point_de_vente_restaurant_la_teranga-6.jpg">
+<span class="absolute top-3 left-3 px-2.5 py-1 rounded-full bg-secondary-fixed text-on-secondary-fixed font-label-md text-label-md shadow-xs">
+              Signature Bar
+            </span>
+</div>
+<div class="p-4 flex flex-col flex-1 justify-between gap-3">
+<div>
+<h2 class="font-headline-sm text-headline-sm text-on-surface leading-snug">Cocktail Saloum Sunset</h2>
+<p class="font-body-sm text-body-sm text-on-surface-variant line-clamp-2 mt-1">
+                Rhum ambré, purée de mangue fraîche, nectar de bouye (pain de singe) et infusion de citronnelle.
+              </p>
+</div>
+<div class="flex items-center justify-between pt-2">
+<span class="font-label-currency text-label-currency text-primary">3 500 FCFA</span>
+<button class="w-10 h-10 rounded-xl bg-primary text-on-primary hover:bg-primary-container flex items-center justify-center shadow-xs transition-transform active:scale-90">
+<span class="material-symbols-outlined text-[22px]">add</span>
+</button>
+</div>
+</div>
+</div>
+<!-- Dish Card 7 -->
+<div class="group bg-surface-container-lowest rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-all flex flex-col justify-between cursor-pointer active:scale-[0.99]">
+<div class="relative h-44 w-full overflow-hidden bg-surface-container">
+<img class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" data-alt="Platter of plump Somone estuary prawns sauteed in garlic parsley butter, served with crisp sweet potato fries and lime wedges, artisanal terracotta dish, bright daylight." src="../../images/maquettes-originales/point_de_vente_restaurant_la_teranga-7.jpg">
+</div>
+<div class="p-4 flex flex-col flex-1 justify-between gap-3">
+<div>
+<h2 class="font-headline-sm text-headline-sm text-on-surface leading-snug">Crevettes Sautées à l'Ail</h2>
+<p class="font-body-sm text-body-sm text-on-surface-variant line-clamp-2 mt-1">
+                Gambas de Somone sautées persillade minute, frites croustillantes de patate douce et mayonnaise pimentée.
+              </p>
+</div>
+<div class="flex items-center justify-between pt-2">
+<span class="font-label-currency text-label-currency text-primary">6 500 FCFA</span>
+<button class="w-10 h-10 rounded-xl bg-primary text-on-primary hover:bg-primary-container flex items-center justify-center shadow-xs transition-transform active:scale-90">
+<span class="material-symbols-outlined text-[22px]">add</span>
+</button>
+</div>
+</div>
+</div>
+<!-- Dish Card 8 -->
+<div class="group bg-surface-container-lowest rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-all flex flex-col justify-between cursor-pointer active:scale-[0.99]">
+<div class="relative h-44 w-full overflow-hidden bg-surface-container">
+<img class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" data-alt="Gourmet Senegalese Thiakry dessert with sweet millet couscous layered in velvety spiced yogurt, roasted mango chunks, grated nutmeg, and orange blossom honey in a glass dessert cup." src="../../images/maquettes-originales/point_de_vente_restaurant_la_teranga-8.jpg">
+</div>
+<div class="p-4 flex flex-col flex-1 justify-between gap-3">
+<div>
+<h2 class="font-headline-sm text-headline-sm text-on-surface leading-snug">Thiakry &amp; Mangue Rôtie</h2>
+<p class="font-body-sm text-body-sm text-on-surface-variant line-clamp-2 mt-1">
+                Couscous de mil fin au yaourt onctueux parfumé à la muscade, fleur d'oranger et mangues caramélisées.
+              </p>
+</div>
+<div class="flex items-center justify-between pt-2">
+<span class="font-label-currency text-label-currency text-primary">2 500 FCFA</span>
+<button class="w-10 h-10 rounded-xl bg-primary text-on-primary hover:bg-primary-container flex items-center justify-center shadow-xs transition-transform active:scale-90">
+<span class="material-symbols-outlined text-[22px]">add</span>
+</button>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- RIGHT ZONE: Ticket de Commande Panel (xl:col-span-4) -->
+<div class="xl:col-span-4 flex flex-col">
+<div class="bg-surface-container-lowest rounded-2xl shadow-md p-space-md flex flex-col gap-space-md sticky top-24">
+<!-- Ticket Header -->
+<div class="flex items-center justify-between pb-space-sm bg-surface-container-low/50 -m-space-md p-space-md rounded-t-2xl">
+<div class="flex flex-col">
+<div class="flex items-center gap-2">
+<span class="font-title-lg text-title-lg text-on-surface">Ticket Actuel</span>
+<span class="px-2 py-0.5 rounded bg-surface-container-highest font-mono text-[11px] text-on-surface-variant font-bold">#CMD-0428</span>
+</div>
+<span class="font-label-md text-label-md text-outline">Serveur : Moussa F. • 13:24</span>
+</div>
+<button class="w-9 h-9 rounded-xl bg-surface-container-lowest hover:bg-error-container text-outline hover:text-error flex items-center justify-center transition-colors" title="Effacer tout">
+<span class="material-symbols-outlined text-[20px]">delete_sweep</span>
+</button>
+</div>
+<!-- Destination Selector (Table vs Chambre Toggle) -->
+<div class="flex flex-col gap-space-sm pt-2">
+<div class="grid grid-cols-2 p-1 bg-surface-container-low rounded-xl">
+<button class="h-10 rounded-lg bg-surface-container-lowest text-primary font-title-md text-title-md flex items-center justify-center gap-1.5 shadow-xs transition-all">
+<span class="material-symbols-outlined text-[18px]">table_bar</span>
+<span class="">Table</span>
+</button>
+<button class="h-10 rounded-lg text-on-surface-variant hover:text-on-surface font-title-md text-title-md flex items-center justify-center gap-1.5 transition-all">
+<span class="material-symbols-outlined text-[18px]">bed</span>
+<span class="">Chambre</span>
+</button>
+</div>
+<!-- Quick Table Selector Chips -->
+<div class="flex flex-col gap-1.5">
+<span class="font-label-md text-label-md text-outline">Emplacement sélectionné :</span>
+<div class="grid grid-cols-4 gap-1.5">
+<button class="h-9 rounded-lg bg-surface-container-low text-on-surface font-label-lg text-label-lg hover:bg-surface-variant transition-colors">T1</button>
+<button class="h-9 rounded-lg bg-surface-container-low text-on-surface font-label-lg text-label-lg hover:bg-surface-variant transition-colors">T2</button>
+<button class="h-9 rounded-lg bg-surface-container-low text-on-surface font-label-lg text-label-lg hover:bg-surface-variant transition-colors">T3</button>
+<button class="h-9 rounded-lg bg-primary text-on-primary font-label-lg text-label-lg shadow-xs">T4 (Piscine)</button>
+<button class="h-9 rounded-lg bg-surface-container-low text-on-surface font-label-lg text-label-lg hover:bg-surface-variant transition-colors">T5</button>
+<button class="h-9 rounded-lg bg-surface-container-low text-on-surface font-label-lg text-label-lg hover:bg-surface-variant transition-colors">T6</button>
+<button class="h-9 rounded-lg bg-surface-container-low text-on-surface font-label-lg text-label-lg hover:bg-surface-variant transition-colors">Bar</button>
+<button class="h-9 rounded-lg bg-surface-container-low text-on-surface font-label-lg text-label-lg hover:bg-surface-variant transition-colors">Transat</button>
+</div>
+</div>
+<!-- Folio Client Preview Card (Linked to Room) -->
+<div class="flex items-center justify-between p-2.5 rounded-xl bg-secondary-fixed/30 text-on-surface">
+<div class="flex items-center gap-2.5">
+<div class="w-8 h-8 rounded-lg bg-secondary text-on-secondary flex items-center justify-center font-bold text-xs">
+                301
+              </div>
+<div class="flex flex-col leading-tight">
+<div class="flex items-center gap-1.5">
+<span class="font-title-md text-title-md text-on-surface">M. Mamadou Diop</span>
+<span class="px-1.5 py-0.2 rounded bg-secondary text-on-secondary font-label-md text-[10px] uppercase font-bold">VIP Gold</span>
+</div>
+<span class="font-body-sm text-body-sm text-outline">Chambre 301 - Suite Océan Panoramique</span>
+</div>
+</div>
+<button class="text-primary hover:text-primary-container p-1" title="Modifier le client">
+<span class="material-symbols-outlined text-[18px]">swap_horiz</span>
+</button>
+</div>
+</div>
+<!-- Ordered Items List (Scrollable touch list) -->
+<div class="flex flex-col gap-2.5 max-h-72 overflow-y-auto pr-1">
+<!-- Item 1 -->
+<div class="p-2.5 rounded-xl bg-surface-container-low/70 hover:bg-surface-container-low flex flex-col gap-1.5 transition-colors">
+<div class="flex items-start justify-between">
+<div class="flex flex-col">
+<span class="font-title-md text-title-md text-on-surface">Thiéboudienne Royale</span>
+<span class="font-label-md text-label-md text-outline">4 500 FCFA • <span class="italic text-primary">Note: Piment bien à part</span></span>
+</div>
+<span class="font-label-currency text-label-currency text-on-surface">4 500 FCFA</span>
+</div>
+<div class="flex items-center justify-between pt-1">
+<div class="flex items-center gap-2">
+<button class="w-7 h-7 rounded-lg bg-surface-container-highest hover:bg-surface-variant text-on-surface flex items-center justify-center active:scale-90 font-bold">-</button>
+<span class="font-title-md text-title-md text-on-surface w-4 text-center">1</span>
+<button class="w-7 h-7 rounded-lg bg-surface-container-highest hover:bg-surface-variant text-on-surface flex items-center justify-center active:scale-90 font-bold">+</button>
+</div>
+<button class="text-outline hover:text-error transition-colors p-1">
+<span class="material-symbols-outlined text-[18px]">delete</span>
+</button>
+</div>
+</div>
+<!-- Item 2 -->
+<div class="p-2.5 rounded-xl bg-surface-container-low/70 hover:bg-surface-container-low flex flex-col gap-1.5 transition-colors">
+<div class="flex items-start justify-between">
+<div class="flex flex-col">
+<span class="font-title-md text-title-md text-on-surface">Poisson Grillé (Thiof)</span>
+<span class="font-label-md text-label-md text-outline">6 000 FCFA • <span class="italic text-primary">Accompagnement Aloco</span></span>
+</div>
+<span class="font-label-currency text-label-currency text-on-surface">6 000 FCFA</span>
+</div>
+<div class="flex items-center justify-between pt-1">
+<div class="flex items-center gap-2">
+<button class="w-7 h-7 rounded-lg bg-surface-container-highest hover:bg-surface-variant text-on-surface flex items-center justify-center active:scale-90 font-bold">-</button>
+<span class="font-title-md text-title-md text-on-surface w-4 text-center">1</span>
+<button class="w-7 h-7 rounded-lg bg-surface-container-highest hover:bg-surface-variant text-on-surface flex items-center justify-center active:scale-90 font-bold">+</button>
+</div>
+<button class="text-outline hover:text-error transition-colors p-1">
+<span class="material-symbols-outlined text-[18px]">delete</span>
+</button>
+</div>
+</div>
+<!-- Item 3 -->
+<div class="p-2.5 rounded-xl bg-surface-container-low/70 hover:bg-surface-container-low flex flex-col gap-1.5 transition-colors">
+<div class="flex items-start justify-between">
+<div class="flex flex-col">
+<span class="font-title-md text-title-md text-on-surface">Jus de Bissap Maison</span>
+<span class="font-label-md text-label-md text-outline">2 × 1 500 FCFA</span>
+</div>
+<span class="font-label-currency text-label-currency text-on-surface">3 000 FCFA</span>
+</div>
+<div class="flex items-center justify-between pt-1">
+<div class="flex items-center gap-2">
+<button class="w-7 h-7 rounded-lg bg-surface-container-highest hover:bg-surface-variant text-on-surface flex items-center justify-center active:scale-90 font-bold">-</button>
+<span class="font-title-md text-title-md text-on-surface w-4 text-center">2</span>
+<button class="w-7 h-7 rounded-lg bg-surface-container-highest hover:bg-surface-variant text-on-surface flex items-center justify-center active:scale-90 font-bold">+</button>
+</div>
+<button class="text-outline hover:text-error transition-colors p-1">
+<span class="material-symbols-outlined text-[18px]">delete</span>
+</button>
+</div>
+</div>
+<!-- Item 4 -->
+<div class="p-2.5 rounded-xl bg-surface-container-low/70 hover:bg-surface-container-low flex flex-col gap-1.5 transition-colors">
+<div class="flex items-start justify-between">
+<div class="flex flex-col">
+<span class="font-title-md text-title-md text-on-surface">Café Touba épicé</span>
+<span class="font-label-md text-label-md text-outline">1 000 FCFA</span>
+</div>
+<span class="font-label-currency text-label-currency text-on-surface">1 000 FCFA</span>
+</div>
+<div class="flex items-center justify-between pt-1">
+<div class="flex items-center gap-2">
+<button class="w-7 h-7 rounded-lg bg-surface-container-highest hover:bg-surface-variant text-on-surface flex items-center justify-center active:scale-90 font-bold">-</button>
+<span class="font-title-md text-title-md text-on-surface w-4 text-center">1</span>
+<button class="w-7 h-7 rounded-lg bg-surface-container-highest hover:bg-surface-variant text-on-surface flex items-center justify-center active:scale-90 font-bold">+</button>
+</div>
+<button class="text-outline hover:text-error transition-colors p-1">
+<span class="material-symbols-outlined text-[18px]">delete</span>
+</button>
+</div>
+</div>
+</div>
+<!-- Financial Breakdown -->
+<div class="pt-2 flex flex-col gap-1.5 bg-surface-container-low/40 p-3 rounded-xl">
+<div class="flex justify-between font-body-sm text-body-sm text-outline">
+<span class="">Sous-total (4 articles)</span>
+<span class="">14 500 FCFA</span>
+</div>
+<div class="flex justify-between font-body-sm text-body-sm text-outline">
+<span class="">TVA &amp; Service inclus (10%)</span>
+<span class="">1 318 FCFA</span>
+</div>
+<div class="flex justify-between items-baseline pt-2">
+<span class="font-title-lg text-title-lg text-on-surface">Total à régler</span>
+<span class="font-display-lg-mobile text-display-lg-mobile text-primary font-bold">14 500 FCFA</span>
+</div>
+</div>
+<!-- Touch-Friendly CTAs -->
+<div class="flex flex-col gap-2 pt-1">
+<!-- Button 1: Send to Kitchen -->
+<button class="w-full h-12 rounded-xl bg-inverse-surface hover:bg-on-surface text-surface-bright flex items-center justify-center gap-2 font-title-md text-title-md shadow-sm transition-transform active:scale-[0.98]">
+<span class="material-symbols-outlined text-[20px]">skillet</span>
+<span class="">Envoyer en cuisine (KDS)</span>
+</button>
+<!-- Button 2: Charge to Room / Folio -->
+<button class="w-full h-12 rounded-xl bg-primary hover:bg-primary-container text-on-primary flex items-center justify-center gap-2 font-title-md text-title-md shadow-md transition-transform active:scale-[0.98]">
+<span class="material-symbols-outlined text-[20px]">key</span>
+<span class="">Facturer à la Chambre 301</span>
+</button>
+<!-- Button 3: Direct Payment (Split/Wave/Cash) -->
+<div class="grid grid-cols-2 gap-2">
+<button class="h-11 rounded-xl bg-surface-container hover:bg-surface-variant text-on-surface font-label-lg text-label-lg flex items-center justify-center gap-1.5 transition-colors">
+<span class="material-symbols-outlined text-[18px]">smartphone</span>
+<span class="">Wave / Orange M.</span>
+</button>
+<button class="h-11 rounded-xl bg-surface-container hover:bg-surface-variant text-on-surface font-label-lg text-label-lg flex items-center justify-center gap-1.5 transition-colors">
+<span class="material-symbols-outlined text-[18px]">credit_card</span>
+<span class="">CB / Espèces</span>
+</button>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div></main></div>
+
+</body></html>
+
+
