@@ -9,9 +9,17 @@ describe('Base de données sécurisée (feature/base-securisee) — Intégration
   const dbPort = process.env.TEST_DB_PORT || '5432';
   const dbName = process.env.TEST_DB_NAME || 'residence_blue_db';
 
-  const ownerUrl = `postgresql://app_owner:app_owner_scram_secret@${dbHost}:${dbPort}/${dbName}?schema=public`;
-  const appUserUrl = `postgresql://app_user:app_user_scram_secret@${dbHost}:${dbPort}/${dbName}?schema=public`;
-  const readonlyUrl = `postgresql://app_readonly:app_readonly_scram_secret@${dbHost}:${dbPort}/${dbName}?schema=public`;
+  // Mots de passe de test fournis par l'environnement (voir test/setup-env.ts et la CI)
+  const ownerPassword = process.env.TEST_APP_OWNER_PASSWORD as string;
+  const userPassword = process.env.TEST_APP_USER_PASSWORD as string;
+  const readonlyPassword = process.env.TEST_APP_READONLY_PASSWORD as string;
+
+  const buildUrl = (role: string, password: string) =>
+    `postgresql://${role}:${encodeURIComponent(password)}@${dbHost}:${dbPort}/${dbName}?schema=public`;
+
+  const ownerUrl = buildUrl('app_owner', ownerPassword);
+  const appUserUrl = buildUrl('app_user', userPassword);
+  const readonlyUrl = buildUrl('app_readonly', readonlyPassword);
 
   let ownerClient: PrismaClient;
   let appUserClient: PrismaClient;
@@ -52,7 +60,7 @@ describe('Base de données sécurisée (feature/base-securisee) — Intégration
       expect(tableNames).toEqual(['audit_log', 'refresh_tokens', 'sync_operations', 'users']);
     });
 
-    it('doit vérifier que les 3 rôles PostgreSQL utilisent scram-sha-256 et que app_user n’est pas superuser', async () => {
+    it('doit vérifier que les 3 rôles PostgreSQL ne sont ni superuser ni créateurs de bases ou de rôles', async () => {
       const roles = await ownerClient.$queryRaw<
         Array<{ rolname: string; rolsuper: boolean; rolcreatedb: boolean; rolcreaterole: boolean }>
       >`
@@ -67,6 +75,13 @@ describe('Base de données sécurisée (feature/base-securisee) — Intégration
         { rolname: 'app_readonly', rolsuper: false, rolcreatedb: false, rolcreaterole: false },
         { rolname: 'app_user', rolsuper: false, rolcreatedb: false, rolcreaterole: false },
       ]);
+    });
+
+    it('doit hacher les mots de passe en scram-sha-256', async () => {
+      const [setting] = await ownerClient.$queryRaw<Array<{ password_encryption: string }>>`
+        SHOW password_encryption
+      `;
+      expect(setting.password_encryption).toBe('scram-sha-256');
     });
   });
 
@@ -161,6 +176,10 @@ describe('Base de données sécurisée (feature/base-securisee) — Intégration
       ).rejects.toThrow();
 
       await expect(
+        readonlyClient.$executeRawUnsafe(`UPDATE "users" SET "is_active" = false;`),
+      ).rejects.toThrow();
+
+      await expect(
         readonlyClient.$executeRawUnsafe(`DELETE FROM "users";`),
       ).rejects.toThrow();
     });
@@ -169,14 +188,11 @@ describe('Base de données sécurisée (feature/base-securisee) — Intégration
   describe('5. Porte de sécurité : mauvais mot de passe et injection SQL', () => {
     it('doit rejeter toute connexion avec un mauvais mot de passe (authentification scram-sha-256)', async () => {
       const badClient = new PrismaClient({
-        datasources: {
-          db: {
-            url: `postgresql://app_user:mauvais_mot_de_passe_test@${dbHost}:${dbPort}/${dbName}?schema=public`,
-          },
-        },
+        datasources: { db: { url: buildUrl('app_user', 'mauvais_mot_de_passe_test') } },
       });
 
-      await expect(badClient.$connect()).rejects.toThrow();
+      await expect(badClient.$connect()).rejects.toThrow(/authentication failed/i);
+      await badClient.$disconnect();
     });
 
     it('doit neutraliser une tentative d’injection SQL dans un champ texte grâce au paramétrage Prisma', async () => {
@@ -205,7 +221,7 @@ describe('Base de données sécurisée (feature/base-securisee) — Intégration
   });
 
   describe('6. Sauvegarde chiffrée (scripts/backup.sh) et restauration complète (scripts/restore.sh)', () => {
-    it('doit exécuter une sauvegarde chiffrée GPG, puis restaurer intégralement les données après perte', async () => {
+    it('doit exécuter une sauvegarde chiffrée GPG avec app_owner, puis restaurer intégralement les données et les droits', async () => {
       const markerEmail = `restore-test-${Date.now()}@residence-blue.sn`;
 
       // 1. Créer un utilisateur témoin avant la sauvegarde
@@ -218,72 +234,86 @@ describe('Base de données sécurisée (feature/base-securisee) — Intégration
       });
       expect(createdUser.id).toBeDefined();
 
-      // 2. Exécuter scripts/backup.sh avec Git Bash + GPG
+      // 2. Exécuter scripts/backup.sh (sh + gpg ; sous Windows : outils de Git for Windows)
       const repoRoot = path.resolve(process.cwd(), '../..');
       const backupShPath = path.join(repoRoot, 'scripts', 'backup.sh').replace(/\\/g, '/');
       const restoreShPath = path.join(repoRoot, 'scripts', 'restore.sh').replace(/\\/g, '/');
-      const tmpBackupDir = fs.mkdtempSync(path.join(os.tmpdir(), 'rb-backups-')).replace(/\\/g, '/');
+      const tmpBackupDir = fs
+        .mkdtempSync(path.join(os.tmpdir(), 'rb-backups-'))
+        .replace(/\\/g, '/');
 
+      const isWindows = process.platform === 'win32';
       const gitUsrBin = 'C:\\Program Files\\Git\\usr\\bin';
-      const shBin = fs.existsSync(path.join(gitUsrBin, 'sh.exe'))
-        ? `"${path.join(gitUsrBin, 'sh.exe')}"`
-        : 'sh';
+      const shBin =
+        isWindows && fs.existsSync(path.join(gitUsrBin, 'sh.exe'))
+          ? `"${path.join(gitUsrBin, 'sh.exe')}"`
+          : 'sh';
 
-      const envWithGit = {
+      const scriptEnv: NodeJS.ProcessEnv = {
         ...process.env,
-        PATH: `${gitUsrBin};${process.env.PATH || ''}`,
-        PG_CONTAINER: 'residence_blue_postgres',
-        PGUSER: 'blue_user',
-        PGPASSWORD: 'blue_password',
-        PGDATABASE: 'residence_blue_db',
+        PATH: isWindows
+          ? `${gitUsrBin};${process.env.PATH || ''}`
+          : process.env.PATH,
+        PGHOST: dbHost,
+        PGPORT: dbPort,
+        PGUSER: 'app_owner',
+        PGPASSWORD: ownerPassword,
+        PGDATABASE: dbName,
         BACKUP_DIR: tmpBackupDir,
-        BACKUP_ENCRYPTION_KEY: 'CleSecreteTest2026!',
+        BACKUP_ENCRYPTION_KEY: process.env.TEST_BACKUP_ENCRYPTION_KEY,
+        // Utilisé seulement si pg_dump/psql ne sont pas installés sur la machine
+        PG_CONTAINER: process.env.TEST_PG_CONTAINER || 'residence_blue_postgres',
       };
 
-      const backupOutput = execSync(`${shBin} "${backupShPath}"`, {
-        encoding: 'utf8',
-        env: envWithGit,
-      });
+      try {
+        const backupOutput = execSync(`${shBin} "${backupShPath}"`, {
+          encoding: 'utf8',
+          env: scriptEnv,
+        });
+        expect(backupOutput).toContain('Sauvegarde chiffrée');
 
-      expect(backupOutput).toContain('Sauvegarde chiffrée');
+        const latestBackupPath = fs
+          .readFileSync(path.join(tmpBackupDir, 'latest_backup.txt'), 'utf8')
+          .trim();
+        expect(latestBackupPath).toMatch(/backup_residence_blue_\d{8}_\d{6}\.sql\.gpg$/);
+        expect(fs.existsSync(latestBackupPath)).toBe(true);
 
-      const latestBackupPath = fs
-        .readFileSync(path.join(tmpBackupDir, 'latest_backup.txt'), 'utf8')
-        .trim();
-      expect(latestBackupPath).toMatch(/backup_residence_blue_\d{8}_\d{6}\.sql\.gpg$/);
-      expect(fs.existsSync(latestBackupPath)).toBe(true);
+        // Le fichier est chiffré : aucune donnée en clair
+        const rawEncrypted = fs.readFileSync(latestBackupPath).toString('latin1');
+        expect(rawEncrypted).not.toContain(markerEmail);
+        expect(rawEncrypted).not.toContain('CREATE TABLE');
 
-      // Vérifier que le fichier de sauvegarde est bien chiffré (binaire GPG, aucune donnée en clair)
-      const rawEncryptedBytes = fs.readFileSync(latestBackupPath, 'utf8');
-      expect(rawEncryptedBytes).not.toContain(markerEmail);
+        // 3. Simuler une suppression accidentelle de l'utilisateur témoin
+        await appUserClient.user.delete({ where: { id: createdUser.id } });
+        expect(await appUserClient.user.findUnique({ where: { id: createdUser.id } })).toBeNull();
 
-      // 3. Simuler une suppression accidentelle de l'utilisateur témoin
-      await appUserClient.user.delete({ where: { id: createdUser.id } });
-      const deletedCheck = await appUserClient.user.findUnique({ where: { id: createdUser.id } });
-      expect(deletedCheck).toBeNull();
+        // 4. Déchiffrer et restaurer (restore.sh réapplique aussi les droits)
+        const restoreOutput = execSync(`${shBin} "${restoreShPath}" "${latestBackupPath}"`, {
+          encoding: 'utf8',
+          env: scriptEnv,
+        });
+        expect(restoreOutput).toContain('Restauration complète terminée');
 
-      // 4. Exécuter scripts/restore.sh pour déchiffrer et restaurer la base
-      const restoreOutput = execSync(`${shBin} "${restoreShPath}" "${latestBackupPath}"`, {
-        encoding: 'utf8',
-        env: envWithGit,
-      });
-      expect(restoreOutput).toContain('Restauration complète terminée');
+        // 5. L'utilisateur témoin est restauré à l'identique
+        const restoredUser = await appUserClient.user.findUnique({
+          where: { email: markerEmail },
+        });
+        expect(restoredUser).not.toBeNull();
+        expect(restoredUser?.id).toBe(createdUser.id);
+        expect(restoredUser?.role).toBe('DIRECTION');
 
-      // Réappliquer la fonction de verrouillage des privilèges sur les tables recréées par le dump --clean
-      execSync(
-        `docker exec residence_blue_postgres psql -U blue_user -d residence_blue_db -c "SELECT enforce_residence_blue_permissions();"`,
-      );
-
-      // 5. Vérifier que l'utilisateur témoin est bien restauré à l'identique
-      const restoredUser = await appUserClient.user.findUnique({
-        where: { email: markerEmail },
-      });
-      expect(restoredUser).not.toBeNull();
-      expect(restoredUser?.id).toBe(createdUser.id);
-      expect(restoredUser?.role).toBe('DIRECTION');
-
-      // Nettoyage du dossier temporaire
-      fs.rmSync(tmpBackupDir, { recursive: true, force: true });
-    }, 30000);
+        // 6. Les protections de audit_log sont toujours actives après restauration
+        const [anyLog] = await appUserClient.auditLog.findMany({ take: 1 });
+        expect(anyLog).toBeDefined();
+        await expect(
+          appUserClient.$executeRaw`UPDATE "audit_log" SET "action" = 'APRES_RESTAURATION' WHERE "id" = ${anyLog.id}::uuid`,
+        ).rejects.toThrow(/permission denied/i);
+        await expect(
+          ownerClient.$executeRaw`DELETE FROM "audit_log" WHERE "id" = ${anyLog.id}::uuid`,
+        ).rejects.toThrow(/ajout seul|append-only/i);
+      } finally {
+        fs.rmSync(tmpBackupDir, { recursive: true, force: true });
+      }
+    }, 60000);
   });
 });

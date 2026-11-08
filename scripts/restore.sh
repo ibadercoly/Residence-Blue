@@ -1,7 +1,8 @@
 #!/usr/bin/env sh
 # =============================================================================
 # Script de restauration chiffrée PostgreSQL 16 — Résidence Blue
-# Déchiffre une sauvegarde (.sql.age ou .sql.gpg) et la restaure via psql
+# Déchiffre une sauvegarde (.sql.age ou .sql.gpg) et la restaure via psql,
+# puis réapplique les droits de sécurité (audit_log en ajout seul, etc.).
 # Usage : ./scripts/restore.sh <chemin_fichier_chiffré>
 # =============================================================================
 set -eu
@@ -24,11 +25,12 @@ PGDATABASE="${PGDATABASE:-residence_blue_db}"
 
 run_psql() {
   if command -v psql >/dev/null 2>&1; then
-    psql -v ON_ERROR_STOP=1 -h "$PGHOST" -p "$PGPORT" -U "$PGUSER" -d "$PGDATABASE"
+    psql -q -v ON_ERROR_STOP=1 -h "$PGHOST" -p "$PGPORT" -U "$PGUSER" -d "$PGDATABASE"
   else
-    PG_CONTAINER="${PG_CONTAINER:-residence_blue_postgres}"
+    # Poste de développement sans client PostgreSQL : on passe par le conteneur
+    PG_CONTAINER="${PG_CONTAINER:-residence_blue_db}"
     docker exec -i -e PGPASSWORD="${PGPASSWORD:-}" "$PG_CONTAINER" \
-      psql -v ON_ERROR_STOP=1 -U "$PGUSER" -d "$PGDATABASE"
+      psql -q -v ON_ERROR_STOP=1 -h localhost -U "$PGUSER" -d "$PGDATABASE"
   fi
 }
 
@@ -53,5 +55,8 @@ case "$BACKUP_FILE" in
     exit 1
     ;;
 esac
+
+# Réapplication des droits de sécurité après restauration
+echo "SELECT public.enforce_residence_blue_permissions();" | run_psql >/dev/null
 
 echo "[RESTORE] Restauration complète terminée depuis : ${BACKUP_FILE}"

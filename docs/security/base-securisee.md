@@ -2,11 +2,11 @@
 
 ## 1. Périmètre audité
 Ce document consigne les tests offensifs et les contrôles de sécurité exécutés sur l'infrastructure de persistance et de chiffrement de **Résidence Blue** :
-- **Modèles Prisma (`apps/api/prisma/schema.prisma`)** : uniquement les 4 tables système (`users`, `refresh_tokens`, `audit_log`, `sync_operations`) et l'enum `Role` (`DIRECTION`, `RECEPTION`, `RESTAURANT`, `HOUSEKEEPING`, `MAINTENANCE`, `COMPTABLE`), sans aucune table métier prématurée.
-- **Rôles PostgreSQL 16 (`docker/postgres/init.sql`)** : séparation stricte entre `app_owner` (migrations), `app_user` (exécution API sans DDL ni superuser) et `app_readonly` (lecture seule pour les rapports), avec authentification `scram-sha-256`.
+- **Modèles Prisma (`apps/api/prisma/schema.prisma`)** : uniquement les 4 tables système (`users`, `refresh_tokens`, `audit_log`, `sync_operations`) et l'enum `Role` (`DIRECTION`, `RECEPTION`, `RESTAURANT`, `HOUSEKEEPING`, `MAINTENANCE`, `COMPTABLE`), sans aucune table métier prématurée. Cibles binaires : `native` et `linux-musl-openssl-3.0.x`.
+- **Rôles PostgreSQL 16 (`docker/postgres/init.sql` & `docker/postgres/00-init-roles.sh`)** : séparation stricte entre `app_owner` (migrations), `app_user` (exécution API sans DDL ni superuser) et `app_readonly` (lecture seule pour les rapports), avec authentification `scram-sha-256`. Aucun mot de passe en clair dans Git : ils sont injectés au runtime via variables d'environnement.
 - **Journal d'audit immuable (`audit_log`)** : table en ajout seul (`SELECT` + `INSERT` uniquement pour `app_user`) doublée du trigger PostgreSQL `trg_audit_log_append_only` (`prevent_audit_log_modification()`).
 - **Chiffrement applicatif (`CryptoService`)** : AES-256-GCM avec clé en variable d'environnement, identifiant de clé (`keyId`) stocké avec le chiffré et authentifié via AAD pour la rotation de clés (`keyId:ivHex:authTagHex:cipherHex`), et IV aléatoire de 12 octets par valeur.
-- **Sauvegardes chiffrées (`scripts/backup.sh` & `scripts/restore.sh`)** : `pg_dump` chiffré en AES-256 avec `gpg` ou `age`, conteneur cron quotidien dans `docker-compose.yml` et test automatisé de restauration complète.
+- **Sauvegardes chiffrées (`scripts/backup.sh` & `scripts/restore.sh`)** : `pg_dump` chiffré en AES-256 avec `gpg` ou `age`, conteneur cron quotidien dans `docker-compose.yml` (`backup`) et test automatisé de restauration complète.
 
 ---
 
@@ -17,7 +17,10 @@ Ce document consigne les tests offensifs et les contrôles de sécurité exécut
 - **Configuration vérifiée (`docker-compose.yml`)** :
   - Le service `db` est attaché exclusivement au réseau `internal_net` (`internal: true`).
   - Aucune directive `ports:` n'est déclarée sur le service `db` (seul `expose: ["5432"]` est présent sur le réseau interne).
-- **Résultat** : **BLOQUÉ**. Aucun port TCP 5432 du service `db` de `docker-compose.yml` n'est exposé sur les interfaces réseau de l'hôte. Seuls les conteneurs membres de `internal_net` (`api` et `backup`) peuvent joindre `db:5432`.
+- **Vérification en environnement Docker réel** :
+  - La commande `docker ps --filter "name=residence_blue"` confirme que `residence_blue_db` n'expose que `5432/tcp` en interne sans aucun port mappé sur l'hôte (`0.0.0.0:*` ou `[::]:*`).
+  - Seuls les conteneurs membres de `internal_net` (`migrate`, `api` et `backup`) peuvent communiquer avec `db:5432`.
+- **Résultat** : **BLOQUÉ**. La base de données est strictement isolée du réseau externe et de l'hôte.
 
 ### Attaque 2 : Connexion avec un mauvais mot de passe (`scram-sha-256`)
 - **Vecteur testé** : Connexion PostgreSQL avec l'utilisateur `app_user` et un mot de passe invalide (`postgresql://app_user:mauvais_mot_de_passe_test@...`).
@@ -49,7 +52,7 @@ Ce document consigne les tests offensifs et les contrôles de sécurité exécut
     `Opération UPDATE/DELETE interdite : la table audit_log est en ajout seul (append-only) (SQLSTATE 42501)`.
 
 ### Attaque 6 : Écriture avec le rôle de reporting `app_readonly`
-- **Vecteur testé** : Tentative de `INSERT` et `DELETE` dans `users` avec le rôle `app_readonly`.
+- **Vecteur testé** : Tentative de `INSERT`, `UPDATE` et `DELETE` dans `users` avec le rôle `app_readonly`.
 - **Preuve automatisée** : Section `4. Isolation des rôles : app_readonly ne peut que lire (SELECT)` dans `apps/api/test/base-securisee.e2e-spec.ts`.
 - **Résultat** : **BLOQUÉ** (`42501: permission denied for table users`).
 
@@ -65,8 +68,10 @@ Ce document consigne les tests offensifs et les contrôles de sécurité exécut
 | Exigence | Statut | Preuve |
 | :--- | :---: | :--- |
 | Modèles Prisma `User`, `RefreshToken`, `AuditLog`, `SyncOperation` (sans tables métier) | Vert | `apps/api/prisma/schema.prisma` |
-| 3 rôles PostgreSQL (`app_owner`, `app_user`, `app_readonly`) + `scram-sha-256` | Vert | `docker/postgres/init.sql` |
+| 3 rôles PostgreSQL (`app_owner`, `app_user`, `app_readonly`) + `scram-sha-256` | Vert | `docker/postgres/init.sql` & `00-init-roles.sh` |
+| Aucun secret dans le code ni dans Git (variables d'environnement uniquement) | Vert | `00-init-roles.sh` lit les mots de passe de l'environnement |
 | Table `audit_log` en ajout seul (droits retirés + trigger SQL) | Vert | `apps/api/test/base-securisee.e2e-spec.ts` |
 | `CryptoService` AES-256-GCM avec `keyId` (rotation), IV aléatoire et rejet d'altération | Vert | `apps/api/src/common/security/crypto.service.spec.ts` |
-| Sauvegarde chiffrée (`scripts/backup.sh`), restauration (`scripts/restore.sh`) et cron | Vert | `scripts/backup.sh`, `scripts/restore.sh`, `docker-compose.yml` |
+| Sauvegarde chiffrée (`scripts/backup.sh`), restauration (`scripts/restore.sh`) et conteneur cron | Vert | `docker/backup/Dockerfile`, `scripts/backup.sh`, `scripts/restore.sh` |
 | Test automatisé d'un cycle complet sauvegarde chiffrée + restauration | Vert | `apps/api/test/base-securisee.e2e-spec.ts` |
+| Démarrage complet et isolation réseau vérifiés sous Docker Compose | Vert | Service `migrate` réussi, `api` connecté avec `app_user`, `db` non exposé |

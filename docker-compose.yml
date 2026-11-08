@@ -3,51 +3,71 @@ services:
     image: postgres:16-alpine
     container_name: residence_blue_db
     restart: unless-stopped
-    env_file:
-      - .env
+    # Seules les variables nécessaires sont transmises (pas de env_file global)
     environment:
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER:?POSTGRES_USER requis}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD requis}
+      POSTGRES_DB: ${POSTGRES_DB:?POSTGRES_DB requis}
       POSTGRES_INITDB_ARGS: "--auth-host=scram-sha-256 --auth-local=scram-sha-256 --data-checksums"
+      APP_OWNER_PASSWORD: ${APP_OWNER_PASSWORD:?APP_OWNER_PASSWORD requis}
+      APP_USER_PASSWORD: ${APP_USER_PASSWORD:?APP_USER_PASSWORD requis}
+      APP_READONLY_PASSWORD: ${APP_READONLY_PASSWORD:?APP_READONLY_PASSWORD requis}
     command:
       - "postgres"
       - "-c"
       - "password_encryption=scram-sha-256"
     # SÉCURITÉ : Aucun port publié vers l'hôte (pas de section "ports:").
-    # Seul le service "api" (avec app_user) et le conteneur "backup" accèdent à "db" via "internal_net".
+    # Seuls "migrate", "api" et "backup" accèdent à "db" via le réseau interne "internal_net".
     expose:
       - "5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
-      - ./docker/postgres/init.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
+      - ./docker/postgres/00-init-roles.sh:/docker-entrypoint-initdb.d/00-init-roles.sh:ro
+      - ./docker/postgres/init.sql:/opt/residence-blue/init.sql:ro
     networks:
       - internal_net
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
       interval: 5s
       timeout: 5s
-      retries: 5
+      retries: 10
+
+  # Applique les migrations Prisma avec app_owner, puis s'arrête
+  migrate:
+    image: residence-blue-api:local
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    container_name: residence_blue_migrate
+    restart: "no"
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://app_owner:${APP_OWNER_PASSWORD}@db:5432/${POSTGRES_DB}?schema=public
+    command: ["npx", "prisma", "migrate", "deploy"]
+    networks:
+      - internal_net
 
   api:
+    image: residence-blue-api:local
     build:
       context: .
       dockerfile: apps/api/Dockerfile
     container_name: residence_blue_api
     restart: unless-stopped
     depends_on:
-      db:
-        condition: service_healthy
-    env_file:
-      - .env
+      migrate:
+        condition: service_completed_successfully
     environment:
-      PORT: ${PORT:-3000}
+      NODE_ENV: ${NODE_ENV:-production}
+      PORT: 3000
       # L'API tourne exclusivement avec le rôle app_user (aucun DDL, pas superuser)
-      DATABASE_URL: postgresql://${APP_USER:-app_user}:${APP_USER_PASSWORD}@db:5432/${POSTGRES_DB}?schema=public
-      MIGRATION_DATABASE_URL: postgresql://${APP_OWNER:-app_owner}:${APP_OWNER_PASSWORD}@db:5432/${POSTGRES_DB}?schema=public
+      DATABASE_URL: postgresql://app_user:${APP_USER_PASSWORD}@db:5432/${POSTGRES_DB}?schema=public
       ENCRYPTION_KEY_ID: ${ENCRYPTION_KEY_ID:-v1}
-      ENCRYPTION_MASTER_KEY: ${ENCRYPTION_MASTER_KEY}
-      JWT_SECRET: ${JWT_SECRET}
+      ENCRYPTION_MASTER_KEY: ${ENCRYPTION_MASTER_KEY:?ENCRYPTION_MASTER_KEY requis}
+      ENCRYPTION_KEYS: ${ENCRYPTION_KEYS:-}
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET requis}
     ports:
       - "${PORT:-3000}:3000"
     networks:
@@ -67,35 +87,29 @@ services:
     networks:
       - public_net
 
+  # Sauvegarde chiffrée quotidienne (02h00 UTC) — réseau interne uniquement
   backup:
-    image: postgres:16-alpine
+    build:
+      context: .
+      dockerfile: docker/backup/Dockerfile
     container_name: residence_blue_backup
     restart: unless-stopped
     depends_on:
       db:
         condition: service_healthy
-    env_file:
-      - .env
     environment:
       PGHOST: db
       PGPORT: 5432
-      PGUSER: ${APP_OWNER:-app_owner}
+      PGUSER: app_owner
       PGPASSWORD: ${APP_OWNER_PASSWORD}
       PGDATABASE: ${POSTGRES_DB}
       BACKUP_DIR: /backups
-      BACKUP_ENCRYPTION_KEY: ${BACKUP_ENCRYPTION_KEY}
+      BACKUP_ENCRYPTION_KEY: ${BACKUP_ENCRYPTION_KEY:?BACKUP_ENCRYPTION_KEY requis}
     volumes:
       - ./scripts:/scripts:ro
       - pgbackups:/backups
     networks:
       - internal_net
-    entrypoint:
-      - "/bin/sh"
-      - "-c"
-      - |
-        apk add --no-cache gnupg age >/dev/null 2>&1 || true
-        echo "0 2 * * * /bin/sh /scripts/backup.sh >> /var/log/backup.log 2>&1" > /etc/crontabs/root
-        crond -f -l 8
 
 networks:
   internal_net:
