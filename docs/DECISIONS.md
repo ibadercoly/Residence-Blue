@@ -73,3 +73,22 @@ Ce document consigne les choix technologiques et architecturaux majeurs adoptés
   5. **Bcrypt 6 (`^6.0.0`)** : Mise à niveau de `bcrypt` vers la version 6 native, éliminant les vulnérabilités de packaging héritées.
   6. **Sécurité des dépendances** : Réduction du rapport de vulnérabilité à **0 critique et 0 haute** (`npm audit`).
 - **Conséquences :** Base de code moderne, sécurisée, compatible avec les standards 2026, tests et builds 100% verts sur toute la chaîne d'intégration.
+
+
+---
+
+## ADR 008 : Arbitrages d'Intégration UI & Données PMS (Analyse des Maquettes)
+- **Contexte :** Suite à l'analyse détaillée des 12 dossiers de maquettes Stitch (`feature/analyse-maquettes`), cinq points de précision opérationnelle et géographique ont été arbitrés pour garantir la conformité avec la réalité de l'hôtel à Grand Standing (Thiès).
+- **Décisions :**
+  1. **Météo Locale (Thiès vs Mer) :** Le widget météo du `tableau_de_bord` est réaligné sur le climat de Thiès (température extérieure sahélienne, ensoleillement, préparation de la piscine et terrasse ombragée de l'hôtel), éliminant les mentions anachroniques de marées hautes ou brise côtière.
+  2. **Inventaire des 12 Clés :** La structure fidèle aux maquettes est adoptée comme référence immuable :
+     - 6 Chambres Standard (101 à 106, RDC Jardin)
+     - 4 Chambres Deluxe (201 à 204, Étage Balcon)
+     - 2 Suites (301 Suite Océan, 302 Suite Filaos, Étage supérieur Panoramique VIP)
+  3. **Tarification de Référence (Entiers FCFA) :** Les tarifs de base par nuitée sont fixés à :
+     - Standard : **85 000 FCFA**
+     - Deluxe : **130 000 FCFA**
+     - Suite : **185 000 FCFA**
+  4. **Gestion des Espèces & Seuil de Caisse :** Encaissement espèces avec calcul automatique du rendu de monnaie fidèle au folio. Alerte visuelle de sécurité recommandée si le fond de caisse espèces au front-desk dépasse **2 000 000 FCFA**, incitant au versement bancaire ou aux paiements Wave / TPE.
+  5. **Priorité d'Implémentation des Écrans :** Suivant le socle d'authentification, la **Grille d'Inventaire des Chambres** et l'**Annuaire des Clients** sont intégrés en priorité pour alimenter la base relationnelle avant le moteur de réservations et le planning Gantt.
+- **Conséquences :** Clarté totale pour les phases d'implémentation, alignement strict avec le terrain sénégalais et intégrité de la charte graphique.
