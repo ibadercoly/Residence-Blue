@@ -1,26 +1,27 @@
 # Design Tokens — Résidence Blue (PMS)
 
-Ce document formalise les jetons de conception (Design Tokens) extraits des 10 maquettes interactives et du document de référence `DESIGN.md`. Il réconcilie les variations, élimine les doublons et propose une version unifiée pour l'intégration Angular & SCSS.
+Ce document formalise les jetons de conception (Design Tokens) extraits des 10 maquettes interactives (`design/maquettes/*/code.html`) et du document de référence `design/maquettes/saly_coastal_boutique_hospitality/DESIGN.md`.
+
+Conformément à la règle de priorité absolue : **en cas de différence, la configuration Tailwind de `code.html` est la source de vérité**.
 
 ---
 
-## 1. Diagnostic des Variations & Unification
+## 1. Diagnostic des Décalages : DESIGN.md vs code.html (Source de Vérité)
 
-Lors de l'analyse des maquettes Google Stitch, des décalages mineurs ont été constatés entre le texte descriptif de `DESIGN.md` et les déclarations réelles dans le code HTML/Tailwind des maquettes :
-
-| Élément | Valeur dans texte DESIGN.md | Valeur dans config Tailwind HTML | Décision d'Unification retenue |
+| Jeton / Élément | Valeur dans DESIGN.md | Valeur Tailwind code.html (Vérité) | Statut & Règle appliquée |
 |---|---|---|---|
-| **Couleur Primaire (Teal)** | `#0e8f9b` | `#00666f` (avec container `#00818c`) | **`#00666f`** : Conforme aux maquettes HTML validées et garantit un ratio de contraste WCAG AA supérieur (4.9:1 sur blanc). |
-| **Couleur Secondaire (Or Teranga)** | `#e0a53a` | `#7e5700` (container `#fdbe51`) | **`#7e5700`** : Base sombre pour le texte et badges contrastés, avec container doré chaleureux **`#fdbe51`** pour les fonds d'accents VIP. |
-| **Fond général (Canvas)** | `#eaf1f5` | `#f3fafe` | **`#f3fafe`** : Teinte lumineuse, aérée et apaisante utilisée sur les 10 écrans. |
-| **Sidebar & Inverse Surface** | `#0a2540` (Navy) | `#2a3135` (Gris ardoise sombre) | **`#2a3135`** : Conforme à l'écran directeur `tableau_de_bord`. Moins froid que le bleu nuit, excellente lisibilité des icônes cyan. |
-| **Rayons de courbure (Cards)** | `1rem` (16px) | `rounded-2xl` (16px à 24px) | Unification : `16px` (`1rem`) pour les cartes standard, `24px` (`1.5rem`) pour les conteneurs bento et modals. |
+| **Couleur Primaire (`primary`)** | `#0e8f9b` | `#00666f` | **Retenu : `#00666f`** (Teal profond / Cyan océan, ratio de contraste WCAG AA supérieur 4.9:1 sur blanc). Container : `#00818c`. |
+| **Couleur Secondaire (`secondary`)** | `#e0a53a` | `#7e5700` | **Retenu : `#7e5700`** (Or Teranga ambré sombre pour lisibilité texte). Container : `#fdbe51` (doré chaleureux). |
+| **Couleur Tertiaire (`tertiary`)** | Non spécifié ou dérivé | `#465d7b` | **Retenu : `#465d7b`** (Bleu ardoise opérationnel). Container : `#5f7695`. |
+| **Fond général (`background` / `surface`)** | `#eaf1f5` | `#f3fafe` | **Retenu : `#f3fafe`** (Canvas doux et lumineux, uniforme sur les 10 maquettes). |
+| **Barre latérale & Surface inverse (`inverse-surface`)** | `#0a2540` (Navy nuit) | `#2a3135` (Gris ardoise / bleu nuit sombre) | **Retenu : `#2a3135`** (Teinte exacte de la sidebar dans `code.html`, excellent contraste avec les icônes cyan `#6fd5e2` / `#00818c`). |
+| **Bordures & Contours (`outline-variant`)** | `#d0d7de` | `#bdc9ca` | **Retenu : `#bdc9ca`** (Teinte exacte du code Tailwind). |
+| **Rayons de courbure (Cards)** | `1rem` (16px) | `rounded-2xl` (16px à 24px) | **Retenu :** `16px` (`1rem`) pour cartes standard, `24px` (`1.5rem`) pour cartes bento et fenêtres modales. |
+| **Thème unique** | Présence mentionnée de thème sombre | **Strictement mode clair unique** | **Règle absolue :** Aucun mode sombre. Seul le thème clair avec barre latérale `#2a3135` est implémenté. |
 
 ---
 
-## 2. Palette de Couleurs Unifiée
-
-### 2.1. Palette Principale & Surfaces (Mode Clair)
+## 2. Palette de Couleurs Unifiée (Mode Clair Unique)
 
 ```css
 /* Couleurs de marque */
@@ -55,7 +56,7 @@ Lors de l'analyse des maquettes Google Stitch, des décalages mineurs ont été 
 --color-surface-container-high: #e2e9ed;
 --color-surface-container-highest: #dce4e7;
 
-/* Surface sombre (Sidebar & Shells contrastés) */
+/* Surface sombre (Sidebar fixe) */
 --color-inverse-surface: #2a3135;     /* Fond de la barre latérale gauche */
 --color-inverse-on-surface: #ebf2f6;  /* Texte sur barre latérale */
 --color-outline: #6d797b;             /* Bordures et icônes neutres */
@@ -91,39 +92,6 @@ Lors de l'analyse des maquettes Google Stitch, des décalages mineurs ont été 
 --color-on-error: #ffffff;
 --color-error-container: #ffdad6;
 --color-on-error-container: #93000a;
-```
-
-### 2.3. Adaptation Mode Sombre (Dark Mode)
-
-```css
-[data-theme="dark"] {
-  --color-background: #12181b;
-  --color-on-background: #ebf2f6;
-  --color-surface: #12181b;
-  --color-on-surface: #ebf2f6;
-  --color-on-surface-variant: #bdc9ca;
-  
-  --color-surface-container-lowest: #192024;
-  --color-surface-container-low: #1e262a;
-  --color-surface-container: #242c30;
-  --color-surface-container-high: #2a3338;
-  --color-surface-container-highest: #30393f;
-  
-  --color-primary: #6fd5e2;           /* Cyan éclairci pour contraste sur fond noir */
-  --color-on-primary: #00363b;
-  --color-primary-container: #004f56;
-  --color-on-primary-container: #8cf2ff;
-  
-  --color-secondary: #fabc4f;         /* Or éclairci */
-  --color-on-secondary: #422c00;
-  --color-secondary-container: #604100;
-  --color-on-secondary-container: #ffdead;
-  
-  --color-outline: #879395;
-  --color-outline-variant: #3d494a;
-  --color-inverse-surface: #f3fafe;
-  --color-inverse-on-surface: #161d20;
-}
 ```
 
 ---
@@ -170,8 +138,6 @@ Deux familles de polices sont rigoureusement associées :
 
 ## 5. Élévations & Ombres Portées (Box Shadows)
 
-Les ombres utilisent une teinte bleue marine estompée (`rgba(10, 37, 64, ...)`) pour conserver la fraîcheur de l'aura balnéaire sans créer de grisaille artificielle :
-
 ```css
 /* Ombre subtile pour éléments plats */
 --shadow-xs: 0 1px 2px 0 rgba(10, 37, 64, 0.04);
@@ -191,9 +157,7 @@ Les ombres utilisent une teinte bleue marine estompée (`rgba(10, 37, 64, ...)`)
 
 ---
 
-## 6. Échelle d'Espacement (Spacing Scale)
-
-Construite sur un rythme modulaire basé sur 4px :
+## 6. Échelle d'Espacement & Structure Responsive
 
 ```css
 --space-1: 4px;    /* 0.25rem - space-xs */
@@ -208,8 +172,8 @@ Construite sur un rythme modulaire basé sur 4px :
 --space-16: 64px;  /* 4.0rem */
 
 /* Dimensions structurelles fixes */
---sidebar-width: 256px;   /* w-64 */
---header-height: 80px;    /* h-20 bureau */
---header-height-mobile: 64px; /* h-16 mobile */
---bottom-nav-height: 64px;
+--sidebar-width: 256px;        /* w-64 bureau (>= 768px) */
+--header-height: 80px;         /* h-20 bureau */
+--header-height-mobile: 64px;  /* h-16 mobile (< 768px) */
+--bottom-nav-height: 64px;     /* Barre d'onglets inférieure sous 768px */
 ```

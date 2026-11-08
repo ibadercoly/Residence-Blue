@@ -13,6 +13,27 @@ apps/web (Angular standalone + signals + PWA), packages/shared (types).
 PostgreSQL 16 + Prisma. Tests : Jest, Supertest, Playwright.
 Docker Compose pour lancer l'ensemble.
 
+## Fidélité aux maquettes (obligatoire, prioritaire)
+- L'interface reproduit À L'IDENTIQUE le STYLE des maquettes de design/maquettes/ :
+  dimensions, espacements, couleurs, polices, tailles, rayons, ombres, icônes,
+  bordures, survols. Source de vérité : code.html (valeurs exactes) et sa config
+  Tailwind. Le fichier design/maquettes/saly_coastal_boutique_hospitality/DESIGN.md
+  documente le système, mais en cas de différence, la config Tailwind du code.html
+  gagne.
+- Il n'y a QU'UN SEUL thème (clair, barre latérale bleu nuit). N'ajoute aucun
+  mode sombre. Il existe une version mobile (tableau_de_bord_mode_clair/) : sous
+  768 px, la barre latérale devient une barre de navigation en bas.
+- Tailwind, polices (Manrope, Newsreader) et icônes (Material Symbols) installés en
+  local, jamais de CDN. Toutes les images en local dans les assets.
+- Les TEXTES sont adaptés à l'hôtel réel (docs/design/ADAPTATION-THIES.md) :
+  Thiès, Grand Standing, dans les terres, aucun océan, plage, marée ni vague. Le
+  style reste identique, seul le contenu change.
+- Test de fidélité : on compare l'écran Angular au rendu hors ligne de
+  design/reference/<ecran>.html (et non à screen.png, qui est réduit). Les zones
+  adaptées sont masquées dans la comparaison. Écart maximum 2 % sur le reste.
+- Rien de ce qui est dans « Éléments à ne pas reproduire » de ADAPTATION-THIES.md
+  ne doit apparaître dans la version de production.
+
 ## Workflow Git (obligatoire)
 - master est toujours stable. Jamais de commit direct sur master.
 - Une branche par fonctionnalité : feature/<nom> ou fix/<nom>.
@@ -23,6 +44,11 @@ Docker Compose pour lancer l'ensemble.
   suppression de la branche, tag à chaque fin de phase.
 - Si un test échoue : corriger sur la branche. Ne jamais désactiver, supprimer
   ou affaiblir un test pour le faire passer.
+- Avant de considérer un git push comme échoué, vérifie avec git fetch puis
+  git status -sb et git log origin/master -1 si le commit distant correspond au
+  commit local. Si oui, le push a réussi : ne le relance pas. N'utilise jamais
+  --force pour résoudre un échec de push ; en cas de refus, fais git pull --rebase
+  puis relance les tests avant de pousser à nouveau.
 
 ## Hors ligne (offline-first)
 - Toute fonctionnalité doit marcher sans connexion au serveur : lecture depuis

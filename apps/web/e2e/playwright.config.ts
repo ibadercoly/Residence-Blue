@@ -1,14 +1,22 @@
 import { defineConfig, devices } from '@playwright/test';
+import * as path from 'path';
 
 export default defineConfig({
   testDir: './',
-  timeout: 30000,
+  timeout: 60000,
   fullyParallel: false,
   retries: 0,
   reporter: 'list',
   use: {
     baseURL: 'http://localhost:4200',
     trace: 'on-first-retry',
+  },
+  webServer: {
+    command: 'npx ng serve --port 4200',
+    url: 'http://localhost:4200',
+    reuseExistingServer: true,
+    cwd: path.resolve(__dirname, '..'),
+    timeout: 120000,
   },
   projects: [
     {

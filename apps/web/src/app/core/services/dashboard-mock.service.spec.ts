@@ -43,19 +43,10 @@ describe('DashboardMockService', () => {
 });
 
 describe('ThemeService', () => {
-  it('doit basculer entre le mode clair et le mode sombre', () => {
+  it('doit être strictement verrouillé en mode clair sans mode sombre', () => {
     const themeService = new ThemeService();
-    const initial = themeService.theme();
-    expect(initial).toBe('light');
-
-    themeService.toggleTheme();
-    expect(themeService.theme()).toBe('dark');
-
-    themeService.toggleTheme();
     expect(themeService.theme()).toBe('light');
-
-    themeService.setTheme('dark');
-    expect(themeService.theme()).toBe('dark');
+    expect(themeService.isDark()).toBe(false);
   });
 });
 

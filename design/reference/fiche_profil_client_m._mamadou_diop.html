@@ -1,0 +1,576 @@
+﻿<!DOCTYPE html>
+
+<html lang="fr"><head><meta charset="utf-8"/><meta content="width=device-width, initial-scale=1.0" name="viewport"/><meta content="web_dashboard" name="shell-type"/>
+
+<style>@layer base { html, body { margin: 0; padding: 0; } body { overscroll-behavior: none; } main > :first-child { margin-top: 0 !important; } main > :last-child { margin-bottom: 0 !important; } } ::-webkit-scrollbar { display: none; }</style>
+    <link rel="stylesheet" href="fonts.css" />
+    <link rel="stylesheet" href="css/fiche_profil_client_m._mamadou_diop.css" />
+  </head><body class="bg-surface text-on-surface font-body-md text-body-md antialiased selection:bg-primary selection:text-on-primary"><aside class="fixed left-0 top-0 h-full w-64 bg-inverse-surface z-50 flex flex-col justify-between shadow-[0_1px_8px_rgba(0,0,0,0.06)]"><div class="flex flex-col"><div class="h-20 flex items-center gap-space-md px-gutter"><div class="w-10 h-10 rounded-xl bg-primary flex items-center justify-center text-on-primary shadow-sm"><span class="material-symbols-outlined text-[24px]">tsunami</span></div><div class="flex flex-col justify-center min-w-0"><span class="font-headline-sm text-headline-sm text-surface-bright tracking-tight truncate leading-tight">Résidence Blue</span><span class="font-label-md text-label-md text-outline-variant uppercase tracking-wider truncate">Hôtel Boutique • Grand Standing, Thiès</span></div></div><div class="px-space-md py-space-sm"><div class="px-space-md py-space-xs mb-space-xs font-label-md text-label-md text-outline-variant uppercase tracking-wider">Exploitation 12 Clés</div><nav class="flex flex-col gap-space-xs" data-active-classes="bg-primary text-on-primary font-title-md"><a aria-current="page" class="flex items-center gap-space-md px-space-md py-space-sm rounded-lg transition-colors bg-primary text-on-primary font-title-md" data-path="tableau-de-bord" href="#"><span class="material-symbols-outlined text-[20px]">dashboard</span><span>Tableau de bord</span></a><a class="flex items-center gap-space-md px-space-md py-space-sm rounded-lg text-surface-container-high hover:bg-surface-variant/20 hover:text-surface-bright transition-colors font-title-md text-title-md" data-path="planning" href="#"><span class="material-symbols-outlined text-[20px]">calendar_month</span><span>Planning</span></a><a class="flex items-center gap-space-md px-space-md py-space-sm rounded-lg text-surface-container-high hover:bg-surface-variant/20 hover:text-surface-bright transition-colors font-title-md text-title-md" data-path="chambres" href="#"><span class="material-symbols-outlined text-[20px]">bed</span><span>Chambres</span></a><a class="flex items-center gap-space-md px-space-md py-space-sm rounded-lg text-surface-container-high hover:bg-surface-variant/20 hover:text-surface-bright transition-colors font-title-md text-title-md" data-path="clients" href="#"><span class="material-symbols-outlined text-[20px]">group</span><span>Clients</span></a><a class="flex items-center gap-space-md px-space-md py-space-sm rounded-lg text-surface-container-high hover:bg-surface-variant/20 hover:text-surface-bright transition-colors font-title-md text-title-md" data-path="restaurant" href="#"><span class="material-symbols-outlined text-[20px]">restaurant</span><span>Restaurant</span></a><a class="flex items-center gap-space-md px-space-md py-space-sm rounded-lg text-surface-container-high hover:bg-surface-variant/20 hover:text-surface-bright transition-colors font-title-md text-title-md" data-path="housekeeping" href="#"><span class="material-symbols-outlined text-[20px]">cleaning_services</span><span>Housekeeping</span></a><a class="flex items-center gap-space-md px-space-md py-space-sm rounded-lg text-surface-container-high hover:bg-surface-variant/20 hover:text-surface-bright transition-colors font-title-md text-title-md" data-path="maintenance" href="#"><span class="material-symbols-outlined text-[20px]">build</span><span>Maintenance</span></a><a class="flex items-center gap-space-md px-space-md py-space-sm rounded-lg text-surface-container-high hover:bg-surface-variant/20 hover:text-surface-bright transition-colors font-title-md text-title-md" data-path="facturation" href="#"><span class="material-symbols-outlined text-[20px]">receipt_long</span><span>Facturation</span></a><a class="flex items-center gap-space-md px-space-md py-space-sm rounded-lg text-surface-container-high hover:bg-surface-variant/20 hover:text-surface-bright transition-colors font-title-md text-title-md" data-path="rapports" href="#"><span class="material-symbols-outlined text-[20px]">analytics</span><span>Rapports</span></a><a class="flex items-center gap-space-md px-space-md py-space-sm rounded-lg text-surface-container-high hover:bg-surface-variant/20 hover:text-surface-bright transition-colors font-title-md text-title-md" data-path="parametres" href="#"><span class="material-symbols-outlined text-[20px]">settings</span><span>Paramètres</span></a></nav></div></div><div class="p-gutter"><div class="bg-surface-variant/10 rounded-xl p-space-md flex items-center justify-between"><div class="flex flex-col"><span class="font-label-md text-label-md text-surface-container-high">Front de Mer</span><span class="font-body-sm text-body-sm text-outline-variant">Marée haute • 28°C</span></div><span class="material-symbols-outlined text-primary-fixed-dim text-[20px]">wb_sunny</span></div></div></aside><div class="pl-64"><header class="fixed top-0 left-64 right-0 h-20 bg-surface/90 backdrop-blur-xl shadow-[0_1px_8px_rgba(0,0,0,0.04)] z-40 flex items-center justify-between px-margin"><div class="flex items-center gap-gutter flex-1 max-w-xl"><div class="relative w-full"><span class="material-symbols-outlined absolute left-space-md top-1/2 -translate-y-1/2 text-outline text-[20px]">search</span><input class="w-full h-11 pl-11 pr-space-md rounded-xl bg-surface-container-lowest text-on-surface placeholder:text-outline font-body-sm text-body-sm outline-none shadow-[0_2px_8px_rgba(10,37,64,0.04)] focus:ring-2 focus:ring-primary/20 transition-all" placeholder="Rechercher une réservation, client, chambre..." type="text"/></div></div><div class="flex items-center gap-gutter"><a class="inline-flex items-center gap-space-sm h-11 px-gutter bg-primary hover:bg-primary-container text-on-primary rounded-xl font-label-lg text-label-lg shadow-sm transition-all" data-path="nouvelle-reservation" href="#"><span class="material-symbols-outlined text-[18px]">add</span><span>Nouvelle réservation</span></a><button class="relative w-11 h-11 rounded-xl bg-surface-container-lowest flex items-center justify-center text-on-surface-variant hover:text-on-surface shadow-[0_2px_8px_rgba(10,37,64,0.04)] transition-colors" type="button"><span class="material-symbols-outlined text-[22px]">notifications</span><span class="absolute top-2.5 right-2.5 w-2 h-2 rounded-full bg-secondary ring-2 ring-surface-container-lowest"></span></button><div class="h-8 w-px bg-surface-variant/60"></div><div class="flex items-center gap-space-md"><div class="w-8 h-8 rounded-full bg-primary flex items-center justify-center shadow-sm"><span class="material-symbols-outlined text-on-primary text-[18px]">person</span></div><div class="hidden xl:flex flex-col text-left"><div class="flex items-center gap-space-xs"><span class="font-label-lg text-label-lg text-on-surface leading-tight">Aïssatou Ba</span><span class="w-1.5 h-1.5 rounded-full bg-primary"></span></div><span class="font-label-md text-label-md text-on-surface-variant">Directrice Générale</span></div></div></div></header><main class="relative w-full pt-20 px-margin bg-surface"><div class="flex flex-col w-full pb-16">
+<!-- Top Breadcrumb & Action Bar -->
+<div class="flex flex-col md:flex-row md:items-center justify-between gap-space-md mb-space-lg">
+<div class="flex flex-col">
+<div class="flex items-center gap-space-xs font-label-md text-label-md text-on-surface-variant">
+<a class="hover:text-primary transition-colors" href="#">Clients</a>
+<span class="material-symbols-outlined text-[14px]">chevron_right</span>
+<span class="text-on-surface font-title-md">M. Mamadou Diop</span>
+<span class="ml-space-xs px-2 py-0.5 rounded-full bg-secondary-fixed text-on-secondary-fixed font-label-md text-label-md">VIP Gold</span>
+</div>
+<h1 class="font-headline-lg text-headline-lg text-on-surface tracking-tight mt-0.5">Fiche Voyageur</h1>
+</div>
+<!-- Quick Action Hub -->
+<div class="flex items-center flex-wrap gap-space-sm">
+<button class="inline-flex items-center gap-space-xs px-space-md py-2.5 rounded-xl bg-surface-container-lowest text-on-surface hover:bg-surface-container shadow-sm transition-all font-title-md text-title-md" type="button">
+<span class="material-symbols-outlined text-[18px]">edit</span>
+<span>Éditer le profil</span>
+</button>
+<div class="relative inline-block text-left" id="contactDropdownWrapper">
+<button class="inline-flex items-center gap-space-xs px-space-md py-2.5 rounded-xl bg-surface-container-lowest text-on-surface hover:bg-surface-container shadow-sm transition-all font-title-md text-title-md" id="contactButton" onclick="document.getElementById('contactMenu').classList.toggle('hidden')" type="button">
+<span class="material-symbols-outlined text-[18px]">chat</span>
+<span>Message</span>
+<span class="material-symbols-outlined text-[16px] text-outline">expand_more</span>
+</button>
+<div class="hidden absolute right-0 mt-2 w-56 rounded-xl bg-surface-container-lowest shadow-xl z-30 p-1.5 flex flex-col gap-0.5" id="contactMenu">
+<a class="flex items-center gap-space-sm px-3 py-2 rounded-lg text-on-surface hover:bg-surface-container text-body-sm transition-colors" href="https://wa.me/221776543210" target="_blank">
+<span class="material-symbols-outlined text-primary text-[18px]">perm_phone_msg</span>
+<span>WhatsApp (+221 77...)</span>
+</a>
+<a class="flex items-center gap-space-sm px-3 py-2 rounded-lg text-on-surface hover:bg-surface-container text-body-sm transition-colors" href="mailto:mamadou.diop@terangagroup.sn">
+<span class="material-symbols-outlined text-primary text-[18px]">mail</span>
+<span>Email formel</span>
+</a>
+<button class="w-full flex items-center gap-space-sm px-3 py-2 rounded-lg text-on-surface hover:bg-surface-container text-body-sm transition-colors text-left" type="button">
+<span class="material-symbols-outlined text-secondary text-[18px]">sms</span>
+<span>SMS d'accueil</span>
+</button>
+</div>
+</div>
+<a class="inline-flex items-center gap-space-xs px-space-lg py-2.5 rounded-xl bg-primary text-on-primary hover:bg-primary-container shadow-md transition-all font-title-md text-title-md" href="#">
+<span class="material-symbols-outlined text-[18px]">bookmark_add</span>
+<span>Nouvelle réservation</span>
+</a>
+</div>
+</div>
+<!-- Main Grid: Left Profile Bar & Right Operational Records -->
+<div class="grid grid-cols-1 lg:grid-cols-12 gap-gutter items-start">
+<!-- LEFT COLUMN : Guest Passport & Synthesis (approx 380px) -->
+<div class="lg:col-span-4 xl:col-span-4 flex flex-col gap-gutter">
+<!-- Primary Identity Card -->
+<div class="bg-surface-container-lowest rounded-xl p-space-lg shadow-sm flex flex-col relative overflow-hidden">
+<!-- Golden Corner Accent for VIP Gold -->
+<div class="absolute -right-12 -top-12 w-28 h-28 rounded-full bg-secondary-fixed/50 pointer-events-none"></div>
+<div class="flex items-start gap-space-md mb-space-lg relative">
+<div class="relative">
+<img class="w-20 h-20 rounded-2xl object-cover shadow-md" data-alt="Sophisticated middle-aged West African executive in elegant indigo linen shirt smiling warmly with oceanfront resort greenery in the background, soft warm lighting, editorial photography portrait" src="../../images/maquettes-originales/fiche_profil_client_m._mamadou_diop-1.jpg"/>
+<span class="absolute -bottom-1 -right-1 w-6 h-6 rounded-full bg-secondary text-on-secondary flex items-center justify-center shadow-sm">
+<span class="material-symbols-outlined text-[14px]">star</span>
+</span>
+</div>
+<div class="flex flex-col min-w-0 flex-1">
+<div class="flex items-center gap-space-xs">
+<span class="px-2 py-0.5 rounded-full bg-secondary-fixed text-on-secondary-fixed font-label-md text-label-md uppercase tracking-wider inline-flex items-center gap-1">
+<span class="material-symbols-outlined text-[12px]">workspace_premium</span>
+                VIP Gold
+              </span>
+</div>
+<h2 class="font-headline-md text-headline-md text-on-surface truncate leading-tight mt-1">M. Mamadou Diop</h2>
+<p class="font-label-md text-label-md text-on-surface-variant flex items-center gap-1 mt-0.5">
+<span class="material-symbols-outlined text-[14px] text-primary">verified</span>
+              Client fidèle • 4 séjours
+            </p>
+</div>
+</div>
+<!-- Contact & Demographic Matrix -->
+<div class="flex flex-col gap-space-sm bg-surface-container-low rounded-xl p-space-md mb-space-md">
+<div class="flex items-center justify-between text-body-sm">
+<span class="text-on-surface-variant flex items-center gap-1.5">
+<span class="material-symbols-outlined text-[16px] text-outline">flag</span>
+              Nationalité
+            </span>
+<span class="font-title-md text-on-surface flex items-center gap-1.5">
+<span class="inline-block w-3.5 h-2.5 rounded-sm bg-gradient-to-r from-emerald-600 via-amber-400 to-rose-600"></span>
+              Sénégalaise
+            </span>
+</div>
+<div class="flex items-center justify-between text-body-sm">
+<span class="text-on-surface-variant flex items-center gap-1.5">
+<span class="material-symbols-outlined text-[16px] text-outline">call</span>
+              Téléphone
+            </span>
+<div class="flex items-center gap-1">
+<a class="font-title-md text-primary hover:underline" href="tel:+221776543210">+221 77 654 32 10</a>
+<button class="p-1 text-outline hover:text-on-surface" onclick="navigator.clipboard.writeText('+221776543210')" title="Copier le numéro" type="button">
+<span class="material-symbols-outlined text-[14px]">content_copy</span>
+</button>
+</div>
+</div>
+<div class="flex items-center justify-between text-body-sm">
+<span class="text-on-surface-variant flex items-center gap-1.5">
+<span class="material-symbols-outlined text-[16px] text-outline">mail</span>
+              Email
+            </span>
+<a class="font-body-sm text-on-surface hover:text-primary truncate max-w-[180px]" href="mailto:mamadou.diop@terangagroup.sn" title="mamadou.diop@terangagroup.sn">mamadou.diop@terangagroup.sn</a>
+</div>
+<div class="flex items-center justify-between text-body-sm">
+<span class="text-on-surface-variant flex items-center gap-1.5">
+<span class="material-symbols-outlined text-[16px] text-outline">apartment</span>
+              Affiliation
+            </span>
+<span class="font-body-sm text-on-surface text-right">Teranga Group <span class="text-outline-variant">•</span> Dir. Associé</span>
+</div>
+<div class="flex items-center justify-between text-body-sm">
+<span class="text-on-surface-variant flex items-center gap-1.5">
+<span class="material-symbols-outlined text-[16px] text-outline">home_pin</span>
+              Résidence
+            </span>
+<span class="font-body-sm text-on-surface">Almadies, Dakar</span>
+</div>
+</div>
+<!-- Official Identity Document Block -->
+<div class="bg-surface-container rounded-xl p-space-md flex items-center justify-between mb-space-md">
+<div class="flex items-center gap-space-sm">
+<div class="w-9 h-9 rounded-lg bg-surface-container-lowest text-primary flex items-center justify-center shadow-sm">
+<span class="material-symbols-outlined text-[20px]">badge</span>
+</div>
+<div class="flex flex-col">
+<span class="font-label-md text-label-md text-on-surface-variant">Passeport N° SN-982341-B</span>
+<span class="font-body-sm text-body-sm text-on-surface">Valide jusqu'au 14/09/2027</span>
+</div>
+</div>
+<button class="inline-flex items-center gap-1 text-primary hover:text-primary-container font-label-md text-label-md" type="button">
+<span>Scan PDF</span>
+<span class="material-symbols-outlined text-[16px]">open_in_new</span>
+</button>
+</div>
+<!-- Tags & Hospitality Care -->
+<div class="flex flex-col gap-space-xs">
+<span class="font-label-md text-label-md text-outline uppercase tracking-wider">Instructions permanentes</span>
+<div class="flex flex-wrap gap-1.5 mt-1">
+<span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-secondary-fixed/40 text-on-secondary-fixed-variant text-body-sm">
+<span class="material-symbols-outlined text-[14px]">airport_shuttle</span>
+              Navette aéroport systématique
+            </span>
+<span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-surface-container text-on-surface-variant text-body-sm">
+<span class="material-symbols-outlined text-[14px]">wine_bar</span>
+              Bouteille d'accueil
+            </span>
+<span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-surface-container text-on-surface-variant text-body-sm">
+<span class="material-symbols-outlined text-[14px]">deck</span>
+              Table terrasse vue mer
+            </span>
+<span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-primary/10 text-primary text-body-sm">
+<span class="material-symbols-outlined text-[14px]">bed</span>
+              Oreillers duvet fermes
+            </span>
+</div>
+</div>
+</div>
+<!-- Financial & Loyalty KPI Card -->
+<div class="bg-surface-container-lowest rounded-xl p-space-lg shadow-sm flex flex-col">
+<div class="flex items-center justify-between mb-space-md">
+<span class="font-headline-sm text-headline-sm text-on-surface">Synthèse Clientèle</span>
+<span class="font-label-md text-label-md text-primary font-semibold">18 nuits au total</span>
+</div>
+<!-- Big Highlight Total Spend -->
+<div class="p-space-md rounded-xl bg-gradient-to-br from-surface-container-low to-surface-container flex flex-col mb-space-md">
+<span class="font-label-md text-label-md text-on-surface-variant uppercase tracking-wider">Total Dépensé (Chambres &amp; Folios)</span>
+<div class="flex items-baseline gap-2 mt-1">
+<span class="font-headline-lg text-headline-lg text-primary font-semibold tracking-tight">3 850 000</span>
+<span class="font-label-currency text-label-currency text-on-surface">FCFA</span>
+</div>
+<span class="font-body-sm text-body-sm text-outline mt-1">Équivalent approx. 5 870 €</span>
+</div>
+<div class="grid grid-cols-2 gap-space-sm mb-space-md">
+<div class="p-space-sm bg-surface-container-low rounded-xl flex flex-col">
+<span class="font-label-md text-label-md text-on-surface-variant">Panier moyen</span>
+<span class="font-title-lg text-title-lg text-on-surface font-semibold mt-0.5">962 500 <span class="font-label-md text-label-md text-outline">FCFA</span></span>
+<span class="text-body-sm text-outline mt-0.5">Par séjour de ~4.5 nuits</span>
+</div>
+<div class="p-space-sm bg-surface-container-low rounded-xl flex flex-col">
+<span class="font-label-md text-label-md text-on-surface-variant">Client depuis</span>
+<span class="font-title-lg text-title-lg text-on-surface font-semibold mt-0.5">12 Jan. 2023</span>
+<span class="text-body-sm text-outline mt-0.5">1 an et 4 mois</span>
+</div>
+</div>
+<!-- Spending Breakdown Sparkline SVG -->
+<div class="flex flex-col gap-1.5 pt-2">
+<div class="flex justify-between items-center text-body-sm">
+<span class="text-on-surface-variant">Répartition des dépenses</span>
+<span class="text-on-surface font-title-md">Hébergement 78% • F&amp;B 22%</span>
+</div>
+<div class="w-full h-2 rounded-full bg-surface-container flex overflow-hidden">
+<div class="h-full bg-primary w-[78%]" title="Hébergement: 78%"></div>
+<div class="h-full bg-secondary-container w-[22%]" title="Extras Resto &amp; Spa: 22%"></div>
+</div>
+</div>
+</div>
+<!-- Quick Room Preference Mini-Hero -->
+<div class="relative rounded-xl overflow-hidden shadow-sm h-48 flex flex-col justify-end p-space-md">
+<img class="absolute inset-0 w-full h-full object-cover" data-alt="Sunlit luxury oceanfront hotel suite balcony with woven wicker chairs looking out to calm turquoise waves of Saly Senegal, soft shadows and lush palm leaves, high aesthetic hospitality photography" src="../../images/maquettes-originales/fiche_profil_client_m._mamadou_diop-2.jpg"/>
+<div class="absolute inset-0 bg-gradient-to-t from-inverse-surface/90 via-inverse-surface/40 to-transparent"></div>
+<div class="relative z-10 flex flex-col text-on-primary">
+<span class="font-label-md text-label-md uppercase tracking-wider text-secondary-fixed">Chambre Fétiche</span>
+<span class="font-headline-sm text-headline-sm leading-snug">Suite Océan Panoramique (301)</span>
+<span class="font-body-sm text-body-sm text-surface-container-low opacity-90">Choisie lors de 3 séjours consécutifs</span>
+</div>
+</div>
+</div>
+<!-- RIGHT COLUMN : Tabbed Workspace (History, Preferences, Invoices, Team Notes) -->
+<div class="lg:col-span-8 xl:col-span-8 flex flex-col gap-space-lg">
+<!-- Refined Tab Navigation Bar -->
+<div class="bg-surface-container-lowest rounded-xl p-1.5 shadow-sm flex items-center justify-between overflow-x-auto">
+<div class="flex items-center gap-1 min-w-max" role="tablist">
+<button class="tab-button inline-flex items-center gap-2 px-space-md py-2.5 rounded-lg bg-primary text-on-primary font-title-md text-title-md transition-all shadow-sm" data-tab="historique" type="button">
+<span class="material-symbols-outlined text-[18px]">history</span>
+<span>Historique des séjours (4)</span>
+</button>
+<button class="tab-button inline-flex items-center gap-2 px-space-md py-2.5 rounded-lg text-on-surface hover:bg-surface-container font-title-md text-title-md transition-all" data-tab="preferences" type="button">
+<span class="material-symbols-outlined text-[18px]">room_service</span>
+<span>Préférences &amp; Habitudes</span>
+</button>
+<button class="tab-button inline-flex items-center gap-2 px-space-md py-2.5 rounded-lg text-on-surface hover:bg-surface-container font-title-md text-title-md transition-all" data-tab="factures" type="button">
+<span class="material-symbols-outlined text-[18px]">receipt_long</span>
+<span>Factures &amp; Folios (4)</span>
+</button>
+<button class="tab-button inline-flex items-center gap-2 px-space-md py-2.5 rounded-lg text-on-surface hover:bg-surface-container font-title-md text-title-md transition-all" data-tab="notes" type="button">
+<span class="material-symbols-outlined text-[18px]">comment</span>
+<span>Notes &amp; Conciergerie (3)</span>
+</button>
+</div>
+<button class="hidden sm:flex items-center gap-1 px-3 py-1.5 text-on-surface-variant hover:text-primary font-label-md text-label-md" type="button">
+<span class="material-symbols-outlined text-[16px]">print</span>
+<span>Imprimer fiche</span>
+</button>
+</div>
+<!-- TAB CONTENT CONTAINER -->
+<div class="flex flex-col gap-space-lg">
+<!-- Live Stay Highlight Banner (Present Stay) -->
+<div class="bg-surface-container-lowest rounded-xl p-space-lg shadow-sm relative overflow-hidden">
+<div class="absolute left-0 top-0 bottom-0 w-2 bg-primary"></div>
+<div class="flex flex-col md:flex-row md:items-center justify-between gap-space-md">
+<div class="flex items-start gap-space-md pl-space-xs">
+<div class="w-12 h-12 rounded-xl bg-primary/10 text-primary flex items-center justify-center flex-shrink-0">
+<span class="material-symbols-outlined text-[28px]">key</span>
+</div>
+<div class="flex flex-col">
+<div class="flex items-center gap-space-sm flex-wrap">
+<span class="font-headline-sm text-headline-sm text-on-surface">Séjour en cours : Suite Océan Panoramique (Ch. 301)</span>
+<span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 text-emerald-800 font-label-md text-label-md">
+<span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                    En séjour
+                  </span>
+</div>
+<p class="font-body-md text-body-md text-on-surface-variant mt-1">
+                  Du 23 au 27 Mai 2024 (4 nuits) • Départ prévu dans 2 jours (11:00) • 2 Adultes
+                </p>
+</div>
+</div>
+<div class="flex flex-col md:items-end gap-1 pl-space-xs md:pl-0">
+<span class="font-label-md text-label-md text-on-surface-variant uppercase tracking-wider">Solde restant à régler</span>
+<span class="font-headline-md text-headline-md text-error font-bold">280 000 <span class="font-label-currency text-label-currency">FCFA</span></span>
+<span class="font-body-sm text-body-sm text-outline">Acompte de 500 000 FCFA reçu (Wave)</span>
+</div>
+</div>
+<!-- Quick Micro Actions for current stay -->
+<div class="flex flex-wrap items-center gap-space-sm mt-space-md pt-space-md bg-surface-container-low -mx-space-lg -mb-space-lg px-space-lg py-3">
+<span class="font-label-md text-label-md text-on-surface-variant flex items-center gap-1">
+<span class="material-symbols-outlined text-[16px] text-primary">room_service</span>
+              Actions rapides chambre :
+            </span>
+<button class="px-3 py-1 rounded-lg bg-surface-container-lowest text-on-surface hover:bg-primary hover:text-on-primary font-body-sm text-body-sm shadow-xs transition-colors" type="button">
+              + Ajouter un extra Resto
+            </button>
+<button class="px-3 py-1 rounded-lg bg-surface-container-lowest text-on-surface hover:bg-primary hover:text-on-primary font-body-sm text-body-sm shadow-xs transition-colors" type="button">
+              Consulter le folio actif (#RB-2024-0894)
+            </button>
+<button class="px-3 py-1 rounded-lg bg-surface-container-lowest text-on-surface hover:bg-primary hover:text-on-primary font-body-sm text-body-sm shadow-xs transition-colors" type="button">
+              Programmer Late Check-out
+            </button>
+</div>
+</div>
+<!-- Vertical Timeline of Past & Current Stays -->
+<div class="bg-surface-container-lowest rounded-xl p-space-lg shadow-sm flex flex-col">
+<div class="flex items-center justify-between mb-space-lg">
+<div class="flex items-center gap-space-sm">
+<span class="material-symbols-outlined text-primary text-[24px]">timeline</span>
+<h3 class="font-headline-sm text-headline-sm text-on-surface">Historique complet des séjours</h3>
+</div>
+<span class="font-body-sm text-body-sm text-outline">4 réservations enregistrées</span>
+</div>
+<!-- Timeline Container -->
+<div class="relative pl-6 md:pl-8 flex flex-col gap-space-xl">
+<!-- Timeline vertical connector bar -->
+<div class="absolute left-2.5 md:left-3.5 top-3 bottom-6 w-0.5 bg-surface-variant"></div>
+<!-- Item 1: Mai 2024 (En cours) -->
+<div class="relative flex flex-col gap-space-sm">
+<div class="absolute -left-6 md:-left-8 top-1.5 w-6 h-6 rounded-full bg-primary text-on-primary flex items-center justify-center shadow-sm ring-4 ring-surface-container-lowest">
+<span class="material-symbols-outlined text-[14px]">hotel</span>
+</div>
+<div class="bg-surface-container-low rounded-xl p-space-md flex flex-col lg:flex-row lg:items-center justify-between gap-space-md hover:bg-surface-container transition-colors">
+<div class="flex flex-col">
+<div class="flex items-center gap-space-sm flex-wrap">
+<span class="font-title-lg text-title-lg text-on-surface">1. Mai 2024 (En cours)</span>
+<span class="px-2.5 py-0.5 rounded-full bg-primary/10 text-primary font-label-md text-label-md">Actif • Ch. 301</span>
+<span class="font-body-sm text-body-sm text-outline">Réf: #RB-2024-0894</span>
+</div>
+<div class="flex items-center gap-space-sm text-body-md text-on-surface-variant mt-1 flex-wrap">
+<span>Du 23 au 27 Mai 2024 (4 nuits)</span>
+<span>•</span>
+<span class="font-medium text-on-surface">Suite Océan Panoramique</span>
+<span>•</span>
+<span class="text-outline">Extras : Restaurant La Teranga, Navette VIP DSS</span>
+</div>
+</div>
+<div class="flex items-center gap-space-md justify-between lg:justify-end">
+<div class="flex flex-col text-left lg:text-right">
+<span class="font-label-currency text-label-currency text-on-surface font-bold">780 000 FCFA</span>
+<span class="text-body-sm text-error">Reste 280 000 FCFA</span>
+</div>
+<div class="flex items-center gap-1.5">
+<button class="p-2 rounded-lg bg-surface-container-lowest hover:bg-primary hover:text-on-primary text-on-surface shadow-xs transition-colors" title="Voir folio PDF" type="button">
+<span class="material-symbols-outlined text-[18px]">receipt</span>
+</button>
+<button class="px-3 py-1.5 rounded-lg bg-surface-container-lowest hover:bg-surface-container text-on-surface text-body-sm font-semibold shadow-xs transition-colors" type="button">
+                      Détails
+                    </button>
+</div>
+</div>
+</div>
+</div>
+<!-- Item 2: Février 2024 -->
+<div class="relative flex flex-col gap-space-sm">
+<div class="absolute -left-6 md:-left-8 top-1.5 w-6 h-6 rounded-full bg-surface-dim text-on-surface-variant flex items-center justify-center shadow-sm ring-4 ring-surface-container-lowest">
+<span class="material-symbols-outlined text-[14px]">check</span>
+</div>
+<div class="bg-surface-container-low rounded-xl p-space-md flex flex-col lg:flex-row lg:items-center justify-between gap-space-md hover:bg-surface-container transition-colors">
+<div class="flex flex-col">
+<div class="flex items-center gap-space-sm flex-wrap">
+<span class="font-title-lg text-title-lg text-on-surface">2. Février 2024</span>
+<span class="px-2.5 py-0.5 rounded-full bg-surface-variant text-on-surface-variant font-label-md text-label-md">Terminé • Ch. 204</span>
+<span class="font-body-sm text-body-sm text-outline">Réf: #RB-2024-0211</span>
+</div>
+<div class="flex items-center gap-space-sm text-body-md text-on-surface-variant mt-1 flex-wrap">
+<span>Du 14 au 19 Fév. 2024 (5 nuits)</span>
+<span>•</span>
+<span class="font-medium text-on-surface">Bungalow Baobab</span>
+<span>•</span>
+<span class="text-outline">Séjour Saint-Valentin / Détente</span>
+</div>
+</div>
+<div class="flex items-center gap-space-md justify-between lg:justify-end">
+<div class="flex flex-col text-left lg:text-right">
+<span class="font-label-currency text-label-currency text-on-surface font-bold">1 125 000 FCFA</span>
+<span class="text-body-sm text-emerald-700 flex items-center gap-1 justify-end">
+<span class="material-symbols-outlined text-[14px]">check_circle</span>
+                      Payé Wave
+                    </span>
+</div>
+<div class="flex items-center gap-1.5">
+<button class="p-2 rounded-lg bg-surface-container-lowest hover:bg-primary hover:text-on-primary text-on-surface shadow-xs transition-colors" title="Télécharger facture" type="button">
+<span class="material-symbols-outlined text-[18px]">download</span>
+</button>
+<button class="px-3 py-1.5 rounded-lg bg-surface-container-lowest hover:bg-surface-container text-on-surface text-body-sm font-semibold shadow-xs transition-colors" type="button">
+                      Détails
+                    </button>
+</div>
+</div>
+</div>
+</div>
+<!-- Item 3: Octobre 2023 -->
+<div class="relative flex flex-col gap-space-sm">
+<div class="absolute -left-6 md:-left-8 top-1.5 w-6 h-6 rounded-full bg-surface-dim text-on-surface-variant flex items-center justify-center shadow-sm ring-4 ring-surface-container-lowest">
+<span class="material-symbols-outlined text-[14px]">check</span>
+</div>
+<div class="bg-surface-container-low rounded-xl p-space-md flex flex-col lg:flex-row lg:items-center justify-between gap-space-md hover:bg-surface-container transition-colors">
+<div class="flex flex-col">
+<div class="flex items-center gap-space-sm flex-wrap">
+<span class="font-title-lg text-title-lg text-on-surface">3. Octobre 2023</span>
+<span class="px-2.5 py-0.5 rounded-full bg-surface-variant text-on-surface-variant font-label-md text-label-md">Terminé • Ch. 202</span>
+<span class="font-body-sm text-body-sm text-outline">Réf: #RB-2023-1102</span>
+</div>
+<div class="flex items-center gap-space-sm text-body-md text-on-surface-variant mt-1 flex-wrap">
+<span>Du 06 au 09 Oct. 2023 (3 nuits)</span>
+<span>•</span>
+<span class="font-medium text-on-surface">Deluxe Mer</span>
+<span>•</span>
+<span class="text-outline">Affaires / Séminaire Teranga</span>
+</div>
+</div>
+<div class="flex items-center gap-space-md justify-between lg:justify-end">
+<div class="flex flex-col text-left lg:text-right">
+<span class="font-label-currency text-label-currency text-on-surface font-bold">690 000 FCFA</span>
+<span class="text-body-sm text-emerald-700 flex items-center gap-1 justify-end">
+<span class="material-symbols-outlined text-[14px]">check_circle</span>
+                      Payé CB Visa
+                    </span>
+</div>
+<div class="flex items-center gap-1.5">
+<button class="p-2 rounded-lg bg-surface-container-lowest hover:bg-primary hover:text-on-primary text-on-surface shadow-xs transition-colors" title="Télécharger facture" type="button">
+<span class="material-symbols-outlined text-[18px]">download</span>
+</button>
+<button class="px-3 py-1.5 rounded-lg bg-surface-container-lowest hover:bg-surface-container text-on-surface text-body-sm font-semibold shadow-xs transition-colors" type="button">
+                      Détails
+                    </button>
+</div>
+</div>
+</div>
+</div>
+<!-- Item 4: Janvier 2023 -->
+<div class="relative flex flex-col gap-space-sm">
+<div class="absolute -left-6 md:-left-8 top-1.5 w-6 h-6 rounded-full bg-surface-dim text-on-surface-variant flex items-center justify-center shadow-sm ring-4 ring-surface-container-lowest">
+<span class="material-symbols-outlined text-[14px]">check</span>
+</div>
+<div class="bg-surface-container-low rounded-xl p-space-md flex flex-col lg:flex-row lg:items-center justify-between gap-space-md hover:bg-surface-container transition-colors">
+<div class="flex flex-col">
+<div class="flex items-center gap-space-sm flex-wrap">
+<span class="font-title-lg text-title-lg text-on-surface">4. Janvier 2023 (Premier séjour)</span>
+<span class="px-2.5 py-0.5 rounded-full bg-surface-variant text-on-surface-variant font-label-md text-label-md">Terminé • Ch. 302</span>
+<span class="font-body-sm text-body-sm text-outline">Réf: #RB-2023-0145</span>
+</div>
+<div class="flex items-center gap-space-sm text-body-md text-on-surface-variant mt-1 flex-wrap">
+<span>Du 12 au 18 Jan. 2023 (6 nuits)</span>
+<span>•</span>
+<span class="font-medium text-on-surface">Suite Filaos</span>
+<span>•</span>
+<span class="text-outline">Nouvel An &amp; Repos</span>
+</div>
+</div>
+<div class="flex items-center gap-space-md justify-between lg:justify-end">
+<div class="flex flex-col text-left lg:text-right">
+<span class="font-label-currency text-label-currency text-on-surface font-bold">1 255 000 FCFA</span>
+<span class="text-body-sm text-emerald-700 flex items-center gap-1 justify-end">
+<span class="material-symbols-outlined text-[14px]">check_circle</span>
+                      Payé Virement
+                    </span>
+</div>
+<div class="flex items-center gap-1.5">
+<button class="p-2 rounded-lg bg-surface-container-lowest hover:bg-primary hover:text-on-primary text-on-surface shadow-xs transition-colors" title="Télécharger facture" type="button">
+<span class="material-symbols-outlined text-[18px]">download</span>
+</button>
+<button class="px-3 py-1.5 rounded-lg bg-surface-container-lowest hover:bg-surface-container text-on-surface text-body-sm font-semibold shadow-xs transition-colors" type="button">
+                      Détails
+                    </button>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Dual Bento Box: Preferences & Team Operational Log -->
+<div class="grid grid-cols-1 md:grid-cols-2 gap-gutter">
+<!-- Box 1: Core Preferences Overview -->
+<div class="bg-surface-container-lowest rounded-xl p-space-lg shadow-sm flex flex-col justify-between">
+<div>
+<div class="flex items-center justify-between mb-space-md">
+<div class="flex items-center gap-space-sm">
+<span class="material-symbols-outlined text-secondary text-[22px]">favorite</span>
+<h4 class="font-headline-sm text-headline-sm text-on-surface">Habitudes &amp; Préférences</h4>
+</div>
+<button class="font-label-md text-label-md text-primary hover:underline" type="button">Gérer</button>
+</div>
+<div class="flex flex-col gap-space-sm">
+<div class="flex items-start gap-space-sm p-space-sm rounded-lg bg-surface-container-low">
+<span class="material-symbols-outlined text-primary text-[18px] mt-0.5">wb_twilight</span>
+<div class="flex flex-col">
+<span class="font-title-md text-title-md text-on-surface">Réveil &amp; Matin</span>
+<span class="text-body-sm text-on-surface-variant">Café Touba traditionnel servi en terrasse à 08h00 pile. Journal Le Soleil déposé.</span>
+</div>
+</div>
+<div class="flex items-start gap-space-sm p-space-sm rounded-lg bg-surface-container-low">
+<span class="material-symbols-outlined text-primary text-[18px] mt-0.5">bedtime</span>
+<div class="flex flex-col">
+<span class="font-title-md text-title-md text-on-surface">Couchage &amp; Confort</span>
+<span class="text-body-sm text-on-surface-variant">Double oreillers plumes fermes, climatisation réglée impérativement à 23°C.</span>
+</div>
+</div>
+<div class="flex items-start gap-space-sm p-space-sm rounded-lg bg-surface-container-low">
+<span class="material-symbols-outlined text-primary text-[18px] mt-0.5">directions_car</span>
+<div class="flex flex-col">
+<span class="font-title-md text-title-md text-on-surface">Transfert VIP</span>
+<span class="text-body-sm text-on-surface-variant">Mercedes SUV de l'hôtel depuis/vers Aéroport Blaise Diagne (DSS). Chauffeur habituel : Moussa.</span>
+</div>
+</div>
+</div>
+</div>
+<div class="mt-space-md pt-space-sm text-body-sm text-outline flex items-center justify-between">
+<span>Régime alimentaire : Sans porc</span>
+<span>Allergies : Aucune déclarée</span>
+</div>
+</div>
+<!-- Box 2: Team Internal Notes & Observations -->
+<div class="bg-surface-container-lowest rounded-xl p-space-lg shadow-sm flex flex-col justify-between">
+<div>
+<div class="flex items-center justify-between mb-space-md">
+<div class="flex items-center gap-space-sm">
+<span class="material-symbols-outlined text-primary text-[22px]">quick_reference_all</span>
+<h4 class="font-headline-sm text-headline-sm text-on-surface">Notes de l'Équipe</h4>
+</div>
+<span class="px-2 py-0.5 rounded-full bg-surface-container text-outline text-label-md">3 notes</span>
+</div>
+<!-- Note list -->
+<div class="flex flex-col gap-space-sm">
+<!-- Housekeeping Note -->
+<div class="p-space-sm rounded-lg bg-surface-container-low flex flex-col gap-1">
+<div class="flex items-center justify-between text-body-sm">
+<div class="flex items-center gap-1.5">
+<span class="font-title-md text-on-surface">Aminata S.</span>
+<span class="text-outline">• Housekeeping</span>
+</div>
+<span class="text-label-md text-outline">Hier, 14:20</span>
+</div>
+<p class="text-body-sm text-on-surface-variant italic">
+                    « Client particulièrement courtois. A demandé 2 draps de bain de plage supplémentaires pour la terrasse. Déjà installés. »
+                  </p>
+</div>
+<!-- Concierge Note -->
+<div class="p-space-sm rounded-lg bg-surface-container-low flex flex-col gap-1">
+<div class="flex items-center justify-between text-body-sm">
+<div class="flex items-center gap-1.5">
+<span class="font-title-md text-on-surface">Cheikh N.</span>
+<span class="text-outline">• Conciergerie</span>
+</div>
+<span class="text-label-md text-outline">23 Mai, 10:15</span>
+</div>
+<p class="text-body-sm text-on-surface-variant italic">
+                    « A sollicité la réservation d'un bateau pour une sortie pêche au gros samedi matin (Pointe Sarène). Prévenu le prestataire. »
+                  </p>
+</div>
+</div>
+</div>
+<!-- Add quick note action bar -->
+<div class="mt-space-md pt-space-sm flex items-center gap-2">
+<input class="flex-1 bg-surface-container-low text-body-sm text-on-surface px-3 py-2 rounded-lg outline-none focus:ring-1 focus:ring-primary" placeholder="Ajouter une consigne pour l'équipe..." type="text"/>
+<button class="px-3 py-2 rounded-lg bg-primary text-on-primary text-body-sm font-title-md hover:bg-primary-container transition-colors" type="button">
+                Enregistrer
+              </button>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<script>
+  // Tab Switching Micro-Interaction
+  document.querySelectorAll('.tab-button').forEach(button => {
+    button.addEventListener('click', () => {
+      // Toggle button active styling
+      document.querySelectorAll('.tab-button').forEach(btn => {
+        btn.classList.remove('bg-primary', 'text-on-primary', 'shadow-sm');
+        btn.classList.add('text-on-surface', 'hover:bg-surface-container');
+      });
+      button.classList.add('bg-primary', 'text-on-primary', 'shadow-sm');
+      button.classList.remove('text-on-surface', 'hover:bg-surface-container');
+    });
+  });
+
+  // Dropdown dismiss when clicking outside
+  document.addEventListener('click', (e) => {
+    const contactWrapper = document.getElementById('contactDropdownWrapper');
+    const contactMenu = document.getElementById('contactMenu');
+    if (contactWrapper && !contactWrapper.contains(e.target)) {
+      contactMenu.classList.add('hidden');
+    }
+  });
+</script></main></div></body></html>
+
+

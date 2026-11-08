@@ -1,6 +1,5 @@
-import { Component, inject } from '@angular/core';
+import { Component } from '@angular/core';
 import { RouterLink } from '@angular/router';
-import { ThemeService } from '../../../core/services/theme.service';
 
 @Component({
   selector: 'app-header',
@@ -54,20 +53,11 @@ import { ThemeService } from '../../../core/services/theme.service';
         <!-- Separator -->
         <div class="h-8 w-px bg-surface-variant/60" aria-hidden="true"></div>
 
-        <!-- User Profile & Theme Toggle Button -->
-        <div class="flex items-center gap-space-md">
-          <button
-            type="button"
-            data-testid="theme-toggle"
-            (click)="themeService.toggleTheme()"
-            class="w-8 h-8 rounded-full bg-primary flex items-center justify-center shadow-sm cursor-pointer focus-visible:ring-2 focus-visible:ring-primary"
-            [attr.aria-label]="themeService.theme() === 'dark' ? 'Activer le mode clair' : 'Activer le mode sombre'"
-            [title]="themeService.theme() === 'dark' ? 'Mode clair' : 'Mode sombre'"
-          >
-            <span class="material-symbols-outlined text-on-primary text-[18px]" aria-hidden="true">
-              {{ themeService.theme() === 'dark' ? 'light_mode' : 'person' }}
-            </span>
-          </button>
+        <!-- User Profile (reproduction fidèle de la maquette originale) -->
+        <div class="flex items-center gap-space-md" data-testid="user-profile">
+          <div class="w-8 h-8 rounded-full bg-primary flex items-center justify-center shadow-sm">
+            <span class="material-symbols-outlined text-on-primary text-[18px]" aria-hidden="true">person</span>
+          </div>
           <div class="hidden xl:flex flex-col text-left">
             <div class="flex items-center gap-space-xs">
               <span class="font-label-lg text-label-lg text-on-surface leading-tight">Aïssatou Ba</span>
@@ -105,24 +95,16 @@ import { ThemeService } from '../../../core/services/theme.service';
             <span class="material-symbols-outlined text-[22px]" aria-hidden="true">notifications</span>
             <span class="absolute top-2.5 right-2.5 w-2 h-2 rounded-full bg-secondary"></span>
           </button>
-          <button
-            type="button"
-            data-testid="theme-toggle-mobile"
-            (click)="themeService.toggleTheme()"
-            [attr.aria-label]="themeService.theme() === 'dark' ? 'Activer le mode clair' : 'Activer le mode sombre'"
-            class="flex items-center pl-1 cursor-pointer"
-          >
+          <div class="flex items-center pl-1" data-testid="user-profile-mobile">
             <img
-              alt="Profile"
+              alt="Profil Aïssatou Ba"
               class="w-8 h-8 rounded-full object-cover shadow-[0_2px_6px_rgba(0,0,0,0.08)]"
               src="assets/images/avatar-aissatou-ba.jpg"
             />
-          </button>
+          </div>
         </div>
       </div>
     </header>
   `
 })
-export class HeaderComponent {
-  readonly themeService = inject(ThemeService);
-}
+export class HeaderComponent {}
