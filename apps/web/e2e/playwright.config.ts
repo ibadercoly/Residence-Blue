@@ -2,10 +2,9 @@ import { defineConfig, devices } from '@playwright/test';
 
 export default defineConfig({
   testDir: './',
-  fullyParallel: true,
-  forbidOnly: !!process.env.CI,
-  retries: process.env.CI ? 2 : 0,
-  workers: process.env.CI ? 1 : undefined,
+  timeout: 30000,
+  fullyParallel: false,
+  retries: 0,
   reporter: 'list',
   use: {
     baseURL: 'http://localhost:4200',
@@ -14,7 +13,12 @@ export default defineConfig({
   projects: [
     {
       name: 'chromium',
-      use: { ...devices['Desktop Chrome'] },
+      use: {
+        ...devices['Desktop Chrome'],
+        launchOptions: {
+          executablePath: 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
+        },
+      },
     },
   ],
 });

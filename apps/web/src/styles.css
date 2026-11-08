@@ -1,109 +1,30 @@
-/* Variables et Design Tokens : Résidence Blue Boutique Hospitality (Grand Standing, Thiès) */
-:root {
-  --color-surface: #f3fafe;
-  --color-surface-dim: #d4dbdf;
-  --color-surface-bright: #f3fafe;
-  --color-surface-container-lowest: #ffffff;
-  --color-surface-container-low: #eef5f9;
-  --color-surface-container: #e8eff3;
-  --color-surface-container-high: #e2e9ed;
-  --color-surface-container-highest: #dce4e7;
-  --color-on-surface: #161d20;
-  --color-on-surface-variant: #3d494a;
-  --color-outline: #6d797b;
-  --color-outline-variant: #bdc9ca;
-  --color-primary: #00666f;
-  --color-on-primary: #ffffff;
-  --color-primary-container: #00818c;
-  --color-on-primary-container: #f6feff;
-  --color-secondary: #7e5700;
-  --color-on-secondary: #ffffff;
-  --color-secondary-container: #fdbe51;
-  --color-error: #ba1a1a;
-  --color-on-error: #ffffff;
-  --color-error-container: #ffdad6;
-  
-  --font-serif: 'Newsreader', Georgia, serif;
-  --font-sans: 'Manrope', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+/* Polices et icônes servies EN LOCAL (paquets npm), jamais depuis un CDN. */
+@import '@fontsource/manrope/400.css';
+@import '@fontsource/manrope/500.css';
+@import '@fontsource/manrope/600.css';
+@import '@fontsource/manrope/700.css';
+@import '@fontsource/newsreader/400.css';
+@import '@fontsource/newsreader/400-italic.css';
+@import '@fontsource/newsreader/500.css';
+@import '@fontsource/newsreader/600.css';
+@import 'material-symbols/outlined.css';
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Repris tel quel des maquettes (balise <style> de code.html). */
+@layer base {
+  html, body { margin: 0; padding: 0; }
+  body { overscroll-behavior: none; }
+  main > :first-child { margin-top: 0 !important; }
+  main > :last-child { margin-bottom: 0 !important; }
 }
 
-*, *::before, *::after {
-  box-sizing: border-box;
-  margin: 0;
-  padding: 0;
+@layer utilities {
+  /* Repris de tableau_de_bord_mode_clair/code.html (zones de sécurité mobiles). */
+  .pb-safe { padding-bottom: env(safe-area-inset-bottom, 0px); }
+  .pt-safe { padding-top: env(safe-area-inset-top, 0px); }
 }
 
-body {
-  font-family: var(--font-sans);
-  background-color: var(--color-surface);
-  color: var(--color-on-surface);
-  min-height: 100vh;
-  line-height: 1.5;
-}
-
-h1, h2, h3, .font-serif {
-  font-family: var(--font-serif);
-}
-
-/* Boutons et badges */
-.btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.5rem;
-  padding: 0.625rem 1.25rem;
-  border-radius: 9999px;
-  font-weight: 600;
-  font-size: 0.875rem;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  border: none;
-  text-decoration: none;
-}
-
-.btn-primary {
-  background-color: var(--color-primary);
-  color: var(--color-on-primary);
-}
-
-.btn-primary:hover {
-  background-color: var(--color-primary-container);
-}
-
-.btn-secondary {
-  background-color: var(--color-secondary);
-  color: var(--color-on-secondary);
-}
-
-.badge {
-  display: inline-flex;
-  align-items: center;
-  padding: 0.25rem 0.75rem;
-  border-radius: 9999px;
-  font-size: 0.75rem;
-  font-weight: 600;
-}
-
-.badge-online {
-  background-color: #d1fae5;
-  color: #065f46;
-}
-
-.badge-offline {
-  background-color: #fee2e2;
-  color: #991b1b;
-}
-
-.badge-syncing {
-  background-color: #fef3c7;
-  color: #92400e;
-}
-
-/* Card */
-.card {
-  background: var(--color-surface-container-lowest);
-  border: 1px solid var(--color-outline-variant);
-  border-radius: 12px;
-  padding: 1.25rem;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
-}
+::-webkit-scrollbar { display: none; }
