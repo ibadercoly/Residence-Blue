@@ -1,8 +1,10 @@
 #!/usr/bin/env sh
 # =============================================================================
 # Script de sauvegarde chiffrée PostgreSQL 16 — Résidence Blue
-# Exécute pg_dump et chiffre immédiatement le flux avec age ou gpg (AES-256)
+# Exécute pg_dump et chiffre immédiatement le flux avec age ou gpg (AES-256) :
+# aucune donnée en clair n'est écrite sur disque.
 # Nom du fichier daté : backup_residence_blue_YYYYMMDD_HHMMSS.sql.<gpg|age>
+# Les droits (GRANT/REVOKE, dont audit_log en ajout seul) sont conservés.
 # =============================================================================
 set -eu
 
@@ -17,13 +19,14 @@ mkdir -p "$BACKUP_DIR"
 
 run_pg_dump() {
   if command -v pg_dump >/dev/null 2>&1; then
-    pg_dump --clean --if-exists --no-owner --no-privileges \
+    pg_dump --clean --if-exists --no-owner \
       -h "$PGHOST" -p "$PGPORT" -U "$PGUSER" -d "$PGDATABASE"
   else
-    PG_CONTAINER="${PG_CONTAINER:-residence_blue_postgres}"
+    # Poste de développement sans client PostgreSQL : on passe par le conteneur
+    PG_CONTAINER="${PG_CONTAINER:-residence_blue_db}"
     docker exec -e PGPASSWORD="${PGPASSWORD:-}" "$PG_CONTAINER" \
-      pg_dump --clean --if-exists --no-owner --no-privileges \
-      -U "$PGUSER" -d "$PGDATABASE"
+      pg_dump --clean --if-exists --no-owner \
+      -h localhost -U "$PGUSER" -d "$PGDATABASE"
   fi
 }
 
