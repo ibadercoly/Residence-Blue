@@ -9,12 +9,18 @@ services:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_INITDB_ARGS: "--auth-host=scram-sha-256 --auth-local=scram-sha-256 --data-checksums"
+    command:
+      - "postgres"
+      - "-c"
+      - "password_encryption=scram-sha-256"
     # SÉCURITÉ : Aucun port publié vers l'hôte (pas de section "ports:").
-    # Seul le service "api" accède à "db" via le réseau interne "internal_net".
+    # Seul le service "api" (avec app_user) et le conteneur "backup" accèdent à "db" via "internal_net".
     expose:
       - "5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
+      - ./docker/postgres/init.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
     networks:
       - internal_net
     healthcheck:
@@ -36,7 +42,10 @@ services:
       - .env
     environment:
       PORT: ${PORT:-3000}
-      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}?schema=public
+      # L'API tourne exclusivement avec le rôle app_user (aucun DDL, pas superuser)
+      DATABASE_URL: postgresql://${APP_USER:-app_user}:${APP_USER_PASSWORD}@db:5432/${POSTGRES_DB}?schema=public
+      MIGRATION_DATABASE_URL: postgresql://${APP_OWNER:-app_owner}:${APP_OWNER_PASSWORD}@db:5432/${POSTGRES_DB}?schema=public
+      ENCRYPTION_KEY_ID: ${ENCRYPTION_KEY_ID:-v1}
       ENCRYPTION_MASTER_KEY: ${ENCRYPTION_MASTER_KEY}
       JWT_SECRET: ${JWT_SECRET}
     ports:
@@ -58,6 +67,36 @@ services:
     networks:
       - public_net
 
+  backup:
+    image: postgres:16-alpine
+    container_name: residence_blue_backup
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    env_file:
+      - .env
+    environment:
+      PGHOST: db
+      PGPORT: 5432
+      PGUSER: ${APP_OWNER:-app_owner}
+      PGPASSWORD: ${APP_OWNER_PASSWORD}
+      PGDATABASE: ${POSTGRES_DB}
+      BACKUP_DIR: /backups
+      BACKUP_ENCRYPTION_KEY: ${BACKUP_ENCRYPTION_KEY}
+    volumes:
+      - ./scripts:/scripts:ro
+      - pgbackups:/backups
+    networks:
+      - internal_net
+    entrypoint:
+      - "/bin/sh"
+      - "-c"
+      - |
+        apk add --no-cache gnupg age >/dev/null 2>&1 || true
+        echo "0 2 * * * /bin/sh /scripts/backup.sh >> /var/log/backup.log 2>&1" > /etc/crontabs/root
+        crond -f -l 8
+
 networks:
   internal_net:
     driver: bridge
@@ -67,4 +106,6 @@ networks:
 
 volumes:
   pgdata:
+    driver: local
+  pgbackups:
     driver: local

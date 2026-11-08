@@ -1,13 +1,16 @@
 import { CryptoService } from '../src/common/security/crypto.service';
 
-describe('CryptoService - Chiffrement AES-256-GCM', () => {
+describe('CryptoService - Chiffrement AES-256-GCM (Integration Suite)', () => {
   let service: CryptoService;
 
   beforeEach(() => {
+    process.env.ENCRYPTION_KEY_ID = 'v1';
+    process.env.ENCRYPTION_MASTER_KEY =
+      '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef';
     service = new CryptoService();
   });
 
-  it('doit chiffrer et déchiffrer avec succès un passeport ou pièce d’identité', () => {
+  it('doit chiffrer et déchiffrer avec succès un passeport avec identifiant de clé (keyId:iv:authTag:ciphertext)', () => {
     const passportNumber = 'A12345678-SN';
     const encrypted = service.encrypt(passportNumber);
 
@@ -15,33 +18,22 @@ describe('CryptoService - Chiffrement AES-256-GCM', () => {
     expect(encrypted).not.toBe(passportNumber);
 
     const parts = encrypted.split(':');
-    expect(parts.length).toBe(3); // iv, authTag, ciphertext
+    expect(parts.length).toBe(4);
+    expect(parts[0]).toBe('v1');
 
     const decrypted = service.decrypt(encrypted);
     expect(decrypted).toBe(passportNumber);
   });
 
-  it('doit échouer au déchiffrement si le tag d’authentification est altéré (tamper resistance)', () => {
+  it('doit échouer au déchiffrement si le tag d’authentification ou le texte chiffré est altéré', () => {
     const sensitiveData = 'CNI-1234567890';
     const encrypted = service.encrypt(sensitiveData);
-    const parts = encrypted.split(':');
+    const [keyId, iv, authTag, cipher] = encrypted.split(':');
 
-    // Altération d'un caractère de l'authTag
-    const tamperedAuthTag = parts[1].replace(/^[0-9a-f]/, (c) => (c === 'a' ? 'b' : 'a'));
-    const tamperedPayload = `${parts[0]}:${tamperedAuthTag}:${parts[2]}`;
+    const tamperedAuthTag = authTag.replace(/^[0-9a-f]/, (c) => (c === 'a' ? 'b' : 'a'));
+    expect(() => service.decrypt(`${keyId}:${iv}:${tamperedAuthTag}:${cipher}`)).toThrow();
 
-    expect(() => service.decrypt(tamperedPayload)).toThrow();
-  });
-
-  it('doit échouer au déchiffrement si le texte chiffré est altéré', () => {
-    const sensitiveData = 'CNI-9876543210';
-    const encrypted = service.encrypt(sensitiveData);
-    const parts = encrypted.split(':');
-
-    // Altération du ciphertext
-    const tamperedCipher = parts[2].replace(/^[0-9a-f]/, (c) => (c === '0' ? '1' : '0'));
-    const tamperedPayload = `${parts[0]}:${parts[1]}:${tamperedCipher}`;
-
-    expect(() => service.decrypt(tamperedPayload)).toThrow();
+    const tamperedCipher = cipher.replace(/^[0-9a-f]/, (c) => (c === '0' ? '1' : '0'));
+    expect(() => service.decrypt(`${keyId}:${iv}:${authTag}:${tamperedCipher}`)).toThrow();
   });
 });
