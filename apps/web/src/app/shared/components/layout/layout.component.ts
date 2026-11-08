@@ -19,7 +19,10 @@ interface MobileNavItem {
       <app-sidebar class="hidden md:block" />
       <div class="md:pl-64 flex flex-col flex-1">
         <app-header />
-        <main class="flex flex-col md:block relative w-full pt-16 pb-24 md:pt-20 md:pb-0 md:px-margin bg-surface min-h-screen md:min-h-0">
+        <main
+          role="main"
+          class="flex flex-col md:block relative w-full pt-16 pb-24 md:pt-20 md:pb-0 md:px-margin bg-surface min-h-screen md:min-h-0"
+        >
           <ng-content />
         </main>
       </div>

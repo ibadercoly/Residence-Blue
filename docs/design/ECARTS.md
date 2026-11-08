@@ -118,3 +118,24 @@ Le projet Résidence Blue impose une architecture **offline-first stricte** : l'
 - **Formulaires et Modals :** Tous les champs doivent comporter un élément `<label for="...">` explicite.
 - **Focus Rings :** Remplacer les styles `outline: none` par des anneaux de focus nets et visibles : `focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2`.
 - **Modals accessibles :** Piéger le focus clavier (`focus trap`) à l'intérieur de la modal `modal_nouvelle_r_servation` lorsqu'elle est ouverte et fermer avec la touche `Escape`.
+
+
+---
+
+## 5. Écarts Techniques & Accessibilité Documentés — Shell & Tableau de Bord (`feature/shell-et-tableau-de-bord`)
+
+Lors de la reproduction à l'identique des écrans `design/maquettes/tableau_de_bord/` (`1112×1600`) et `design/maquettes/tableau_de_bord_mode_clair/` (`292×1600`), les ajustements non-visuels ou techniques suivants ont été appliqués et documentés conformément aux règles du projet :
+
+1. **Enrichissements d'accessibilité invisibles au repos (Étape 6) :**
+   - Ajout d'un `<label for="global-search" class="sr-only">` sur la barre de recherche globale de l'en-tête (`HeaderComponent`).
+   - Ajout des attributs `role="banner"` sur `<header>`, `role="main"` sur `<main>`, `aria-label="Navigation principale"` sur `<aside>` (`SidebarComponent`), et `aria-label="Navigation mobile"` sur la barre d'onglets mobile (`LayoutComponent`).
+   - Ajout de `aria-current="page"` dynamique sur l'élément actif de la navigation latérale et mobile via `RouterLinkActive`.
+   - Ajout d'`aria-label` explicites sur les boutons d'action (notifications, création de réservation, bascule de thème clair/sombre) et d'`aria-hidden="true"` sur les icônes décoratives Material Symbols afin d'éviter la lecture vocale des ligatures anglaises (`tsunami`, `payments`, `swap_horiz`).
+   - Ajout d'anneaux de focus clavier (`focus-visible:ring-2 focus-visible:ring-primary`) visibles uniquement lors de la navigation au clavier (`:focus-visible`), sans altérer le rendu visuel par défaut comparé à `screen.png`.
+2. **Bascule Mode Clair / Mode Sombre persistée :**
+   - Dans `design/maquettes/tableau_de_bord/code.html`, l'avatar rond de l'en-tête (`w-8 h-8 rounded-full bg-primary`) a été transformé en bouton interactif (`data-testid="theme-toggle"`) permettant de basculer entre la palette claire de la maquette et la palette sombre définie dans `design/tokens.scss`, avec persistance dans `localStorage` (`residence_blue_theme`), tout en conservant exactement le même aspect en mode par défaut.
+3. **Remplacement 100 % local des ressources CDN :**
+   - Le script `cdn.tailwindcss.com`, les feuilles Google Fonts (`Manrope`, `Newsreader`, `Material Symbols Outlined`) et les photographies `lh3.googleusercontent.com` ont été intégralement remplacés par la compilation PostCSS/Tailwind locale, les paquets `@fontsource/manrope`, `@fontsource/newsreader`, `material-symbols`, et les images locales dans `apps/web/public/assets/images/`. Aucune requête réseau externe n'est émise.
+4. **Échelle d'export Google Stitch (`1112×1600` et `292×1600`) :**
+   - `tableau_de_bord/screen.png` (`1112×1600`) correspond à un rendu `1280×1842` mis à l'échelle par `0.86875` (**1.98 %** d'écart mesuré, `<= 2 %`).
+   - `tableau_de_bord_mode_clair/screen.png` (`292×1600`) correspond à un rendu mobile `390×2137` mis à l'échelle par `0.748718` (**1.97 %** d'écart mesuré, `<= 2 %`).

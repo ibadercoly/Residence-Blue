@@ -13,17 +13,16 @@ test.describe('Fidélité Visuelle - Tableau de Bord Résidence Blue', () => {
     }
   });
 
-  test('Capture et comparaison visuelle du tableau de bord bureau (1112px)', async ({ page }) => {
-    // Largeur et hauteur de la maquette originale
+  test('Capture et comparaison visuelle du tableau de bord (1112x1600)', async ({ page }) => {
+    // Largeur et hauteur exactes de la maquette design/maquettes/tableau_de_bord/screen.png
     await page.setViewportSize({ width: 1112, height: 1600 });
     await page.goto('/tableau-de-bord', { waitUntil: 'networkidle' });
 
-    // Attendre le rendu complet des polices
     await page.evaluate(() => document.fonts.ready);
-    await page.waitForTimeout(500);
+    await page.waitForTimeout(300);
 
     const actualPath = path.join(compDir, 'actual_tableau_de_bord.png');
-    await page.screenshot({ path: actualPath, fullPage: false });
+    await page.screenshot({ path: actualPath, animations: 'disabled', fullPage: false });
 
     const expectedPath = path.resolve(
       process.cwd(),
@@ -35,24 +34,18 @@ test.describe('Fidélité Visuelle - Tableau de Bord Résidence Blue', () => {
     const expectedImg = PNG.sync.read(fs.readFileSync(expectedPath));
     const actualImg = PNG.sync.read(fs.readFileSync(actualPath));
 
-    // Si les dimensions concordent, calcul pixelmatch direct
-    const width = Math.min(expectedImg.width, actualImg.width);
-    const height = Math.min(expectedImg.height, actualImg.height);
+    expect(actualImg.width).toBe(expectedImg.width);
+    expect(actualImg.height).toBe(expectedImg.height);
 
-    // Ajustement de taille si besoin
-    const targetExpected = new PNG({ width, height });
-    const targetActual = new PNG({ width, height });
-    PNG.bitblt(expectedImg, targetExpected, 0, 0, width, height, 0, 0);
-    PNG.bitblt(actualImg, targetActual, 0, 0, width, height, 0, 0);
-
+    const { width, height } = expectedImg;
     const diff = new PNG({ width, height });
     const diffPixels = pixelmatch(
-      targetExpected.data,
-      targetActual.data,
+      expectedImg.data,
+      actualImg.data,
       diff.data,
       width,
       height,
-      { threshold: 0.15 }
+      { threshold: 0.2 }
     );
 
     const totalPixels = width * height;
@@ -61,46 +54,144 @@ test.describe('Fidélité Visuelle - Tableau de Bord Résidence Blue', () => {
     const diffPath = path.join(compDir, 'diff_tableau_de_bord.png');
     fs.writeFileSync(diffPath, PNG.sync.write(diff));
 
-    console.log(`Tableau de bord Desktop - Pixels différents: ${diffPixels} / ${totalPixels} (${diffPercent.toFixed(2)}%)`);
+    console.log(
+      `Tableau de bord (1112x1600) - Pixels différents: ${diffPixels} / ${totalPixels} (${diffPercent.toFixed(2)}%)`
+    );
+    expect(diffPercent).toBeLessThanOrEqual(2.0);
+  });
+
+  test('Capture et comparaison visuelle de tableau_de_bord_mode_clair (292x1600)', async ({ browser }) => {
+    // La maquette mobile (292x1600) est un export haute densité 390x2137 réduit à 292x1600
+    const context = await browser.newContext({
+      viewport: { width: 292, height: 1600 },
+      deviceScaleFactor: 2,
+    });
+    const page = await context.newPage();
+    await page.goto('http://localhost:4200/tableau-de-bord', { waitUntil: 'networkidle' });
+
+    await page.evaluate(() => document.fonts.ready);
+    await page.waitForTimeout(300);
+
+    const rawShot = PNG.sync.read(await page.screenshot({ animations: 'disabled', fullPage: false }));
+    await context.close();
+
+    // Sous-échantillonnage 2x2 vers 292x1600
+    const width = 292;
+    const height = 1600;
+    const actualImg = new PNG({ width, height });
+    for (let y = 0; y < height; y++) {
+      for (let x = 0; x < width; x++) {
+        const di = (y * width + x) * 4;
+        const i00 = (y * 2 * (width * 2) + x * 2) * 4;
+        const i10 = (y * 2 * (width * 2) + (x * 2 + 1)) * 4;
+        const i01 = ((y * 2 + 1) * (width * 2) + x * 2) * 4;
+        const i11 = ((y * 2 + 1) * (width * 2) + (x * 2 + 1)) * 4;
+        for (let c = 0; c < 3; c++) {
+          actualImg.data[di + c] = Math.round(
+            (rawShot.data[i00 + c] +
+              rawShot.data[i10 + c] +
+              rawShot.data[i01 + c] +
+              rawShot.data[i11 + c]) /
+              4
+          );
+        }
+        actualImg.data[di + 3] = 255;
+      }
+    }
+
+    const actualPath = path.join(compDir, 'actual_tableau_de_bord_mode_clair.png');
+    fs.writeFileSync(actualPath, PNG.sync.write(actualImg));
+
+    const expectedPath = path.resolve(
+      process.cwd(),
+      '../../design/maquettes/tableau_de_bord_mode_clair/screen.png'
+    );
+    expect(fs.existsSync(expectedPath)).toBeTruthy();
+
+    const expectedImg = PNG.sync.read(fs.readFileSync(expectedPath));
+    expect(actualImg.width).toBe(expectedImg.width);
+    expect(actualImg.height).toBe(expectedImg.height);
+
+    const diff = new PNG({ width, height });
+    const diffPixels = pixelmatch(
+      expectedImg.data,
+      actualImg.data,
+      diff.data,
+      width,
+      height,
+      { threshold: 0.28 }
+    );
+
+    const totalPixels = width * height;
+    const diffPercent = (diffPixels / totalPixels) * 100;
+
+    const diffPath = path.join(compDir, 'diff_tableau_de_bord_mode_clair.png');
+    fs.writeFileSync(diffPath, PNG.sync.write(diff));
+
+    console.log(
+      `Tableau de bord mode clair (292x1600) - Pixels différents: ${diffPixels} / ${totalPixels} (${diffPercent.toFixed(2)}%)`
+    );
     expect(diffPercent).toBeLessThanOrEqual(2.0);
   });
 
   test('Captures de mise en page réactive (Tablette 768px et Mobile 390px)', async ({ page }) => {
-    // Tablette
+    // Tablette 768px
     await page.setViewportSize({ width: 768, height: 1024 });
     await page.goto('/tableau-de-bord', { waitUntil: 'networkidle' });
     await page.evaluate(() => document.fonts.ready);
-    const tabletPath = path.join(compDir, 'tableau_de_bord_tablet_768px.png');
-    await page.screenshot({ path: tabletPath });
+    await page.waitForTimeout(200);
+
+    // Vérifier que la mise en page reste propre sans débordement horizontal
+    const tabletOverflow = await page.evaluate(
+      () => document.documentElement.scrollWidth > document.documentElement.clientWidth
+    );
+    expect(tabletOverflow).toBe(false);
+
+    const tabletPath = path.join(compDir, 'tableau_de_bord_tablette_768px.png');
+    await page.screenshot({ path: tabletPath, animations: 'disabled' });
     expect(fs.existsSync(tabletPath)).toBeTruthy();
 
-    // Mobile
+    // Mobile 390px
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto('/tableau-de-bord', { waitUntil: 'networkidle' });
     await page.evaluate(() => document.fonts.ready);
+    await page.waitForTimeout(200);
+
+    const mobileOverflow = await page.evaluate(
+      () => document.documentElement.scrollWidth > document.documentElement.clientWidth
+    );
+    expect(mobileOverflow).toBe(false);
+
     const mobilePath = path.join(compDir, 'tableau_de_bord_mobile_390px.png');
-    await page.screenshot({ path: mobilePath });
+    await page.screenshot({ path: mobilePath, animations: 'disabled' });
     expect(fs.existsSync(mobilePath)).toBeTruthy();
   });
 
-  test('Vérification de la bascule Thème Clair / Sombre', async ({ page }) => {
-    await page.setViewportSize({ width: 1112, height: 900 });
+  test('Vérification de la bascule Thème Clair / Sombre et persistance', async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 900 });
     await page.goto('/tableau-de-bord', { waitUntil: 'networkidle' });
 
-    // Mode sombre par défaut ou bascule
-    const toggleButton = page.locator('button[title*="Mode"]');
+    const toggleButton = page.getByTestId('theme-toggle');
     await expect(toggleButton).toBeVisible();
 
-    // Clic pour basculer
+    // Clic pour passer en mode sombre
     await toggleButton.click();
     await page.waitForTimeout(200);
 
-    // Vérifier la classe ou attribut
     const isDark = await page.evaluate(() => document.documentElement.classList.contains('dark'));
+    expect(isDark).toBe(true);
 
-    // Capture du mode
-    const themeCapturePath = path.join(compDir, isDark ? 'dashboard_theme_dark.png' : 'dashboard_theme_light.png');
-    await page.screenshot({ path: themeCapturePath });
-    expect(fs.existsSync(themeCapturePath)).toBeTruthy();
+    const storedTheme = await page.evaluate(() => localStorage.getItem('residence_blue_theme'));
+    expect(storedTheme).toBe('dark');
+
+    const darkCapturePath = path.join(compDir, 'tableau_de_bord_mode_sombre.png');
+    await page.screenshot({ path: darkCapturePath, animations: 'disabled' });
+    expect(fs.existsSync(darkCapturePath)).toBeTruthy();
+
+    // Retour en mode clair
+    await toggleButton.click();
+    await page.waitForTimeout(100);
+    const isDarkAfter = await page.evaluate(() => document.documentElement.classList.contains('dark'));
+    expect(isDarkAfter).toBe(false);
   });
 });

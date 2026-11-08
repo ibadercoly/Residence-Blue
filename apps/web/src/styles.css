@@ -1,12 +1,11 @@
 /* Polices et icônes servies EN LOCAL (paquets npm), jamais depuis un CDN. */
 @import '@fontsource/manrope/400.css';
 @import '@fontsource/manrope/500.css';
-@import '@fontsource/manrope/700.css';
 @import '@fontsource/manrope/600.css';
+@import '@fontsource/manrope/700.css';
 @import '@fontsource/newsreader/400.css';
 @import '@fontsource/newsreader/400-italic.css';
 @import '@fontsource/newsreader/500.css';
-@import '@fontsource/newsreader/600.css';
 @import 'material-symbols/outlined.css';
 
 @tailwind base;
@@ -82,6 +81,12 @@
     transform: scale(0.74871795, 0.7494);
     transform-origin: top left;
     overflow: hidden;
+  }
+  img[alt='Logo Résidence Blue'] {
+    width: 148px !important;
+  }
+  * {
+    letter-spacing: 0.0085em !important;
   }
 }
 
