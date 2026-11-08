@@ -11,6 +11,7 @@ interface NavItem {
   selector: 'app-sidebar',
   standalone: true,
   imports: [RouterLink, RouterLinkActive],
+  host: { class: 'block' },
   template: `
     <aside
       class="fixed left-0 top-0 h-full w-64 bg-inverse-surface z-50 flex flex-col justify-between shadow-[0_1px_8px_rgba(0,0,0,0.06)]"
@@ -27,7 +28,7 @@ interface NavItem {
               Résidence Blue
             </span>
             <span class="font-label-md text-label-md text-outline-variant uppercase tracking-wider truncate">
-              Hôtel Boutique • Grand Standing, Thiès
+              Hôtel Boutique • Saly Portudal
             </span>
           </div>
         </div>
@@ -41,9 +42,13 @@ interface NavItem {
             @for (item of navItems; track item.path) {
               <a
                 [routerLink]="item.path"
-                routerLinkActive="bg-primary text-on-primary font-title-md"
+                #rla="routerLinkActive"
+                routerLinkActive
                 [routerLinkActiveOptions]="{ exact: item.path === '/tableau-de-bord' }"
-                class="flex items-center gap-space-md px-space-md py-space-sm rounded-lg text-surface-container-high hover:bg-surface-variant/20 hover:text-surface-bright transition-colors font-title-md text-title-md"
+                [attr.aria-current]="rla.isActive ? 'page' : null"
+                [class]="rla.isActive
+                  ? 'flex items-center gap-space-md px-space-md py-space-sm rounded-lg transition-colors bg-primary text-on-primary font-title-md'
+                  : 'flex items-center gap-space-md px-space-md py-space-sm rounded-lg text-surface-container-high hover:bg-surface-variant/20 hover:text-surface-bright transition-colors font-title-md text-title-md'"
               >
                 <span class="material-symbols-outlined text-[20px]">{{ item.icon }}</span>
                 <span>{{ item.label }}</span>
