@@ -2,7 +2,7 @@
   "name": "residence-blue",
   "version": "0.1.0",
   "private": true,
-  "description": "Logiciel de gestion hôtelière pour Résidence Blue (Saly, Sénégal)",
+  "description": "Logiciel de gestion hôtelière pour Résidence Blue (Thiès - Grand Standing, Sénégal)",
   "workspaces": [
     "packages/*",
     "apps/*"

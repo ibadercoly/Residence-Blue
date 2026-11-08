@@ -11,7 +11,7 @@ import { HOTEL_ROOMS_CATALOG, RoomDefinition, RoomType, formatFcfa } from '@resi
       <div class="header-section">
         <div>
           <h2 class="title font-serif">Inventaire des 12 Chambres</h2>
-          <p class="subtitle">Gestion des hébergements de Résidence Blue à Saly</p>
+          <p class="subtitle">Gestion des hébergements de Résidence Blue à Thiès (Grand Standing)</p>
         </div>
         <div class="filter-pills">
           <button

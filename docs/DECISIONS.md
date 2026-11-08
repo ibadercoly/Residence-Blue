@@ -1,6 +1,6 @@
 # Registre des Décisions d'Architecture (ADR) - Résidence Blue
 
-Ce document consigne les choix technologiques et architecturaux majeurs adoptés pour le système de gestion de la **Résidence Blue** à Saly (Sénégal).
+Ce document consigne les choix technologiques et architecturaux majeurs adoptés pour le système de gestion de la **Résidence Blue** à Thiès (quartier Grand Standing, Sénégal).
 
 ---
 
@@ -12,14 +12,14 @@ Ce document consigne les choix technologiques et architecturaux majeurs adoptés
 ---
 
 ## ADR 002 : Stockage Financier FCFA Strictement en Entiers
-- **Contexte :** La devise officielle à Saly est le Franc CFA (XOF / BCEAO), qui ne comporte pas de décimales (pas de centimes). Les calculs en nombres flottants provoquent traditionnellement des dérives d'arrondi (bugs IEEE 754).
+- **Contexte :** La devise officielle à Thiès (Sénégal) est le Franc CFA (XOF / BCEAO), qui ne comporte pas de décimales (pas de centimes). Les calculs en nombres flottants provoquent traditionnellement des dérives d'arrondi (bugs IEEE 754).
 - **Décision :** Règle absolue du projet : TOUS les montants financiers (chambres, folios, commandes restaurant/bar, taxes, encaissements) sont stockés sous forme d'entiers (`Int` dans Prisma, validation `Number.isInteger()` systématique dans `@residence-blue/shared`).
 - **Conséquences :** Zéro erreur d'arrondi financier, intégrité comptable totale. Tout montant avec virgule est rejeté à la source avec une erreur 400 Bad Request.
 
 ---
 
 ## ADR 003 : Approche Hors-Ligne (Offline-First) & Clé d'Idempotence
-- **Contexte :** Les coupures de réseau ou de courant à Saly sont des réalités opérationnelles. Le personnel de réception et du restaurant doit pouvoir continuer à enregistrer des réservations, folios et paiements sans interruption.
+- **Contexte :** Les coupures de réseau ou de courant à Thiès sont des réalités opérationnelles. Le personnel de réception et du restaurant doit pouvoir continuer à enregistrer des réservations, folios et paiements sans interruption.
 - **Décision :**
   1. Persistance locale dans le navigateur via **IndexedDB** (`rooms`, `reservations`, `outbox`).
   2. Génération d'identifiants primaires sous forme de **UUID v4 côté client**.
@@ -52,15 +52,14 @@ Ce document consigne les choix technologiques et architecturaux majeurs adoptés
 
 ---
 
-## ADR 006 : Frontend Angular 19 Standalone, Signals & Design Tokens Saly
-- **Contexte :** Modernité de l'interface, performance, clarté visuelle et intégration des maquettes de la Résidence Blue.
+## ADR 006 : Frontend Angular Standalone, Signals & Design Tokens Boutique Hôtel
+- **Contexte :** Modernité de l'interface, performance, clarté visuelle et intégration des maquettes de la Résidence Blue (Grand Standing, Thiès).
 - **Décision :**
   1. Angular standalone components (sans NgModules superflus).
   2. Gestion d'état locale par Signals (`signal`, `computed`).
-  3. Respect scrupuleux des tokens de design `Saly Coastal Boutique Hospitality` : Deep Teal (`#00666f`), Sandy Gold (`#7e5700`), typographie Newsreader pour le caractère boutique raffiné et Manrope pour la lisibilité des tableaux opérationnels.
+  3. Respect scrupuleux des tokens de design `Boutique Hospitality` : Deep Teal (`#00666f`), Sandy Gold (`#7e5700`), typographie Newsreader pour le caractère boutique raffiné et Manrope pour la lisibilité des tableaux opérationnels.
   4. Support PWA avec manifeste et service worker.
 - **Conséquences :** Interface légère, rapide, esthétique et optimisée pour l'usage tactile et bureau.
-
 
 ---
 

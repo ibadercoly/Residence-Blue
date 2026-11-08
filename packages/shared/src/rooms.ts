@@ -1,6 +1,6 @@
 /**
  * Modèles des chambres de Résidence Blue.
- * Hôtel de 12 chambres à Saly : Standard, Deluxe, Suite.
+ * Hôtel de 12 chambres à Thiès (Grand Standing) : Standard, Deluxe, Suite.
  */
 
 export enum RoomType {
@@ -29,7 +29,7 @@ export interface RoomDefinition {
 }
 
 /**
- * Inventaire fixe des 12 chambres de la Résidence Blue (Saly, Sénégal).
+ * Inventaire fixe des 12 chambres de la Résidence Blue (Thiès - Grand Standing, Sénégal).
  * Montants en entiers FCFA.
  */
 export const HOTEL_ROOMS_CATALOG: RoomDefinition[] = [
@@ -146,7 +146,7 @@ export const HOTEL_ROOMS_CATALOG: RoomDefinition[] = [
     floor: 2,
     basePriceFcfa: 110000,
     capacity: 4,
-    description: 'Suite Prestige avec salon séparé, double terrasse vue mer et service VIP.',
+    description: 'Suite Prestige avec salon séparé, double terrasse et service VIP d’excellence.',
   },
   {
     id: 'room-302',
@@ -156,6 +156,6 @@ export const HOTEL_ROOMS_CATALOG: RoomDefinition[] = [
     floor: 2,
     basePriceFcfa: 110000,
     capacity: 4,
-    description: 'Suite d’exception avec baignoire balnéo, dressing et vue imprenable sur le coucher de soleil de Saly.',
+    description: 'Suite d’exception avec baignoire balnéo, dressing et vue dégagée sur le quartier résidentiel de Grand Standing.',
   },
 ];

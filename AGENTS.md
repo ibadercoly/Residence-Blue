@@ -2,7 +2,7 @@
 
 ## Projet
 Logiciel de gestion d'un hôtel de 12 chambres (Standard, Deluxe, Suite) avec
-restaurant et bar, à Saly (Sénégal). Remplace des fichiers Excel.
+restaurant et bar, à Thiès, plus précisément à Grand Standing (Sénégal). Remplace des fichiers Excel.
 Devise : FCFA, montants stockés en ENTIERS (jamais de décimaux).
 Interface en français. Code (noms de variables, fonctions) en anglais,
 commentaires et messages affichés en français.

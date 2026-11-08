@@ -15,7 +15,7 @@ import { RoomsComponent } from './features/rooms/rooms.component';
         <div class="header-left">
           <div class="brand">
             <span class="brand-title font-serif">Résidence Blue</span>
-            <span class="brand-sub">PMS &bull; Saly, Sénégal</span>
+            <span class="brand-sub">PMS &bull; Thiès - Grand Standing</span>
           </div>
         </div>
 
