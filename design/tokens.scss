@@ -1,0 +1,346 @@
+// ==============================================================================
+// DESIGN TOKENS — RÉSIDENCE BLUE (PMS)
+// Fichier généré automatiquement à partir de l'analyse des maquettes Google Stitch
+// Hôtel Boutique 12 Clés — Grand Standing, Thiès (Sénégal)
+// ==============================================================================
+
+// ------------------------------------------------------------------------------
+// 1. VARIABLES SCSS (Compilation & Helpers)
+// ------------------------------------------------------------------------------
+
+// Polices de caractères
+$font-family-serif: 'Newsreader', Georgia, 'Times New Roman', serif;
+$font-family-sans: 'Manrope', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+
+// Couleurs fixes de référence
+$color-teal-deep: #00666f;
+$color-teal-container: #00818c;
+$color-teal-light: #8cf2ff;
+$color-teal-dim: #6fd5e2;
+
+$color-gold-deep: #7e5700;
+$color-gold-container: #fdbe51;
+$color-gold-light: #ffdead;
+$color-gold-dim: #fabc4f;
+
+$color-slate-dark: #2a3135;
+$color-slate-navy: #161d20;
+
+// Statuts d'exploitation
+$color-status-free: #10b981;
+$color-status-occupied: #ef4444;
+$color-status-cleaning: #f59e0b;
+$color-status-maintenance: #64748b;
+
+// ------------------------------------------------------------------------------
+// 2. PROPRIÉTÉS PERSONNALISÉES CSS (Thème dynamique Clair / Sombre)
+// ------------------------------------------------------------------------------
+
+:root {
+  // --- Familles de polices ---
+  --font-serif: #{$font-family-serif};
+  --font-sans: #{$font-family-sans};
+
+  // --- Typographie & Tailles ---
+  --font-size-display-lg: 3rem;           // 48px
+  --line-height-display-lg: 3.5rem;       // 56px
+  
+  --font-size-display-mobile: 2rem;       // 32px
+  --line-height-display-mobile: 2.5rem;   // 40px
+  
+  --font-size-headline-lg: 2rem;          // 32px
+  --line-height-headline-lg: 2.5rem;      // 40px
+  
+  --font-size-headline-md: 1.5rem;        // 24px
+  --line-height-headline-md: 2rem;        // 32px
+  
+  --font-size-headline-sm: 1.25rem;       // 20px
+  --line-height-headline-sm: 1.75rem;     // 28px
+  
+  --font-size-title-lg: 1.125rem;         // 18px
+  --line-height-title-lg: 1.625rem;       // 26px
+  
+  --font-size-title-md: 1rem;             // 16px
+  --line-height-title-md: 1.5rem;         // 24px
+  
+  --font-size-body-lg: 1rem;              // 16px
+  --line-height-body-lg: 1.625rem;        // 26px
+  
+  --font-size-body-md: 0.875rem;          // 14px
+  --line-height-body-md: 1.375rem;        // 22px
+  
+  --font-size-body-sm: 0.8125rem;         // 13px
+  --line-height-body-sm: 1.125rem;        // 18px
+  
+  --font-size-label-lg: 0.875rem;         // 14px
+  --line-height-label-lg: 1.25rem;        // 20px
+  
+  --font-size-label-md: 0.75rem;          // 12px
+  --line-height-label-md: 1rem;           // 16px
+  
+  --font-size-currency: 1rem;             // 16px
+  --line-height-currency: 1.25rem;        // 20px
+
+  // --- Palette Primaire (Teal Atlantique) ---
+  --color-primary: #00666f;
+  --color-on-primary: #ffffff;
+  --color-primary-container: #00818c;
+  --color-on-primary-container: #f6feff;
+  --color-primary-fixed: #8cf2ff;
+  --color-primary-fixed-dim: #6fd5e2;
+  --color-on-primary-fixed: #001f23;
+  --color-on-primary-fixed-variant: #004f56;
+  --color-inverse-primary: #6fd5e2;
+
+  // --- Palette Secondaire (Or Teranga) ---
+  --color-secondary: #7e5700;
+  --color-on-secondary: #ffffff;
+  --color-secondary-container: #fdbe51;
+  --color-on-secondary-container: #714d00;
+  --color-secondary-fixed: #ffdead;
+  --color-secondary-fixed-dim: #fabc4f;
+  --color-on-secondary-fixed: #281900;
+  --color-on-secondary-fixed-variant: #604100;
+
+  // --- Palette Tertiaire (Bleu Acier Opérationnel) ---
+  --color-tertiary: #465d7b;
+  --color-on-tertiary: #ffffff;
+  --color-tertiary-container: #5f7695;
+  --color-on-tertiary-container: #fdfcff;
+  --color-tertiary-fixed: #d2e4ff;
+  --color-tertiary-fixed-dim: #b0c8eb;
+  --color-on-tertiary-fixed: #001c37;
+  --color-on-tertiary-fixed-variant: #314865;
+
+  // --- Surfaces & Toile de fond (Mode Clair) ---
+  --color-background: #f3fafe;
+  --color-on-background: #161d20;
+  --color-surface: #f3fafe;
+  --color-surface-bright: #f3fafe;
+  --color-surface-dim: #d4dbdf;
+  --color-on-surface: #161d20;
+  --color-on-surface-variant: #3d494a;
+
+  --color-surface-container-lowest: #ffffff;
+  --color-surface-container-low: #eef5f9;
+  --color-surface-container: #e8eff3;
+  --color-surface-container-high: #e2e9ed;
+  --color-surface-container-highest: #dce4e7;
+  --color-surface-variant: #dce4e7;
+  --color-surface-tint: #006972;
+
+  // --- Barre latérale sombre & Inverse Surface ---
+  --color-inverse-surface: #2a3135;
+  --color-inverse-on-surface: #ebf2f6;
+
+  // --- Traits, Bordures & Contours ---
+  --color-outline: #6d797b;
+  --color-outline-variant: #bdc9ca;
+
+  // --- Feedback, Erreur & Alertes ---
+  --color-error: #ba1a1a;
+  --color-on-error: #ffffff;
+  --color-error-container: #ffdad6;
+  --color-on-error-container: #93000a;
+
+  // --- Statuts Métier de l'Hôtel (Pills & Dots) ---
+  --color-status-free: #{$color-status-free};
+  --color-status-free-bg: #ecfdf5;
+  --color-status-free-border: #a7f3d0;
+  --color-status-free-text: #065f46;
+
+  --color-status-occupied: #{$color-status-occupied};
+  --color-status-occupied-bg: #fef2f2;
+  --color-status-occupied-border: #fecaca;
+  --color-status-occupied-text: #991b1b;
+
+  --color-status-cleaning: #{$color-status-cleaning};
+  --color-status-cleaning-bg: #fffbeb;
+  --color-status-cleaning-border: #fde68a;
+  --color-status-cleaning-text: #92400e;
+
+  --color-status-maintenance: #{$color-status-maintenance};
+  --color-status-maintenance-bg: #f1f5f9;
+  --color-status-maintenance-border: #cbd5e1;
+  --color-status-maintenance-text: #334155;
+
+  // --- Rayons de courbure (Border Radius) ---
+  --radius-xs: 0.25rem;    // 4px
+  --radius-sm: 0.5rem;     // 8px
+  --radius-md: 0.75rem;    // 12px
+  --radius-lg: 1rem;       // 16px
+  --radius-xl: 1.25rem;    // 20px
+  --radius-2xl: 1.5rem;    // 24px
+  --radius-full: 9999px;
+
+  // --- Élévations & Ombres Portées ---
+  --shadow-xs: 0 1px 2px 0 rgba(10, 37, 64, 0.04);
+  --shadow-sm: 0 1px 8px 0 rgba(10, 37, 64, 0.05);
+  --shadow-md: 0 4px 16px -2px rgba(10, 37, 64, 0.08), 0 2px 4px -1px rgba(10, 37, 64, 0.04);
+  --shadow-lg: 0 12px 32px -4px rgba(10, 37, 64, 0.12), 0 4px 8px -2px rgba(10, 37, 64, 0.04);
+  --shadow-primary-hover: 0 4px 14px 0 rgba(0, 102, 111, 0.35);
+
+  // --- Espacements Modulaires (Rythme de 4px) ---
+  --space-xs: 0.25rem;     // 4px
+  --space-sm: 0.5rem;      // 8px
+  --space-md: 1rem;        // 16px
+  --space-lg: 1.5rem;      // 24px
+  --space-xl: 2.5rem;      // 40px
+
+  --gutter-sm: 1rem;       // 16px
+  --gutter: 1.5rem;        // 24px
+  --margin-sm: 1rem;       // 16px
+  --margin: 2rem;          // 32px
+
+  // --- Dimensions Structurelles du Layout ---
+  --layout-sidebar-width: 16rem;     // 256px (w-64)
+  --layout-header-height: 5rem;      // 80px (h-20)
+  --layout-header-height-mobile: 4rem; // 64px (h-16)
+  --layout-bottom-nav-height: 4rem;  // 64px
+}
+
+// ------------------------------------------------------------------------------
+// 3. THÈME SOMBRE (Activation via [data-theme="dark"] ou .dark)
+// ------------------------------------------------------------------------------
+
+[data-theme="dark"], .dark {
+  --color-background: #12181b;
+  --color-on-background: #ebf2f6;
+  --color-surface: #12181b;
+  --color-surface-bright: #192024;
+  --color-surface-dim: #0d1214;
+  --color-on-surface: #ebf2f6;
+  --color-on-surface-variant: #bdc9ca;
+
+  --color-surface-container-lowest: #192024;
+  --color-surface-container-low: #1e262a;
+  --color-surface-container: #242c30;
+  --color-surface-container-high: #2a3338;
+  --color-surface-container-highest: #30393f;
+  --color-surface-variant: #30393f;
+
+  --color-primary: #6fd5e2;
+  --color-on-primary: #00363b;
+  --color-primary-container: #004f56;
+  --color-on-primary-container: #8cf2ff;
+  --color-inverse-primary: #00666f;
+
+  --color-secondary: #fabc4f;
+  --color-on-secondary: #422c00;
+  --color-secondary-container: #604100;
+  --color-on-secondary-container: #ffdead;
+
+  --color-tertiary: #b0c8eb;
+  --color-on-tertiary: #16304c;
+  --color-tertiary-container: #2e4663;
+  --color-on-tertiary-container: #d2e4ff;
+
+  --color-inverse-surface: #f3fafe;
+  --color-inverse-on-surface: #161d20;
+
+  --color-outline: #879395;
+  --color-outline-variant: #3d494a;
+
+  --color-error: #ffb4ab;
+  --color-on-error: #690005;
+  --color-error-container: #93000a;
+  --color-on-error-container: #ffdad6;
+
+  --shadow-sm: 0 1px 8px 0 rgba(0, 0, 0, 0.35);
+  --shadow-md: 0 4px 16px -2px rgba(0, 0, 0, 0.45);
+  --shadow-lg: 0 12px 32px -4px rgba(0, 0, 0, 0.60);
+}
+
+// ------------------------------------------------------------------------------
+// 4. CLASSES UTILITAIRES TYPOGRAPHIQUES
+// ------------------------------------------------------------------------------
+
+.font-display-lg {
+  font-family: var(--font-serif);
+  font-size: var(--font-size-display-lg);
+  line-height: var(--line-height-display-lg);
+  letter-spacing: -0.02em;
+  font-weight: 400;
+}
+
+.font-headline-lg {
+  font-family: var(--font-serif);
+  font-size: var(--font-size-headline-lg);
+  line-height: var(--line-height-headline-lg);
+  letter-spacing: -0.01em;
+  font-weight: 500;
+}
+
+.font-headline-md {
+  font-family: var(--font-serif);
+  font-size: var(--font-size-headline-md);
+  line-height: var(--line-height-headline-md);
+  font-weight: 500;
+}
+
+.font-headline-sm {
+  font-family: var(--font-serif);
+  font-size: var(--font-size-headline-sm);
+  line-height: var(--line-height-headline-sm);
+  font-weight: 600;
+}
+
+.font-title-lg {
+  font-family: var(--font-sans);
+  font-size: var(--font-size-title-lg);
+  line-height: var(--line-height-title-lg);
+  font-weight: 700;
+}
+
+.font-title-md {
+  font-family: var(--font-sans);
+  font-size: var(--font-size-title-md);
+  line-height: var(--line-height-title-md);
+  font-weight: 600;
+}
+
+.font-body-lg {
+  font-family: var(--font-sans);
+  font-size: var(--font-size-body-lg);
+  line-height: var(--line-height-body-lg);
+  font-weight: 400;
+}
+
+.font-body-md {
+  font-family: var(--font-sans);
+  font-size: var(--font-size-body-md);
+  line-height: var(--line-height-body-md);
+  font-weight: 400;
+}
+
+.font-body-sm {
+  font-family: var(--font-sans);
+  font-size: var(--font-size-body-sm);
+  line-height: var(--line-height-body-sm);
+  font-weight: 500;
+}
+
+.font-label-lg {
+  font-family: var(--font-sans);
+  font-size: var(--font-size-label-lg);
+  line-height: var(--line-height-label-lg);
+  letter-spacing: 0.01em;
+  font-weight: 600;
+}
+
+.font-label-md {
+  font-family: var(--font-sans);
+  font-size: var(--font-size-label-md);
+  line-height: var(--line-height-label-md);
+  letter-spacing: 0.02em;
+  font-weight: 600;
+}
+
+.label-currency {
+  font-family: var(--font-sans);
+  font-size: var(--font-size-currency);
+  line-height: var(--line-height-currency);
+  letter-spacing: -0.01em;
+  font-weight: 700;
+  white-space: nowrap;
+}
