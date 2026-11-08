@@ -1,11 +1,8 @@
 /* Polices et icônes servies EN LOCAL (paquets npm), jamais depuis un CDN. */
-@import '@fontsource-variable/manrope/index.css';
-@import '@fontsource-variable/newsreader/opsz.css';
-@import '@fontsource-variable/newsreader/opsz-italic.css';
 @import '@fontsource/manrope/400.css';
 @import '@fontsource/manrope/500.css';
-@import '@fontsource/manrope/600.css';
 @import '@fontsource/manrope/700.css';
+@import '@fontsource/manrope/600.css';
 @import '@fontsource/newsreader/400.css';
 @import '@fontsource/newsreader/400-italic.css';
 @import '@fontsource/newsreader/500.css';
