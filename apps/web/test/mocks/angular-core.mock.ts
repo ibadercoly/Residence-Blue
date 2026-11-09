@@ -6,7 +6,7 @@ export function Component() {
   return (target: unknown) => target;
 }
 
-export function inject<T>(token: new () => T): T {
+export function inject<T>(token: new (...args: unknown[]) => T): T {
   return new token();
 }
 
@@ -19,6 +19,7 @@ export interface WritableSignal<T> {
   (): T;
   set(value: T): void;
   update(updateFn: (value: T) => T): void;
+  asReadonly(): () => T;
 }
 
 export function signal<T>(initialValue: T): WritableSignal<T> {
@@ -30,6 +31,7 @@ export function signal<T>(initialValue: T): WritableSignal<T> {
   sig.update = (fn: (val: T) => T) => {
     current = fn(current);
   };
+  sig.asReadonly = () => (() => current);
   return sig;
 }
 
@@ -55,4 +57,8 @@ export class EventEmitter<T = unknown> {
   subscribe(next?: (value: T) => void) {
     return { unsubscribe: () => {} };
   }
+}
+
+export function isDevMode(): boolean {
+  return true;
 }

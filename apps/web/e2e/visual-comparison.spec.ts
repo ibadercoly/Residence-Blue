@@ -199,6 +199,136 @@ test.describe('Fidélité Visuelle - Rendu Hors Ligne vs Référence', () => {
     expect(diffPercent).toBeLessThanOrEqual(2.0);
   });
 
+  test('Fidélité Page Connexion (1280x900) vs design/reference/connexion_r_sidence_blue_pms.html', async ({ page }) => {
+    const width = 1280;
+    const height = 900;
+    await page.setViewportSize({ width, height });
+
+    // 1. Charger la référence hors ligne
+    const refFileUrl =
+      'file:///' +
+      path.resolve(repoRoot, 'design/reference/connexion_r_sidence_blue_pms.html').replace(/\\/g, '/');
+    await page.goto(refFileUrl, { waitUntil: 'load' });
+    await page.evaluate(() => document.fonts.ready);
+    await page.waitForTimeout(300);
+
+    // Masquage des zones adaptées, photos et écarts voulus sur la référence
+    await page.evaluate(() => {
+      // Masquer l'image d'arrière-plan
+      const bgImg = document.querySelector('div[style*="background-image"]');
+      if (bgImg) (bgImg as HTMLElement).style.visibility = 'hidden';
+
+      // Masquer les badges supérieurs et statut
+      const topBadges = document.querySelector('.relative.z-10.flex.flex-wrap.items-center.justify-between');
+      if (topBadges) (topBadges as HTMLElement).style.visibility = 'hidden';
+
+      // Masquer la citation éditoriale et le ticker
+      const bottomContent = document.querySelector('.relative.z-10.mt-auto.pt-16');
+      if (bottomContent) (bottomContent as HTMLElement).style.visibility = 'hidden';
+
+      // Masquer la barre d'outils supérieure (FR/EN et v2.4 PMS Pro)
+      const topUtils = document.querySelector('.flex.items-center.justify-between.w-full.pb-6');
+      if (topUtils) (topUtils as HTMLElement).style.visibility = 'hidden';
+
+      // Masquer les profils de démonstration
+      const demoBox = document.querySelector('.mb-6.p-3.rounded-xl.bg-surface-container-low');
+      if (demoBox) (demoBox as HTMLElement).style.visibility = 'hidden';
+
+      // Masquer le badge de sécurité et footer support
+      const secBadge = document.querySelector('.mt-6.flex.items-center.justify-center');
+      if (secBadge) (secBadge as HTMLElement).style.visibility = 'hidden';
+
+      const supportFooter = document.querySelector('.pt-6.text-center');
+      if (supportFooter) (supportFooter as HTMLElement).style.visibility = 'hidden';
+
+      // Masquer la mention se souvenir
+      const rememberMe = document.querySelector('#remember-me')?.parentElement;
+      if (rememberMe) (rememberMe as HTMLElement).style.visibility = 'hidden';
+
+      // Masquer les inputs
+      const form = document.querySelector('#pms-login-form');
+      if (form) {
+        form.querySelectorAll('input').forEach(input => {
+          (input as HTMLElement).style.visibility = 'hidden';
+        });
+      }
+    });
+    await page.waitForTimeout(200);
+
+    const refShotPath = path.join(compDir, 'ref_connexion.png');
+    await page.screenshot({ path: refShotPath, animations: 'disabled', fullPage: false });
+
+    // 2. Charger la page Angular /connexion
+    await page.goto('/connexion', { waitUntil: 'networkidle' });
+    await page.evaluate(() => document.fonts.ready);
+    await page.waitForTimeout(300);
+
+    // Masquage sur l'application Angular
+    await page.evaluate(() => {
+      document.querySelectorAll('[data-photo-zone]').forEach(el => {
+        (el as HTMLElement).style.visibility = 'hidden';
+      });
+
+      document.querySelectorAll('[data-adapted-zone]').forEach(el => {
+        (el as HTMLElement).style.visibility = 'hidden';
+      });
+
+      const topUtils = document.querySelector('.flex.items-center.justify-between.w-full.pb-6');
+      if (topUtils) (topUtils as HTMLElement).style.visibility = 'hidden';
+
+      const demoBox = document.querySelector('.mb-6.p-3.rounded-xl.bg-surface-container-low');
+      if (demoBox) (demoBox as HTMLElement).style.visibility = 'hidden';
+
+      const secBadge = document.querySelector('.mt-6.flex.items-center.justify-center');
+      if (secBadge) (secBadge as HTMLElement).style.visibility = 'hidden';
+
+      const supportFooter = document.querySelector('.pt-6.text-center');
+      if (supportFooter) (supportFooter as HTMLElement).style.visibility = 'hidden';
+
+      const rememberMe = document.querySelector('#remember-me')?.parentElement;
+      if (rememberMe) (rememberMe as HTMLElement).style.visibility = 'hidden';
+
+      const form = document.querySelector('#pms-login-form');
+      if (form) {
+        form.querySelectorAll('input').forEach(input => {
+          (input as HTMLElement).style.visibility = 'hidden';
+        });
+      }
+    });
+    await page.waitForTimeout(200);
+
+    const actualShotPath = path.join(compDir, 'actual_connexion.png');
+    await page.screenshot({ path: actualShotPath, animations: 'disabled', fullPage: false });
+
+    // 3. Comparer pixel à pixel avec pixelmatch
+    const refImg = PNG.sync.read(fs.readFileSync(refShotPath));
+    const actualImg = PNG.sync.read(fs.readFileSync(actualShotPath));
+
+    expect(actualImg.width).toBe(refImg.width);
+    expect(actualImg.height).toBe(refImg.height);
+
+    const diff = new PNG({ width, height });
+    const diffPixels = pixelmatch(
+      refImg.data,
+      actualImg.data,
+      diff.data,
+      width,
+      height,
+      { threshold: 0.2 }
+    );
+
+    const totalPixels = width * height;
+    const diffPercent = (diffPixels / totalPixels) * 100;
+
+    const diffPath = path.join(compDir, 'diff_connexion.png');
+    fs.writeFileSync(diffPath, PNG.sync.write(diff));
+
+    console.log(
+      `Fidélité Connexion (1280x900) - Diff: ${diffPixels} / ${totalPixels} (${diffPercent.toFixed(2)}%)`
+    );
+    expect(diffPercent).toBeLessThanOrEqual(2.0);
+  });
+
   test('Vérification du profil utilisateur et du thème clair unique (aucun mode sombre)', async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 900 });
     await page.goto('/tableau-de-bord', { waitUntil: 'networkidle' });
