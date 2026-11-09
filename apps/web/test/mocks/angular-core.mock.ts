@@ -2,7 +2,7 @@ export function Injectable() {
   return (target: unknown) => target;
 }
 
-export function Component() {
+export function Component(options?: unknown) {
   return (target: unknown) => target;
 }
 
@@ -10,7 +10,7 @@ export function inject<T>(token: new (...args: unknown[]) => T): T {
   return new token();
 }
 
-export function effect(fn: () => void) {
+export function effect(fn: () => void, options?: unknown) {
   fn();
   return { destroy: () => {} };
 }
@@ -50,6 +50,10 @@ export function Input(options?: unknown) {
 
 export function Output(bindingPropertyName?: string) {
   return (target: unknown, propertyKey?: string) => {};
+}
+
+export function HostListener(eventName?: string, args?: unknown[]) {
+  return (target: unknown, propertyKey?: string, descriptor?: PropertyDescriptor) => descriptor;
 }
 
 export class EventEmitter<T = unknown> {
