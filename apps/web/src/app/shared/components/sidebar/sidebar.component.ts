@@ -28,7 +28,7 @@ interface NavItem {
               Résidence Blue
             </span>
             <span class="font-label-md text-label-md text-outline-variant uppercase tracking-wider truncate">
-              Hôtel Boutique • Saly Portudal
+              Hôtel Boutique • Grand Standing, Thiès
             </span>
           </div>
         </div>
@@ -62,8 +62,9 @@ interface NavItem {
       <div class="p-gutter">
         <div class="bg-surface-variant/10 rounded-xl p-space-md flex items-center justify-between">
           <div class="flex flex-col">
-            <span class="font-label-md text-label-md text-surface-container-high">Front de Mer</span>
-            <span class="font-body-sm text-body-sm text-outline-variant">Marée haute • 28°C</span>
+            <span class="font-label-md text-label-md text-surface-container-high">Météo Thiès</span>
+            <!-- TODO(API): Remplacer les valeurs météo fictives par l'API météo de Thiès -->
+            <span class="font-body-sm text-body-sm text-outline-variant">Ensoleillé • 29°C</span>
           </div>
           <span class="material-symbols-outlined text-primary-fixed-dim text-[20px]">wb_sunny</span>
         </div>

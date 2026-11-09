@@ -71,13 +71,13 @@ import { MobileDashboardComponent } from '../../components/mobile-dashboard/mobi
           />
 
           <app-weather-widget
-            [title]="data().marineWeather.title"
-            [locationBadge]="data().marineWeather.locationBadge"
-            [tideTime]="data().marineWeather.tideTime"
-            [coefficient]="data().marineWeather.coefficient"
-            [waterTemp]="data().marineWeather.waterTemp"
-            [wind]="data().marineWeather.wind"
-            [note]="data().marineWeather.note"
+            [title]="data().thiesWeather.title"
+            [locationBadge]="data().thiesWeather.locationBadge"
+            [temperature]="data().thiesWeather.temperature"
+            [uvIndex]="data().thiesWeather.uvIndex"
+            [poolTemp]="data().thiesWeather.poolTemp"
+            [wind]="data().thiesWeather.wind"
+            [note]="data().thiesWeather.note"
           />
         </div>
       </div>

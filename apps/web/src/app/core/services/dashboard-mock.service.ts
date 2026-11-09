@@ -6,6 +6,7 @@ import { DashboardData } from '../models/dashboard.model';
   providedIn: 'root'
 })
 export class DashboardMockService {
+  // TODO(API): Remplacer les valeurs fictives par l'API météo de Thiès et l'API de gestion hôtelière
   private readonly mockData: DashboardData = {
     user: {
       name: 'Aïssatou Ba',
@@ -13,10 +14,10 @@ export class DashboardMockService {
     },
     hero: {
       seasonTag: 'Haute saison • 9 chambres occupées sur 12',
-      weatherTag: 'Saly Portudal • 29°C Ensoleillé',
+      weatherTag: 'Grand Standing, Thiès • 29°C Ensoleillé',
       title: 'Bienvenue à la Résidence Blue',
-      subtitle: 'Boutique Hôtel 12 Chambres • Petite Côte, Sénégal • Vendredi 24 Mai • Service Conciergerie & Exploitation',
-      imageUrl: 'assets/images/hero-dashboard.jpg'
+      subtitle: 'Boutique Hôtel 12 Chambres • Grand Standing, Thiès • Vendredi 24 Mai • Service Conciergerie & Exploitation',
+      imageUrl: 'assets/images/hero-dashboard.webp'
     },
     kpis: {
       occupancyRate: {
@@ -67,7 +68,7 @@ export class DashboardMockService {
         name: 'M. Mamadou Diop',
         badge: 'VIP Gold',
         badgeIcon: 'workspace_premium',
-        room: 'Suite Océan (Ch. 01)',
+        room: 'Suite Panoramique (Ch. 301)',
         nights: '3 nuits',
         arrivalTime: 'Arrivée prévue 14h30',
         colorVariant: 'primary'
@@ -78,7 +79,7 @@ export class DashboardMockService {
         name: 'Mme Claire Lefèvre',
         badge: 'Navette aéroport confirmée',
         badgeIcon: 'directions_car',
-        room: 'Deluxe Plage (Ch. 05)',
+        room: 'Deluxe Balcon (Ch. 201)',
         nights: '2 nuits',
         arrivalTime: 'Arrivée prévue 16h00',
         colorVariant: 'tertiary'
@@ -98,8 +99,8 @@ export class DashboardMockService {
       {
         id: 'alert-2',
         category: 'Technique • Urgent',
-        meta: 'Ch. 12',
-        title: 'Climatisation Suite Filaos',
+        meta: 'Ch. 302',
+        title: 'Climatisation Suite Panoramique',
         description: 'Dysfonctionnement signalé ce matin. Technicien froid convoqué sur place pour 15h00.',
         buttonLabel: 'Suivre le ticket',
         buttonIcon: 'build',
@@ -110,20 +111,29 @@ export class DashboardMockService {
         category: 'Facturation en suspens',
         meta: '145 000 FCFA',
         title: 'Folios en attente de clôture',
-        description: 'Règlements extras piscine & restaurant pour Ch. 03 (M. Diallo) et Ch. 07 (Mme Ndiaye).',
+        description: 'Règlements extras piscine & restaurant pour Ch. 103 (M. Diallo) et Ch. 202 (Mme Ndiaye).',
         buttonLabel: 'Voir folios',
         buttonIcon: 'visibility',
         variant: 'info'
       }
     ],
+    thiesWeather: {
+      title: 'Climat & Espaces Extérieurs',
+      locationBadge: 'Grand Standing',
+      temperature: '29°C Ensoleillé',
+      uvIndex: 'Modéré (6)',
+      poolTemp: '28°C',
+      wind: '12 km/h E',
+      note: 'Transats & parasols installés autour de la piscine et du patio'
+    },
     marineWeather: {
-      title: 'Météo marine & Marée',
-      locationBadge: 'Plage Privée',
-      tideTime: '16h40',
-      coefficient: '78 • Bon',
-      waterTemp: '27°C',
-      wind: '14 km/h NO',
-      note: 'Transats & paillotes préparés au front de mer'
+      title: 'Climat & Espaces Extérieurs',
+      locationBadge: 'Grand Standing',
+      tideTime: '29°C Ensoleillé',
+      coefficient: 'Modéré (6)',
+      waterTemp: '28°C',
+      wind: '12 km/h E',
+      note: 'Transats & parasols installés autour de la piscine et du patio'
     }
   };
 
