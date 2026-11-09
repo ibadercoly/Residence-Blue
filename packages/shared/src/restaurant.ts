@@ -30,6 +30,16 @@ export type DishTag =
   | 'SIGNATURE_BAR'
   | 'NEW';
 
+export const DISH_TAG_LABELS: Record<DishTag, string> = {
+  LOCAL_SPECIALTY: 'Spécialité locale',
+  POPULAR: 'Populaire',
+  DISH_OF_DAY: 'Plat du jour',
+  VEGETARIAN: 'Végétarien',
+  SPICY: 'Épicé',
+  SIGNATURE_BAR: 'Signature Bar',
+  NEW: 'Nouveau'
+};
+
 export type Allergen =
   | 'PEANUT'
   | 'GLUTEN'
@@ -43,9 +53,35 @@ export type Allergen =
   | 'MUSTARD'
   | 'SESAME';
 
+export const ALLERGEN_LABELS: Record<Allergen, string> = {
+  PEANUT: 'Arachide',
+  GLUTEN: 'Gluten',
+  MILK: 'Lait',
+  EGG: 'Œufs',
+  FISH: 'Poisson',
+  CRUSTACEAN: 'Crustacés',
+  SOY: 'Soja',
+  NUTS: 'Fruits à coque',
+  CELERY: 'Céleri',
+  MUSTARD: 'Moutarde',
+  SESAME: 'Sésame'
+};
+
 export type PrepStation = 'CUISINE' | 'BAR' | 'PATISSERIE';
 
+export const PREP_STATION_LABELS: Record<PrepStation, string> = {
+  CUISINE: 'Cuisine',
+  BAR: 'Bar',
+  PATISSERIE: 'Pâtisserie'
+};
+
 export type MealSlot = 'BREAKFAST' | 'LUNCH' | 'DINNER';
+
+export const MEAL_SLOT_LABELS: Record<MealSlot, string> = {
+  BREAKFAST: 'Petit-déjeuner',
+  LUNCH: 'Déjeuner',
+  DINNER: 'Dîner'
+};
 
 export interface DishAvailability {
   type: 'ALWAYS' | 'SLOTS';

@@ -54,12 +54,27 @@ describe('RestaurantPageComponent', () => {
   });
 
   it('devrait autoriser la gestion du menu pour DIRECTION et RESTAURANT', () => {
-    // Par défaut Aïssatou Ba ou DIRECTION
+    const userSpy = jest.spyOn(authService, 'currentUser').mockReturnValue({
+      id: 'usr-dir',
+      email: 'dir@residenceblue.sn',
+      fullName: 'Aïssatou Ba',
+      role: Role.DIRECTION,
+      jobTitle: 'Direction'
+    });
     expect(component.canManageMenu()).toBe(true);
+
+    userSpy.mockReturnValue({
+      id: 'usr-resto',
+      email: 'resto@residenceblue.sn',
+      fullName: 'Ibrahima Diallo',
+      role: Role.RESTAURANT,
+      jobTitle: 'Restaurant'
+    });
+    expect(component.canManageMenu()).toBe(true);
+    userSpy.mockRestore();
   });
 
   it('devrait masquer la gestion du menu pour MAINTENANCE', () => {
-    // Simuler un utilisateur maintenance
     const sessionSpy = jest.spyOn(authService, 'currentUser').mockReturnValue({
       id: 'usr-maint',
       email: 'maint@residenceblue.sn',

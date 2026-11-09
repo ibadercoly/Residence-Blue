@@ -72,3 +72,19 @@ Toute transition de statut déclenche une insertion obligatoire et synchrone dan
 }
 ```
 Si l'écriture dans `audit_log` échoue, la transaction entière est annulée.
+
+---
+
+## 5. Matrice d'Habilitation Restaurant & Gestion du Menu
+
+| Action / Périmètre | `DIRECTION` | `RESTAURANT` | `RECEPTION` | `HOUSEKEEPING` | `MAINTENANCE` | `COMPTABLE` |
+| :--- | :---: | :---: | :---: | :---: | :---: | :---: |
+| **Prise de commande / Encaissement / Table / Chambre** | ✅ Autorisé | ✅ Autorisé | ✅ Autorisé (Room service) | ❌ Refusé (403) | ❌ Refusé (403) | ❌ Refusé (403) |
+| **Accès au bouton « Gérer le menu »** | ✅ Autorisé | ✅ Autorisé | ❌ Refusé (403) | ❌ Refusé (403) | ❌ Refusé (403) | ❌ Refusé (403) |
+| **Création / Modification d'un plat** | ✅ Autorisé | ✅ Autorisé | ❌ Refusé (403) | ❌ Refusé (403) | ❌ Refusé (403) | ❌ Refusé (403) |
+| **Duplication & Bascule Épuisé (1 clic)** | ✅ Autorisé | ✅ Autorisé | ❌ Refusé (403) | ❌ Refusé (403) | ❌ Refusé (403) | ❌ Refusé (403) |
+| **Archivage d'un plat (conservation historique)** | ✅ Autorisé | ✅ Autorisé | ❌ Refusé (403) | ❌ Refusé (403) | ❌ Refusé (403) | ❌ Refusé (403) |
+| **Téléversement & Traitement de photos (WebP, magic bytes)** | ✅ Autorisé | ✅ Autorisé | ❌ Refusé (403) | ❌ Refusé (403) | ❌ Refusé (403) | ❌ Refusé (403) |
+| **Gestion des catégories (Création, Renommage, Archivage)** | ✅ Autorisé | ✅ Autorisé | ❌ Refusé (403) | ❌ Refusé (403) | ❌ Refusé (403) | ❌ Refusé (403) |
+| **Export du menu (CSV, Excel avec protection formules)** | ✅ Autorisé | ✅ Autorisé | ❌ Refusé (403) | ❌ Refusé (403) | ❌ Refusé (403) | ✅ Autorisé |
+| **Import du menu (CSV avec contrôle strict < 2 Mo, 500 lignes)** | ✅ Autorisé | ✅ Autorisé | ❌ Refusé (403) | ❌ Refusé (403) | ❌ Refusé (403) | ❌ Refusé (403) |

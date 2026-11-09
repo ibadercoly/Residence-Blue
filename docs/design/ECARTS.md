@@ -54,6 +54,12 @@ Les 10 maquettes interactives couvrent les parcours principaux (Tableau de bord,
 
 ---
 
+### 1.5. Formulaires et Modal de Gestion du Menu Restaurant
+- **Constat :** Aucune maquette Google Stitch n'existe pour les formulaires de gestion administrative du menu (ajout de plat, modification, duplication, archivage, gestion des catégories, import/export CSV/Excel et téléversement de photos). Seule la vue opérationnelle de prise de commande caisse (`point_de_vente_restaurant_la_teranga`) a fait l'objet d'une maquette source.
+- **Solution retenue :** Formulaires et tableaux de gestion intégrés dans le composant standard `ModalShellComponent` compact (largeur maximale 960 px, hauteur maximale 88 dvh, corps défilant, en-tête et pied fixes, plein écran sous 768 px). Réutilisation stricte et sans dérive des composants, couleurs, polices (`Manrope`, `Newsreader`), rayons et espacements du design system de l'hôtel.
+
+---
+
 ## 2. Éléments des Maquettes Sans Fonctionnalité ou Décalés
 
 Plusieurs éléments graphiques conçus initialement pour un resort balnéaire à Saly doivent être corrigés pour refléter la réalité de la Résidence Blue à **Thiès (Grand Standing)** (voir détail complet dans `docs/design/ADAPTATION-THIES.md`) :
