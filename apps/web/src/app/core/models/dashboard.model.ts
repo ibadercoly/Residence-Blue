@@ -71,7 +71,17 @@ export interface DashboardData {
     buttonIcon: string;
     variant: 'warning' | 'urgent' | 'info';
   }>;
-  marineWeather: {
+  thiesWeather: {
+    title: string;
+    locationBadge: string;
+    temperature: string;
+    uvIndex: string;
+    poolTemp: string;
+    wind: string;
+    note: string;
+  };
+  // Rétrocompatibilité
+  marineWeather?: {
     title: string;
     locationBadge: string;
     tideTime: string;

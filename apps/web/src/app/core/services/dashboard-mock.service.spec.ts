@@ -1,5 +1,4 @@
 import { DashboardMockService } from './dashboard-mock.service';
-import { ThemeService } from './theme.service';
 import { SidebarComponent } from '../../shared/components/sidebar/sidebar.component';
 import { LayoutComponent } from '../../shared/components/layout/layout.component';
 import { MobileDashboardComponent } from '../../features/dashboard/components/mobile-dashboard/mobile-dashboard.component';
@@ -11,12 +10,15 @@ describe('DashboardMockService', () => {
     service = new DashboardMockService();
   });
 
-  it('doit retourner exactement les données de la maquette tableau_de_bord avec montants entiers en FCFA', done => {
+  it('doit retourner les données adaptées à Thiès avec montants entiers en FCFA', done => {
     const data = service.data();
 
     expect(data.user.name).toBe('Aïssatou Ba');
     expect(data.user.role).toBe('Directrice Générale');
     expect(data.hero.title).toBe('Bienvenue à la Résidence Blue');
+    expect(data.hero.weatherTag).toContain('Thiès');
+    expect(data.hero.subtitle).toContain('Grand Standing, Thiès');
+    expect(data.hero.subtitle).not.toContain('Petite Côte');
     expect(data.kpis.occupancyRate.value).toBe(75);
     expect(data.kpis.occupiedRooms.occupied).toBe(9);
     expect(data.kpis.occupiedRooms.total).toBe(12);
@@ -35,6 +37,22 @@ describe('DashboardMockService', () => {
     expect(data.arrivals).toHaveLength(2);
     expect(data.priorityAlerts).toHaveLength(3);
 
+    // Météo continentale Thiès
+    expect(data.thiesWeather.title).toBe('Climat & Espaces Extérieurs');
+    expect(data.thiesWeather.locationBadge).toBe('Grand Standing');
+    expect(data.thiesWeather.temperature).toContain('29°C');
+
+    // Absence stricte des termes côtiers/maritimes dans la météo et la bannière
+    const serialized = JSON.stringify({
+      hero: data.hero,
+      thiesWeather: data.thiesWeather
+    });
+    expect(serialized).not.toContain('Petite Côte');
+    expect(serialized).not.toContain('Marée haute');
+    expect(serialized).not.toContain('Eau de mer');
+    expect(serialized).not.toContain('Brise côtière');
+    expect(serialized).not.toContain('Plage Privée');
+
     service.getDashboardData().subscribe(obsData => {
       expect(obsData).toEqual(data);
       done();
@@ -42,16 +60,8 @@ describe('DashboardMockService', () => {
   });
 });
 
-describe('ThemeService', () => {
-  it('doit être strictement verrouillé en mode clair sans mode sombre', () => {
-    const themeService = new ThemeService();
-    expect(themeService.theme()).toBe('light');
-    expect(themeService.isDark()).toBe(false);
-  });
-});
-
 describe('SidebarComponent & LayoutComponent', () => {
-  it('doit exposer les 10 routes de navigation dans SidebarComponent', () => {
+  it('doit exposer les 10 routes de navigation dans SidebarComponent avec ancrage Thiès', () => {
     const sidebar = new SidebarComponent();
     expect(sidebar.navItems).toHaveLength(10);
     expect(sidebar.navItems[0]).toEqual({

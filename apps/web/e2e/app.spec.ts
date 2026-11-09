@@ -10,7 +10,7 @@ test.describe('Résidence Blue - Navigation, Accessibilité & Mode Hors Ligne du
 
     // Titre de marque dans la barre latérale (texte exact de la maquette)
     await expect(page.locator('aside')).toContainText('Résidence Blue');
-    await expect(page.locator('aside')).toContainText('Hôtel Boutique • Saly');
+    await expect(page.locator('aside')).toContainText('Hôtel Boutique • Grand Standing, Thiès');
 
     // Les 10 liens de navigation sont présents (9 principaux + Paramètres)
     const navLinks = page.locator('aside nav a');

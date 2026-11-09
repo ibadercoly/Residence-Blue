@@ -55,39 +55,4 @@
   .pt-safe { padding-top: env(safe-area-inset-top, 0px); }
 }
 
-/* Adaptation exacte aux dimensions d'export Stitch (1112x1600 pour 1280px et 292x1600 pour 390px) */
-@media (min-width: 1111px) and (max-width: 1113px) {
-  body {
-    width: 1280px !important;
-    transform: scale(0.86875);
-    transform-origin: top left;
-    overflow: hidden;
-  }
-  aside {
-    height: 1024px !important;
-  }
-  header {
-    width: 1024px !important;
-  }
-  .xl\:flex {
-    display: flex !important;
-  }
-}
-
-@media (min-width: 291px) and (max-width: 293px) {
-  body {
-    width: 390px !important;
-    height: 2137px !important;
-    transform: scale(0.74871795, 0.7494);
-    transform-origin: top left;
-    overflow: hidden;
-  }
-  img[alt='Logo Résidence Blue'] {
-    width: 148px !important;
-  }
-  * {
-    letter-spacing: 0.0085em !important;
-  }
-}
-
 ::-webkit-scrollbar { display: none; }

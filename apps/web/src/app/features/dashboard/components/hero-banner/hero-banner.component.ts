@@ -9,7 +9,7 @@ import { Component, input } from '@angular/core';
         class="w-full h-80 bg-cover bg-center relative transition-transform duration-700 ease-out"
         [style.backgroundImage]="'url(' + imageUrl() + ')'"
       >
-        <!-- Gradient Scrim for atmospheric coastal depth -->
+        <!-- Gradient Scrim for atmospheric depth -->
         <div class="absolute inset-0 bg-gradient-to-t from-inverse-surface via-inverse-surface/60 to-transparent"></div>
         <div class="absolute inset-0 bg-gradient-to-r from-inverse-surface/80 via-transparent to-inverse-surface/30"></div>
 
@@ -40,6 +40,6 @@ export class HeroBannerComponent {
   readonly seasonTag = input<string>('Haute saison • 9 chambres occupées sur 12');
   readonly weatherTag = input<string>('Thiès, Grand Standing • 29°C Ensoleillé');
   readonly title = input<string>('Bienvenue à la Résidence Blue');
-  readonly subtitle = input<string>('Boutique Hôtel 12 Chambres • Petite Côte, Sénégal • Vendredi 24 Mai • Service Conciergerie & Exploitation');
-  readonly imageUrl = input<string>('assets/images/hero-dashboard.jpg');
+  readonly subtitle = input<string>('Boutique Hôtel 12 Chambres • Grand Standing, Thiès • Vendredi 24 Mai • Service Conciergerie & Exploitation');
+  readonly imageUrl = input<string>('assets/images/hero-dashboard.webp');
 }

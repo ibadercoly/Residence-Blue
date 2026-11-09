@@ -29,9 +29,9 @@ interface MobileRoomCard {
               <span class="text-secondary font-title-md text-title-md">Bonjour Aïssatou</span>
               <span class="material-symbols-outlined text-secondary text-[18px]" aria-hidden="true">waving_hand</span>
             </div>
-            <p class="text-on-surface-variant font-body-sm text-body-sm flex items-center gap-1 mt-0.5">
+            <p data-adapted-zone="true" class="text-on-surface-variant font-body-sm text-body-sm flex items-center gap-1 mt-0.5">
               <span class="material-symbols-outlined text-[15px] text-secondary" aria-hidden="true">wb_sunny</span>
-              <span>Vendredi 24 Mai • Saly Portudal, 29°C</span>
+              <span>Vendredi 24 Mai • Thiès Grand Standing, 29°C</span>
             </p>
           </div>
           <!-- Quick Action: Nouvelle réservation -->
@@ -43,11 +43,12 @@ interface MobileRoomCard {
             <span>Nouvelle résa</span>
           </a>
         </div>
-        <!-- Ambiance maritime & status strip -->
-        <div class="relative overflow-hidden rounded-xl bg-gradient-to-r from-primary/10 via-surface-container-high to-secondary/10 p-space-sm flex items-center justify-between">
+        <!-- Ambiance Thiès & status strip -->
+        <!-- TODO(API): Remplacer les valeurs météo fictives par l'API météo de Thiès -->
+        <div data-adapted-zone="true" class="relative overflow-hidden rounded-xl bg-gradient-to-r from-primary/10 via-surface-container-high to-secondary/10 p-space-sm flex items-center justify-between">
           <div class="flex items-center gap-2">
             <span class="w-2 h-2 rounded-full bg-primary animate-ping" aria-hidden="true"></span>
-            <span class="font-body-sm text-body-sm text-on-surface font-semibold">Petite Côte • Marée haute à 16h40</span>
+            <span class="font-body-sm text-body-sm text-on-surface font-semibold">Grand Standing • Ensoleillé 29°C</span>
           </div>
           <span class="font-label-md text-label-md text-primary font-medium tracking-wide">12 Clés Actives</span>
         </div>
@@ -131,7 +132,7 @@ interface MobileRoomCard {
       </section>
 
       <!-- 3. Alertes Opérationnelles & Housekeeping -->
-      <section class="flex flex-col gap-space-xs">
+      <section class="flex flex-col gap-space-xs" aria-label="Alertes en cours">
         <div class="flex items-center justify-between">
           <span class="font-title-md text-title-md text-on-surface flex items-center gap-1.5">
             <span class="material-symbols-outlined text-secondary text-[20px]" aria-hidden="true">notifications_active</span>
@@ -188,14 +189,14 @@ interface MobileRoomCard {
         </div>
       </section>
 
-      <!-- 4. Vue en direct des 12 chambres -->
-      <section class="flex flex-col gap-space-sm">
+      <!-- 4. Vue en direct des 12 chambres (Mini-matrice d'état tactile) -->
+      <section class="flex flex-col gap-space-sm" aria-label="État des 12 chambres">
         <div class="flex flex-col gap-1">
           <div class="flex items-center justify-between">
             <h3 class="font-headline-sm text-headline-sm text-on-surface">État des 12 Chambres</h3>
             <span class="font-label-md text-label-md text-primary font-semibold">12 / 12 actives</span>
           </div>
-          <p class="font-body-sm text-body-sm text-on-surface-variant">Vue en direct de la résidence bord de mer</p>
+          <p data-adapted-zone="true" class="font-body-sm text-body-sm text-on-surface-variant">Ambiance sereine au cœur de Grand Standing</p>
         </div>
 
         <!-- Légende interactive des pastilles -->
@@ -301,7 +302,7 @@ interface MobileRoomCard {
       </section>
 
       <!-- 5. Mouvements du jour (Arrivées attendues avec Actions Rapides) -->
-      <section class="flex flex-col gap-space-sm pb-space-lg">
+      <section class="flex flex-col gap-space-sm pb-space-lg" aria-label="Arrivées du jour">
         <div class="flex items-center justify-between">
           <div class="flex items-center gap-2">
             <h3 class="font-headline-sm text-headline-sm text-on-surface">Arrivées du Jour</h3>
@@ -376,7 +377,7 @@ interface MobileRoomCard {
                 <div class="flex flex-col min-w-0">
                   <h4 class="font-title-md text-title-md text-on-surface font-bold truncate">Sophie &amp; Laurent Martin</h4>
                   <p class="font-body-sm text-body-sm text-on-surface-variant mt-0.5">
-                    Ch. 11 Vue Piscine • 4 nuits (520 000 FCFA)
+                    Ch. 11 Suite Terrasse • 4 nuits (520 000 FCFA)
                   </p>
                 </div>
               </div>
@@ -410,7 +411,7 @@ interface MobileRoomCard {
                 <div class="flex flex-col min-w-0">
                   <h4 class="font-title-md text-title-md text-on-surface font-bold truncate">Fatou Diagne</h4>
                   <p class="font-body-sm text-body-sm text-on-surface-variant mt-0.5">
-                    Ch. 10 Bungalow Alizé • 1 nuit (145 000 FCFA)
+                    Ch. 10 Deluxe Jardin • 1 nuit (145 000 FCFA)
                   </p>
                 </div>
               </div>
@@ -442,18 +443,18 @@ export class MobileDashboardComponent {
   readonly selectedRooms = signal<Set<string>>(new Set());
 
   readonly rooms: MobileRoomCard[] = [
-    { number: 'Ch. 01', name: 'Suite Océan', nameColorClass: 'text-primary', status: 'Occupée', footerText: 'M. Ndiaye', footerType: 'guest', footerIcon: 'chevron_right', imageUrl: 'assets/images/chambres/chambre-101-standard.jpg', imageAlt: 'Chambre 101, Standard, lit double sobre et tons chauds' },
-    { number: 'Ch. 02', name: 'Deluxe Plage', nameColorClass: 'text-primary', status: 'Occupée', footerText: 'Fam. Moreau', footerType: 'guest', footerIcon: 'chevron_right', imageUrl: 'assets/images/chambres/chambre-102-standard.jpg', imageAlt: 'Chambre 102, Standard, espace bureau et parquet en bois clair' },
-    { number: 'Ch. 03', name: 'Bungalow Jardin', nameColorClass: 'text-primary', status: 'Occupée', footerText: 'M. Sow', footerType: 'guest', footerIcon: 'chevron_right', imageUrl: 'assets/images/chambres/chambre-103-standard.jpg', imageAlt: 'Chambre 103, Standard, lit en bois et vue sur patio intérieur' },
+    { number: 'Ch. 01', name: 'Suite Panoramique', nameColorClass: 'text-primary', status: 'Occupée', footerText: 'M. Ndiaye', footerType: 'guest', footerIcon: 'chevron_right', imageUrl: 'assets/images/chambres/chambre-101-standard.jpg', imageAlt: 'Chambre 101, Standard, lit double sobre et tons chauds' },
+    { number: 'Ch. 02', name: 'Deluxe Balcon', nameColorClass: 'text-primary', status: 'Occupée', footerText: 'Fam. Moreau', footerType: 'guest', footerIcon: 'chevron_right', imageUrl: 'assets/images/chambres/chambre-102-standard.jpg', imageAlt: 'Chambre 102, Standard, espace bureau et parquet en bois clair' },
+    { number: 'Ch. 03', name: 'Standard Patio', nameColorClass: 'text-primary', status: 'Occupée', footerText: 'M. Sow', footerType: 'guest', footerIcon: 'chevron_right', imageUrl: 'assets/images/chambres/chambre-103-standard.jpg', imageAlt: 'Chambre 103, Standard, lit en bois et vue sur patio intérieur' },
     { number: 'Ch. 04', name: 'Suite Baobab', nameColorClass: 'text-primary', status: 'Libre', footerText: 'Prête • 14h00', footerType: 'ready-gold', footerIcon: 'star', imageUrl: 'assets/images/chambres/chambre-104-standard.jpg', imageAlt: 'Chambre 104, Standard, balcon privatif et jardin arboré' },
-    { number: 'Ch. 05', name: 'Deluxe Plage', nameColorClass: 'text-primary', status: 'Occupée', footerText: 'Dr. Faye', footerType: 'guest', footerIcon: 'chevron_right', imageUrl: 'assets/images/chambres/chambre-105-standard.jpg', imageAlt: 'Chambre 105, Standard, chambre ensoleillée avec vue sur la piscine' },
-    { number: 'Ch. 06', name: 'Bungalow Dune', nameColorClass: 'text-primary', status: 'Occupée', footerText: 'Mme Dubois', footerType: 'guest', footerIcon: 'chevron_right', imageUrl: 'assets/images/chambres/chambre-106-standard.jpg', imageAlt: 'Chambre 106, Standard, literie blanche épurée et douche à l’italienne' },
-    { number: 'Ch. 07', name: 'Suite Saloum', nameColorClass: 'text-primary', status: 'Occupée', footerText: 'M. Touré', footerType: 'guest', footerIcon: 'chevron_right', imageUrl: 'assets/images/chambres/chambre-201-deluxe.jpg', imageAlt: 'Chambre 201, Deluxe, lit King et tête de lit bleu nuit boutique' },
-    { number: 'Ch. 08', name: 'Bungalow Alizé', nameColorClass: 'text-primary', status: 'Occupée', footerText: 'M. Leroy', footerType: 'guest', footerIcon: 'chevron_right', imageUrl: 'assets/images/chambres/chambre-202-deluxe.jpg', imageAlt: 'Chambre 202, Deluxe, grande baie vitrée et coin détente' },
-    { number: 'Ch. 09', name: 'Deluxe Balcon', nameColorClass: 'text-primary', status: 'Occupée', footerText: 'Mme Cissé', footerType: 'guest', footerIcon: 'chevron_right', imageUrl: 'assets/images/chambres/chambre-203-bungalow-deluxe.jpg', imageAlt: 'Chambre 203, Bungalow Deluxe, lit à baldaquin et terrasse tropicale' },
-    { number: 'Ch. 10', name: 'Bungalow Alizé', nameColorClass: 'text-primary', status: 'Ménage', footerText: 'Équipe Aminata', footerType: 'cleaning', footerIcon: 'mop', imageUrl: 'assets/images/chambres/chambre-204-bungalow-deluxe.jpg', imageAlt: 'Chambre 204, Bungalow Deluxe, pavillon indépendant avec toit de chaume' },
-    { number: 'Ch. 11', name: 'Vue Piscine', nameColorClass: 'text-primary', status: 'Libre', footerText: 'Prête • 15h30', footerType: 'ready-teal', footerIcon: 'directions_car', imageUrl: 'assets/images/chambres/chambre-301-suite.jpg', imageAlt: 'Chambre 301, Suite Prestige, vaste salon privé et baies panoramiques' },
-    { number: 'Ch. 12', name: 'Suite Filaos', nameColorClass: 'text-tertiary', status: 'Maint.', footerText: 'Révision clim', footerType: 'maintenance', footerIcon: 'ac_unit', imageUrl: 'assets/images/chambres/chambre-302-suite.jpg', imageAlt: 'Chambre 302, Suite Prestige, salon luxueux et terrasse privative' }
+    { number: 'Ch. 05', name: 'Deluxe Balcon', nameColorClass: 'text-primary', status: 'Occupée', footerText: 'Dr. Faye', footerType: 'guest', footerIcon: 'chevron_right', imageUrl: 'assets/images/chambres/chambre-105-standard.jpg', imageAlt: 'Chambre 105, Standard, chambre ensoleillée avec vue sur la piscine' },
+    { number: 'Ch. 06', name: 'Standard Patio', nameColorClass: 'text-primary', status: 'Occupée', footerText: 'Mme Dubois', footerType: 'guest', footerIcon: 'chevron_right', imageUrl: 'assets/images/chambres/chambre-106-standard.jpg', imageAlt: 'Chambre 106, Standard, literie blanche épurée et douche à l’italienne' },
+    { number: 'Ch. 07', name: 'Deluxe Jardin', nameColorClass: 'text-primary', status: 'Occupée', footerText: 'M. Touré', footerType: 'guest', footerIcon: 'chevron_right', imageUrl: 'assets/images/chambres/chambre-201-deluxe.jpg', imageAlt: 'Chambre 201, Deluxe, lit King et tête de lit bleu nuit boutique' },
+    { number: 'Ch. 08', name: 'Deluxe Balcon', nameColorClass: 'text-primary', status: 'Occupée', footerText: 'M. Leroy', footerType: 'guest', footerIcon: 'chevron_right', imageUrl: 'assets/images/chambres/chambre-202-deluxe.jpg', imageAlt: 'Chambre 202, Deluxe, grande baie vitrée et coin détente' },
+    { number: 'Ch. 09', name: 'Deluxe Jardin', nameColorClass: 'text-primary', status: 'Occupée', footerText: 'Mme Cissé', footerType: 'guest', footerIcon: 'chevron_right', imageUrl: 'assets/images/chambres/chambre-203-bungalow-deluxe.jpg', imageAlt: 'Chambre 203, Bungalow Deluxe, lit à baldaquin et terrasse tropicale' },
+    { number: 'Ch. 10', name: 'Deluxe Jardin', nameColorClass: 'text-primary', status: 'Ménage', footerText: 'Équipe Aminata', footerType: 'cleaning', footerIcon: 'mop', imageUrl: 'assets/images/chambres/chambre-204-bungalow-deluxe.jpg', imageAlt: 'Chambre 204, Bungalow Deluxe, pavillon indépendant avec toit de chaume' },
+    { number: 'Ch. 11', name: 'Suite Terrasse', nameColorClass: 'text-primary', status: 'Libre', footerText: 'Prête • 15h30', footerType: 'ready-teal', footerIcon: 'directions_car', imageUrl: 'assets/images/chambres/chambre-301-suite.jpg', imageAlt: 'Chambre 301, Suite Prestige, vaste salon privé et baies panoramiques' },
+    { number: 'Ch. 12', name: 'Suite Panoramique', nameColorClass: 'text-tertiary', status: 'Maint.', footerText: 'Révision clim', footerType: 'maintenance', footerIcon: 'ac_unit', imageUrl: 'assets/images/chambres/chambre-302-suite.jpg', imageAlt: 'Chambre 302, Suite Prestige, salon luxueux et terrasse privative' }
   ];
 
   toggleRoomSelection(roomNumber: string): void {
