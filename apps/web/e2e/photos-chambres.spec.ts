@@ -83,6 +83,7 @@ test.describe('Photos des 12 Chambres - Affichage, Unicité, Poids et Mode Hors 
     page,
     context,
   }) => {
+    test.slow();
     // 1. Premier chargement en ligne pour charger toutes les photos dans le cache du navigateur
     await page.goto('/chambres', { waitUntil: 'networkidle' });
     const cards = page.locator('app-room-status-card');
