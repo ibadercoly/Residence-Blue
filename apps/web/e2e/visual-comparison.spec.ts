@@ -329,9 +329,9 @@ test.describe('Fidélité Visuelle - Rendu Hors Ligne vs Référence', () => {
     expect(diffPercent).toBeLessThanOrEqual(2.0);
   });
 
-  test('Fidélité Planning des Réservations (1440x1100) vs design/reference/planning_des_r_servations.html', async ({ page }) => {
+  test('Fidélité Planning des Réservations (1440x900) vs design/reference/planning_des_r_servations.html', async ({ page }) => {
     const width = 1440;
-    const height = 1100;
+    const height = 900;
     await page.setViewportSize({ width, height });
 
     // 1. Charger la référence hors ligne
@@ -423,7 +423,7 @@ test.describe('Fidélité Visuelle - Rendu Hors Ligne vs Référence', () => {
     fs.writeFileSync(diffPath, PNG.sync.write(diff));
 
     console.log(
-      `Fidélité Planning (1440x1100) - Diff: ${diffPixels} / ${totalPixels} (${diffPercent.toFixed(2)}%)`
+      `Fidélité Planning (1440x900) - Diff: ${diffPixels} / ${totalPixels} (${diffPercent.toFixed(2)}%)`
     );
     expect(diffPercent).toBeLessThanOrEqual(2.0);
   });

@@ -2,7 +2,7 @@ import { Component, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import { PlanningMockService } from '../../core/services/planning-mock.service';
-import { PlanningReservation } from '../../core/models/planning.model';
+import { PlanningRoom, PlanningReservation } from '../../core/models/planning.model';
 import { formatFcfa } from '@residence-blue/shared';
 
 @Component({
@@ -957,6 +957,22 @@ export class PlanningPageComponent {
     return formatFcfa(amount);
   }
 
+  getRoomRowClasses(room: PlanningRoom): string {
+    if (room.isHighlighted || room.isSelected) return 'bg-primary/10';
+    if (room.isConflict) return 'bg-error-container/20';
+    return '';
+  }
+
+  getRoomBadgeClasses(room: PlanningRoom): string {
+    if (room.isHighlighted || room.isSelected) return 'bg-surface-bright text-primary';
+    if (room.isConflict) return 'bg-error text-on-error';
+    return 'bg-surface-container-high text-on-surface';
+  }
+
+  onSelectReservation(res: PlanningReservation): void {
+    this.planningService.selectReservation(res);
+  }
+
   hasConflict202(): boolean {
     const r202 = this.planningService.roomsState().find((r) => r.number === '202');
     return r202?.isConflict ?? false;
@@ -1016,6 +1032,14 @@ export class PlanningPageComponent {
   }
 
   // --- Événements Glisser-Déposer (Draggable mais inactif / prévisualisation) ---
+  onDragStart(event: DragEvent, res: PlanningReservation): void {
+    if (event.dataTransfer) {
+      event.dataTransfer.setData('text/plain', JSON.stringify(res));
+      event.dataTransfer.effectAllowed = 'move';
+    }
+    this.planningService.handleDragStart(res);
+  }
+
   onDragStartByName(event: DragEvent, guestName: string, id: string): void {
     if (event.dataTransfer) {
       event.dataTransfer.setData('text/plain', id);
@@ -1043,9 +1067,15 @@ export class PlanningPageComponent {
     }
   }
 
-  onDrop(event: DragEvent, roomNumber: string): void {
+  onDrop(event: DragEvent, room: PlanningRoom | string): void {
     event.preventDefault();
-    const resId = event.dataTransfer?.getData('text/plain') || 'réservation';
-    this.planningService.handleDrop(roomNumber, resId);
+    const roomNumber = typeof room === 'string' ? room : room.number;
+    const rawData = event.dataTransfer?.getData('text/plain') || 'réservation';
+    try {
+      const parsed = JSON.parse(rawData);
+      this.planningService.handleDrop(roomNumber, parsed.guestName || parsed.id || rawData);
+    } catch {
+      this.planningService.handleDrop(roomNumber, rawData);
+    }
   }
 }

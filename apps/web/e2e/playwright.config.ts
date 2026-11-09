@@ -25,7 +25,7 @@ export default defineConfig({
         ...devices['Desktop Chrome'],
         launchOptions: {
           executablePath: 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
-          args: ['--disable-lcd-text'],
+          args: ['--disable-lcd-text', '--disable-gpu'],
         },
       },
     },

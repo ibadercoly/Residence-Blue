@@ -54,6 +54,7 @@ export interface PlanningRoom {
   description: string;
   isConflict?: boolean;
   isHighlighted?: boolean;
+  isSelected?: boolean;
   isRelocationTarget?: boolean;
   reservations: PlanningReservation[];
   freeSlot?: FreeSlot;
