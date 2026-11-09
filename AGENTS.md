@@ -34,6 +34,12 @@ Docker Compose pour lancer l'ensemble.
 - Rien de ce qui est dans « Éléments à ne pas reproduire » de ADAPTATION-THIES.md
   ne doit apparaître dans la version de production.
 
+## Fenêtres modales (obligatoire)
+Toute fenêtre modale utilise ModalShellComponent : largeur maximale 960 px,
+hauteur maximale 88dvh, en-tête et pied fixes, corps défilant à l'intérieur,
+plein écran sous 768 px, bouton de validation toujours visible. Ne crée jamais
+une modale qui dépasse l'écran.
+
 ## Workflow Git (obligatoire)
 - master est toujours stable. Jamais de commit direct sur master.
 - Une branche par fonctionnalité : feature/<nom> ou fix/<nom>.
