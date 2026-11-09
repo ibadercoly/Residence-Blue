@@ -1,13 +1,16 @@
 import { PlanningPageComponent } from './planning-page.component';
 import { PlanningMockService } from '../../core/services/planning-mock.service';
+import { ReservationModalService } from '../../core/services/reservation-modal.service';
 
 describe('PlanningPageComponent', () => {
   let component: PlanningPageComponent;
   let service: PlanningMockService;
+  let modalService: ReservationModalService;
 
   beforeEach(() => {
     service = new PlanningMockService();
-    component = new PlanningPageComponent(service);
+    modalService = new ReservationModalService();
+    component = new PlanningPageComponent(service, modalService);
   });
 
   it('devrait être initialisé correctement', () => {
@@ -87,5 +90,12 @@ describe('PlanningPageComponent', () => {
     const targetRoom = service.roomsState().find((r) => r.number === '102')!;
     component.onDrop(dummyDropEvent, targetRoom);
     expect(service.lastDragEventMessage()).toContain('Chambre 102');
+  });
+
+  it('devrait ouvrir le modal de nouvelle réservation avec les paramètres de chambre', () => {
+    component.openNewReservation('106', 'Standard');
+    expect(component.modalService.isOpen()).toBe(true);
+    expect(component.modalService.currentParams()?.roomNumber).toBe('106');
+    expect(component.modalService.currentParams()?.category).toBe('Standard');
   });
 });

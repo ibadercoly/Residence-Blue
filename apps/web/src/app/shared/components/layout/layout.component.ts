@@ -2,6 +2,7 @@ import { Component } from '@angular/core';
 import { RouterLink, RouterLinkActive } from '@angular/router';
 import { SidebarComponent } from '../sidebar/sidebar.component';
 import { HeaderComponent } from '../header/header.component';
+import { NewReservationModalComponent } from '../new-reservation-modal/new-reservation-modal.component';
 
 interface MobileNavItem {
   path: string;
@@ -12,7 +13,7 @@ interface MobileNavItem {
 @Component({
   selector: 'app-layout',
   standalone: true,
-  imports: [RouterLink, RouterLinkActive, SidebarComponent, HeaderComponent],
+  imports: [RouterLink, RouterLinkActive, SidebarComponent, HeaderComponent, NewReservationModalComponent],
   host: { class: 'block' },
   template: `
     <div class="min-h-screen bg-surface text-on-surface font-body-md text-body-md antialiased selection:bg-primary selection:text-on-primary flex flex-col md:block">
@@ -26,6 +27,9 @@ interface MobileNavItem {
           <ng-content />
         </main>
       </div>
+
+      <!-- Modal Nouvelle Réservation Réutilisable -->
+      <app-new-reservation-modal />
 
       <!-- Mobile Bottom Navigation (tableau_de_bord_mode_clair) -->
       <nav

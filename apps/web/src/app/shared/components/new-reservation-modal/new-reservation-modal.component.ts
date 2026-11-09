@@ -70,6 +70,7 @@ import {
               type="button"
               (click)="onClose()"
               aria-label="Fermer la fenêtre de réservation"
+              data-testid="btn-close-modal"
               class="w-10 h-10 rounded-xl bg-surface-container-high hover:bg-surface-variant text-on-surface-variant flex items-center justify-center transition-colors cursor-pointer"
             >
               <span class="material-symbols-outlined text-[22px]" aria-hidden="true">close</span>
@@ -91,7 +92,7 @@ import {
                   <div class="inline-flex p-1 rounded-xl bg-surface-container text-label-md font-label-md">
                     <button
                       type="button"
-                      (click)="setGuestMode('REGULAR')"
+                      (click)="setGuestMode('REGULAR')" data-testid="guest-mode-regular"
                       [class]="guestMode() === 'REGULAR'
                         ? 'px-space-md py-1.5 rounded-lg bg-surface-container-lowest text-primary shadow-sm font-semibold transition-all cursor-pointer'
                         : 'px-space-md py-1.5 rounded-lg text-on-surface-variant hover:text-on-surface transition-all cursor-pointer'"
@@ -100,7 +101,7 @@ import {
                     </button>
                     <button
                       type="button"
-                      (click)="setGuestMode('NEW')"
+                      (click)="setGuestMode('NEW')" data-testid="guest-mode-new"
                       [class]="guestMode() === 'NEW'
                         ? 'px-space-md py-1.5 rounded-lg bg-surface-container-lowest text-primary shadow-sm font-semibold transition-all cursor-pointer'
                         : 'px-space-md py-1.5 rounded-lg text-on-surface-variant hover:text-on-surface transition-all cursor-pointer'"
@@ -356,7 +357,7 @@ import {
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-space-md">
                   <!-- Option 1: Standard -->
                   <label
-                    (click)="selectCategory('Standard')"
+                    (click)="selectCategory('Standard')" data-testid="category-card-Standard"
                     [class]="selectedCategory() === 'Standard'
                       ? 'cursor-pointer rounded-xl p-space-md bg-primary-fixed/20 shadow-[0_4px_16px_-2px_rgba(0,102,111,0.18)] transition-all flex flex-col justify-between h-full relative overflow-hidden'
                       : 'cursor-pointer rounded-xl p-space-md bg-surface-container-low hover:bg-surface-container transition-all flex flex-col justify-between h-full'"
@@ -387,7 +388,7 @@ import {
 
                   <!-- Option 2: Deluxe Balcon (Selected by default) -->
                   <label
-                    (click)="selectCategory('Deluxe')"
+                    (click)="selectCategory('Deluxe')" data-testid="category-card-Deluxe"
                     [class]="selectedCategory() === 'Deluxe'
                       ? 'cursor-pointer rounded-xl p-space-md bg-primary-fixed/20 shadow-[0_4px_16px_-2px_rgba(0,102,111,0.18)] transition-all flex flex-col justify-between h-full relative overflow-hidden'
                       : 'cursor-pointer rounded-xl p-space-md bg-surface-container-low hover:bg-surface-container transition-all flex flex-col justify-between h-full'"
@@ -418,7 +419,7 @@ import {
 
                   <!-- Option 3: Suite Panoramique -->
                   <label
-                    (click)="selectCategory('Suite')"
+                    (click)="selectCategory('Suite')" data-testid="category-card-Suite"
                     [class]="selectedCategory() === 'Suite'
                       ? 'cursor-pointer rounded-xl p-space-md bg-primary-fixed/20 shadow-[0_4px_16px_-2px_rgba(0,102,111,0.18)] transition-all flex flex-col justify-between h-full relative overflow-hidden'
                       : 'cursor-pointer rounded-xl p-space-md bg-surface-container-low hover:bg-surface-container transition-all flex flex-col justify-between h-full'"
@@ -465,13 +466,14 @@ import {
                   </div>
                   <div class="relative">
                     <select
+                      data-testid="select-room"
                       [value]="selectedRoomNumber()"
                       (change)="onRoomChange($event)"
                       class="inline-flex items-center gap-1.5 px-space-md py-2 rounded-lg bg-surface-container-lowest text-primary font-label-md text-label-md shadow-sm border-none outline-none cursor-pointer pr-8"
                       aria-label="Sélectionner une chambre physique spécifique"
                     >
                       @for (room of availableRoomsForCategory(); track room.number) {
-                        <option [value]="room.number">
+                        <option [value]="room.number" [selected]="room.number === selectedRoomNumber()">
                           Chambre {{ room.number }} - {{ room.category }} ({{ room.floor }})
                         </option>
                       }
@@ -495,7 +497,7 @@ import {
                       <input
                         id="input-deposit-amount"
                         type="text"
-                        [ngModel]="depositInputFormatted()"
+                        [value]="depositInputFormatted()"
                         (change)="onDepositInputChange($event)"
                         class="bg-surface-container-lowest text-on-surface font-headline-sm text-headline-sm px-3 py-2 rounded-lg w-full max-w-[200px] outline-none"
                       />
@@ -699,7 +701,7 @@ import {
                 <div class="bg-surface-container-lowest p-space-md rounded-xl flex flex-col gap-space-sm">
                   <div class="flex items-baseline justify-between">
                     <span class="font-title-md text-title-md text-on-surface">Total Séjour TTC</span>
-                    <span class="font-display-lg-mobile text-display-lg-mobile text-primary font-bold tracking-tight">
+                    <span class="font-display-lg-mobile text-display-lg-mobile text-primary font-bold tracking-tight" data-testid="total-ttc-amount">
                       {{ formatAmountNumberOnly(totalStayTtcFcfa()) }}
                       <span class="font-label-md text-label-md text-outline">FCFA</span>
                     </span>
@@ -719,7 +721,7 @@ import {
                       <span class="font-label-md text-label-md uppercase tracking-wider text-on-secondary-fixed-variant">
                         Solde dû au check-in
                       </span>
-                      <span class="font-title-lg text-title-lg font-bold text-on-secondary-container">
+                      <span class="font-title-lg text-title-lg font-bold text-on-secondary-container" data-testid="remaining-balance-amount">
                         {{ formatMoney(remainingBalanceFcfa()) }}
                       </span>
                     </div>
@@ -760,6 +762,7 @@ import {
                 type="button"
                 (click)="onConfirm()"
                 [disabled]="isSubmitDisabled()"
+                data-testid="btn-submit-reservation"
                 [class]="isSubmitDisabled()
                   ? 'flex-1 sm:flex-initial inline-flex items-center justify-center gap-space-sm px-space-xl py-3 rounded-xl bg-outline-variant/60 text-surface-container-highest font-label-lg text-label-lg shadow-none cursor-not-allowed'
                   : 'flex-1 sm:flex-initial inline-flex items-center justify-center gap-space-sm px-space-xl py-3 rounded-xl bg-primary hover:bg-primary-container text-on-primary font-label-lg text-label-lg shadow-md transition-all cursor-pointer'"
@@ -769,6 +772,24 @@ import {
               </button>
             </div>
           </div>
+        </div>
+      </div>
+    }
+
+    @if (modalService.feedbackMessage(); as msg) {
+      <div
+        class="fixed bottom-6 right-6 z-50 bg-primary text-on-primary px-space-lg py-space-md rounded-2xl shadow-xl flex items-center gap-space-md animate-fade-in"
+        data-testid="toast-reservation-success"
+        role="alert"
+      >
+        <div class="w-10 h-10 rounded-xl bg-on-primary/10 flex items-center justify-center shrink-0">
+          <span class="material-symbols-outlined text-[24px]">verified</span>
+        </div>
+        <div class="flex flex-col">
+          <span class="font-title-md text-title-md font-bold">Réservation confirmée avec succès !</span>
+          <span class="font-body-sm text-body-sm opacity-90">
+            {{ msg }}
+          </span>
         </div>
       </div>
     }
@@ -1018,17 +1039,14 @@ export class NewReservationModalComponent {
   selectCategory(category: RoomCategoryType): void {
     this.selectedCategory.set(category);
     const rooms = this.modalService.getRoomsForCategory(category);
-    if (rooms.length > 0) {
-      this.selectedRoomNumber.set(rooms[0].number);
-      this.updateRoomImage(rooms[0].number, category);
-    }
-  }
-
-  onRoomChange(roomNum: string): void {
-    this.selectedRoomNumber.set(roomNum);
-    const r = this.modalService.getRoomByNumber(roomNum);
-    if (r) {
-      this.updateRoomImage(r.number, r.category);
+    const currentRoom = this.modalService.getRoomByNumber(this.selectedRoomNumber());
+    if (!currentRoom || currentRoom.category !== category) {
+      if (rooms.length > 0) {
+        this.selectedRoomNumber.set(rooms[0].number);
+        this.updateRoomImage(rooms[0].number, category);
+      }
+    } else {
+      this.updateRoomImage(currentRoom.number, category);
     }
   }
 
@@ -1090,7 +1108,9 @@ export class NewReservationModalComponent {
   handleTab(event: KeyboardEvent): void {
     if (!this.modalService.isOpen() || event.key !== 'Tab') return;
 
-    const container = this.modalContainer?.nativeElement;
+    const container = typeof document !== 'undefined'
+      ? document.querySelector<HTMLElement>('[data-testid="modal-nouvelle-reservation"]')
+      : null;
     if (!container) return;
 
     const focusableSelectors =
