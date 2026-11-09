@@ -1,12 +1,17 @@
 import { Routes } from '@angular/router';
 import { DashboardPageComponent } from './features/dashboard/pages/dashboard-page/dashboard-page.component';
 import { RoomsComponent } from './features/rooms/rooms.component';
+import { ConnexionPageComponent } from './features/connexion/connexion-page.component';
 
 export const routes: Routes = [
   {
     path: '',
     pathMatch: 'full',
     redirectTo: 'tableau-de-bord'
+  },
+  {
+    path: 'connexion',
+    component: ConnexionPageComponent
   },
   {
     path: 'tableau-de-bord',
