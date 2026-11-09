@@ -4,6 +4,8 @@ import { RouterLink } from '@angular/router';
 import { PlanningMockService } from '../../core/services/planning-mock.service';
 import { PlanningRoom, PlanningReservation } from '../../core/models/planning.model';
 import { formatFcfa } from '@residence-blue/shared';
+import { ReservationModalService } from '../../core/services/reservation-modal.service';
+import { RoomCategoryType } from '../../core/models/reservation-modal.model';
 
 @Component({
   selector: 'app-planning-page',
@@ -456,7 +458,11 @@ import { formatFcfa } from '@residence-blue/shared';
                     </div>
                     <div class="col-span-14 grid grid-cols-14 relative h-full">
                       <div class="col-start-5 col-span-1 bg-primary/5 h-full pointer-events-none"></div>
-                      <div class="absolute inset-y-2 left-[29%] right-[10%] rounded-xl flex items-center justify-center text-outline-variant hover:bg-surface-variant/30 hover:text-primary transition-all cursor-pointer">
+                      <div
+                        (click)="openNewReservation('106', 'Standard')"
+                        class="absolute inset-y-2 left-[29%] right-[10%] rounded-xl flex items-center justify-center text-outline-variant hover:bg-surface-variant/30 hover:text-primary transition-all cursor-pointer"
+                        data-testid="planning-empty-slot-106"
+                      >
                         <span class="font-label-md text-label-md flex items-center gap-1 opacity-60 hover:opacity-100">
                           <span class="material-symbols-outlined text-[16px]" aria-hidden="true">add_circle</span> Libre à l'attribution
                         </span>
@@ -948,9 +954,27 @@ import { formatFcfa } from '@residence-blue/shared';
 })
 export class PlanningPageComponent {
   readonly planningService: PlanningMockService;
+  readonly modalService: ReservationModalService;
 
-  constructor(planningService?: PlanningMockService) {
+  constructor(
+    planningService?: PlanningMockService,
+    modalService?: ReservationModalService
+  ) {
     this.planningService = planningService ?? inject(PlanningMockService);
+    this.modalService = modalService ?? inject(ReservationModalService);
+  }
+
+  openNewReservation(roomNumber?: string, category?: RoomCategoryType): void {
+    this.modalService.open(
+      roomNumber || category
+        ? {
+            roomNumber,
+            category,
+            checkInDate: '2024-05-30',
+            checkOutDate: '2024-06-02'
+          }
+        : undefined
+    );
   }
 
   formatAmount(amount: number): string {

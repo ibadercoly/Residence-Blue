@@ -1,10 +1,10 @@
-import { Component } from '@angular/core';
-import { RouterLink } from '@angular/router';
+import { Component, inject } from '@angular/core';
+import { ReservationModalService } from '../../../core/services/reservation-modal.service';
 
 @Component({
   selector: 'app-header',
   standalone: true,
-  imports: [RouterLink],
+  imports: [],
   host: { class: 'block' },
   template: `
     <!-- Desktop Header (tableau_de_bord) -->
@@ -31,14 +31,16 @@ import { RouterLink } from '@angular/router';
       <!-- Action items & profile -->
       <div class="flex items-center gap-gutter">
         <!-- New reservation CTA -->
-        <a
-          routerLink="/reservations/nouvelle"
-          class="inline-flex items-center gap-space-sm h-11 px-gutter bg-primary hover:bg-primary-container text-on-primary rounded-xl font-label-lg text-label-lg shadow-sm transition-all focus-visible:ring-2 focus-visible:ring-primary"
+        <button
+          type="button"
+          (click)="openNewReservation()"
+          class="inline-flex items-center gap-space-sm h-11 px-gutter bg-primary hover:bg-primary-container text-on-primary rounded-xl font-label-lg text-label-lg shadow-sm transition-all focus-visible:ring-2 focus-visible:ring-primary cursor-pointer"
           aria-label="Créer une nouvelle réservation"
+          data-testid="header-new-reservation-btn"
         >
           <span class="material-symbols-outlined text-[18px]" aria-hidden="true">add</span>
           <span>Nouvelle réservation</span>
-        </a>
+        </button>
 
         <!-- Notifications button -->
         <button
@@ -107,4 +109,10 @@ import { RouterLink } from '@angular/router';
     </header>
   `
 })
-export class HeaderComponent {}
+export class HeaderComponent {
+  readonly modalService = inject(ReservationModalService);
+
+  openNewReservation(): void {
+    this.modalService.open();
+  }
+}
