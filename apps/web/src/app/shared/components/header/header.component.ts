@@ -90,6 +90,15 @@ import { ReservationModalService } from '../../../core/services/reservation-moda
         </div>
         <div class="flex items-center gap-space-xs flex-shrink-0">
           <button
+            aria-label="Nouvelle réservation"
+            type="button"
+            (click)="openNewReservation()"
+            data-testid="header-new-reservation-mobile-btn"
+            class="w-10 h-10 rounded-xl bg-primary text-on-primary flex items-center justify-center shadow-sm cursor-pointer min-h-[44px] min-w-[44px]"
+          >
+            <span class="material-symbols-outlined text-[20px]" aria-hidden="true">add</span>
+          </button>
+          <button
             aria-label="Notifications"
             type="button"
             class="w-11 h-11 flex items-center justify-center text-on-surface-variant hover:text-primary transition-colors relative"

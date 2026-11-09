@@ -57,9 +57,17 @@ export function HostListener(eventName?: string, args?: unknown[]) {
 }
 
 export class EventEmitter<T = unknown> {
-  emit(value?: T) {}
+  private listeners: ((value: T) => void)[] = [];
+  emit(value?: T) {
+    this.listeners.forEach((fn) => fn(value as T));
+  }
   subscribe(next?: (value: T) => void) {
-    return { unsubscribe: () => {} };
+    if (next) this.listeners.push(next);
+    return {
+      unsubscribe: () => {
+        this.listeners = this.listeners.filter((l) => l !== next);
+      }
+    };
   }
 }
 

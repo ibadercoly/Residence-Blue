@@ -30,7 +30,7 @@ test.describe('Résidence Blue - Navigation, Accessibilité & Mode Hors Ligne du
     await expect(searchInput).toBeVisible();
 
     // CTA Nouvelle réservation
-    const ctaButton = desktopHeader.locator('a[href*="nouvelle"]');
+    const ctaButton = desktopHeader.locator('[data-testid="header-new-reservation-btn"], a[href*="nouvelle"]');
     await expect(ctaButton).toContainText('Nouvelle réservation');
   });
 
