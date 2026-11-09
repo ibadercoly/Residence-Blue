@@ -4,16 +4,23 @@ test.describe('Point de vente restaurant La Teranga', () => {
   test.beforeEach(async ({ page }) => {
     // Connexion avec rôle RESTAURANT pour les tests
     await page.addInitScript(() => {
-      localStorage.setItem('auth_token', 'fake-jwt-token');
-      localStorage.setItem(
-        'current_user',
-        JSON.stringify({
-          id: 'user-restaurant-1',
-          name: 'Serveur Restaurant',
-          email: 'restaurant@residenceblue.sn',
+      const session = {
+        user: {
+          id: 'usr-002-resto',
+          email: 'teranga.resto@residenceblue.sn',
+          fullName: 'Ibrahima Diallo',
           role: 'RESTAURANT',
-        })
-      );
+          jobTitle: "Maître d'Hôtel"
+        },
+        token: 'test-token-resto',
+        expiresAt: Date.now() + 8 * 60 * 60 * 1000,
+        stayConnected8h: true,
+        lastActivityAt: Date.now(),
+        isLocked: false
+      };
+      localStorage.setItem('residence_blue_auth_session', JSON.stringify(session));
+      localStorage.setItem('auth_token', 'fake-jwt-token');
+      localStorage.setItem('current_user', JSON.stringify(session.user));
     });
   });
 

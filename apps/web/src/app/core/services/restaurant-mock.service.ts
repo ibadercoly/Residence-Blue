@@ -10,7 +10,19 @@ import { HotelSettingsService } from './hotel-settings.service';
   providedIn: 'root'
 })
 export class RestaurantMockService {
-  private readonly hotelSettingsService = inject(HotelSettingsService, { optional: true }) ?? new HotelSettingsService();
+  private readonly hotelSettingsService: HotelSettingsService;
+
+  constructor(hotelSettingsService?: HotelSettingsService) {
+    let injected: HotelSettingsService | null = null;
+    try {
+      if (typeof inject === 'function') {
+        injected = inject(HotelSettingsService, { optional: true });
+      }
+    } catch {
+      // Ignorer si hors contexte d'injection
+    }
+    this.hotelSettingsService = hotelSettingsService ?? injected ?? new HotelSettingsService();
+  }
 
   // Catégories de plats
   private readonly _categories = signal<DishCategory[]>([

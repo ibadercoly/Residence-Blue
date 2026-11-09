@@ -1,0 +1,1033 @@
+<app-modal-shell
+  [isOpen]="isOpen"
+  [title]="'Gestion du menu'"
+  [subtitle]="'Restaurant La Teranga • Résidence Blue, Grand Standing Thiès'"
+  [badge]="menuService.allDishes().length + ' plats'"
+  [icon]="'restaurant_menu'"
+  [maxWidth]="'960px'"
+  [maxHeight]="'88dvh'"
+  (closed)="handleClose()"
+>
+  <!-- Navigation par onglets -->
+  <div class="flex items-center justify-start border-b border-stone-200 pb-3 mb-4 bg-white sticky top-0 z-10">
+    <div class="flex items-center bg-stone-100 p-1 rounded-xl">
+      <button
+        type="button"
+        (click)="setTab('LIST')"
+        [class.bg-white]="activeTab() === 'LIST'"
+        [class.text-stone-900]="activeTab() === 'LIST'"
+        [class.shadow-sm]="activeTab() === 'LIST'"
+        [class.text-stone-600]="activeTab() !== 'LIST'"
+        class="px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5"
+      >
+        <span class="material-symbols-outlined text-sm">menu_book</span>
+        Carte
+      </button>
+
+      <button
+        type="button"
+        (click)="openNewDishForm()"
+        [class.bg-white]="activeTab() === 'FORM'"
+        [class.text-stone-900]="activeTab() === 'FORM'"
+        [class.shadow-sm]="activeTab() === 'FORM'"
+        [class.text-stone-600]="activeTab() !== 'FORM'"
+        class="px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5"
+      >
+        <span class="material-symbols-outlined text-sm">add_circle</span>
+        {{ isEditing() ? 'Modifier plat' : 'Nouveau plat' }}
+      </button>
+
+      <button
+        type="button"
+        (click)="setTab('CATEGORIES')"
+        [class.bg-white]="activeTab() === 'CATEGORIES'"
+        [class.text-stone-900]="activeTab() === 'CATEGORIES'"
+        [class.shadow-sm]="activeTab() === 'CATEGORIES'"
+        [class.text-stone-600]="activeTab() !== 'CATEGORIES'"
+        class="px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5"
+      >
+        <span class="material-symbols-outlined text-sm">category</span>
+        Catégories
+      </button>
+
+      <button
+        type="button"
+        (click)="setTab('IMPORT_EXPORT')"
+        [class.bg-white]="activeTab() === 'IMPORT_EXPORT'"
+        [class.text-stone-900]="activeTab() === 'IMPORT_EXPORT'"
+        [class.shadow-sm]="activeTab() === 'IMPORT_EXPORT'"
+        [class.text-stone-600]="activeTab() !== 'IMPORT_EXPORT'"
+        class="px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5"
+      >
+        <span class="material-symbols-outlined text-sm">swap_vert</span>
+        Import / Export
+      </button>
+    </div>
+  </div>
+
+  <!-- Corps de la modale avec défilement -->
+  <div class="p-6 bg-[#f8fafc] min-h-[500px]">
+
+    <!-- ============================================================== -->
+    <!-- ONGLET 1 : LISTE DES PLATS                                      -->
+    <!-- ============================================================== -->
+    <div *ngIf="activeTab() === 'LIST'" class="space-y-4">
+      <!-- Barre de filtres et d'actions -->
+      <div class="bg-white p-4 rounded-xl border border-stone-200 shadow-sm flex flex-wrap items-center justify-between gap-3">
+        <div class="flex flex-wrap items-center gap-3 flex-1 min-w-[280px]">
+          <!-- Recherche -->
+          <div class="relative flex-1 min-w-[200px]">
+            <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-stone-400 text-lg">search</span>
+            <input
+              type="text"
+              [ngModel]="menuService.searchQuery()"
+              (ngModelChange)="menuService.setSearchQuery($event)"
+              placeholder="Rechercher par nom ou description..."
+              class="w-full pl-9 pr-3 py-2 text-sm bg-stone-50 border border-stone-200 rounded-lg focus:outline-none focus:border-[#135bec] focus:bg-white transition-colors"
+            />
+          </div>
+
+          <!-- Filtre Catégorie -->
+          <select
+            [ngModel]="menuService.categoryFilter()"
+            (ngModelChange)="menuService.setCategoryFilter($event)"
+            class="text-sm bg-stone-50 border border-stone-200 rounded-lg px-3 py-2 focus:outline-none focus:border-[#135bec] focus:bg-white"
+          >
+            <option value="ALL">Toutes les catégories</option>
+            <option *ngFor="let cat of menuService.categories()" [value]="cat.id">
+              {{ cat.name }}
+            </option>
+          </select>
+
+          <!-- Filtre Statut -->
+          <select
+            [ngModel]="menuService.statusFilter()"
+            (ngModelChange)="menuService.setStatusFilter($event)"
+            class="text-sm bg-stone-50 border border-stone-200 rounded-lg px-3 py-2 focus:outline-none focus:border-[#135bec] focus:bg-white"
+          >
+            <option value="ALL">Tous les statuts</option>
+            <option value="AVAILABLE">Disponibles</option>
+            <option value="SOLD_OUT">Épuisés</option>
+            <option value="ARCHIVED">Archivés</option>
+          </select>
+
+          <!-- Tri -->
+          <select
+            [ngModel]="menuService.sortBy()"
+            (ngModelChange)="menuService.setSortBy($event)"
+            class="text-sm bg-stone-50 border border-stone-200 rounded-lg px-3 py-2 focus:outline-none focus:border-[#135bec] focus:bg-white"
+          >
+            <option value="ORDER">Ordre de la carte</option>
+            <option value="NAME">Nom (A-Z)</option>
+            <option value="PRICE_ASC">Prix croissant</option>
+            <option value="PRICE_DESC">Prix décroissant</option>
+          </select>
+        </div>
+
+        <button
+          type="button"
+          (click)="openNewDishForm()"
+          class="px-4 py-2 bg-[#135bec] hover:bg-blue-700 text-white rounded-lg text-sm font-semibold flex items-center gap-1.5 transition-colors shadow-sm"
+        >
+          <span class="material-symbols-outlined text-base">add</span>
+          Ajouter un plat
+        </button>
+      </div>
+
+      <!-- Tableau des plats -->
+      <div class="bg-white rounded-xl border border-stone-200 shadow-sm overflow-hidden">
+        <div class="overflow-x-auto">
+          <table class="w-full text-left text-sm text-stone-700">
+            <thead class="bg-stone-50 border-b border-stone-200 text-xs font-semibold text-stone-500 uppercase tracking-wider">
+              <tr>
+                <th class="px-4 py-3 w-16">Visuel</th>
+                <th class="px-4 py-3">Plat & Description</th>
+                <th class="px-4 py-3">Catégorie</th>
+                <th class="px-4 py-3 text-right">Prix (FCFA)</th>
+                <th class="px-4 py-3 text-center">Statut</th>
+                <th class="px-4 py-3 text-right w-44">Actions rapides</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-stone-100">
+              <tr *ngFor="let dish of menuService.filteredDishes()" class="hover:bg-stone-50/70 transition-colors">
+                <!-- Visuel -->
+                <td class="px-4 py-3">
+                  <div class="w-12 h-12 rounded-lg bg-stone-100 border border-stone-200 overflow-hidden flex items-center justify-center flex-shrink-0">
+                    <img *ngIf="dish.photoUrl" [src]="dish.photoUrl" [alt]="dish.name" class="w-full h-full object-cover" />
+                    <span *ngIf="!dish.photoUrl" class="material-symbols-outlined text-stone-400 text-xl">restaurant</span>
+                  </div>
+                </td>
+
+                <!-- Plat & description -->
+                <td class="px-4 py-3">
+                  <div class="font-bold text-stone-900 font-['Manrope']">{{ dish.name }}</div>
+                  <div class="text-xs text-stone-500 line-clamp-1 max-w-sm mt-0.5">
+                    {{ dish.description || 'Aucune description' }}
+                  </div>
+                  <div *ngIf="dish.tags.length > 0" class="flex flex-wrap gap-1 mt-1">
+                    <span
+                      *ngFor="let tag of dish.tags"
+                      class="px-1.5 py-0.5 rounded text-[10px] font-medium bg-blue-50 text-blue-700 border border-blue-100"
+                    >
+                      {{ tagLabels[tag] }}
+                    </span>
+                  </div>
+                </td>
+
+                <!-- Catégorie -->
+                <td class="px-4 py-3 text-stone-600 font-medium">
+                  {{ menuService.getCategoryName(dish.categoryId) }}
+                </td>
+
+                <!-- Prix -->
+                <td class="px-4 py-3 text-right font-bold text-stone-900 font-mono">
+                  {{ formatFcfa(dish.priceFcfa) }}
+                  <span class="text-xs font-normal text-stone-500 ml-1">FCFA</span>
+                  <div *ngIf="dish.halfPortionPriceFcfa" class="text-[11px] font-normal text-stone-500">
+                    1/2 : {{ formatFcfa(dish.halfPortionPriceFcfa) }} FCFA
+                  </div>
+                </td>
+
+                <!-- Statut -->
+                <td class="px-4 py-3 text-center">
+                  <span
+                    *ngIf="dish.status === 'AVAILABLE'"
+                    class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200"
+                  >
+                    <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                    Disponible
+                  </span>
+                  <span
+                    *ngIf="dish.status === 'SOLD_OUT'"
+                    class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-50 text-amber-700 border border-amber-200"
+                  >
+                    <span class="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
+                    Épuisé
+                  </span>
+                  <span
+                    *ngIf="dish.status === 'ARCHIVED'"
+                    class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-stone-100 text-stone-500 border border-stone-200"
+                  >
+                    <span class="w-1.5 h-1.5 rounded-full bg-stone-400"></span>
+                    Archivé
+                  </span>
+                </td>
+
+                <!-- Actions rapides -->
+                <td class="px-4 py-3 text-right">
+                  <div class="flex items-center justify-end gap-1">
+                    <!-- Toggle Épuisé (1 clic) -->
+                    <button
+                      type="button"
+                      *ngIf="dish.status !== 'ARCHIVED'"
+                      (click)="toggleSoldOut(dish)"
+                      [title]="dish.status === 'AVAILABLE' ? 'Marquer épuisé' : 'Rendre disponible'"
+                      class="p-1.5 text-stone-500 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-colors"
+                    >
+                      <span class="material-symbols-outlined text-base">
+                        {{ dish.status === 'AVAILABLE' ? 'do_not_disturb_on' : 'check_circle' }}
+                      </span>
+                    </button>
+
+                    <!-- Modifier -->
+                    <button
+                      type="button"
+                      (click)="openEditDishForm(dish)"
+                      title="Modifier le plat"
+                      class="p-1.5 text-stone-500 hover:text-[#135bec] hover:bg-blue-50 rounded-lg transition-colors"
+                    >
+                      <span class="material-symbols-outlined text-base">edit</span>
+                    </button>
+
+                    <!-- Dupliquer -->
+                    <button
+                      type="button"
+                      (click)="duplicateDish(dish)"
+                      title="Dupliquer le plat"
+                      class="p-1.5 text-stone-500 hover:text-stone-800 hover:bg-stone-100 rounded-lg transition-colors"
+                    >
+                      <span class="material-symbols-outlined text-base">content_copy</span>
+                    </button>
+
+                    <!-- Archiver / Restaurer -->
+                    <button
+                      type="button"
+                      *ngIf="dish.status !== 'ARCHIVED'"
+                      (click)="confirmArchiveDish(dish)"
+                      title="Archiver le plat"
+                      class="p-1.5 text-stone-500 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
+                    >
+                      <span class="material-symbols-outlined text-base">archive</span>
+                    </button>
+                    <button
+                      type="button"
+                      *ngIf="dish.status === 'ARCHIVED'"
+                      (click)="restoreDish(dish)"
+                      title="Restaurer le plat"
+                      class="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors"
+                    >
+                      <span class="material-symbols-outlined text-base">unarchive</span>
+                    </button>
+                  </div>
+                </td>
+              </tr>
+
+              <tr *ngIf="menuService.filteredDishes().length === 0">
+                <td colspan="6" class="px-4 py-12 text-center text-stone-400">
+                  <span class="material-symbols-outlined text-4xl mb-2 text-stone-300">restaurant</span>
+                  <p class="text-sm font-medium">Aucun plat ne correspond aux critères de recherche.</p>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============================================================== -->
+    <!-- ONGLET 2 : FORMULAIRE PLAT (AJOUT / MODIFICATION)               -->
+    <!-- ============================================================== -->
+    <div *ngIf="activeTab() === 'FORM'" class="space-y-6">
+      <div class="bg-white p-6 rounded-xl border border-stone-200 shadow-sm">
+        <div class="flex items-center justify-between border-b border-stone-200 pb-4 mb-6">
+          <div>
+            <h3 class="text-lg font-bold text-stone-900 font-['Manrope']">
+              {{ isEditing() ? 'Modifier le plat' : 'Nouveau plat du restaurant' }}
+            </h3>
+            <p class="text-xs text-stone-500 font-['Manrope']">
+              Renseignez les détails du plat, son prix en FCFA, les allergènes et la photo
+            </p>
+          </div>
+          <button
+            type="button"
+            (click)="setTab('LIST')"
+            class="text-xs font-semibold text-stone-500 hover:text-stone-800 transition-colors flex items-center gap-1"
+          >
+            <span class="material-symbols-outlined text-sm">arrow_back</span>
+            Retour à la liste
+          </button>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <!-- COLONNE GAUCHE : Informations de base, Catégorie, Tarifs -->
+          <div class="space-y-4">
+            <!-- Nom du plat -->
+            <div>
+              <label class="block text-xs font-bold text-stone-700 uppercase tracking-wider mb-1">
+                Nom du plat <span class="text-rose-500">*</span>
+              </label>
+              <input
+                type="text"
+                [ngModel]="formName()"
+                (ngModelChange)="formName.set($event); markChanged()"
+                placeholder="Ex. Tiep Bou Dien Penda"
+                class="w-full px-3 py-2 text-sm bg-stone-50 border rounded-lg focus:outline-none focus:bg-white transition-colors"
+                [class.border-rose-400]="nameError() && formName().length > 0"
+                [class.border-stone-200]="!nameError() || formName().length === 0"
+              />
+              <div *ngIf="nameError() && formName().length > 0" class="text-xs text-rose-500 mt-1 flex items-center gap-1">
+                <span class="material-symbols-outlined text-xs">error</span>
+                {{ nameError() }}
+              </div>
+            </div>
+
+            <!-- Description avec compteur de caractères -->
+            <div>
+              <div class="flex items-center justify-between mb-1">
+                <label class="block text-xs font-bold text-stone-700 uppercase tracking-wider">
+                  Description
+                </label>
+                <span
+                  class="text-[11px] font-mono"
+                  [class.text-rose-500]="formDescription().length > 300"
+                  [class.text-stone-400]="formDescription().length <= 300"
+                >
+                  {{ formDescription().length }} / 300
+                </span>
+              </div>
+              <textarea
+                rows="3"
+                maxlength="300"
+                [ngModel]="formDescription()"
+                (ngModelChange)="formDescription.set($event); markChanged()"
+                placeholder="Détails du plat, accompagnements, assaisonnements..."
+                class="w-full px-3 py-2 text-sm bg-stone-50 border border-stone-200 rounded-lg focus:outline-none focus:border-[#135bec] focus:bg-white transition-colors"
+              ></textarea>
+            </div>
+
+            <!-- Catégorie (avec création à la volée) -->
+            <div>
+              <label class="block text-xs font-bold text-stone-700 uppercase tracking-wider mb-1">
+                Catégorie <span class="text-rose-500">*</span>
+              </label>
+              <div class="flex items-center gap-2">
+                <select
+                  [ngModel]="formCategoryId()"
+                  (ngModelChange)="formCategoryId.set($event); markChanged()"
+                  class="flex-1 px-3 py-2 text-sm bg-stone-50 border border-stone-200 rounded-lg focus:outline-none focus:border-[#135bec] focus:bg-white"
+                >
+                  <option value="" disabled>Sélectionner une catégorie</option>
+                  <option *ngFor="let cat of menuService.categories()" [value]="cat.id">
+                    {{ cat.name }}
+                  </option>
+                </select>
+                <button
+                  type="button"
+                  (click)="showInlineNewCategory.set(!showInlineNewCategory())"
+                  class="px-3 py-2 bg-stone-100 hover:bg-stone-200 text-stone-700 rounded-lg text-xs font-semibold flex items-center gap-1 transition-colors"
+                >
+                  <span class="material-symbols-outlined text-sm">add</span>
+                  Nouvelle
+                </button>
+              </div>
+
+              <!-- Formulaire création de catégorie en ligne -->
+              <div *ngIf="showInlineNewCategory()" class="mt-2 p-2.5 bg-blue-50/60 border border-blue-200 rounded-lg flex items-center gap-2">
+                <input
+                  type="text"
+                  [ngModel]="inlineNewCategoryName()"
+                  (ngModelChange)="inlineNewCategoryName.set($event)"
+                  placeholder="Nom de la nouvelle catégorie..."
+                  class="flex-1 px-2.5 py-1.5 text-xs bg-white border border-stone-300 rounded focus:outline-none"
+                  (keyup.enter)="createInlineCategory()"
+                />
+                <button
+                  type="button"
+                  (click)="createInlineCategory()"
+                  class="px-2.5 py-1.5 bg-[#135bec] text-white text-xs font-semibold rounded hover:bg-blue-700"
+                >
+                  Créer
+                </button>
+                <button
+                  type="button"
+                  (click)="showInlineNewCategory.set(false)"
+                  class="text-xs text-stone-500 hover:text-stone-700"
+                >
+                  Annuler
+                </button>
+              </div>
+            </div>
+
+            <!-- Prix et TVA -->
+            <div class="grid grid-cols-2 gap-3 pt-2">
+              <div>
+                <label class="block text-xs font-bold text-stone-700 uppercase tracking-wider mb-1">
+                  Prix en FCFA <span class="text-rose-500">*</span>
+                </label>
+                <input
+                  type="number"
+                  step="100"
+                  min="0"
+                  max="1000000"
+                  [ngModel]="formPrice()"
+                  (ngModelChange)="formPrice.set($event); markChanged()"
+                  class="w-full px-3 py-2 text-sm bg-stone-50 border rounded-lg focus:outline-none focus:bg-white font-mono font-bold"
+                  [class.border-rose-400]="priceError()"
+                  [class.border-stone-200]="!priceError()"
+                />
+                <div *ngIf="priceError()" class="text-xs text-rose-500 mt-1">
+                  {{ priceError() }}
+                </div>
+              </div>
+
+              <div>
+                <label class="block text-xs font-bold text-stone-700 uppercase tracking-wider mb-1">
+                  Prix 1/2 portion (option)
+                </label>
+                <input
+                  type="number"
+                  step="100"
+                  min="0"
+                  max="1000000"
+                  [ngModel]="formHalfPortionPrice()"
+                  (ngModelChange)="formHalfPortionPrice.set($event); markChanged()"
+                  placeholder="Optionnel"
+                  class="w-full px-3 py-2 text-sm bg-stone-50 border border-stone-200 rounded-lg focus:outline-none focus:bg-white font-mono"
+                />
+              </div>
+            </div>
+
+            <!-- TVA lue dans les paramètres -->
+            <div class="flex items-center justify-between p-3 bg-stone-50 border border-stone-200 rounded-lg">
+              <div class="flex items-center gap-2">
+                <span class="material-symbols-outlined text-stone-400 text-lg">receipt_long</span>
+                <div>
+                  <span class="text-xs font-semibold text-stone-800">Taux de TVA appliqué</span>
+                  <p class="text-[11px] text-stone-500">Configuré dans les paramètres de l'hôtel (non modifiable)</p>
+                </div>
+              </div>
+              <span class="px-2.5 py-1 rounded bg-stone-200 font-mono font-bold text-xs text-stone-800">
+                {{ menuService.defaultVatRate() }} %
+              </span>
+            </div>
+
+            <!-- Ordre d'affichage -->
+            <div>
+              <label class="block text-xs font-bold text-stone-700 uppercase tracking-wider mb-1">
+                Ordre d'affichage dans la carte
+              </label>
+              <input
+                type="number"
+                min="1"
+                [ngModel]="formDisplayOrder()"
+                (ngModelChange)="formDisplayOrder.set($event); markChanged()"
+                class="w-24 px-3 py-2 text-sm bg-stone-50 border border-stone-200 rounded-lg focus:outline-none focus:bg-white font-mono"
+              />
+            </div>
+          </div>
+
+          <!-- COLONNE DROITE : Photo, Tags, Allergènes, Préparation & Disponibilité -->
+          <div class="space-y-4">
+            <!-- Photo du plat (Upload sécurisé, preview, recadrage) -->
+            <div>
+              <label class="block text-xs font-bold text-stone-700 uppercase tracking-wider mb-1">
+                Photo du plat (JPG, PNG, WebP &bull; Max 8 Mo)
+              </label>
+              <input
+                #photoInput
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                class="hidden"
+                (change)="onPhotoFileSelected($event)"
+              />
+
+              <!-- Zone de prévisualisation si photo existante -->
+              <div *ngIf="formPhotoUrl()" class="relative rounded-xl overflow-hidden border border-stone-200 bg-stone-100 h-44 group">
+                <img [src]="formPhotoUrl()" alt="Aperçu du plat" class="w-full h-full object-cover" />
+                <div class="absolute inset-0 bg-stone-900/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                  <button
+                    type="button"
+                    (click)="photoInput.click()"
+                    class="px-3 py-1.5 bg-white text-stone-800 text-xs font-semibold rounded-lg shadow-sm hover:bg-stone-100"
+                  >
+                    Changer
+                  </button>
+                  <button
+                    type="button"
+                    (click)="removePhoto()"
+                    class="px-3 py-1.5 bg-rose-600 text-white text-xs font-semibold rounded-lg shadow-sm hover:bg-rose-700"
+                  >
+                    Supprimer
+                  </button>
+                </div>
+              </div>
+
+              <!-- Zone glisser-déposer si aucune photo -->
+              <div
+                *ngIf="!formPhotoUrl()"
+                (dragover)="onPhotoDragOver($event)"
+                (drop)="onPhotoDrop($event)"
+                (click)="photoInput.click()"
+                class="border-2 border-dashed border-stone-300 hover:border-[#135bec] bg-stone-50 hover:bg-blue-50/30 rounded-xl p-6 text-center cursor-pointer transition-colors"
+              >
+                <span class="material-symbols-outlined text-3xl text-stone-400 mb-1">add_photo_alternate</span>
+                <p class="text-xs font-semibold text-stone-700">
+                  Cliquez ou glissez une photo ici
+                </p>
+                <p class="text-[11px] text-stone-400 mt-1">
+                  JPG, PNG ou WebP &bull; Redimensionné WebP 1600px sans EXIF
+                </p>
+                <div *ngIf="isProcessingPhoto()" class="mt-2 text-xs text-[#135bec] flex items-center justify-center gap-1">
+                  <span class="material-symbols-outlined animate-spin text-sm">progress_activity</span>
+                  Traitement et optimisation en cours...
+                </div>
+              </div>
+
+              <!-- Message d'erreur photo -->
+              <div *ngIf="photoError()" class="text-xs text-rose-500 mt-1 flex items-center gap-1">
+                <span class="material-symbols-outlined text-xs">warning</span>
+                {{ photoError() }}
+              </div>
+            </div>
+
+            <!-- Étiquettes (choix multiples) -->
+            <div>
+              <label class="block text-xs font-bold text-stone-700 uppercase tracking-wider mb-1.5">
+                Étiquettes de mise en valeur
+              </label>
+              <div class="flex flex-wrap gap-1.5">
+                <button
+                  type="button"
+                  *ngFor="let tag of allTags"
+                  (click)="toggleTag(tag)"
+                  [class.bg-[#135bec]]="formTags().includes(tag)"
+                  [class.text-white]="formTags().includes(tag)"
+                  [class.bg-stone-100]="!formTags().includes(tag)"
+                  [class.text-stone-700]="!formTags().includes(tag)"
+                  class="px-2.5 py-1 rounded-lg text-xs font-medium transition-colors"
+                >
+                  {{ tagLabels[tag] }}
+                </button>
+              </div>
+            </div>
+
+            <!-- Allergènes (choix multiples) -->
+            <div>
+              <label class="block text-xs font-bold text-stone-700 uppercase tracking-wider mb-1.5">
+                Allergènes présents
+              </label>
+              <div class="flex flex-wrap gap-1.5">
+                <button
+                  type="button"
+                  *ngFor="let allergen of allAllergens"
+                  (click)="toggleAllergen(allergen)"
+                  [class.bg-amber-100]="formAllergens().includes(allergen)"
+                  [class.text-amber-800]="formAllergens().includes(allergen)"
+                  [class.border-amber-300]="formAllergens().includes(allergen)"
+                  [class.bg-stone-50]="!formAllergens().includes(allergen)"
+                  [class.text-stone-600]="!formAllergens().includes(allergen)"
+                  [class.border-stone-200]="!formAllergens().includes(allergen)"
+                  class="px-2 py-0.5 rounded text-xs border font-medium transition-colors"
+                >
+                  {{ allergenLabels[allergen] }}
+                </button>
+              </div>
+            </div>
+
+            <!-- Temps de préparation & Poste -->
+            <div class="grid grid-cols-2 gap-3">
+              <div>
+                <label class="block text-xs font-bold text-stone-700 uppercase tracking-wider mb-1">
+                  Temps préparation (min)
+                </label>
+                <input
+                  type="number"
+                  min="1"
+                  max="120"
+                  [ngModel]="formPrepTime()"
+                  (ngModelChange)="formPrepTime.set($event); markChanged()"
+                  class="w-full px-3 py-2 text-sm bg-stone-50 border border-stone-200 rounded-lg focus:outline-none focus:bg-white font-mono"
+                />
+              </div>
+
+              <div>
+                <label class="block text-xs font-bold text-stone-700 uppercase tracking-wider mb-1">
+                  Poste de préparation
+                </label>
+                <select
+                  [ngModel]="formPrepStation()"
+                  (ngModelChange)="formPrepStation.set($event); markChanged()"
+                  class="w-full px-3 py-2 text-sm bg-stone-50 border border-stone-200 rounded-lg focus:outline-none focus:bg-white"
+                >
+                  <option value="CUISINE">Cuisine</option>
+                  <option value="BAR">Bar</option>
+                  <option value="PATISSERIE">Pâtisserie</option>
+                </select>
+              </div>
+            </div>
+
+            <!-- Disponibilité : Toujours ou par créneau -->
+            <div>
+              <label class="block text-xs font-bold text-stone-700 uppercase tracking-wider mb-1">
+                Disponibilité du plat
+              </label>
+              <div class="flex items-center gap-4 mb-2">
+                <label class="flex items-center gap-1.5 text-xs text-stone-700 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="availType"
+                    value="ALWAYS"
+                    [ngModel]="formAvailabilityType()"
+                    (ngModelChange)="formAvailabilityType.set($event); markChanged()"
+                  />
+                  Toujours disponible
+                </label>
+                <label class="flex items-center gap-1.5 text-xs text-stone-700 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="availType"
+                    value="SLOTS"
+                    [ngModel]="formAvailabilityType()"
+                    (ngModelChange)="formAvailabilityType.set($event); markChanged()"
+                  />
+                  Selon créneaux et jours
+                </label>
+              </div>
+
+              <!-- Créneaux et jours si par créneau -->
+              <div *ngIf="formAvailabilityType() === 'SLOTS'" class="p-3 bg-stone-50 border border-stone-200 rounded-lg space-y-2">
+                <div class="text-[11px] font-bold text-stone-600">Services :</div>
+                <div class="flex items-center gap-2">
+                  <button
+                    type="button"
+                    *ngFor="let s of ['BREAKFAST', 'LUNCH', 'DINNER']"
+                    (click)="toggleSlot(s === 'BREAKFAST' ? 'BREAKFAST' : (s === 'LUNCH' ? 'LUNCH' : 'DINNER'))"
+                    [class.bg-[#135bec]]="formSlots().includes(s === 'BREAKFAST' ? 'BREAKFAST' : (s === 'LUNCH' ? 'LUNCH' : 'DINNER'))"
+                    [class.text-white]="formSlots().includes(s === 'BREAKFAST' ? 'BREAKFAST' : (s === 'LUNCH' ? 'LUNCH' : 'DINNER'))"
+                    [class.bg-white]="!formSlots().includes(s === 'BREAKFAST' ? 'BREAKFAST' : (s === 'LUNCH' ? 'LUNCH' : 'DINNER'))"
+                    class="px-2.5 py-1 text-xs border rounded-lg font-medium"
+                  >
+                    {{ mealSlotLabels[s === 'BREAKFAST' ? 'BREAKFAST' : (s === 'LUNCH' ? 'LUNCH' : 'DINNER')] }}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Options et suppléments -->
+        <div class="border-t border-stone-200 mt-6 pt-6">
+          <div class="flex items-center justify-between mb-3">
+            <div>
+              <h4 class="text-sm font-bold text-stone-900 font-['Manrope']">Options & Accompagnements</h4>
+              <p class="text-xs text-stone-500">Ex. Piment doux à part (+0 FCFA), Aloco supplément (+1 500 FCFA)</p>
+            </div>
+            <button
+              type="button"
+              (click)="addOption()"
+              class="px-3 py-1.5 bg-stone-100 hover:bg-stone-200 text-stone-700 text-xs font-semibold rounded-lg flex items-center gap-1 transition-colors"
+            >
+              <span class="material-symbols-outlined text-sm">add</span>
+              Ajouter une option
+            </button>
+          </div>
+
+          <div *ngIf="formOptions().length > 0" class="space-y-2">
+            <div *ngFor="let opt of formOptions(); let i = index" class="flex items-center gap-2">
+              <input
+                type="text"
+                [(ngModel)]="opt.name"
+                (ngModelChange)="markChanged()"
+                placeholder="Nom de l'option (ex. Frites de patate douce)"
+                class="flex-1 px-3 py-1.5 text-xs bg-stone-50 border border-stone-200 rounded-lg focus:outline-none focus:bg-white"
+              />
+              <div class="flex items-center gap-1">
+                <input
+                  type="number"
+                  step="100"
+                  min="0"
+                  [(ngModel)]="opt.priceFcfa"
+                  (ngModelChange)="markChanged()"
+                  placeholder="0"
+                  class="w-24 px-2 py-1.5 text-xs bg-stone-50 border border-stone-200 rounded-lg text-right font-mono"
+                />
+                <span class="text-xs text-stone-500">FCFA</span>
+              </div>
+              <button
+                type="button"
+                (click)="removeOption(i)"
+                class="p-1.5 text-stone-400 hover:text-rose-600 rounded-lg"
+                title="Supprimer l'option"
+              >
+                <span class="material-symbols-outlined text-base">delete</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Pied de page du formulaire : Validation -->
+        <div class="border-t border-stone-200 mt-6 pt-4 flex items-center justify-between">
+          <button
+            type="button"
+            (click)="setTab('LIST')"
+            class="px-4 py-2 text-stone-600 hover:text-stone-900 text-sm font-semibold rounded-lg transition-colors"
+          >
+            Annuler
+          </button>
+
+          <button
+            type="button"
+            (click)="saveDish()"
+            [disabled]="!isFormValid()"
+            [class.opacity-50]="!isFormValid()"
+            [class.cursor-not-allowed]="!isFormValid()"
+            class="px-5 py-2.5 bg-[#135bec] hover:bg-blue-700 text-white rounded-lg text-sm font-semibold flex items-center gap-2 shadow-sm transition-colors"
+          >
+            <span class="material-symbols-outlined text-base">check</span>
+            {{ isEditing() ? 'Enregistrer les modifications' : 'Créer le plat' }}
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============================================================== -->
+    <!-- ONGLET 3 : CATÉGORIES DU MENU                                   -->
+    <!-- ============================================================== -->
+    <div *ngIf="activeTab() === 'CATEGORIES'" class="space-y-6">
+      <div class="bg-white p-6 rounded-xl border border-stone-200 shadow-sm">
+        <div class="flex items-center justify-between border-b border-stone-200 pb-4 mb-4">
+          <div>
+            <h3 class="text-lg font-bold text-stone-900 font-['Manrope']">Catégories du menu</h3>
+            <p class="text-xs text-stone-500">
+              Gérez l'ordre, le libellé et l'archivage des sections de la carte
+            </p>
+          </div>
+        </div>
+
+        <!-- Création d'une catégorie -->
+        <div class="p-3 bg-stone-50 rounded-xl border border-stone-200 flex items-center gap-2 mb-6">
+          <input
+            type="text"
+            [ngModel]="newCategoryName()"
+            (ngModelChange)="newCategoryName.set($event)"
+            placeholder="Nom de la nouvelle catégorie (ex. Jus frais & Smoothies)..."
+            class="flex-1 px-3 py-2 text-sm bg-white border border-stone-300 rounded-lg focus:outline-none focus:border-[#135bec]"
+            (keyup.enter)="addCategory()"
+          />
+          <button
+            type="button"
+            (click)="addCategory()"
+            [disabled]="!newCategoryName().trim()"
+            class="px-4 py-2 bg-[#135bec] hover:bg-blue-700 text-white rounded-lg text-sm font-semibold disabled:opacity-50 transition-colors flex items-center gap-1"
+          >
+            <span class="material-symbols-outlined text-base">add</span>
+            Ajouter la catégorie
+          </button>
+        </div>
+
+        <!-- Liste des catégories existantes -->
+        <div class="space-y-2">
+          <div
+            *ngFor="let cat of menuService.categories(); let idx = index"
+            class="p-3 bg-white border border-stone-200 rounded-xl flex items-center justify-between gap-4 hover:border-stone-300 transition-colors"
+          >
+            <div class="flex items-center gap-3 flex-1">
+              <span class="text-xs font-mono font-bold text-stone-400 w-6 text-center">#{{ idx + 1 }}</span>
+              <input
+                type="text"
+                [value]="cat.name"
+                #catNameInput
+                (blur)="renameCategory(cat, catNameInput.value)"
+                (keyup.enter)="renameCategory(cat, catNameInput.value)"
+                class="flex-1 px-2.5 py-1 text-sm font-semibold text-stone-800 bg-transparent hover:bg-stone-50 focus:bg-stone-50 border border-transparent focus:border-stone-300 rounded"
+              />
+              <span class="px-2 py-0.5 rounded text-xs font-medium bg-stone-100 text-stone-600">
+                {{ menuService.getDishCountByCategory(cat.id) }} plats
+              </span>
+            </div>
+
+            <div class="flex items-center gap-1">
+              <!-- Monter / Descendre -->
+              <button
+                type="button"
+                (click)="moveCategory(idx, 'up')"
+                [disabled]="idx === 0"
+                class="p-1 text-stone-400 hover:text-stone-700 disabled:opacity-30 rounded"
+                title="Monter"
+              >
+                <span class="material-symbols-outlined text-base">arrow_upward</span>
+              </button>
+              <button
+                type="button"
+                (click)="moveCategory(idx, 'down')"
+                [disabled]="idx === menuService.categories().length - 1"
+                class="p-1 text-stone-400 hover:text-stone-700 disabled:opacity-30 rounded"
+                title="Descendre"
+              >
+                <span class="material-symbols-outlined text-base">arrow_downward</span>
+              </button>
+
+              <!-- Archiver -->
+              <button
+                type="button"
+                (click)="archiveCategory(cat)"
+                class="p-1.5 text-stone-400 hover:text-rose-600 rounded-lg transition-colors ml-2"
+                title="Archiver cette catégorie"
+              >
+                <span class="material-symbols-outlined text-base">archive</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============================================================== -->
+    <!-- ONGLET 4 : IMPORT / EXPORT DU MENU                              -->
+    <!-- ============================================================== -->
+    <div *ngIf="activeTab() === 'IMPORT_EXPORT'" class="space-y-6">
+      <!-- Section EXPORTATION -->
+      <div class="bg-white p-6 rounded-xl border border-stone-200 shadow-sm">
+        <div class="flex items-center justify-between mb-4">
+          <div>
+            <h3 class="text-lg font-bold text-stone-900 font-['Manrope']">Exportation du menu</h3>
+            <p class="text-xs text-stone-500">
+              Téléchargez la carte au format tableur avec neutralisation des formules de tableur (=, +, -, @)
+            </p>
+          </div>
+        </div>
+
+        <div class="flex items-center gap-3">
+          <button
+            type="button"
+            (click)="exportCsv()"
+            class="px-4 py-2.5 bg-stone-100 hover:bg-stone-200 text-stone-800 rounded-lg text-sm font-semibold flex items-center gap-2 transition-colors border border-stone-200"
+          >
+            <span class="material-symbols-outlined text-base text-emerald-600">table_view</span>
+            Télécharger en CSV (.csv)
+          </button>
+
+          <button
+            type="button"
+            (click)="exportExcel()"
+            class="px-4 py-2.5 bg-stone-100 hover:bg-stone-200 text-stone-800 rounded-lg text-sm font-semibold flex items-center gap-2 transition-colors border border-stone-200"
+          >
+            <span class="material-symbols-outlined text-base text-emerald-700">grid_on</span>
+            Télécharger en Excel (.xlsx)
+          </button>
+        </div>
+      </div>
+
+      <!-- Section IMPORTATION CSV -->
+      <div class="bg-white p-6 rounded-xl border border-stone-200 shadow-sm">
+        <div class="mb-4">
+          <h3 class="text-lg font-bold text-stone-900 font-['Manrope']">Importation par fichier CSV</h3>
+          <p class="text-xs text-stone-500">
+            Fichier UTF-8 &bull; Limite de 2 Mo et 500 lignes &bull; Aperçu avant confirmation
+          </p>
+        </div>
+
+        <input
+          #csvFileInput
+          type="file"
+          accept=".csv,text/csv"
+          class="hidden"
+          (change)="onCsvFileSelected($event)"
+        />
+
+        <!-- Zone de glisser-déposer CSV -->
+        <div
+          *ngIf="!csvReport()"
+          (dragover)="$event.preventDefault()"
+          (drop)="onCsvDrop($event)"
+          (click)="csvFileInput.click()"
+          class="border-2 border-dashed border-stone-300 hover:border-[#135bec] bg-stone-50 hover:bg-blue-50/20 rounded-xl p-8 text-center cursor-pointer transition-colors"
+        >
+          <span class="material-symbols-outlined text-4xl text-stone-400 mb-2">upload_file</span>
+          <p class="text-sm font-bold text-stone-700 font-['Manrope']">
+            Sélectionnez ou glissez un fichier CSV
+          </p>
+          <p class="text-xs text-stone-400 mt-1">
+            Colonnes attendues : Nom, Catégorie, Prix, Description, Statut, Tags, Allergènes
+          </p>
+        </div>
+
+        <!-- Rapport et Aperçu après chargement du CSV -->
+        <div *ngIf="csvReport()" class="space-y-4">
+          <!-- Bilan du fichier -->
+          <div class="p-4 rounded-xl border" [class.bg-emerald-50]="csvReport()!.isValid" [class.border-emerald-200]="csvReport()!.isValid" [class.bg-amber-50]="!csvReport()!.isValid" [class.border-amber-200]="!csvReport()!.isValid">
+            <div class="flex items-center justify-between">
+              <div class="flex items-center gap-2">
+                <span class="material-symbols-outlined text-xl" [class.text-emerald-600]="csvReport()!.isValid" [class.text-amber-600]="!csvReport()!.isValid">
+                  {{ csvReport()!.isValid ? 'check_circle' : 'warning' }}
+                </span>
+                <div>
+                  <h4 class="text-sm font-bold text-stone-900 font-['Manrope']">
+                    Fichier : {{ csvFileName() }}
+                  </h4>
+                  <p class="text-xs text-stone-600">
+                    {{ csvReport()!.totalRows }} lignes lues &bull;
+                    <span class="font-bold text-emerald-700">{{ csvReport()!.validRows.length }} valides</span> &bull;
+                    <span class="font-bold text-rose-600">{{ csvReport()!.errorRows.length }} en erreur</span>
+                  </p>
+                </div>
+              </div>
+
+              <div class="flex items-center gap-2">
+                <button
+                  type="button"
+                  (click)="cancelCsvImport()"
+                  class="px-3 py-1.5 text-xs font-semibold text-stone-600 hover:text-stone-900"
+                >
+                  Annuler
+                </button>
+                <button
+                  type="button"
+                  (click)="applyCsvImport()"
+                  [disabled]="csvReport()!.validRows.length === 0"
+                  class="px-4 py-2 bg-[#135bec] hover:bg-blue-700 text-white text-xs font-semibold rounded-lg shadow-sm disabled:opacity-50 transition-colors"
+                >
+                  Importer {{ csvReport()!.validRows.length }} plat(s)
+                </button>
+              </div>
+            </div>
+
+            <!-- Erreurs globales si présentes -->
+            <div *ngIf="csvReport()!.globalErrors.length > 0" class="mt-3 p-2 bg-rose-50 border border-rose-200 rounded text-xs text-rose-700">
+              <div *ngFor="let err of csvReport()!.globalErrors">&bull; {{ err }}</div>
+            </div>
+          </div>
+
+          <!-- Tableau des erreurs de lignes -->
+          <div *ngIf="csvReport()!.errorRows.length > 0" class="bg-rose-50/50 rounded-xl border border-rose-200 p-4">
+            <h5 class="text-xs font-bold text-rose-800 uppercase tracking-wider mb-2">
+              Lignes rejetées ({{ csvReport()!.errorRows.length }})
+            </h5>
+            <div class="max-h-40 overflow-y-auto space-y-1.5 text-xs">
+              <div *ngFor="let errRow of csvReport()!.errorRows" class="p-2 bg-white rounded border border-rose-200 flex items-start gap-2">
+                <span class="px-1.5 py-0.5 bg-rose-100 text-rose-800 rounded font-mono font-bold text-[10px]">
+                  Ligne {{ errRow.lineNumber }}
+                </span>
+                <div class="flex-1">
+                  <div class="text-rose-700 font-semibold">{{ errRow.errors.join(' &bull; ') }}</div>
+                  <div class="text-[11px] text-stone-400 font-mono mt-0.5">{{ errRow.rawLine }}</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Aperçu des lignes valides -->
+          <div *ngIf="csvReport()!.validRows.length > 0" class="rounded-xl border border-stone-200 overflow-hidden">
+            <div class="p-3 bg-stone-50 border-b border-stone-200 text-xs font-bold text-stone-700">
+              Aperçu des plats à importer ({{ csvReport()!.validRows.length }})
+            </div>
+            <div class="max-h-56 overflow-y-auto">
+              <table class="w-full text-left text-xs">
+                <thead class="bg-stone-50 text-stone-500 uppercase tracking-wider text-[10px]">
+                  <tr>
+                    <th class="px-3 py-2">Nom</th>
+                    <th class="px-3 py-2">Catégorie</th>
+                    <th class="px-3 py-2 text-right">Prix</th>
+                    <th class="px-3 py-2">Statut</th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-stone-100 bg-white">
+                  <tr *ngFor="let row of csvReport()!.validRows">
+                    <td class="px-3 py-1.5 font-semibold text-stone-800">{{ row.name }}</td>
+                    <td class="px-3 py-1.5 text-stone-600">{{ row.categoryName }}</td>
+                    <td class="px-3 py-1.5 text-right font-mono font-bold">{{ formatFcfa(row.priceFcfa) }} FCFA</td>
+                    <td class="px-3 py-1.5 text-stone-500">{{ row.status }}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Dialogue de confirmation overlay (Archivage, perte de saisie) -->
+  <div
+    *ngIf="confirmAction()"
+    class="fixed inset-0 z-50 bg-stone-900/60 backdrop-blur-sm flex items-center justify-center p-4 animate-fadeIn"
+  >
+    <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-stone-200 animate-scaleUp">
+      <div class="flex items-center gap-3 text-rose-600 mb-3">
+        <span class="material-symbols-outlined text-2xl">warning</span>
+        <h4 class="text-base font-bold text-stone-900 font-['Manrope']">
+          {{ confirmAction()!.title }}
+        </h4>
+      </div>
+      <p class="text-sm text-stone-600 mb-6 font-['Manrope']">
+        {{ confirmAction()!.message }}
+      </p>
+      <div class="flex items-center justify-end gap-2">
+        <button
+          type="button"
+          (click)="confirmAction.set(null)"
+          class="px-4 py-2 text-sm font-semibold text-stone-600 hover:text-stone-800 rounded-lg transition-colors"
+        >
+          {{ confirmAction()!.cancelText }}
+        </button>
+        <button
+          type="button"
+          (click)="confirmAction()!.onConfirm()"
+          class="px-4 py-2 text-sm font-semibold bg-rose-600 hover:bg-rose-700 text-white rounded-lg shadow-sm transition-colors"
+        >
+          {{ confirmAction()!.confirmText }}
+        </button>
+      </div>
+    </div>
+  </div>
+</app-modal-shell>

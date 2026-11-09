@@ -4,11 +4,12 @@ import { FormsModule } from '@angular/forms';
 import { DishItem, Role } from '@residence-blue/shared';
 import { RestaurantMockService } from '../../core/services/restaurant-mock.service';
 import { AuthMockService } from '../../core/services/auth-mock.service';
+import { MenuManagementModalComponent } from './menu-management-modal/menu-management-modal.component';
 
 @Component({
   selector: 'app-restaurant-page',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, MenuManagementModalComponent],
   template: `
     <div class="flex flex-col w-full pb-8 font-body-md" data-testid="restaurant-container">
       <!-- Toast Notification -->
@@ -452,6 +453,8 @@ import { AuthMockService } from '../../core/services/auth-mock.service';
           </div>
         </div>
       </div>
+      <!-- Modale de gestion du menu -->
+      <app-menu-management-modal [isOpen]="isMenuModalOpen()" (closed)="isMenuModalOpen.set(false)" />
     </div>
   `
 })
@@ -460,6 +463,7 @@ export class RestaurantPageComponent {
   readonly authService = inject(AuthMockService);
 
   readonly toastMessage = signal<string | null>(null);
+  readonly isMenuModalOpen = signal<boolean>(false);
 
   readonly categories = this.restaurantService.categories;
   readonly filteredDishes = this.restaurantService.filteredDishes;
@@ -480,7 +484,7 @@ export class RestaurantPageComponent {
 
   // Accès au bouton « Gérer le menu » : rôle DIRECTION ou RESTAURANT (Règle 1)
   readonly canManageMenu = computed(() => {
-    const role = this.authService.currentUser()?.role ?? Role.DIRECTION;
+    const role = this.authService.currentUser()?.role;
     return role === Role.DIRECTION || role === Role.RESTAURANT;
   });
 
@@ -525,7 +529,7 @@ export class RestaurantPageComponent {
   }
 
   openMenuManagement(): void {
-    this.showToast('Ouverture de la gestion du menu...');
+    this.isMenuModalOpen.set(true);
   }
 
   printAddition(): void {
