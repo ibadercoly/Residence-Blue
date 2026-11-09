@@ -1,7 +1,7 @@
 # Porte de Sécurité — Modal Nouvelle Réservation
 
-> **Fonctionnalité :** Modal de Création & Attribution d'une Nouvelle Réservation  
-> **Composant :** `NewReservationModalComponent`  
+> **Fonctionnalité :** Modal de Création & Attribution d'une Nouvelle Réservation (Architecture Compacte & Responsive)  
+> **Composants :** `ModalShellComponent`, `NewReservationModalComponent`  
 > **Déclencheurs :** Bouton En-tête « + Nouvelle réservation » et case libre du Tape Chart  
 > **Référence maquette :** `design/maquettes/modal_nouvelle_r_servation/code.html`  
 > **Date de l'audit :** 09 Novembre 2026  
@@ -15,6 +15,8 @@ Le modal de nouvelle réservation permet à la réception ou à la direction d'e
 
 Ce composant traite des flux financiers directs (acomptes, solde dû) et des données personnelles des voyageurs (nom, prénom, numéro de téléphone, email, ville d'origine, demandes particulières).
 
+Dans sa version compacte, il encapsule les règles de sécurité d'interface utilisateur (WCAG, piégeage du focus, restauration du focus, verrouillage du défilement du document sous-jacent, protection contre les pertes de saisie par dialogue de confirmation).
+
 ---
 
 ## 2. Vecteurs d'Attaque Testés & Résultats
@@ -25,7 +27,8 @@ Ce composant traite des flux financiers directs (acomptes, solde dû) et des don
 | **Règle Monétaire AGENTS.md : Intégrité financière** | Injection de montants d'acompte flottants, négatifs ou avec décimales (ex: `150000.50`, `,00 FCFA`). | Montants stockés et affichés en entiers FCFA stricts, calculs arrondis, devise FCFA respectée. | **RÉUSSI** (Validé par `ReservationModalService` et tests E2E) |
 | **CWE-319 : Zéro fuite réseau & CDN distants** | Contrôle des requêtes sortantes lors de l'ouverture du modal, du changement de catégorie et de la sélection de photo de chambre. | Zéro requête vers des CDN externes (Unsplash, Google Fonts, CDN Tailwind). 100% des images sont locales (`/assets/images/chambres/`). | **RÉUSSI** (Validé par `reservation-modal-security.spec.ts`) |
 | **CWE-20 : Validation des entrées** | Soumission du formulaire avec un nouveau client sans nom ou téléphone, ou valeurs erronées. | Bouton de confirmation désactivé (`disabled`) tant que le formulaire est incomplet ou invalide. | **RÉUSSI** (Validé par tests unitaires et E2E) |
-| **Accessibilité & Ergonomie WCAG (Focus Trap)** | Piégeage du focus au clavier (Tabulation / Shift+Tab) et fermeture par touche `Échap`. | La navigation au clavier boucle à l'intérieur du modal sans fuite de focus dans le document d'arrière-plan. | **RÉUSSI** (Validé par `reservation-modal.spec.ts`) |
+| **Accessibilité & Ergonomie WCAG (Focus Trap & Restoration)** | Piégeage du focus au clavier (Tabulation / Shift+Tab), fermeture par touche `Échap`, restauration du focus à l'élément appelant d'origine. | La navigation au clavier boucle à l'intérieur du modal sans fuite de focus dans le document d'arrière-plan, et le focus est rendu au bouton déclencheur. | **RÉUSSI** (Validé par `reservation-modal-compact.spec.ts`) |
+| **Sécurité d'Interaction & Verrouillage Arrière-plan** | Prévention du scroll-jacking et des clics involontaires sur l'arrière-plan. | Le défilement de la page parente (`body`) est strictement bloqué (`overflow: hidden`), fermeture avec confirmation anti-perte de données en cas de saisie en cours. | **RÉUSSI** (Validé par `reservation-modal-compact.spec.ts`) |
 
 ---
 
@@ -33,9 +36,13 @@ Ce composant traite des flux financiers directs (acomptes, solde dû) et des don
 
 - **Tests unitaires :**
   - `apps/web/src/app/core/services/reservation-modal.service.spec.ts` (5/5 PASS)
-  - `apps/web/src/app/shared/components/new-reservation-modal/new-reservation-modal.component.spec.ts` (7/7 PASS)
+  - `apps/web/src/app/shared/components/modal-shell/modal-shell.component.spec.ts` (4/4 PASS)
+  - `apps/web/src/app/shared/components/new-reservation-modal/new-reservation-modal.component.spec.ts` (9/9 PASS)
 - **Tests E2E fonctionnels :**
-  - `apps/web/e2e/reservation-modal.spec.ts` (6 tests PASS)
+  - `apps/web/e2e/reservation-modal.spec.ts` (7 tests PASS)
+  - `apps/web/e2e/reservation-modal-compact.spec.ts` (11 tests multi-viewports PASS)
+- **Tests E2E de fidélité visuelle & style :**
+  - `apps/web/e2e/visual-comparison.spec.ts` (6 tests PASS dont fidélité composants modal)
 - **Tests E2E de sécurité :**
   - `apps/web/e2e/reservation-modal-security.spec.ts` (4 tests PASS)
 

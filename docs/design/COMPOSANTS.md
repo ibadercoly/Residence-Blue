@@ -158,9 +158,21 @@ Ce document répertorie l'ensemble des composants d'interface utilisateur à dé
 
 ## 6. Composants de Feedback, Modals & Notifications (Overlays)
 
-### 6.1. `ModalComponent`
-- **Rôle :** Fenêtre modale accessible avec voile d'ombrage sombre (`backdrop-blur-sm`), fermeture par touche Échap, clic extérieur ou bouton croix, et pied de page fixe pour actions.
-- **Écrans l'utilisant :** Écran 04 (`modal_nouvelle_r_servation`), fenêtres d'édition client, création de ticket technique.
+### 6.1. `ModalShellComponent`
+- **Rôle :** Conteneur modal compact standardisé pour l'ensemble des fenêtres modales du PMS (réservation, fiche client, encaissement, ticket technique).
+- **Structure en 3 zones :**
+  1. *En-tête fixe* (~72 px) : Titre, sous-titre contextuel, badge d'état ou de catégorie, icône métier et bouton croix de fermeture (cible tactile min 44×44 px).
+  2. *Corps défilant* (`overflow-y: auto`, `flex-1`) : Contenu projeté via `<ng-content select="[modal-body]" />` ou par défaut. Le défilement est strictement confiné à la fenêtre ; le défilement de la page d'arrière-plan est bloqué (`body { overflow: hidden }`).
+  3. *Pied fixe toujours visible* : Actions d'annulation, validation et affichage du total ou résumé via `<ng-content select="[modal-footer]" />`, visible immédiatement sans défilement.
+- **Dimensions & Responsive :**
+  - Bureau / Tablette : `maxWidth: min(960px, calc(100vw - 32px))`, `maxHeight: 88dvh`, centré avec ombre profonde `shadow-[0_24px_48px_-12px_rgba(10,37,64,0.28)]`.
+  - Mobile (< 768 px) : Feuille plein écran (`w-full h-full rounded-none`), avec en-tête et pied fixes.
+- **Accessibilité (a11y) & Ergonomie :**
+  - Piège de focus (Tabulation cyclique à l'intérieur de la fenêtre).
+  - Restauration automatique du focus sur l'élément d'origine qui a ouvert la fenêtre lors de la fermeture.
+  - Fermeture par la touche Échap et au clic sur le voile d'ombrage extérieur.
+  - Animation d'ouverture douce de 150 ms (désactivée si `prefers-reduced-motion: reduce`).
+- **Écrans l'utilisant :** Écran 04 (`NewReservationModalComponent`), modales d'encaissement, édition client, nouveau ticket maintenance.
 
 ### 6.2. `ToastNotificationComponent`
 - **Rôle :** Bannière d'alerte contextuelle (succès, avertissement, conflit, erreur).

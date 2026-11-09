@@ -1,8 +1,10 @@
-import { Component } from '@angular/core';
-import { RouterLink, RouterLinkActive } from '@angular/router';
+import { Component, inject } from '@angular/core';
+import { Router, RouterLink, RouterLinkActive, NavigationEnd } from '@angular/router';
+import { filter } from 'rxjs/operators';
 import { SidebarComponent } from '../sidebar/sidebar.component';
 import { HeaderComponent } from '../header/header.component';
 import { NewReservationModalComponent } from '../new-reservation-modal/new-reservation-modal.component';
+import { ReservationModalService } from '../../../core/services/reservation-modal.service';
 
 interface MobileNavItem {
   path: string;
@@ -58,6 +60,9 @@ interface MobileNavItem {
   `
 })
 export class LayoutComponent {
+  private readonly router = inject(Router, { optional: true });
+  private readonly modalService = inject(ReservationModalService, { optional: true });
+
   readonly mobileNavItems: MobileNavItem[] = [
     { path: '/tableau-de-bord', label: 'Bord', icon: 'dashboard' },
     { path: '/planning', label: 'Planning', icon: 'calendar_month' },
@@ -65,4 +70,19 @@ export class LayoutComponent {
     { path: '/reservations', label: 'Résas', icon: 'book_online' },
     { path: '/parametres', label: 'Plus', icon: 'widgets' }
   ];
+
+  constructor() {
+    if (this.router && this.modalService) {
+      this.router.events
+        .pipe(filter((e): e is NavigationEnd => e instanceof NavigationEnd))
+        .subscribe((e) => {
+          if (e.urlAfterRedirects?.includes('/reservations/nouvelle') || e.url?.includes('/reservations/nouvelle')) {
+            this.modalService?.open();
+          }
+        });
+      if (typeof window !== 'undefined' && window.location.pathname.includes('/reservations/nouvelle')) {
+        this.modalService.open();
+      }
+    }
+  }
 }

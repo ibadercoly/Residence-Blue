@@ -36,7 +36,7 @@ describe('ModalShellComponent', () => {
       closedEmitted = true;
     });
 
-    const target = document.createElement('div');
+    const target = { id: 'backdrop' };
     const mockEvent = {
       target,
       currentTarget: target
@@ -52,9 +52,8 @@ describe('ModalShellComponent', () => {
       closedEmitted = true;
     });
 
-    const currentTarget = document.createElement('div');
-    const target = document.createElement('div');
-    currentTarget.appendChild(target);
+    const currentTarget = { id: 'backdrop' };
+    const target = { id: 'window-container' };
 
     const mockEvent = {
       target,

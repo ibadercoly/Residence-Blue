@@ -1,14 +1,12 @@
 import {
   Component,
-  ElementRef,
+  EventEmitter,
   HostListener,
   OnDestroy,
-  ViewChild,
+  Output,
   computed,
   effect,
-  input,
-  output,
-  signal
+  input
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 
@@ -132,10 +130,7 @@ export class ModalShellComponent implements OnDestroy {
   readonly showCloseButton = input<boolean>(true);
   readonly testId = input<string>('modal-shell');
 
-  readonly closed = output<void>();
-
-  @ViewChild('modalContainer') modalContainer?: ElementRef<HTMLDivElement>;
-  @ViewChild('closeButton') closeButton?: ElementRef<HTMLButtonElement>;
+  @Output() readonly closed = new EventEmitter<void>();
 
   readonly uniqueId = ++nextModalId;
   readonly titleId = computed(() => `modal-shell-title-${this.uniqueId}`);
@@ -179,12 +174,14 @@ export class ModalShellComponent implements OnDestroy {
   private lockBodyScroll(): void {
     if (typeof document === 'undefined' || this.isBodyLocked) return;
     document.body.style.overflow = 'hidden';
+    document.documentElement.style.overflow = 'hidden';
     this.isBodyLocked = true;
   }
 
   private unlockBodyScroll(): void {
     if (typeof document === 'undefined' || !this.isBodyLocked) return;
     document.body.style.overflow = '';
+    document.documentElement.style.overflow = '';
     this.isBodyLocked = false;
   }
 
@@ -214,17 +211,29 @@ export class ModalShellComponent implements OnDestroy {
     }
   }
 
+  private getModalWindow(): HTMLElement | null {
+    if (typeof document === 'undefined') return null;
+    return (
+      document.querySelector(`[data-testid="${this.testId()}"] .modal-shell-window`) ||
+      document.querySelector('.modal-shell-window')
+    );
+  }
+
   private focusInitialElement(): void {
-    if (!this.modalContainer) return;
+    const container = this.getModalWindow();
+    if (!container) return;
     const focusable = this.getFocusableElements();
     if (focusable.length > 0) {
       focusable[0].focus();
     } else {
-      this.modalContainer.nativeElement.focus();
+      container.focus();
     }
   }
 
   private handleTabFocusTrap(event: KeyboardEvent): void {
+    const container = this.getModalWindow();
+    if (!container) return;
+
     const focusable = this.getFocusableElements();
     if (focusable.length === 0) return;
 
@@ -232,12 +241,12 @@ export class ModalShellComponent implements OnDestroy {
     const lastElement = focusable[focusable.length - 1];
 
     if (event.shiftKey) {
-      if (document.activeElement === firstElement || !this.modalContainer?.nativeElement.contains(document.activeElement)) {
+      if (document.activeElement === firstElement || !container.contains(document.activeElement)) {
         event.preventDefault();
         lastElement.focus();
       }
     } else {
-      if (document.activeElement === lastElement || !this.modalContainer?.nativeElement.contains(document.activeElement)) {
+      if (document.activeElement === lastElement || !container.contains(document.activeElement)) {
         event.preventDefault();
         firstElement.focus();
       }
@@ -245,11 +254,12 @@ export class ModalShellComponent implements OnDestroy {
   }
 
   private getFocusableElements(): HTMLElement[] {
-    if (!this.modalContainer) return [];
+    const container = this.getModalWindow();
+    if (!container) return [];
     const selector =
       'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
     return Array.from(
-      this.modalContainer.nativeElement.querySelectorAll<HTMLElement>(selector)
+      container.querySelectorAll<HTMLElement>(selector)
     ).filter((el) => el.offsetParent !== null && !el.hasAttribute('aria-hidden'));
   }
 }

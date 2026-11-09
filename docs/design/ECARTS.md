@@ -72,6 +72,22 @@ Plusieurs éléments graphiques conçus initialement pour un resort balnéaire �
   - Visites guidées : Réserve écologique de Bandia, village artisanal de Thiès, Manufacture des Arts Décoratifs de Thiès.
   - Restauration et barbecue privé au bord de la piscine.
 
+### 2.3. Dimensions et Compacité de la Fenêtre « Nouvelle réservation » (ModalShell)
+- **Écart constaté :** La maquette originale `design/maquettes/modal_nouvelle_r_servation/` affiche une fenêtre de 1152 px de largeur et 942 px de hauteur. Sur des postes de réception et ordinateurs portables courants (résolutions 1366×768, 1280×720, 1024×768), cette fenêtre déborde largement de l'écran, masque le contexte du logiciel, et son bouton de validation (« Confirmer la réservation ») se retrouve enfoui sous la ligne de flottaison, obligeant l'utilisateur à scroller vers le bas à chaque réservation.
+- **Décision d'architecture & Écart voulu :**
+  - **Dimensions maîtrisées :** Largeur plafonnée à `min(960px, calc(100vw - 32px))` et hauteur plafonnée à `88dvh` (centrée verticalement et horizontalement). En dessous de 768 px (smartphones/tablettes portrait), la fenêtre devient une feuille plein écran avec en-tête fixe sans arrondi supérieur.
+  - **Structure en 3 zones (composant réutilisable `ModalShellComponent`) :**
+    1. *En-tête fixe* (~72 px) : Titre, badge 12 clés, sous-titre Thiès et croix de fermeture.
+    2. *Corps défilant* (`overflow-y: auto`, `flex-1`) : Le défilement est confiné à l'intérieur de la modale ; le défilement de la page d'arrière-plan est strictement verrouillé (`body { overflow: hidden }`).
+    3. *Pied fixe toujours visible* : Boutons « Annuler » et « Confirmer la réservation » avec affichage du Total TTC en direct. Le bouton de confirmation est visible immédiatement dès l'ouverture, sans aucun défilement.
+  - **Compactage vertical (~30 % de réduction de hauteur) :**
+    - Date d'arrivée, nombre de nuits et date de départ fusionnés sur une seule ligne.
+    - Compteurs Adultes et Enfants disposés côte à côte (steppers compacts de 40 px de hauteur).
+    - Carte client fidèle compactée sur 2 lignes informatives.
+    - Demandes particulières placées dans une section repliable par défaut (dépliée automatiquement si du texte est présent).
+    - Volet récapitulatif latéral limité à 300 px maximum (sticky au scroll), et replié sous 900 px en une barre extensible « Total : 456 000 FCFA ▾ ».
+  - **Test de fidélité visuelle :** L'évaluation de fidélité compare le style, les couleurs, les polices, les rayons et les composants internes sans imposer les dimensions extérieures de 1152×942 px de la maquette originale.
+
 ---
 
 ## 3. Obstacles au Fonctionnement Hors Ligne (Offline-First) & Solutions
