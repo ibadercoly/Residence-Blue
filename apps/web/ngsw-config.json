@@ -16,6 +16,16 @@
       }
     },
     {
+      "name": "room-photos",
+      "installMode": "prefetch",
+      "updateMode": "prefetch",
+      "resources": {
+        "files": [
+          "/assets/images/chambres/**"
+        ]
+      }
+    },
+    {
       "name": "assets",
       "installMode": "lazy",
       "resources": {

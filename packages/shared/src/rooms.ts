@@ -36,6 +36,8 @@ export interface RoomDto {
   floor: number;
   status: RoomStatus;
   amenities: string[];
+  imageUrl?: string;
+  imageAlt?: string;
   createdAt?: string | Date;
   updatedAt?: string | Date;
 }
@@ -138,7 +140,7 @@ export function isRoomStatusTransitionAllowed(
 /**
  * Données initiales des 12 chambres de la Résidence Blue (Grand Standing, Thiès) :
  * - 6 Standard (101 à 106) : 35 000 FCFA
- * - 4 Deluxe (201 à 204) : 55 000 FCFA
+ * - 4 Deluxe (201 à 204) : 55 000 FCFA (201-202 Deluxe classique, 203-204 Bungalow Deluxe)
  * - 2 Suites (301 et 302) : 95 000 FCFA
  */
 export const SEED_ROOM_TYPES = [
@@ -147,22 +149,128 @@ export const SEED_ROOM_TYPES = [
   { name: RoomCategory.SUITE, pricePerNight: 95000 },
 ];
 
-export const SEED_ROOMS = [
+export const FALLBACK_ROOM_IMAGE = 'assets/images/chambres/chambre-fallback.jpg';
+export const FALLBACK_ROOM_IMAGE_WEBP = 'assets/images/chambres/chambre-fallback.webp';
+
+export interface SeedRoomDefinition {
+  number: string;
+  typeName: RoomCategory;
+  floor: number;
+  amenities: string[];
+  imageUrl: string;
+  imageAlt: string;
+}
+
+export const SEED_ROOMS: SeedRoomDefinition[] = [
   // 6 Chambres Standard - 35 000 FCFA (Étage 1)
-  { number: '101', typeName: RoomCategory.STANDARD, floor: 1, amenities: ['Climatisation', 'Wi-Fi Fibre', 'Lit Queen Size', 'Salle de bain privée'] },
-  { number: '102', typeName: RoomCategory.STANDARD, floor: 1, amenities: ['Climatisation', 'Wi-Fi Fibre', 'Lit Queen Size', 'Espace bureau'] },
-  { number: '103', typeName: RoomCategory.STANDARD, floor: 1, amenities: ['Climatisation', 'Wi-Fi Fibre', 'Lit Queen Size', 'Vue patio arboré'] },
-  { number: '104', typeName: RoomCategory.STANDARD, floor: 1, amenities: ['Climatisation', 'Wi-Fi Fibre', 'Lit Queen Size', 'Balcon privatif'] },
-  { number: '105', typeName: RoomCategory.STANDARD, floor: 1, amenities: ['Climatisation', 'Wi-Fi Fibre', 'Lit Queen Size', 'Télévision Smart TV'] },
-  { number: '106', typeName: RoomCategory.STANDARD, floor: 1, amenities: ['Climatisation', 'Wi-Fi Fibre', 'Lit Queen Size', 'Douche à l’italienne'] },
+  {
+    number: '101',
+    typeName: RoomCategory.STANDARD,
+    floor: 1,
+    amenities: ['Climatisation', 'Wi-Fi Fibre', 'Lit Queen Size', 'Salle de bain privée'],
+    imageUrl: 'assets/images/chambres/chambre-101-standard.jpg',
+    imageAlt: 'Chambre 101, Standard, lit double sobre et tons chauds',
+  },
+  {
+    number: '102',
+    typeName: RoomCategory.STANDARD,
+    floor: 1,
+    amenities: ['Climatisation', 'Wi-Fi Fibre', 'Lit Queen Size', 'Espace bureau'],
+    imageUrl: 'assets/images/chambres/chambre-102-standard.jpg',
+    imageAlt: 'Chambre 102, Standard, espace bureau et parquet en bois clair',
+  },
+  {
+    number: '103',
+    typeName: RoomCategory.STANDARD,
+    floor: 1,
+    amenities: ['Climatisation', 'Wi-Fi Fibre', 'Lit Queen Size', 'Vue patio arboré'],
+    imageUrl: 'assets/images/chambres/chambre-103-standard.jpg',
+    imageAlt: 'Chambre 103, Standard, lit en bois et vue sur patio intérieur',
+  },
+  {
+    number: '104',
+    typeName: RoomCategory.STANDARD,
+    floor: 1,
+    amenities: ['Climatisation', 'Wi-Fi Fibre', 'Lit Queen Size', 'Balcon privatif'],
+    imageUrl: 'assets/images/chambres/chambre-104-standard.jpg',
+    imageAlt: 'Chambre 104, Standard, balcon privatif et jardin arboré',
+  },
+  {
+    number: '105',
+    typeName: RoomCategory.STANDARD,
+    floor: 1,
+    amenities: ['Climatisation', 'Wi-Fi Fibre', 'Lit Queen Size', 'Télévision Smart TV'],
+    imageUrl: 'assets/images/chambres/chambre-105-standard.jpg',
+    imageAlt: 'Chambre 105, Standard, chambre ensoleillée avec vue sur la piscine',
+  },
+  {
+    number: '106',
+    typeName: RoomCategory.STANDARD,
+    floor: 1,
+    amenities: ['Climatisation', 'Wi-Fi Fibre', 'Lit Queen Size', 'Douche à l’italienne'],
+    imageUrl: 'assets/images/chambres/chambre-106-standard.jpg',
+    imageAlt: 'Chambre 106, Standard, literie blanche épurée et douche à l’italienne',
+  },
 
   // 4 Chambres Deluxe - 55 000 FCFA (Étage 2)
-  { number: '201', typeName: RoomCategory.DELUXE, floor: 2, amenities: ['Climatisation', 'Wi-Fi Fibre', 'Lit King Size', 'Minibar', 'Terrasse vue piscine'] },
-  { number: '202', typeName: RoomCategory.DELUXE, floor: 2, amenities: ['Climatisation', 'Wi-Fi Fibre', 'Lit King Size', 'Minibar', 'Coin salon détente'] },
-  { number: '203', typeName: RoomCategory.DELUXE, floor: 2, amenities: ['Climatisation', 'Wi-Fi Fibre', 'Lit King Size', 'Minibar', 'Machine à café Nespresso'] },
-  { number: '204', typeName: RoomCategory.DELUXE, floor: 2, amenities: ['Climatisation', 'Wi-Fi Fibre', 'Lit King Size', 'Minibar', 'Douche XXL & Peignoirs'] },
+  {
+    number: '201',
+    typeName: RoomCategory.DELUXE,
+    floor: 2,
+    amenities: ['Climatisation', 'Wi-Fi Fibre', 'Lit King Size', 'Minibar', 'Terrasse vue piscine'],
+    imageUrl: 'assets/images/chambres/chambre-201-deluxe.jpg',
+    imageAlt: 'Chambre 201, Deluxe, lit King et tête de lit bleu nuit boutique',
+  },
+  {
+    number: '202',
+    typeName: RoomCategory.DELUXE,
+    floor: 2,
+    amenities: ['Climatisation', 'Wi-Fi Fibre', 'Lit King Size', 'Minibar', 'Coin salon détente'],
+    imageUrl: 'assets/images/chambres/chambre-202-deluxe.jpg',
+    imageAlt: 'Chambre 202, Deluxe, grande baie vitrée et coin détente',
+  },
+  {
+    number: '203',
+    typeName: RoomCategory.DELUXE,
+    floor: 2,
+    amenities: ['Climatisation', 'Wi-Fi Fibre', 'Lit King Size', 'Minibar', 'Machine à café Nespresso'],
+    imageUrl: 'assets/images/chambres/chambre-203-bungalow-deluxe.jpg',
+    imageAlt: 'Chambre 203, Bungalow Deluxe, lit à baldaquin et terrasse tropicale',
+  },
+  {
+    number: '204',
+    typeName: RoomCategory.DELUXE,
+    floor: 2,
+    amenities: ['Climatisation', 'Wi-Fi Fibre', 'Lit King Size', 'Minibar', 'Douche XXL & Peignoirs'],
+    imageUrl: 'assets/images/chambres/chambre-204-bungalow-deluxe.jpg',
+    imageAlt: 'Chambre 204, Bungalow Deluxe, pavillon indépendant avec toit de chaume et végétation',
+  },
 
   // 2 Suites Prestige - 95 000 FCFA (Étage 3)
-  { number: '301', typeName: RoomCategory.SUITE, floor: 3, amenities: ['Climatisation', 'Wi-Fi Fibre', 'Salon privé séparé', 'Baignoire balnéo', 'Terrasse panoramique', 'Service VIP'] },
-  { number: '302', typeName: RoomCategory.SUITE, floor: 3, amenities: ['Climatisation', 'Wi-Fi Fibre', 'Salon privé séparé', 'Baignoire balnéo', 'Dressing spacieux', 'Vue Grand Standing'] },
+  {
+    number: '301',
+    typeName: RoomCategory.SUITE,
+    floor: 3,
+    amenities: ['Climatisation', 'Wi-Fi Fibre', 'Salon privé séparé', 'Baignoire balnéo', 'Terrasse panoramique', 'Service VIP'],
+    imageUrl: 'assets/images/chambres/chambre-301-suite.jpg',
+    imageAlt: 'Chambre 301, Suite Prestige, vaste salon privé et baies panoramiques',
+  },
+  {
+    number: '302',
+    typeName: RoomCategory.SUITE,
+    floor: 3,
+    amenities: ['Climatisation', 'Wi-Fi Fibre', 'Salon privé séparé', 'Baignoire balnéo', 'Dressing spacieux', 'Vue Grand Standing'],
+    imageUrl: 'assets/images/chambres/chambre-302-suite.jpg',
+    imageAlt: 'Chambre 302, Suite Prestige, salon luxueux et terrasse privative',
+  },
 ];
+
+export function getRoomImageUrl(roomNumber: string): string {
+  const seed = SEED_ROOMS.find((r) => r.number === roomNumber);
+  return seed ? seed.imageUrl : FALLBACK_ROOM_IMAGE;
+}
+
+export function getRoomImageAlt(roomNumber: string): string {
+  const seed = SEED_ROOMS.find((r) => r.number === roomNumber);
+  return seed ? seed.imageAlt : `Chambre ${roomNumber} - Résidence Blue`;
+}
