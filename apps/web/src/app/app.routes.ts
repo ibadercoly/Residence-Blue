@@ -4,6 +4,7 @@ import { RoomsComponent } from './features/rooms/rooms.component';
 import { ConnexionPageComponent } from './features/connexion/connexion-page.component';
 import { PlanningPageComponent } from './features/planning/planning-page.component';
 import { ClientProfilePageComponent } from './features/clients/client-profile-page.component';
+import { FacturationPageComponent } from './features/facturation/facturation-page.component';
 
 export const routes: Routes = [
   {
@@ -49,8 +50,12 @@ export const routes: Routes = [
     component: DashboardPageComponent
   },
   {
+    path: 'facturation/:id',
+    component: FacturationPageComponent
+  },
+  {
     path: 'facturation',
-    component: DashboardPageComponent
+    component: FacturationPageComponent
   },
   {
     path: 'rapports',

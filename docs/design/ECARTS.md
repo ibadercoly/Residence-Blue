@@ -236,3 +236,37 @@ L'analyse exhaustive des 10 maquettes met en évidence **8 fonctionnalités opé
 - **Description dans la maquette :** Bouton « Clôturer la caisse (Rapport Z) » avec récapitulatif des encaissements par mode de règlement (Espèces, Wave, Orange Money, Carte bancaire, Prise en charge folio chambre) et vérification du fond de caisse.
 - **Statut dans le plan initial :** Les encaissements sont rattachés aux réservations et tickets restaurant, mais la procédure comptable formelle de clôture « Z » quotidienne avec verrouillage des écritures n'était pas détaillée.
 - **Proposition :** Intégrer la clôture de caisse quotidienne dans le module Facturation / Finance, permettant au gérant ou à la direction de figer les transactions d'une journée calendaire et d'imprimer le ticket de contrôle.
+
+
+---
+
+## 8. Écarts Voulus : Facturation, Folio Client & Encaissement (`/facturation`)
+
+Dans le cadre de l'implémentation de la maquette `design/maquettes/facturation_folio_client_encaissement/`, les écarts suivants ont été appliqués de manière délibérée et rigoureusement documentés :
+
+### 8.1. Données Fiscales & Légales Issues des Paramètres Établissement
+- **Maquette Stitch :** Mentions en dur dans le code HTML (`Hôtel Boutique & Spa Océanique`, `NINEA : 004819230`, `RCCM : SN-THS-2021-B-114`, adresse statique).
+- **Implémentation Angular :** Les informations légales, l'adresse de l'hôtel (`Quartier Grand Standing • Thiès, Sénégal`), le NINEA, le RCCM et le taux de TVA proviennent du service `HotelSettingsService`. Aucune donnée légale d'établissement n'est codée en dur dans le template.
+
+### 8.2. Protection PII Absolue : Exclusion du Numéro de Passeport à l'Impression
+- **Règle RGPD & CDP Sénégal :** Le numéro de passeport (`SN-982341-B`) ne doit en aucun cas figurer sur la facture ou le folio client imprimé remis au voyageur ou à des tiers.
+- **Implémentation :** Le champ est neutralisé par la classe CSS `print:hidden` et les règles `@media print`, garantissant qu'aucune copie physique ou export PDF du document comptable ne divulgue cette donnée hautement confidentielle.
+
+### 8.3. Horodatage en Heure Locale Sénégalaise
+- **Maquette Stitch :** Heure statique `10:42 GMT`.
+- **Implémentation :** L'heure est calculée dynamiquement au fuseau horaire de Dakar/Thiès (`GMT`).
+
+### 8.4. Adaptation Géographique & Culinaire (Thiès vs Saly)
+- Conformément à `docs/design/ADAPTATION-THIES.md` :
+  - `Langoustes fraîches braisées de Saly & Bouteille Sancerre` $\to$ `Thiéboudienne Penda Mbaye royale & Bouteille de vin rouge`.
+  - `Pirogue artisanale privée avec skipper (Teranga Nautic Saly)` $\to$ `Mise à disposition véhicule avec chauffeur (Excursion Réserve Bandia)`.
+  - `Expérience — Sortie Pêche au Gros en Mer` $\to$ `Excursion guidée — Forêt de Bandia & Manufacture des Arts de Thiès`.
+  - `Vue frontale mer, terrasse privée & petit-déjeuner inclus` $\to$ `Vue dégagée sur jardin arboré, terrasse privée & petit-déjeuner inclus`.
+  - `Chambre 301 — Suite Océan Panoramique` $\to$ `Chambre 301 — Suite Panoramique`.
+
+### 8.5. Taux de TVA et Taxe de Séjour Réglementaires
+- **TVA Sénégalaise :** 10 % (taux légal réduit applicable au secteur de l'hôtellerie et de la restauration au Sénégal, contre 18 % dans la maquette initiale).
+- **Taxe de Séjour :** 8 000 FCFA (calculée sur le barème légal : 4 nuits $\times$ 2 adultes $\times$ 1 000 FCFA), exonérée de TVA.
+
+### 8.6. Double Onglet Opérationnel (Folio en Cours & Clôture Z de Caisse)
+- L'écran supporte la navigation par onglets entre le folio client individuel (`#INV-2024-0542`) et le rapport de fin de journée de caisse (`Z de caisse`), permettant la visualisation instantanée des encaissements par canal (Wave, Espèces, Orange Money, Carte Bancaire) et le suivi du fond de tiroir physique.
