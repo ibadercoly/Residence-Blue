@@ -1,11 +1,4 @@
 import { Routes } from '@angular/router';
-import { DashboardPageComponent } from './features/dashboard/pages/dashboard-page/dashboard-page.component';
-import { RoomsComponent } from './features/rooms/rooms.component';
-import { ConnexionPageComponent } from './features/connexion/connexion-page.component';
-import { PlanningPageComponent } from './features/planning/planning-page.component';
-import { ClientProfilePageComponent } from './features/clients/client-profile-page.component';
-import { FacturationPageComponent } from './features/facturation/facturation-page.component';
-import { RestaurantPageComponent } from './features/restaurant/restaurant-page.component';
 
 export const routes: Routes = [
   {
@@ -15,23 +8,32 @@ export const routes: Routes = [
   },
   {
     path: 'connexion',
-    component: ConnexionPageComponent
+    loadComponent: () =>
+      import('./features/connexion/connexion-page.component').then((m) => m.ConnexionPageComponent)
   },
   {
     path: 'tableau-de-bord',
-    component: DashboardPageComponent
+    loadComponent: () =>
+      import('./features/dashboard/pages/dashboard-page/dashboard-page.component').then(
+        (m) => m.DashboardPageComponent
+      )
   },
   {
     path: 'planning',
-    component: PlanningPageComponent
+    loadComponent: () =>
+      import('./features/planning/planning-page.component').then((m) => m.PlanningPageComponent)
   },
   {
     path: 'chambres',
-    component: RoomsComponent
+    loadComponent: () =>
+      import('./features/rooms/rooms.component').then((m) => m.RoomsComponent)
   },
   {
     path: 'clients/:id',
-    component: ClientProfilePageComponent
+    loadComponent: () =>
+      import('./features/clients/client-profile-page.component').then(
+        (m) => m.ClientProfilePageComponent
+      )
   },
   {
     path: 'clients',
@@ -40,39 +42,53 @@ export const routes: Routes = [
   },
   {
     path: 'restaurant',
-    component: RestaurantPageComponent
+    loadComponent: () =>
+      import('./features/restaurant/restaurant-page.component').then(
+        (m) => m.RestaurantPageComponent
+      )
   },
   {
-    path: 'housekeeping',
-    component: DashboardPageComponent
-  },
-  {
-    path: 'maintenance',
-    component: DashboardPageComponent
+    path: 'cuisine',
+    loadComponent: () =>
+      import('./features/restaurant/kitchen-screen/kitchen-screen.component').then(
+        (m) => m.KitchenScreenComponent
+      )
   },
   {
     path: 'facturation/:id',
-    component: FacturationPageComponent
+    loadComponent: () =>
+      import('./features/facturation/facturation-page.component').then(
+        (m) => m.FacturationPageComponent
+      )
   },
   {
     path: 'facturation',
-    component: FacturationPageComponent
+    loadComponent: () =>
+      import('./features/facturation/facturation-page.component').then(
+        (m) => m.FacturationPageComponent
+      )
   },
   {
-    path: 'rapports',
-    component: DashboardPageComponent
+    path: 'exports',
+    loadComponent: () =>
+      import('./features/exports/exports-page.component').then(
+        (m) => m.ExportsPageComponent
+      )
+  },
+  // Modules reportés V2 (gardés dans le dépôt sans alourdir le bundle initial)
+  {
+    path: 'housekeeping',
+    loadComponent: () =>
+      import('./features/dashboard/pages/dashboard-page/dashboard-page.component').then(
+        (m) => m.DashboardPageComponent
+      )
   },
   {
-    path: 'parametres',
-    component: DashboardPageComponent
-  },
-  {
-    path: 'reservations',
-    component: DashboardPageComponent
-  },
-  {
-    path: 'reservations/nouvelle',
-    component: DashboardPageComponent
+    path: 'maintenance',
+    loadComponent: () =>
+      import('./features/dashboard/pages/dashboard-page/dashboard-page.component').then(
+        (m) => m.DashboardPageComponent
+      )
   },
   {
     path: '**',

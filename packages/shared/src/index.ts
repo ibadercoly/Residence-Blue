@@ -6,3 +6,5 @@ export * from './sync';
 export * from './guests';
 export * from './billing';
 export * from './restaurant';
+export * from './exports';
+export * from './modules';

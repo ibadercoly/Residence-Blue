@@ -1,0 +1,214 @@
+{
+  "staticMetrics": {
+    "mainJs": {
+      "name": "main-ODOP3OJI.js",
+      "rawSize": 739838,
+      "gzipSize": 193830,
+      "brotliSize": 157449
+    },
+    "polyfillsJs": {
+      "name": "polyfills-YMBILSHJ.js",
+      "rawSize": 34585,
+      "gzipSize": 12463,
+      "brotliSize": 11334
+    },
+    "stylesCss": {
+      "name": "styles-PDSOGF3J.css",
+      "rawSize": 84273,
+      "gzipSize": 13082,
+      "brotliSize": 10506
+    }
+  },
+  "totalInitialJsRawKo": "756.27",
+  "totalInitialJsGzipKo": "201.46",
+  "fontMetrics": [
+    {
+      "name": "material-symbols-outlined-4WLI33GR.woff2",
+      "sizeKo": "3917.96",
+      "sizeBytes": 4011996
+    },
+    {
+      "name": "newsreader-latin-400-italic-NNUEUGNY.woff",
+      "sizeKo": "30.15",
+      "sizeBytes": 30876
+    },
+    {
+      "name": "newsreader-latin-500-normal-5W4FBAUO.woff",
+      "sizeKo": "28.94",
+      "sizeBytes": 29636
+    },
+    {
+      "name": "newsreader-latin-400-normal-E6PDGAFE.woff",
+      "sizeKo": "27.63",
+      "sizeBytes": 28288
+    },
+    {
+      "name": "newsreader-latin-400-italic-AVTBASTL.woff2",
+      "sizeKo": "23.77",
+      "sizeBytes": 24340
+    },
+    {
+      "name": "newsreader-latin-500-normal-KZ5D7QUO.woff2",
+      "sizeKo": "23.07",
+      "sizeBytes": 23624
+    },
+    {
+      "name": "newsreader-latin-400-normal-IALEXUIR.woff2",
+      "sizeKo": "21.95",
+      "sizeBytes": 22480
+    },
+    {
+      "name": "newsreader-latin-ext-400-italic-H343RSSK.woff",
+      "sizeKo": "19.35",
+      "sizeBytes": 19812
+    },
+    {
+      "name": "newsreader-latin-ext-500-normal-HN2O72YV.woff",
+      "sizeKo": "18.84",
+      "sizeBytes": 19296
+    },
+    {
+      "name": "manrope-latin-700-normal-SE4WUS6C.woff",
+      "sizeKo": "17.98",
+      "sizeBytes": 18412
+    }
+  ],
+  "images": [
+    {
+      "path": "assets/images/chambres/chambre-102-standard.jpg",
+      "sizeKo": "225.72",
+      "sizeBytes": 231133
+    },
+    {
+      "path": "assets/images/chambres/chambre-102-standard-1600w.webp",
+      "sizeKo": "225.41",
+      "sizeBytes": 230822
+    },
+    {
+      "path": "assets/images/chambres/chambre-204-bungalow-deluxe.jpg",
+      "sizeKo": "223.19",
+      "sizeBytes": 228545
+    },
+    {
+      "path": "assets/images/chambres/chambre-204-bungalow-deluxe-1600w.webp",
+      "sizeKo": "209.63",
+      "sizeBytes": 214666
+    },
+    {
+      "path": "assets/images/chambres/chambre-104-standard-1600w.webp",
+      "sizeKo": "180.89",
+      "sizeBytes": 185236
+    },
+    {
+      "path": "assets/images/chambres/chambre-201-deluxe-1600w.webp",
+      "sizeKo": "175.39",
+      "sizeBytes": 179596
+    },
+    {
+      "path": "assets/images/chambres/chambre-103-standard-1600w.webp",
+      "sizeKo": "144.84",
+      "sizeBytes": 148312
+    },
+    {
+      "path": "assets/images/chambres/chambre-104-standard.jpg",
+      "sizeKo": "144.77",
+      "sizeBytes": 148248
+    },
+    {
+      "path": "assets/images/chambres/chambre-201-deluxe.jpg",
+      "sizeKo": "136.71",
+      "sizeBytes": 139993
+    },
+    {
+      "path": "assets/images/chambres/chambre-105-standard.jpg",
+      "sizeKo": "131.98",
+      "sizeBytes": 135152
+    },
+    {
+      "path": "assets/images/chambres/chambre-302-suite-1600w.webp",
+      "sizeKo": "127.51",
+      "sizeBytes": 130568
+    },
+    {
+      "path": "assets/images/chambres/chambre-302-suite.jpg",
+      "sizeKo": "119.32",
+      "sizeBytes": 122183
+    },
+    {
+      "path": "assets/images/chambres/chambre-103-standard.jpg",
+      "sizeKo": "114.12",
+      "sizeBytes": 116860
+    },
+    {
+      "path": "assets/images/chambres/chambre-105-standard-1600w.webp",
+      "sizeKo": "113.05",
+      "sizeBytes": 115766
+    },
+    {
+      "path": "assets/images/chambres/chambre-202-deluxe-1600w.webp",
+      "sizeKo": "112.83",
+      "sizeBytes": 115540
+    }
+  ],
+  "loadTimeNormalMs": 2266,
+  "loadTimeCpu4xMs": 14014,
+  "navTiming": {
+    "domInteractive": 109,
+    "domComplete": 1720,
+    "loadEventEnd": 1720,
+    "fcp": 1404
+  },
+  "navMetrics": [
+    {
+      "route": "/planning",
+      "elapsedMs": 332
+    },
+    {
+      "route": "/chambres",
+      "elapsedMs": 585
+    },
+    {
+      "route": "/clients/c1",
+      "elapsedMs": 437
+    },
+    {
+      "route": "/facturation",
+      "elapsedMs": 622
+    },
+    {
+      "route": "/restaurant",
+      "elapsedMs": 583
+    },
+    {
+      "route": "/tableau-de-bord",
+      "elapsedMs": 372
+    }
+  ],
+  "heapUsedInitialMb": "12.95",
+  "heapTotalInitialMb": "20.25",
+  "heapUsedAfterSoakMb": "172.02",
+  "nodesCount": 64089,
+  "jsEventListeners": 3170,
+  "reqSummary": {
+    "document": {
+      "count": 58,
+      "totalBytes": 409306
+    },
+    "stylesheet": {
+      "count": 58,
+      "totalBytes": 4887834
+    },
+    "script": {
+      "count": 116,
+      "totalBytes": 16802690
+    },
+    "image": {
+      "count": 129,
+      "totalBytes": 447942
+    },
+    "font": {
+      "count": 14,
+      "totalBytes": 8229272
+    }
+  }
+}

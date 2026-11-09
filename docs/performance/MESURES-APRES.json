@@ -1,0 +1,54 @@
+{
+  "staticMetrics": {
+    "mainJs": {
+      "name": "main-3LO3UDWE.js",
+      "rawSize": 184446,
+      "gzipSize": 50384,
+      "brotliSize": 43595
+    },
+    "polyfillsJs": {
+      "name": "polyfills-YMBILSHJ.js",
+      "rawSize": 34585,
+      "gzipSize": 12463,
+      "brotliSize": 11334
+    },
+    "stylesCss": {
+      "name": "styles-UTWAJ5DI.css",
+      "rawSize": 87455,
+      "gzipSize": 13495,
+      "brotliSize": 10765
+    }
+  },
+  "lazyChunks": [],
+  "totalInitialJsRawKo": "213.90",
+  "totalInitialJsGzipKo": "61.37",
+  "loadTimeNormalMs": 3691,
+  "loadTimeCpu4xMs": 6776,
+  "navMetrics": [
+    {
+      "route": "/planning",
+      "durationMs": 2251
+    },
+    {
+      "route": "/restaurant",
+      "durationMs": 623
+    },
+    {
+      "route": "/facturation",
+      "durationMs": 461
+    },
+    {
+      "route": "/exports",
+      "durationMs": 351
+    },
+    {
+      "route": "/",
+      "durationMs": 377
+    }
+  ],
+  "heapUsedInitialMb": "5.97",
+  "heapTotalInitialMb": "11.75",
+  "heapUsedAfterSoakMb": "5.63",
+  "nodesCount": 1516,
+  "jsEventListeners": 79
+}
