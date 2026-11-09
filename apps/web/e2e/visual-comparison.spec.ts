@@ -329,6 +329,105 @@ test.describe('Fidélité Visuelle - Rendu Hors Ligne vs Référence', () => {
     expect(diffPercent).toBeLessThanOrEqual(2.0);
   });
 
+  test('Fidélité Planning des Réservations (1440x900) vs design/reference/planning_des_r_servations.html', async ({ page }) => {
+    const width = 1440;
+    const height = 900;
+    await page.setViewportSize({ width, height });
+
+    // 1. Charger la référence hors ligne
+    const refFileUrl = 'file:///' + path.resolve(repoRoot, 'design/reference/planning_des_r_servations.html').replace(/\\/g, '/');
+    await page.goto(refFileUrl, { waitUntil: 'load' });
+    await page.evaluate(() => document.fonts.ready);
+    await page.waitForTimeout(300);
+
+    // Masquage des zones adaptées, sidebar nav et éléments animés
+    await page.evaluate(() => {
+      const sidebarFooter = document.querySelector('aside .p-gutter');
+      if (sidebarFooter) (sidebarFooter as HTMLElement).style.visibility = 'hidden';
+
+      const sidebarNav = document.querySelector('aside nav');
+      if (sidebarNav) (sidebarNav as HTMLElement).style.visibility = 'hidden';
+
+      const pingDot = document.querySelector('.animate-ping');
+      if (pingDot) (pingDot as HTMLElement).style.visibility = 'hidden';
+
+      document.querySelectorAll('[data-adapted-zone]').forEach(el => {
+        (el as HTMLElement).style.visibility = 'hidden';
+      });
+
+      const toastStrong = document.querySelector('#conflict-toast p strong');
+      if (toastStrong) (toastStrong as HTMLElement).style.visibility = 'hidden';
+      const toastEq = document.querySelector('#conflict-toast .font-body-sm.text-on-surface-variant');
+      if (toastEq) (toastEq as HTMLElement).style.visibility = 'hidden';
+      const room203Reloc = document.querySelector('.col-span-14 .bg-surface-container-low');
+      if (room203Reloc) (room203Reloc as HTMLElement).style.visibility = 'hidden';
+    });
+    await page.waitForTimeout(200);
+
+    const refShotPath = path.join(compDir, 'ref_planning.png');
+    await page.screenshot({ path: refShotPath, animations: 'disabled', fullPage: false });
+
+    // 2. Charger l'application Angular
+    await page.goto('/planning', { waitUntil: 'networkidle' });
+    await page.evaluate(() => document.fonts.ready);
+    await page.waitForTimeout(300);
+
+    // Masquage sur l'application Angular
+    await page.evaluate(() => {
+      const sidebarFooter = document.querySelector('app-sidebar .p-gutter');
+      if (sidebarFooter) (sidebarFooter as HTMLElement).style.visibility = 'hidden';
+
+      const sidebarNav = document.querySelector('app-sidebar nav');
+      if (sidebarNav) (sidebarNav as HTMLElement).style.visibility = 'hidden';
+
+      const pingDot = document.querySelector('.animate-ping');
+      if (pingDot) (pingDot as HTMLElement).style.visibility = 'hidden';
+
+      document.querySelectorAll('[data-adapted-zone]').forEach(el => {
+        (el as HTMLElement).style.visibility = 'hidden';
+      });
+
+      const toastStrong = document.querySelector('#conflict-toast p strong');
+      if (toastStrong) (toastStrong as HTMLElement).style.visibility = 'hidden';
+      const toastEq = document.querySelector('#conflict-toast .font-body-sm.text-on-surface-variant');
+      if (toastEq) (toastEq as HTMLElement).style.visibility = 'hidden';
+      const room203Reloc = document.querySelector('.col-span-14 .bg-surface-container-low');
+      if (room203Reloc) (room203Reloc as HTMLElement).style.visibility = 'hidden';
+    });
+    await page.waitForTimeout(200);
+
+    const actualShotPath = path.join(compDir, 'actual_planning.png');
+    await page.screenshot({ path: actualShotPath, animations: 'disabled', fullPage: false });
+
+    // 3. Comparer pixel à pixel avec pixelmatch
+    const refImg = PNG.sync.read(fs.readFileSync(refShotPath));
+    const actualImg = PNG.sync.read(fs.readFileSync(actualShotPath));
+
+    expect(actualImg.width).toBe(refImg.width);
+    expect(actualImg.height).toBe(refImg.height);
+
+    const diff = new PNG({ width, height });
+    const diffPixels = pixelmatch(
+      refImg.data,
+      actualImg.data,
+      diff.data,
+      width,
+      height,
+      { threshold: 0.2 }
+    );
+
+    const totalPixels = width * height;
+    const diffPercent = (diffPixels / totalPixels) * 100;
+
+    const diffPath = path.join(compDir, 'diff_planning.png');
+    fs.writeFileSync(diffPath, PNG.sync.write(diff));
+
+    console.log(
+      `Fidélité Planning (1440x900) - Diff: ${diffPixels} / ${totalPixels} (${diffPercent.toFixed(2)}%)`
+    );
+    expect(diffPercent).toBeLessThanOrEqual(2.0);
+  });
+
   test('Vérification du profil utilisateur et du thème clair unique (aucun mode sombre)', async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 900 });
     await page.goto('/tableau-de-bord', { waitUntil: 'networkidle' });

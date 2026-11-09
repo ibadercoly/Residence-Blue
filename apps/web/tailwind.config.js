@@ -29,6 +29,12 @@ module.exports = {
         xl: '0.75rem',
         full: '9999px'
       },
+      gridTemplateColumns: {
+        '14': 'repeat(14, minmax(0, 1fr))'
+      },
+      gridColumn: {
+        'span-14': 'span 14 / span 14'
+      },
       spacing: {
         'gutter-sm': '1rem',
         'space-sm': '0.5rem',
