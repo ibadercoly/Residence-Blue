@@ -5,6 +5,7 @@ import { ConnexionPageComponent } from './features/connexion/connexion-page.comp
 import { PlanningPageComponent } from './features/planning/planning-page.component';
 import { ClientProfilePageComponent } from './features/clients/client-profile-page.component';
 import { FacturationPageComponent } from './features/facturation/facturation-page.component';
+import { RestaurantPageComponent } from './features/restaurant/restaurant-page.component';
 
 export const routes: Routes = [
   {
@@ -39,7 +40,7 @@ export const routes: Routes = [
   },
   {
     path: 'restaurant',
-    component: DashboardPageComponent
+    component: RestaurantPageComponent
   },
   {
     path: 'housekeeping',

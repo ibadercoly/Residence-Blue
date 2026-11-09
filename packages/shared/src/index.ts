@@ -5,3 +5,4 @@ export * from './reservations';
 export * from './sync';
 export * from './guests';
 export * from './billing';
+export * from './restaurant';
