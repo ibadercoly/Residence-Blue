@@ -3,6 +3,7 @@ import { DashboardPageComponent } from './features/dashboard/pages/dashboard-pag
 import { RoomsComponent } from './features/rooms/rooms.component';
 import { ConnexionPageComponent } from './features/connexion/connexion-page.component';
 import { PlanningPageComponent } from './features/planning/planning-page.component';
+import { ClientProfilePageComponent } from './features/clients/client-profile-page.component';
 
 export const routes: Routes = [
   {
@@ -27,8 +28,13 @@ export const routes: Routes = [
     component: RoomsComponent
   },
   {
+    path: 'clients/:id',
+    component: ClientProfilePageComponent
+  },
+  {
     path: 'clients',
-    component: DashboardPageComponent
+    redirectTo: 'clients/c1',
+    pathMatch: 'full'
   },
   {
     path: 'restaurant',

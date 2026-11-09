@@ -88,6 +88,14 @@ Plusieurs éléments graphiques conçus initialement pour un resort balnéaire �
     - Volet récapitulatif latéral limité à 300 px maximum (sticky au scroll), et replié sous 900 px en une barre extensible « Total : 456 000 FCFA ▾ ».
   - **Test de fidélité visuelle :** L'évaluation de fidélité compare le style, les couleurs, les polices, les rayons et les composants internes sans imposer les dimensions extérieures de 1152×942 px de la maquette originale.
 
+### 2.4. Fiche Profil Client (M. Mamadou Diop) — Confidentialité PII & Fonctionnalités Réseau
+- **Écart constaté & Décision d'architecture :**
+  1. *Masquage PII par défaut du numéro de passeport :* Dans la maquette originale, le numéro de passeport complet (« SN-982341-B ») est affiché en clair. Pour respecter les exigences de protection des données sensibles (RGPD / CDP Sénégal et AGENTS.md), le numéro est masqué par défaut sous la forme « SN••••••1-B ». Un bouton « Afficher » permet de le révéler uniquement aux utilisateurs ayant un rôle habilité (Direction / Réceptionniste).
+  2. *Boutons de communication externe inactifs :* Les actions WhatsApp (`wa.me/...`), SMS et E-mail nécessitent une connectivité Internet et des passerelles de messagerie tierces non disponibles hors ligne. Ils sont configurés avec un retour utilisateur explicite « TODO notifications, nécessitent internet ».
+  3. *Action Scan PDF inactive :* Le bouton « Scan PDF » affiche un message informatif « TODO fonctionnalité d'envoi sécurisé de fichiers », en attente de la brique de stockage chiffré des pièces jointes.
+  4. *Conversion dynamique en euros avec taux fixe :* Le montant cumulé dépensé affiche la conversion en euros basée sur le taux officiel fixe UEMOA/BCEAO (1 EUR = 655,957 FCFA) paramétré dans le PMS (ex. 3 850 000 FCFA -> approx. 5 870 €).
+  5. *4 onglets opérationnels complets :* Historique des séjours, Préférences & Habitudes, Factures & Folios, Notes & Conciergerie (avec ajout dynamique et immédiat de consignes internes).
+
 ---
 
 ## 3. Obstacles au Fonctionnement Hors Ligne (Offline-First) & Solutions
