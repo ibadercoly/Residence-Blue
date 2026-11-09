@@ -1,5 +1,6 @@
 import { Component, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
+import { ImageComponent } from '../../../../shared/components/image/image.component';
 
 interface MobileRoomCard {
   number: string;
@@ -9,12 +10,14 @@ interface MobileRoomCard {
   footerText: string;
   footerType: 'guest' | 'ready-gold' | 'ready-teal' | 'cleaning' | 'maintenance';
   footerIcon: string;
+  imageUrl: string;
+  imageAlt: string;
 }
 
 @Component({
   selector: 'app-mobile-dashboard',
   standalone: true,
-  imports: [RouterLink],
+  imports: [RouterLink, ImageComponent],
   host: { class: 'block w-full' },
   template: `
     <div class="flex flex-col w-full px-margin-sm space-y-space-md">
@@ -224,6 +227,13 @@ interface MobileRoomCard {
               [class.ring-primary]="selectedRooms().has(room.number)"
               class="bg-surface-container-lowest p-space-sm rounded-xl shadow-[0_2px_8px_rgba(10,37,64,0.04)] flex flex-col justify-between relative cursor-pointer active:bg-surface-container-low transition-colors"
             >
+              <div data-photo-zone="true" class="room-photo-header h-14 -mx-space-sm -mt-space-sm mb-2 overflow-hidden rounded-t-xl relative">
+                <app-image
+                  [src]="room.imageUrl"
+                  [alt]="room.imageAlt"
+                  cssClass="w-full h-full object-cover"
+                ></app-image>
+              </div>
               <div class="flex items-start justify-between">
                 <div class="flex flex-col">
                   <span class="font-headline-sm text-[17px] text-on-surface font-semibold">{{ room.number }}</span>
@@ -432,18 +442,18 @@ export class MobileDashboardComponent {
   readonly selectedRooms = signal<Set<string>>(new Set());
 
   readonly rooms: MobileRoomCard[] = [
-    { number: 'Ch. 01', name: 'Suite Océan', nameColorClass: 'text-primary', status: 'Occupée', footerText: 'M. Ndiaye', footerType: 'guest', footerIcon: 'chevron_right' },
-    { number: 'Ch. 02', name: 'Deluxe Plage', nameColorClass: 'text-primary', status: 'Occupée', footerText: 'Fam. Moreau', footerType: 'guest', footerIcon: 'chevron_right' },
-    { number: 'Ch. 03', name: 'Bungalow Jardin', nameColorClass: 'text-primary', status: 'Occupée', footerText: 'M. Sow', footerType: 'guest', footerIcon: 'chevron_right' },
-    { number: 'Ch. 04', name: 'Suite Baobab', nameColorClass: 'text-primary', status: 'Libre', footerText: 'Prête • 14h00', footerType: 'ready-gold', footerIcon: 'star' },
-    { number: 'Ch. 05', name: 'Deluxe Plage', nameColorClass: 'text-primary', status: 'Occupée', footerText: 'Dr. Faye', footerType: 'guest', footerIcon: 'chevron_right' },
-    { number: 'Ch. 06', name: 'Bungalow Dune', nameColorClass: 'text-primary', status: 'Occupée', footerText: 'Mme Dubois', footerType: 'guest', footerIcon: 'chevron_right' },
-    { number: 'Ch. 07', name: 'Suite Saloum', nameColorClass: 'text-primary', status: 'Occupée', footerText: 'M. Touré', footerType: 'guest', footerIcon: 'chevron_right' },
-    { number: 'Ch. 08', name: 'Bungalow Alizé', nameColorClass: 'text-primary', status: 'Occupée', footerText: 'M. Leroy', footerType: 'guest', footerIcon: 'chevron_right' },
-    { number: 'Ch. 09', name: 'Deluxe Balcon', nameColorClass: 'text-primary', status: 'Occupée', footerText: 'Mme Cissé', footerType: 'guest', footerIcon: 'chevron_right' },
-    { number: 'Ch. 10', name: 'Bungalow Alizé', nameColorClass: 'text-primary', status: 'Ménage', footerText: 'Équipe Aminata', footerType: 'cleaning', footerIcon: 'mop' },
-    { number: 'Ch. 11', name: 'Vue Piscine', nameColorClass: 'text-primary', status: 'Libre', footerText: 'Prête • 15h30', footerType: 'ready-teal', footerIcon: 'directions_car' },
-    { number: 'Ch. 12', name: 'Suite Filaos', nameColorClass: 'text-tertiary', status: 'Maint.', footerText: 'Révision clim', footerType: 'maintenance', footerIcon: 'ac_unit' }
+    { number: 'Ch. 01', name: 'Suite Océan', nameColorClass: 'text-primary', status: 'Occupée', footerText: 'M. Ndiaye', footerType: 'guest', footerIcon: 'chevron_right', imageUrl: 'assets/images/chambres/chambre-101-standard.jpg', imageAlt: 'Chambre 101, Standard, lit double sobre et tons chauds' },
+    { number: 'Ch. 02', name: 'Deluxe Plage', nameColorClass: 'text-primary', status: 'Occupée', footerText: 'Fam. Moreau', footerType: 'guest', footerIcon: 'chevron_right', imageUrl: 'assets/images/chambres/chambre-102-standard.jpg', imageAlt: 'Chambre 102, Standard, espace bureau et parquet en bois clair' },
+    { number: 'Ch. 03', name: 'Bungalow Jardin', nameColorClass: 'text-primary', status: 'Occupée', footerText: 'M. Sow', footerType: 'guest', footerIcon: 'chevron_right', imageUrl: 'assets/images/chambres/chambre-103-standard.jpg', imageAlt: 'Chambre 103, Standard, lit en bois et vue sur patio intérieur' },
+    { number: 'Ch. 04', name: 'Suite Baobab', nameColorClass: 'text-primary', status: 'Libre', footerText: 'Prête • 14h00', footerType: 'ready-gold', footerIcon: 'star', imageUrl: 'assets/images/chambres/chambre-104-standard.jpg', imageAlt: 'Chambre 104, Standard, balcon privatif et jardin arboré' },
+    { number: 'Ch. 05', name: 'Deluxe Plage', nameColorClass: 'text-primary', status: 'Occupée', footerText: 'Dr. Faye', footerType: 'guest', footerIcon: 'chevron_right', imageUrl: 'assets/images/chambres/chambre-105-standard.jpg', imageAlt: 'Chambre 105, Standard, chambre ensoleillée avec vue sur la piscine' },
+    { number: 'Ch. 06', name: 'Bungalow Dune', nameColorClass: 'text-primary', status: 'Occupée', footerText: 'Mme Dubois', footerType: 'guest', footerIcon: 'chevron_right', imageUrl: 'assets/images/chambres/chambre-106-standard.jpg', imageAlt: 'Chambre 106, Standard, literie blanche épurée et douche à l’italienne' },
+    { number: 'Ch. 07', name: 'Suite Saloum', nameColorClass: 'text-primary', status: 'Occupée', footerText: 'M. Touré', footerType: 'guest', footerIcon: 'chevron_right', imageUrl: 'assets/images/chambres/chambre-201-deluxe.jpg', imageAlt: 'Chambre 201, Deluxe, lit King et tête de lit bleu nuit boutique' },
+    { number: 'Ch. 08', name: 'Bungalow Alizé', nameColorClass: 'text-primary', status: 'Occupée', footerText: 'M. Leroy', footerType: 'guest', footerIcon: 'chevron_right', imageUrl: 'assets/images/chambres/chambre-202-deluxe.jpg', imageAlt: 'Chambre 202, Deluxe, grande baie vitrée et coin détente' },
+    { number: 'Ch. 09', name: 'Deluxe Balcon', nameColorClass: 'text-primary', status: 'Occupée', footerText: 'Mme Cissé', footerType: 'guest', footerIcon: 'chevron_right', imageUrl: 'assets/images/chambres/chambre-203-bungalow-deluxe.jpg', imageAlt: 'Chambre 203, Bungalow Deluxe, lit à baldaquin et terrasse tropicale' },
+    { number: 'Ch. 10', name: 'Bungalow Alizé', nameColorClass: 'text-primary', status: 'Ménage', footerText: 'Équipe Aminata', footerType: 'cleaning', footerIcon: 'mop', imageUrl: 'assets/images/chambres/chambre-204-bungalow-deluxe.jpg', imageAlt: 'Chambre 204, Bungalow Deluxe, pavillon indépendant avec toit de chaume' },
+    { number: 'Ch. 11', name: 'Vue Piscine', nameColorClass: 'text-primary', status: 'Libre', footerText: 'Prête • 15h30', footerType: 'ready-teal', footerIcon: 'directions_car', imageUrl: 'assets/images/chambres/chambre-301-suite.jpg', imageAlt: 'Chambre 301, Suite Prestige, vaste salon privé et baies panoramiques' },
+    { number: 'Ch. 12', name: 'Suite Filaos', nameColorClass: 'text-tertiary', status: 'Maint.', footerText: 'Révision clim', footerType: 'maintenance', footerIcon: 'ac_unit', imageUrl: 'assets/images/chambres/chambre-302-suite.jpg', imageAlt: 'Chambre 302, Suite Prestige, salon luxueux et terrasse privative' }
   ];
 
   toggleRoomSelection(roomNumber: string): void {

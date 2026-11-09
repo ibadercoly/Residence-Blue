@@ -41,3 +41,18 @@ export function input<T>(defaultValue?: T) {
   return () => defaultValue as T;
 }
 input.required = <T>() => (() => undefined as unknown as T);
+
+export function Input(options?: unknown) {
+  return (target: unknown, propertyKey?: string) => {};
+}
+
+export function Output(bindingPropertyName?: string) {
+  return (target: unknown, propertyKey?: string) => {};
+}
+
+export class EventEmitter<T = unknown> {
+  emit(value?: T) {}
+  subscribe(next?: (value: T) => void) {
+    return { unsubscribe: () => {} };
+  }
+}

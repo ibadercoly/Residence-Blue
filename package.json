@@ -13,11 +13,12 @@
     "build:web": "npm run build --workspace=@residence-blue/web",
     "build": "npm run build:shared && npm run build:api && npm run build:web",
     "prisma:generate": "npm run prisma:generate --workspace=@residence-blue/api",
+    "images": "node scripts/optimiser-images.mjs",
     "lint": "npm run lint --workspaces --if-present",
     "test:unit": "npm run test --workspace=@residence-blue/shared && npm run test --workspace=@residence-blue/api && npm run test --workspace=@residence-blue/web",
     "test": "npm run test:unit",
     "test:integration": "npm run test:integration --workspace=@residence-blue/api",
-    "test:security": "npm run test:security --workspace=@residence-blue/api",
+    "test:security": "npm run test:security --workspace=@residence-blue/api && node scripts/test-securite-photos.mjs",
     "test:e2e": "npm run test:e2e --workspace=@residence-blue/web",
     "test:all": "npm run test && npm run test:integration && npm run test:security",
     "prepare": "husky"
@@ -30,6 +31,7 @@
     "eslint": "^9.16.0",
     "husky": "^9.1.7",
     "prettier": "^3.4.1",
+    "sharp": "^0.35.5",
     "typescript": "~6.0.3"
   }
 }

@@ -4,6 +4,9 @@ import {
   SEED_ROOMS,
   SEED_ROOM_TYPES,
   Role,
+  getRoomImageUrl,
+  getRoomImageAlt,
+  FALLBACK_ROOM_IMAGE,
 } from '../index';
 
 describe('Règles métier des chambres & Machine à états', () => {
@@ -158,6 +161,33 @@ describe('Règles métier des chambres & Machine à états', () => {
       expect(standardRooms.map((r) => r.number)).toEqual(['101', '102', '103', '104', '105', '106']);
       expect(deluxeRooms.map((r) => r.number)).toEqual(['201', '202', '203', '204']);
       expect(suites.map((r) => r.number)).toEqual(['301', '302']);
+    });
+  });
+
+  describe('7. Photos des 12 chambres (Unicité, traçabilité & repli)', () => {
+    it('doit associer une image locale valide à chaque numéro de chambre', () => {
+      expect(SEED_ROOMS).toHaveLength(12);
+      for (const room of SEED_ROOMS) {
+        expect(room.imageUrl).toBeDefined();
+        expect(room.imageUrl).toMatch(/^assets\/images\/chambres\/chambre-\d{3}-[\w-]+\.jpg$/);
+        expect(room.imageAlt).toBeDefined();
+        expect(room.imageAlt.length).toBeGreaterThan(10);
+      }
+    });
+
+    it('doit avoir 12 images TOUTES DIFFÉRENTES (aucune répétition d’URL)', () => {
+      const urls = SEED_ROOMS.map((r) => r.imageUrl);
+      const uniqueUrls = new Set(urls);
+      expect(uniqueUrls.size).toBe(12);
+    });
+
+    it('doit retourner l’image spécifique via getRoomImageUrl ou le fallback', () => {
+      expect(getRoomImageUrl('101')).toBe('assets/images/chambres/chambre-101-standard.jpg');
+      expect(getRoomImageUrl('302')).toBe('assets/images/chambres/chambre-302-suite.jpg');
+      expect(getRoomImageUrl('999')).toBe(FALLBACK_ROOM_IMAGE);
+
+      expect(getRoomImageAlt('101')).toContain('Chambre 101');
+      expect(getRoomImageAlt('999')).toContain('Chambre 999');
     });
   });
 });

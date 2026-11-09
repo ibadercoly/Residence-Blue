@@ -8,11 +8,15 @@ import {
   SEED_ROOMS,
   Role,
   isRoomStatusTransitionAllowed,
+  getRoomImageUrl,
+  getRoomImageAlt,
 } from '@residence-blue/shared';
 
 export interface RoomUiItem extends RoomDto {
   syncPending?: boolean;
   image?: string;
+  imageUrl?: string;
+  imageAlt?: string;
 }
 
 @Injectable({
@@ -76,7 +80,14 @@ export class RoomsService {
       // 1. Lecture locale depuis IndexedDB
       const cached = await this.idb.getAll<RoomUiItem>('rooms');
       if (cached && cached.length > 0) {
-        this.rooms.set(this.sortRooms(cached));
+        // Migration ou rafraîchissement des URLs d'images si manquantes ou obsolètes
+        const enriched = cached.map((r) => ({
+          ...r,
+          imageUrl: r.imageUrl || getRoomImageUrl(r.number),
+          imageAlt: r.imageAlt || getRoomImageAlt(r.number),
+          image: r.imageUrl || getRoomImageUrl(r.number),
+        }));
+        this.rooms.set(this.sortRooms(enriched));
       } else {
         // Peuplement par défaut si IndexedDB est vide
         const initialRooms = this.buildInitialRooms();
@@ -113,9 +124,13 @@ export class RoomsService {
         const serverRooms: RoomDto[] = await response.json();
         const merged: RoomUiItem[] = serverRooms.map((sr) => {
           const currentLocal = this.rooms().find((r) => r.id === sr.id || r.number === sr.number);
+          const imgUrl = sr.imageUrl || getRoomImageUrl(sr.number);
+          const imgAlt = sr.imageAlt || getRoomImageAlt(sr.number);
           return {
             ...sr,
-            image: this.getImageForType(sr.type?.name || 'Standard'),
+            image: imgUrl,
+            imageUrl: imgUrl,
+            imageAlt: imgAlt,
             // Si une modification locale est toujours dans l'outbox, on garde le flag syncPending
             syncPending: currentLocal?.syncPending || false,
             status: currentLocal?.syncPending ? currentLocal.status : sr.status,
@@ -154,78 +169,86 @@ export class RoomsService {
 
     const previousStatus = room.status;
 
-    // 1. Mise à jour optimiste locale immédiate
-    const updatedRoom: RoomUiItem = {
-      ...room,
-      status: targetStatus,
-      syncPending: true,
-    };
+    // Mise à jour optimiste immédiate de l'UI
+    this.rooms.update((list) =>
+      list.map((r) => (r.id === roomId ? { ...r, status: targetStatus, syncPending: true } : r)),
+    );
 
-    const currentRooms = this.rooms().map((r) => (r.id === roomId ? updatedRoom : r));
-    this.rooms.set(currentRooms);
+    // Sauvegarde immédiate dans IndexedDB
+    const updatedRoom = this.rooms().find((r) => r.id === roomId)!;
     await this.idb.put('rooms', updatedRoom);
 
-    // 2. Enregistrement dans la file d'attente (outbox) avec Idempotency-Key
-    const idempotencyKey = crypto.randomUUID();
-
-    // 3. Tentative d'envoi immédiat si en ligne
-    if (this.network.isOnline()) {
-      try {
-        const res = await fetch(`/api/rooms/${roomId}/status`, {
-          method: 'PATCH',
-          headers: {
-            'Content-Type': 'application/json',
-            'Idempotency-Key': idempotencyKey,
-            'x-user-role': this.currentRole(),
-          },
-          body: JSON.stringify({ status: targetStatus, reason }),
-        });
-
-        if (res.ok) {
-          // Succès serveur : on retire l'indicateur syncPending
-          const syncedRoom: RoomUiItem = { ...updatedRoom, syncPending: false };
-          this.rooms.set(this.rooms().map((r) => (r.id === roomId ? syncedRoom : r)));
-          await this.idb.put('rooms', syncedRoom);
-          this.successMessage.set(`Chambre ${room.number} : statut mis à jour (${targetStatus}).`);
-          return true;
-        } else {
-          const errData = await res.json().catch(() => ({}));
-          this.errorMessage.set(errData.message || `Erreur serveur (${res.status}).`);
-          // Si le serveur a rejeté pour règle métier, rollback de l'optimistic update
-          if (res.status === 400 || res.status === 403) {
-            const rollbackRoom: RoomUiItem = { ...room, status: previousStatus, syncPending: false };
-            this.rooms.set(this.rooms().map((r) => (r.id === roomId ? rollbackRoom : r)));
-            await this.idb.put('rooms', rollbackRoom);
-            return false;
-          }
-        }
-      } catch {
-        // Coupure réseau : l'opération reste en attente de synchronisation dans l'outbox
-      }
+    // Si hors ligne : mise en file d'attente dans l'Outbox
+    if (!this.network.isOnline()) {
+      await this.outbox.enqueue('PATCH_ROOM_STATUS', `/api/rooms/${roomId}/status`, {
+        status: targetStatus,
+        reason,
+      });
+      this.successMessage.set(
+        `Statut changé vers ${targetStatus} (enregistré hors-ligne, en attente de synchronisation).`,
+      );
+      return true;
     }
 
-    // Enregistrement dans l'outbox pour rejeu ultérieur
-    await this.outbox.enqueue('PATCH_ROOM_STATUS', `/api/rooms/${roomId}/status`, {
-      status: targetStatus,
-      reason,
-    });
+    // Si en ligne : appel réseau direct
+    try {
+      const response = await fetch(`/api/rooms/${roomId}/status`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-user-role': this.currentRole(),
+        },
+        body: JSON.stringify({ status: targetStatus, reason }),
+      });
 
-    this.successMessage.set(`Chambre ${room.number} mise à jour en mode hors-ligne (en attente de synchronisation).`);
-    return true;
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        this.errorMessage.set(errorData.message || `Erreur serveur (${response.status}).`);
+        // Si le serveur a rejeté pour règle métier ou droits, rollback de la mise à jour optimiste
+        if (response.status === 400 || response.status === 403) {
+          const rollbackRoom: RoomUiItem = { ...room, status: previousStatus, syncPending: false };
+          this.rooms.update((list) =>
+            list.map((r) => (r.id === roomId ? rollbackRoom : r)),
+          );
+          await this.idb.put('rooms', rollbackRoom);
+          return false;
+        }
+        throw new Error(errorData.message || 'Erreur serveur lors de la mise à jour.');
+      }
+
+      // Succès confirmé par le serveur : retrait du flag syncPending
+      this.rooms.update((list) =>
+        list.map((r) => (r.id === roomId ? { ...r, syncPending: false } : r)),
+      );
+      const syncedRoom = this.rooms().find((r) => r.id === roomId)!;
+      await this.idb.put('rooms', syncedRoom);
+
+      this.successMessage.set(`Chambre ${room.number} : statut mis à jour (${targetStatus}).`);
+      return true;
+    } catch {
+      // En cas de panne réseau inattendue, repli sur l'outbox
+      await this.outbox.enqueue('PATCH_ROOM_STATUS', `/api/rooms/${roomId}/status`, {
+        status: targetStatus,
+        reason,
+      });
+      this.successMessage.set(
+        `Connexion perturbée : action enregistrée dans la file hors-ligne.`,
+      );
+      return true;
+    }
   }
 
   /**
-   * Rejoue toutes les opérations de l'outbox vers le serveur.
+   * Synchronisation manuelle ou automatique de l'outbox.
    */
   async syncOutbox(): Promise<void> {
     await this.outbox.syncOutbox();
-    // Rafraîchit les chambres depuis le serveur après synchronisation
+    // Rafraîchissement depuis le serveur
     await this.fetchFromServer();
   }
 
   setRole(role: Role): void {
     this.currentRole.set(role);
-    this.errorMessage.set(null);
   }
 
   setFilter(filter: string): void {
@@ -243,16 +266,6 @@ export class RoomsService {
     });
   }
 
-  private getImageForType(typeName: string): string {
-    if (typeName.toLowerCase().includes('suite')) {
-      return 'assets/images/suite.jpg';
-    }
-    if (typeName.toLowerCase().includes('deluxe')) {
-      return 'assets/images/deluxe.jpg';
-    }
-    return 'assets/images/standard.jpg';
-  }
-
   private buildInitialRooms(): RoomUiItem[] {
     const typePrices: Record<string, number> = {
       Standard: 35000,
@@ -268,7 +281,9 @@ export class RoomsService {
       status: RoomStatus.FREE,
       amenities: seed.amenities,
       syncPending: false,
-      image: this.getImageForType(seed.typeName),
+      image: seed.imageUrl || getRoomImageUrl(seed.number),
+      imageUrl: seed.imageUrl || getRoomImageUrl(seed.number),
+      imageAlt: seed.imageAlt || getRoomImageAlt(seed.number),
       type: {
         id: `type-${seed.typeName.toLowerCase()}`,
         name: seed.typeName,

@@ -5,7 +5,8 @@ import { PNG } from 'pngjs';
 import pixelmatch from 'pixelmatch';
 
 test.describe('Fidélité Visuelle - Tableau de Bord Résidence Blue', () => {
-  const compDir = path.resolve(process.cwd(), '../../docs/design/comparaisons');
+  const repoRoot = path.resolve(__dirname, '../../..');
+  const compDir = path.join(repoRoot, 'docs/design/comparaisons');
 
   test.beforeAll(() => {
     if (!fs.existsSync(compDir)) {
@@ -19,14 +20,20 @@ test.describe('Fidélité Visuelle - Tableau de Bord Résidence Blue', () => {
     await page.goto('/tableau-de-bord', { waitUntil: 'networkidle' });
 
     await page.evaluate(() => document.fonts.ready);
+    // Masquage des zones de photos et adaptations selon la règle de fidélité AGENTS.md
+    await page.evaluate(() => {
+      document.querySelectorAll('[data-photo-zone]').forEach((el) => {
+        (el as HTMLElement).style.display = 'none';
+      });
+    });
     await page.waitForTimeout(300);
 
     const actualPath = path.join(compDir, 'actual_tableau_de_bord.png');
     await page.screenshot({ path: actualPath, animations: 'disabled', fullPage: false });
 
-    const expectedPath = path.resolve(
-      process.cwd(),
-      '../../design/maquettes/tableau_de_bord/screen.png'
+    const expectedPath = path.join(
+      repoRoot,
+      'design/maquettes/tableau_de_bord/screen.png'
     );
 
     expect(fs.existsSync(expectedPath)).toBeTruthy();
@@ -70,6 +77,12 @@ test.describe('Fidélité Visuelle - Tableau de Bord Résidence Blue', () => {
     await page.goto('http://localhost:4200/tableau-de-bord', { waitUntil: 'networkidle' });
 
     await page.evaluate(() => document.fonts.ready);
+    // Règle AGENTS.md : Les zones de photo et adaptations sont masquées dans le test de fidélité visuelle
+    await page.evaluate(() => {
+      document.querySelectorAll('[data-photo-zone]').forEach((el) => {
+        (el as HTMLElement).style.display = 'none';
+      });
+    });
     await page.waitForTimeout(300);
 
     const rawShot = PNG.sync.read(await page.screenshot({ animations: 'disabled', fullPage: false }));
@@ -102,9 +115,9 @@ test.describe('Fidélité Visuelle - Tableau de Bord Résidence Blue', () => {
     const actualPath = path.join(compDir, 'actual_tableau_de_bord_mode_clair.png');
     fs.writeFileSync(actualPath, PNG.sync.write(actualImg));
 
-    const expectedPath = path.resolve(
-      process.cwd(),
-      '../../design/maquettes/tableau_de_bord_mode_clair/screen.png'
+    const expectedPath = path.join(
+      repoRoot,
+      'design/maquettes/tableau_de_bord_mode_clair/screen.png'
     );
     expect(fs.existsSync(expectedPath)).toBeTruthy();
 

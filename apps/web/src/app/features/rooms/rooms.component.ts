@@ -4,11 +4,12 @@ import { RoomsService } from '../../core/services/rooms.service';
 import { NetworkService } from '../../core/offline/network.service';
 import { OutboxService } from '../../core/offline/outbox.service';
 import { RoomStatus, Role, formatFcfa } from '@residence-blue/shared';
+import { RoomStatusCardComponent } from '../../shared/components/room-status-card/room-status-card.component';
 
 @Component({
   selector: 'app-rooms',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, RoomStatusCardComponent],
   template: `
     <div class="rooms-page">
       <!-- En-tête avec métriques et sélecteur de rôle -->
@@ -165,142 +166,14 @@ import { RoomStatus, Role, formatFcfa } from '@residence-blue/shared';
         }
       </div>
 
-      <!-- Grille des Cartes des 12 Chambres -->
+      <!-- Grille des Cartes des 12 Chambres avec Photos Dédiées -->
       <div class="rooms-grid">
         @for (room of roomsService.filteredRooms(); track room.id) {
-          <div
-            class="room-card"
-            [attr.data-room-id]="room.id"
-            [attr.data-room-number]="room.number"
-            [attr.data-room-status]="room.status">
-            <!-- Bande visuelle / Photo stylisée boutique avec badge statut -->
-            <div class="card-visual" [attr.data-category]="room.type?.name">
-              <div class="visual-gradient"></div>
-              <div class="visual-header">
-                <span class="room-number-tag">Chambre {{ room.number }}</span>
-                <span class="status-badge" [attr.data-status]="room.status">
-                  @switch (room.status) {
-                    @case (RoomStatus.FREE) {
-                      <span class="dot free"></span> Libre
-                    }
-                    @case (RoomStatus.OCCUPIED) {
-                      <span class="dot occupied"></span> Occupée
-                    }
-                    @case (RoomStatus.CLEANING) {
-                      <span class="dot cleaning"></span> À nettoyer
-                    }
-                    @case (RoomStatus.MAINTENANCE) {
-                      <span class="dot maintenance"></span> En maintenance
-                    }
-                  }
-                </span>
-              </div>
-              <div class="visual-footer">
-                <span class="room-type-name">{{ room.type?.name || 'Standard' }}</span>
-                <span class="room-floor">Étage {{ room.floor }}</span>
-              </div>
-            </div>
-
-            <!-- Corps de la carte : Tarifs & Équipements -->
-            <div class="card-body">
-              <div class="price-row">
-                <span class="price-amount">{{ formatPrice(room.type?.pricePerNight || 0) }}</span>
-                <span class="price-unit">/ nuitée</span>
-              </div>
-
-              <!-- Équipements clés -->
-              <div class="amenities-list">
-                @for (amenity of room.amenities; track amenity) {
-                  <span class="amenity-chip">{{ amenity }}</span>
-                }
-              </div>
-
-              <!-- Indicateur si modification en attente de synchronisation -->
-              @if (room.syncPending) {
-                <div class="sync-pending-card-alert">
-                  <span class="material-symbols-outlined text-sm">cloud_upload</span>
-                  <span>Modifié hors-ligne • En attente de sync</span>
-                </div>
-              }
-
-              <!-- Actions contextuelles selon statut et rôle -->
-              <div class="actions-section">
-                <div class="actions-label">Changer le statut :</div>
-                <div class="actions-grid">
-                  @if (room.status === RoomStatus.FREE) {
-                    <button
-                      type="button"
-                      class="btn btn-action btn-occupied"
-                      [attr.data-action]="'check-in-' + room.number"
-                      (click)="changeStatus(room.id, RoomStatus.OCCUPIED, 'Check-in client')">
-                      <span class="material-symbols-outlined">login</span>
-                      Check-in
-                    </button>
-                    <button
-                      type="button"
-                      class="btn btn-action btn-maintenance"
-                      (click)="changeStatus(room.id, RoomStatus.MAINTENANCE, 'Signalement panne')">
-                      <span class="material-symbols-outlined">build</span>
-                      Maintenance
-                    </button>
-                  }
-
-                  @if (room.status === RoomStatus.OCCUPIED) {
-                    <button
-                      type="button"
-                      class="btn btn-action btn-cleaning"
-                      [attr.data-action]="'check-out-' + room.number"
-                      (click)="changeStatus(room.id, RoomStatus.CLEANING, 'Check-out client')">
-                      <span class="material-symbols-outlined">cleaning_services</span>
-                      Libérer (Ménage)
-                    </button>
-                    <button
-                      type="button"
-                      class="btn btn-action btn-maintenance"
-                      (click)="changeStatus(room.id, RoomStatus.MAINTENANCE, 'Incident en chambre')">
-                      <span class="material-symbols-outlined">build</span>
-                      Maintenance
-                    </button>
-                  }
-
-                  @if (room.status === RoomStatus.CLEANING) {
-                    <button
-                      type="button"
-                      class="btn btn-action btn-free"
-                      [attr.data-action]="'mark-free-' + room.number"
-                      (click)="changeStatus(room.id, RoomStatus.FREE, 'Ménage achevé et contrôlé')">
-                      <span class="material-symbols-outlined">done_all</span>
-                      Prête (Libre)
-                    </button>
-                    <button
-                      type="button"
-                      class="btn btn-action btn-maintenance"
-                      (click)="changeStatus(room.id, RoomStatus.MAINTENANCE, 'Panne constatée au ménage')">
-                      <span class="material-symbols-outlined">build</span>
-                      Maintenance
-                    </button>
-                  }
-
-                  @if (room.status === RoomStatus.MAINTENANCE) {
-                    <button
-                      type="button"
-                      class="btn btn-action btn-cleaning"
-                      (click)="changeStatus(room.id, RoomStatus.CLEANING, 'Travaux achevés, ménage requis')">
-                      <span class="material-symbols-outlined">cleaning_services</span>
-                      Fin travaux $\rightarrow$ Ménage
-                    </button>
-                    <button
-                      type="button"
-                      class="btn btn-action btn-free"
-                      (click)="changeStatus(room.id, RoomStatus.FREE, 'Petite intervention validée')">
-                      <span class="material-symbols-outlined">check</span>
-                      Remise Libre
-                    </button>
-                  }
-                </div>
-              </div>
-            </div>
-          </div>
+          <app-room-status-card
+            [room]="room"
+            [currentRole]="roomsService.currentRole()"
+            (onStatusChange)="changeStatus(room.id, $event.status, $event.reason)"
+          ></app-room-status-card>
         }
       </div>
     </div>
@@ -328,19 +201,19 @@ import { RoomStatus, Role, formatFcfa } from '@residence-blue/shared';
       display: flex;
       justify-content: space-between;
       align-items: flex-start;
+      gap: 1rem;
       flex-wrap: wrap;
-      gap: 1.25rem;
     }
 
     .badge-tag {
+      background: var(--color-primary-container);
+      color: var(--color-on-primary-container);
       font-size: 0.6875rem;
-      text-transform: uppercase;
       font-weight: 700;
-      letter-spacing: 0.08em;
-      color: var(--color-primary);
-      background: rgba(0, 102, 111, 0.1);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
       padding: 0.2rem 0.5rem;
-      border-radius: 9999px;
+      border-radius: 0.375rem;
     }
 
     .network-badge {
@@ -356,17 +229,23 @@ import { RoomStatus, Role, formatFcfa } from '@residence-blue/shared';
       background: rgba(16, 185, 129, 0.15);
       color: #065f46;
     }
+    .network-badge.online .dot {
+      background: #10b981;
+    }
     .network-badge.offline {
       background: rgba(239, 68, 68, 0.15);
       color: #991b1b;
     }
-    .network-badge .dot {
+    .network-badge.offline .dot {
+      background: #ef4444;
+    }
+
+    .dot {
       width: 6px;
       height: 6px;
-      border-radius: 50%;
+      border-radius: 9999px;
+      display: inline-block;
     }
-    .network-badge.online .dot { background: #10b981; }
-    .network-badge.offline .dot { background: #ef4444; }
 
     .sync-pending-badge {
       background: rgba(245, 158, 11, 0.15);
@@ -434,21 +313,22 @@ import { RoomStatus, Role, formatFcfa } from '@residence-blue/shared';
       display: flex;
       justify-content: space-between;
       align-items: center;
-      flex-wrap: wrap;
       gap: 1rem;
+      flex-wrap: wrap;
+      padding-top: 0.75rem;
       border-top: 1px solid var(--color-outline-variant);
-      padding-top: 1rem;
     }
+
     .status-filters {
       display: flex;
-      gap: 0.5rem;
+      gap: 0.375rem;
       flex-wrap: wrap;
     }
     .filter-pill {
-      background: var(--color-surface-container-low);
+      background: var(--color-surface-container);
       border: 1px solid var(--color-outline-variant);
       color: var(--color-on-surface);
-      padding: 0.375rem 0.875rem;
+      padding: 0.375rem 0.75rem;
       border-radius: 9999px;
       font-size: 0.8125rem;
       font-weight: 500;
@@ -456,17 +336,19 @@ import { RoomStatus, Role, formatFcfa } from '@residence-blue/shared';
       display: inline-flex;
       align-items: center;
       gap: 0.375rem;
-      transition: all 0.2s;
+      transition: all 0.15s ease;
     }
     .filter-pill.active {
       background: var(--color-primary);
       color: var(--color-on-primary);
       border-color: var(--color-primary);
+      font-weight: 600;
     }
     .status-indicator-dot {
       width: 8px;
       height: 8px;
-      border-radius: 50%;
+      border-radius: 9999px;
+      display: inline-block;
     }
     .status-indicator-dot.free { background: #10b981; }
     .status-indicator-dot.occupied { background: #00666f; }
@@ -519,7 +401,7 @@ import { RoomStatus, Role, formatFcfa } from '@residence-blue/shared';
     .alert-banner.success {
       background: rgba(16, 185, 129, 0.1);
       border: 1px solid rgba(16, 185, 129, 0.3);
-      color: #047857;
+      color: #065f46;
     }
 
     /* Grille des cartes */
@@ -529,224 +411,16 @@ import { RoomStatus, Role, formatFcfa } from '@residence-blue/shared';
       gap: 1.5rem;
     }
 
-    .room-card {
-      background: var(--color-surface);
-      border: 1px solid var(--color-outline-variant);
-      border-radius: 1rem;
-      overflow: hidden;
-      display: flex;
-      flex-direction: column;
-      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
-      transition: transform 0.2s, box-shadow 0.2s;
-    }
-    .room-card:hover {
-      transform: translateY(-3px);
-      box-shadow: 0 6px 18px rgba(0, 0, 0, 0.08);
-    }
-
-    /* Zone visuelle en-tête carte */
-    .card-visual {
-      position: relative;
-      height: 120px;
-      padding: 1rem;
-      display: flex;
-      flex-direction: column;
-      justify-content: space-between;
-      color: #ffffff;
-      background-size: cover;
-      background-position: center;
-    }
-    .card-visual[data-category="Standard"] {
-      background: linear-gradient(135deg, #004c54 0%, #00666f 100%);
-    }
-    .card-visual[data-category="Deluxe"] {
-      background: linear-gradient(135deg, #7e5700 0%, #a27205 100%);
-    }
-    .card-visual[data-category="Suite"] {
-      background: linear-gradient(135deg, #1e1b4b 0%, #312e81 100%);
-    }
-
-    .visual-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      z-index: 2;
-    }
-    .room-number-tag {
-      font-size: 1.25rem;
-      font-weight: 700;
-      letter-spacing: -0.02em;
-      text-shadow: 0 1px 2px rgba(0,0,0,0.4);
-    }
-    .status-badge {
-      display: inline-flex;
-      align-items: center;
-      gap: 0.375rem;
-      padding: 0.25rem 0.625rem;
-      border-radius: 9999px;
+    .btn-xs {
+      padding: 0.2rem 0.5rem;
       font-size: 0.6875rem;
-      font-weight: 700;
-      text-transform: uppercase;
-      letter-spacing: 0.04em;
-      backdrop-filter: blur(8px);
-      background: rgba(0, 0, 0, 0.4);
-    }
-    .status-badge[data-status="FREE"] {
-      background: rgba(16, 185, 129, 0.85);
-      color: #ffffff;
-    }
-    .status-badge[data-status="OCCUPIED"] {
-      background: rgba(0, 102, 111, 0.9);
-      color: #ffffff;
-    }
-    .status-badge[data-status="CLEANING"] {
-      background: rgba(245, 158, 11, 0.9);
-      color: #ffffff;
-    }
-    .status-badge[data-status="MAINTENANCE"] {
-      background: rgba(239, 68, 68, 0.9);
-      color: #ffffff;
-    }
-    .status-badge .dot {
-      width: 6px;
-      height: 6px;
-      border-radius: 50%;
-      background: #ffffff;
-    }
-
-    .visual-footer {
-      display: flex;
-      justify-content: space-between;
-      align-items: flex-end;
-      z-index: 2;
-    }
-    .room-type-name {
-      font-size: 1rem;
-      font-weight: 600;
-      letter-spacing: -0.01em;
-    }
-    .room-floor {
-      font-size: 0.75rem;
-      opacity: 0.9;
-    }
-
-    /* Corps carte */
-    .card-body {
-      padding: 1.25rem;
-      display: flex;
-      flex-direction: column;
-      gap: 0.875rem;
-      flex: 1;
-    }
-    .price-row {
-      display: flex;
-      align-items: baseline;
-      gap: 0.375rem;
-    }
-    .price-amount {
-      font-size: 1.25rem;
-      font-weight: 700;
-      color: var(--color-on-surface);
-    }
-    .price-unit {
-      font-size: 0.75rem;
-      color: var(--color-on-surface-variant);
-    }
-
-    .amenities-list {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 0.375rem;
-    }
-    .amenity-chip {
-      background: var(--color-surface-container);
-      color: var(--color-on-surface-variant);
-      font-size: 0.6875rem;
-      font-weight: 500;
-      padding: 0.15rem 0.5rem;
       border-radius: 0.25rem;
     }
-
-    .sync-pending-card-alert {
-      display: flex;
-      align-items: center;
-      gap: 0.375rem;
-      background: rgba(245, 158, 11, 0.1);
-      border: 1px dashed rgba(245, 158, 11, 0.4);
-      color: #b45309;
-      font-size: 0.75rem;
-      font-weight: 600;
-      padding: 0.375rem 0.625rem;
-      border-radius: 0.375rem;
-    }
-
-    /* Actions */
-    .actions-section {
-      margin-top: auto;
-      border-top: 1px solid var(--color-outline-variant);
-      padding-top: 0.875rem;
-      display: flex;
-      flex-direction: column;
-      gap: 0.5rem;
-    }
-    .actions-label {
-      font-size: 0.6875rem;
-      font-weight: 700;
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-      color: var(--color-outline);
-    }
-    .actions-grid {
-      display: flex;
-      gap: 0.5rem;
-      flex-wrap: wrap;
-    }
-    .btn-action {
-      flex: 1;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      gap: 0.375rem;
-      padding: 0.4375rem 0.75rem;
-      font-size: 0.75rem;
-      font-weight: 600;
-      border-radius: 0.375rem;
-      border: 1px solid transparent;
-      cursor: pointer;
-      transition: all 0.15s ease;
-      white-space: nowrap;
-    }
-    .btn-action .material-symbols-outlined {
-      font-size: 1rem;
-    }
-    .btn-occupied {
-      background: #00666f;
-      color: #ffffff;
-    }
-    .btn-occupied:hover {
-      background: #004c54;
-    }
-    .btn-cleaning {
-      background: #f59e0b;
-      color: #ffffff;
-    }
-    .btn-cleaning:hover {
-      background: #d97706;
-    }
-    .btn-free {
-      background: #10b981;
-      color: #ffffff;
-    }
-    .btn-free:hover {
-      background: #059669;
-    }
-    .btn-maintenance {
+    .btn-outline {
+      border: 1px solid var(--color-outline-variant);
       background: transparent;
-      border: 1px solid #ef4444;
-      color: #ef4444;
-    }
-    .btn-maintenance:hover {
-      background: rgba(239, 68, 68, 0.1);
+      color: var(--color-on-surface);
+      cursor: pointer;
     }
   `],
 })

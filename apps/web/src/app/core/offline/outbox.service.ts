@@ -72,8 +72,9 @@ export class OutboxService {
 
       for (const item of pendingItems) {
         try {
+          const method = item.type.startsWith('PATCH') ? 'PATCH' : 'POST';
           const response = await fetch(item.endpoint, {
-            method: 'POST',
+            method,
             headers: {
               'Content-Type': 'application/json',
               'Idempotency-Key': item.idempotencyKey,
