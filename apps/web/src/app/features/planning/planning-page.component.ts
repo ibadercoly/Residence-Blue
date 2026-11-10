@@ -2,7 +2,7 @@ import { Component, HostListener, computed, inject, signal } from '@angular/core
 import { CommonModule } from '@angular/common';
 import { PlanningMockService } from '../../core/services/planning-mock.service';
 import { ReservationModalService } from '../../core/services/reservation-modal.service';
-import { PlanningDay, PlanningReservation, PlanningRoom, ReservationStatusType } from '../../core/models/planning.model';
+import { ReservationStatusType } from '../../core/models/planning.model';
 import { formatFcfa } from '@residence-blue/shared';
 
 @Component({
@@ -24,7 +24,7 @@ import { formatFcfa } from '@residence-blue/shared';
         <button
           type="button"
           (click)="openNewReservation()"
-          data-testid="header-new-reservation-btn"
+          data-testid="planning-header-new-btn"
           class="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-primary text-on-primary font-title-sm text-sm font-semibold shadow-sm hover:bg-primary-container hover:text-on-primary-container transition-all cursor-pointer shrink-0"
         >
           <span class="material-symbols-outlined text-[20px]" aria-hidden="true">add</span>
@@ -658,8 +658,8 @@ export class PlanningPageComponent {
     this.modalService.open({
       roomNumber,
       category,
-      arrivalDate: dateIso,
-      departureDate: checkOutIso
+      checkInDate: dateIso,
+      checkOutDate: checkOutIso
     });
   }
 
@@ -672,8 +672,8 @@ export class PlanningPageComponent {
     this.modalService.open({
       roomNumber: roomNumber || '101',
       category: roomNumber ? this.getCategoryForRoom(roomNumber) : 'Standard',
-      arrivalDate: arrival,
-      departureDate: departure
+      checkInDate: arrival,
+      checkOutDate: departure
     });
   }
 
@@ -692,8 +692,8 @@ export class PlanningPageComponent {
     this.modalService.open({
       roomNumber: res.roomNumber,
       category: this.getCategoryForRoom(res.roomNumber),
-      arrivalDate: res.checkInDate,
-      departureDate: res.checkOutDate
+      checkInDate: res.checkInDate,
+      checkOutDate: res.checkOutDate
     });
   }
 

@@ -43,8 +43,8 @@ describe('PlanningPageComponent', () => {
     component.onEmptySlotClick('106', '2026-11-12');
     expect(modalService.isOpen()).toBe(true);
     expect(modalService.currentParams()?.roomNumber).toBe('106');
-    expect(modalService.currentParams()?.arrivalDate).toBe('2026-11-12');
-    expect(modalService.currentParams()?.departureDate).toBe('2026-11-13');
+    expect(modalService.currentParams()?.checkInDate).toBe('2026-11-12');
+    expect(modalService.currentParams()?.checkOutDate).toBe('2026-11-13');
   });
 
   it('devrait ouvrir le tiroir de détail lors du clic sur une réservation', () => {

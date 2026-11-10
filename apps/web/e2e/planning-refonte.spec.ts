@@ -11,6 +11,10 @@ test.describe('Refonte Écran Planning - Zero Scroll Horizontal & Ergonomie', ()
     }
   });
 
+  test.beforeEach(async ({ page }) => {
+    page.on('dialog', dialog => dialog.accept());
+  });
+
   const viewports = [
     { width: 360, height: 740, label: 'mobile-small' },
     { width: 768, height: 1024, label: 'tablet' },
@@ -51,7 +55,7 @@ test.describe('Refonte Écran Planning - Zero Scroll Horizontal & Ergonomie', ()
 
     // 1. En-tête
     await expect(page.locator('h1')).toContainText('Planning');
-    await expect(page.locator('[data-testid="header-new-reservation-btn"]')).toBeVisible();
+    await expect(page.locator('[data-testid="planning-header-new-btn"]')).toBeVisible();
 
     // 2. Bande de 3 chiffres du jour (rien d'autre)
     const metricsSection = page.locator('[data-testid="planning-daily-metrics"]');
@@ -118,27 +122,27 @@ test.describe('Refonte Écran Planning - Zero Scroll Horizontal & Ergonomie', ()
     await expect(modal).toBeVisible();
 
     // La chambre 106 est sélectionnée
-    await expect(page.locator('#select-room-number')).toHaveValue('106');
+    await expect(page.locator('[data-testid="select-room"]')).toHaveValue('106');
 
     // Fermer la modale
-    await page.locator('[data-testid="modal-close-btn"]').click();
+    await page.locator('[data-testid="btn-close-modal"]').click();
     await expect(modal).not.toBeVisible();
 
     // 2. Tentative de réservation en doublon (conflit strict)
     // Ouvrir la modale et forcer la chambre 301 pour la période du 10 au 14 nov (occupée par Mamadou Diop)
-    await page.locator('[data-testid="header-new-reservation-btn"]').click();
+    await page.locator('[data-testid="planning-header-new-btn"]').click();
     await expect(modal).toBeVisible();
 
     // Sélectionner la catégorie Suite et chambre 301
     await page.locator('[data-testid="category-card-Suite"]').click();
-    await page.locator('#select-room-number').selectOption('301');
+    await page.locator('[data-testid="select-room"]').selectOption('301');
 
     // Dates 2026-11-10 au 2026-11-14
     await page.locator('#input-date-checkin').fill('2026-11-10');
     await page.locator('#input-date-checkout').fill('2026-11-14');
 
     // Soumettre la réservation
-    await page.locator('[data-testid="btn-confirm-reservation"]').click();
+    await page.locator('[data-testid="btn-submit-reservation"]').click();
 
     // Doit être REFUSÉE avec un message d'erreur clair
     const conflictAlert = page.locator('[data-testid="reservation-conflict-error"]');

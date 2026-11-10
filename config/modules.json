@@ -34,7 +34,9 @@
       "enabled": true,
       "version": "v1",
       "status": "active",
-      "dependencies": ["rooms"],
+      "dependencies": [
+        "rooms"
+      ],
       "description": "Calendrier des réservations sur fenêtre de 14 jours avec recherche par date.",
       "config": {
         "windowDays": 14,
@@ -82,7 +84,9 @@
       "enabled": true,
       "version": "v1",
       "status": "active",
-      "dependencies": ["clients"],
+      "dependencies": [
+        "clients"
+      ],
       "description": "Folios en cours, encaissements multi-moyens (espèces, mobile money) et clôture Z de caisse.",
       "config": {
         "currency": "FCFA",
@@ -113,7 +117,9 @@
       "enabled": true,
       "version": "v1",
       "status": "active",
-      "dependencies": ["facturation"],
+      "dependencies": [
+        "facturation"
+      ],
       "description": "Prestation journée piscine facturable au restaurant ou au folio de chambre.",
       "config": {
         "isBillableProduct": true,
@@ -138,7 +144,10 @@
         "maxPeriodMonths": 12,
         "maxRowsPerExport": 50000,
         "sanitizeFormulaCells": true,
-        "supportedFormats": ["PDF", "EXCEL"]
+        "supportedFormats": [
+          "PDF",
+          "EXCEL"
+        ]
       }
     },
     "housekeeping": {
@@ -150,7 +159,9 @@
       "enabled": false,
       "version": "v2",
       "status": "deferred",
-      "dependencies": ["rooms"],
+      "dependencies": [
+        "rooms"
+      ],
       "description": "Gestion détaillée des plannings d'étage, contrôle des chambres blanches et rotation du linge."
     },
     "maintenance": {
@@ -162,7 +173,9 @@
       "enabled": false,
       "version": "v2",
       "status": "deferred",
-      "dependencies": ["rooms"],
+      "dependencies": [
+        "rooms"
+      ],
       "description": "Carnet d'entretien technique des chambres et équipements (climatisation, plomberie, piscine)."
     },
     "inventory": {
@@ -174,7 +187,9 @@
       "enabled": false,
       "version": "v2",
       "status": "deferred",
-      "dependencies": ["restaurant"],
+      "dependencies": [
+        "restaurant"
+      ],
       "description": "Gestion des stocks d'ingrédients, boissons du bar et économat avec alertes de réapprovisionnement."
     },
     "parametres": {
@@ -198,7 +213,9 @@
       "enabled": false,
       "version": "v3",
       "status": "deferred",
-      "dependencies": ["clients"],
+      "dependencies": [
+        "clients"
+      ],
       "description": "Programme de fidélisation clients, campagnes promotionnelles et segmentation."
     },
     "channel_manager": {
@@ -210,7 +227,10 @@
       "enabled": false,
       "version": "v3",
       "status": "deferred",
-      "dependencies": ["planning", "rooms"],
+      "dependencies": [
+        "planning",
+        "rooms"
+      ],
       "description": "Synchronisation automatique des disponibilités et tarifs avec Booking.com, Airbnb et Expedia."
     },
     "accounting": {
@@ -222,7 +242,9 @@
       "enabled": false,
       "version": "v3",
       "status": "deferred",
-      "dependencies": ["facturation"],
+      "dependencies": [
+        "facturation"
+      ],
       "description": "Grand livre, écritures comptables conformes au référentiel SYSCOHADA et bilan d'exercice."
     }
   },
@@ -232,7 +254,9 @@
       "name": "Météo en direct",
       "version": "v2",
       "enabled": false,
-      "dependencies": ["dashboard"],
+      "dependencies": [
+        "dashboard"
+      ],
       "description": "Widget météo en direct pour la ville de Thiès affiché sur le tableau de bord."
     },
     "actions_prioritaires": {
@@ -240,7 +264,9 @@
       "name": "Actions prioritaires",
       "version": "v2",
       "enabled": false,
-      "dependencies": ["dashboard"],
+      "dependencies": [
+        "dashboard"
+      ],
       "description": "Bloc des alertes opérationnelles et urgences du jour sur l'accueil."
     },
     "graphique_hebdomadaire": {
@@ -248,7 +274,10 @@
       "name": "Graphique hebdomadaire",
       "version": "v2",
       "enabled": false,
-      "dependencies": ["dashboard", "facturation"],
+      "dependencies": [
+        "dashboard",
+        "facturation"
+      ],
       "description": "Graphique d'évolution des recettes prévisionnelles et réelles sur 7 jours."
     },
     "indicateurs_revpar_adr": {
@@ -256,7 +285,11 @@
       "name": "Indicateurs RevPAR et ADR",
       "version": "v2",
       "enabled": false,
-      "dependencies": ["dashboard", "rooms", "facturation"],
+      "dependencies": [
+        "dashboard",
+        "rooms",
+        "facturation"
+      ],
       "description": "Calcul et affichage des indicateurs avancés de rentabilité hôtelière RevPAR et ADR."
     },
     "maintenance_complete": {
@@ -264,7 +297,9 @@
       "name": "Maintenance complète",
       "version": "v2",
       "enabled": false,
-      "dependencies": ["rooms"],
+      "dependencies": [
+        "rooms"
+      ],
       "description": "Système complet de suivi des pannes, ordres de travail et carnet d'entretien."
     },
     "housekeeping_detaille": {
@@ -272,7 +307,9 @@
       "name": "Housekeeping détaillé",
       "version": "v2",
       "enabled": false,
-      "dependencies": ["rooms"],
+      "dependencies": [
+        "rooms"
+      ],
       "description": "Fiches de chambre blanche, rotation du linge et affectation nominative des femmes de chambre."
     },
     "parametres_avances": {
@@ -288,7 +325,9 @@
       "name": "Gestion des stocks",
       "version": "v2",
       "enabled": false,
-      "dependencies": ["restaurant"],
+      "dependencies": [
+        "restaurant"
+      ],
       "description": "Suivi des fiches techniques de cuisine, inventaires et sorties d'économat."
     },
     "notifications_auto": {
@@ -296,7 +335,10 @@
       "name": "WhatsApp et SMS automatiques",
       "version": "v2",
       "enabled": false,
-      "dependencies": ["clients", "facturation"],
+      "dependencies": [
+        "clients",
+        "facturation"
+      ],
       "description": "Envoi automatisé des confirmations de séjour et factures par WhatsApp et SMS."
     },
     "scan_pieces_identite": {
@@ -304,7 +346,9 @@
       "name": "Scan des pièces d'identité",
       "version": "v2",
       "enabled": false,
-      "dependencies": ["clients"],
+      "dependencies": [
+        "clients"
+      ],
       "description": "Capture et reconnaissance automatique par caméra des passeports et CNI des clients."
     },
     "planning_drag_and_drop": {
@@ -312,7 +356,9 @@
       "name": "Glisser-déposer du planning",
       "version": "v2",
       "enabled": false,
-      "dependencies": ["planning"],
+      "dependencies": [
+        "planning"
+      ],
       "description": "Déplacement interactif et réattribution rapide des chambres par drag-and-drop."
     },
     "menu_gestion_avancee": {
@@ -320,7 +366,9 @@
       "name": "Gestion avancée du menu",
       "version": "v2",
       "enabled": false,
-      "dependencies": ["restaurant"],
+      "dependencies": [
+        "restaurant"
+      ],
       "description": "Recadrage photo haute définition, allergènes multiples, suppléments et import/export CSV."
     },
     "mobile_complete": {
@@ -328,7 +376,9 @@
       "name": "Version mobile complète",
       "version": "v2",
       "enabled": false,
-      "dependencies": ["dashboard"],
+      "dependencies": [
+        "dashboard"
+      ],
       "description": "Interface mobile native dédiée avec barre de navigation inférieure et gestes tactiles."
     },
     "roles_avances": {
@@ -336,8 +386,42 @@
       "name": "Rôles avancés (Housekeeping, Maintenance, Comptable)",
       "version": "v2",
       "enabled": false,
-      "dependencies": ["housekeeping", "maintenance", "accounting"],
+      "dependencies": [
+        "housekeeping",
+        "maintenance",
+        "accounting"
+      ],
       "description": "Activation et attribution des rôles spécialisés HOUSEKEEPING, MAINTENANCE et COMPTABLE."
+    },
+    "planning_vue_14j": {
+      "id": "planning_vue_14j",
+      "name": "Vue 14 jours du planning",
+      "version": "v2",
+      "enabled": false,
+      "dependencies": [
+        "planning"
+      ],
+      "description": "Affichage étendu sur 14 jours avec scroll horizontal (remplacé par vue 7 jours sans scroll en V1)."
+    },
+    "planning_relogement_auto": {
+      "id": "planning_relogement_auto",
+      "name": "Suggestions de relogement automatique",
+      "version": "v2",
+      "enabled": false,
+      "dependencies": [
+        "planning"
+      ],
+      "description": "Suggestions de relogement et bannières d'alerte conflit Tape Chart."
+    },
+    "planning_stats_avancees": {
+      "id": "planning_stats_avancees",
+      "name": "Statistiques avancées du planning",
+      "version": "v2",
+      "enabled": false,
+      "dependencies": [
+        "planning"
+      ],
+      "description": "Taux d'occupation détaillé, infobulles avancées et métriques multi-indicateurs."
     }
   },
   "roles": {

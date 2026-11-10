@@ -342,27 +342,31 @@ test.describe('Fidélité Visuelle - Rendu Hors Ligne vs Référence', () => {
     await page.evaluate(() => document.fonts.ready);
     await page.waitForTimeout(300);
 
-    // Masquage des zones adaptées, sidebar nav et éléments animés
+    // Masquage des zones adaptées, sidebar nav et éléments retirés (ECARTS.md § 2.4)
     await page.evaluate(() => {
-      const sidebarFooter = document.querySelector('aside .p-gutter');
-      if (sidebarFooter) (sidebarFooter as HTMLElement).style.visibility = 'hidden';
-
-      const sidebarNav = document.querySelector('aside nav');
-      if (sidebarNav) (sidebarNav as HTMLElement).style.visibility = 'hidden';
+      // Masquer la barre latérale (modules V1 actifs différents de la référence complète)
+      const aside = document.querySelector('aside');
+      if (aside) (aside as HTMLElement).style.display = 'none';
 
       const pingDot = document.querySelector('.animate-ping');
       if (pingDot) (pingDot as HTMLElement).style.visibility = 'hidden';
 
+      // Zones retirées de la maquette originale (reportées en V2, voir ECARTS.md § 2.4) :
+      // 1. Toast conflit & options de relogement
+      const toast = document.querySelector('#conflict-toast');
+      if (toast) (toast as HTMLElement).style.display = 'none';
+
+      // 2. Barre de commandes avec filtres multiples et sélecteur 14 jours
+      const toolbar = document.querySelector('main section');
+      if (toolbar) (toolbar as HTMLElement).style.display = 'none';
+
+      // 3. Zone principale Gantt 14 jours (débordement horizontal) et volet statique
+      const mainGrid = document.querySelector('main .grid');
+      if (mainGrid) (mainGrid as HTMLElement).style.display = 'none';
+
       document.querySelectorAll('[data-adapted-zone]').forEach(el => {
         (el as HTMLElement).style.visibility = 'hidden';
       });
-
-      const toastStrong = document.querySelector('#conflict-toast p strong');
-      if (toastStrong) (toastStrong as HTMLElement).style.visibility = 'hidden';
-      const toastEq = document.querySelector('#conflict-toast .font-body-sm.text-on-surface-variant');
-      if (toastEq) (toastEq as HTMLElement).style.visibility = 'hidden';
-      const room203Reloc = document.querySelector('.col-span-14 .bg-surface-container-low');
-      if (room203Reloc) (room203Reloc as HTMLElement).style.visibility = 'hidden';
     });
     await page.waitForTimeout(200);
 
@@ -376,25 +380,20 @@ test.describe('Fidélité Visuelle - Rendu Hors Ligne vs Référence', () => {
 
     // Masquage sur l'application Angular
     await page.evaluate(() => {
-      const sidebarFooter = document.querySelector('app-sidebar .p-gutter');
-      if (sidebarFooter) (sidebarFooter as HTMLElement).style.visibility = 'hidden';
-
-      const sidebarNav = document.querySelector('app-sidebar nav');
-      if (sidebarNav) (sidebarNav as HTMLElement).style.visibility = 'hidden';
+      // Masquer la barre latérale (modules V1 actifs)
+      const aside = document.querySelector('app-sidebar');
+      if (aside) (aside as HTMLElement).style.display = 'none';
 
       const pingDot = document.querySelector('.animate-ping');
       if (pingDot) (pingDot as HTMLElement).style.visibility = 'hidden';
 
+      // Masquer la zone refondue du planning V1 (structure épurée 7 jours sans scroll horizontal)
+      const planningPage = document.querySelector('[data-testid="planning-page"]');
+      if (planningPage) (planningPage as HTMLElement).style.display = 'none';
+
       document.querySelectorAll('[data-adapted-zone]').forEach(el => {
         (el as HTMLElement).style.visibility = 'hidden';
       });
-
-      const toastStrong = document.querySelector('#conflict-toast p strong');
-      if (toastStrong) (toastStrong as HTMLElement).style.visibility = 'hidden';
-      const toastEq = document.querySelector('#conflict-toast .font-body-sm.text-on-surface-variant');
-      if (toastEq) (toastEq as HTMLElement).style.visibility = 'hidden';
-      const room203Reloc = document.querySelector('.col-span-14 .bg-surface-container-low');
-      if (room203Reloc) (room203Reloc as HTMLElement).style.visibility = 'hidden';
     });
     await page.waitForTimeout(200);
 
@@ -430,7 +429,7 @@ test.describe('Fidélité Visuelle - Rendu Hors Ligne vs Référence', () => {
     expect(diffPercent).toBeLessThanOrEqual(2.0);
   });
 
-    test('Fidélité Composants Internes Modal Nouvelle Réservation (Écart voulu dimensions ECARTS.md)', async ({ page }) => {
+  test('Fidélité Composants Internes Modal Nouvelle Réservation (Écart voulu dimensions ECARTS.md)', async ({ page }) => {
     const width = 1440;
     const height = 960;
     await page.setViewportSize({ width, height });
