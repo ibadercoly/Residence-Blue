@@ -664,10 +664,10 @@ import {
                     Résidence Blue • Thiès
                   </span>
                   <h4 class="font-bold text-xs sm:text-sm text-on-surface truncate" data-adapted-zone="summary-room-title">
-                    Ch. {{ currentRoomOption().number }} - {{ currentRoomOption().category === 'Deluxe' ? 'Deluxe Mer' : currentRoomOption().label }}
+                    Ch. {{ currentRoomOption().number }} - {{ currentRoomOption().category === 'Deluxe' ? 'Deluxe' : currentRoomOption().label }}
                   </h4>
                   <p class="text-[11px] text-outline truncate" data-adapted-zone="summary-room-sub">
-                    {{ currentRoomOption().category === 'Deluxe' ? "Balcon privé • Face océan" : currentRoomOption().details }}
+                    {{ currentRoomOption().category === 'Deluxe' ? "Balcon privé • Face jardin" : currentRoomOption().details }}
                   </p>
                 </div>
               </div>
@@ -934,7 +934,18 @@ export class NewReservationModalComponent {
   readonly currentRoomOption = computed<SpecificRoomOption>(() => {
     const list = this.availableRoomsForCategory();
     const found = list.find((r) => r.number === this.selectedRoomNumber());
-    return found ?? list[0] ?? this.modalService.roomsCatalog[6];
+    return (
+      found ??
+      list[0] ??
+      this.modalService.roomsCatalog[0] ?? {
+        number: '101',
+        category: 'Standard',
+        label: 'Chambre 101 - Standard',
+        floor: 'Étage 1',
+        details: 'Lit Queen, Climatisation',
+        imageFileName: 'chambre-101-standard',
+      }
+    );
   });
 
   readonly accommodationTotalFcfa = computed(() => {
