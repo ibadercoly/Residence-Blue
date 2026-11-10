@@ -1,4 +1,5 @@
-import { Injectable } from '@angular/core';
+import { inject, Injectable } from '@angular/core';
+import { ModuleConfigService } from '../services/module-config.service';
 
 @Injectable({
   providedIn: 'root',
@@ -7,6 +8,35 @@ export class IdbService {
   private readonly dbName = 'residence_blue_db';
   private readonly dbVersion = 1;
   private dbPromise: Promise<IDBDatabase> | null = null;
+  private readonly moduleConfig = inject(ModuleConfigService, { optional: true });
+
+  // Mappage des magasins IndexedDB vers leurs modules respectifs
+  private readonly storeModuleMapping: Record<string, string> = {
+    rooms: 'rooms',
+    reservations: 'planning',
+    invoices: 'facturation',
+    menu: 'restaurant',
+    restaurant: 'restaurant',
+    housekeeping: 'housekeeping',
+    maintenance: 'maintenance',
+    stocks: 'inventory',
+    inventory: 'inventory',
+    marketing: 'marketing_crm',
+    channel_manager: 'channel_manager',
+    accounting: 'accounting',
+  };
+
+  /**
+   * Vérifie si le magasin IndexedDB appartient à un module actif.
+   * RÈGLE : Aucune donnée n'est stockée pour un module reporté dans IndexedDB.
+   */
+  isStoreAllowed(storeName: string): boolean {
+    const moduleId = this.storeModuleMapping[storeName];
+    if (moduleId && this.moduleConfig) {
+      return this.moduleConfig.isModuleEnabled(moduleId);
+    }
+    return true;
+  }
 
   private openDb(): Promise<IDBDatabase> {
     if (this.dbPromise) {
@@ -45,6 +75,9 @@ export class IdbService {
   }
 
   async get<T>(storeName: string, key: IDBValidKey): Promise<T | undefined> {
+    if (!this.isStoreAllowed(storeName)) {
+      return undefined;
+    }
     const db = await this.openDb();
     return new Promise((resolve, reject) => {
       const tx = db.transaction(storeName, 'readonly');
@@ -56,6 +89,9 @@ export class IdbService {
   }
 
   async getAll<T>(storeName: string): Promise<T[]> {
+    if (!this.isStoreAllowed(storeName)) {
+      return [];
+    }
     const db = await this.openDb();
     return new Promise((resolve, reject) => {
       const tx = db.transaction(storeName, 'readonly');
@@ -67,6 +103,10 @@ export class IdbService {
   }
 
   async put<T>(storeName: string, value: T): Promise<void> {
+    if (!this.isStoreAllowed(storeName)) {
+      console.warn(`[IdbService] Écriture ignorée : le module lié au magasin « ${storeName} » est reporté/désactivé.`);
+      return;
+    }
     const db = await this.openDb();
     return new Promise((resolve, reject) => {
       const tx = db.transaction(storeName, 'readwrite');
@@ -78,6 +118,9 @@ export class IdbService {
   }
 
   async delete(storeName: string, key: IDBValidKey): Promise<void> {
+    if (!this.isStoreAllowed(storeName)) {
+      return;
+    }
     const db = await this.openDb();
     return new Promise((resolve, reject) => {
       const tx = db.transaction(storeName, 'readwrite');

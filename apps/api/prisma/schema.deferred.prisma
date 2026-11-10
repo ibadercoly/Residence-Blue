@@ -1,0 +1,69 @@
+// Schéma Prisma des Modules Reportés (V2 et V3)
+// Conservé dans le dépôt pour référence et documentation.
+// Ce schéma n'est pas compilé par le générateur standard en V1 pour préserver la taille minimale.
+
+// --- MODULE HOUSEKEEPING (V2) ---
+model HousekeepingSheet {
+  id               String   @id @default(uuid()) @db.Uuid
+  roomId           String   @map("room_id") @db.Uuid
+  assignedTo       String?  @map("assigned_to") @db.Uuid
+  status           String   @default("PENDING") @db.VarChar(50)
+  linenStatus      String   @default("CLEAN") @map("linen_status") @db.VarChar(50)
+  inspectionPassed Boolean  @default(false) @map("inspection_passed")
+  inspectedBy      String?  @map("inspected_by") @db.Uuid
+  notes            String?  @db.Text
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+
+  @@map("housekeeping_sheets")
+}
+
+// --- MODULE MAINTENANCE (V2) ---
+model MaintenanceWorkOrder {
+  id              String    @id @default(uuid()) @db.Uuid
+  roomId          String?   @map("room_id") @db.Uuid
+  equipmentTag    String?   @map("equipment_tag") @db.VarChar(100)
+  category        String    @db.VarChar(50)
+  priority        String    @default("NORMAL") @db.VarChar(20)
+  status          String    @default("REPORTED") @db.VarChar(50)
+  description     String    @db.Text
+  reportedBy      String?   @map("reported_by") @db.Uuid
+  assignedTo      String?   @map("assigned_to") @db.Uuid
+  resolutionNotes String?   @map("resolution_notes") @db.Text
+  resolvedAt      DateTime? @map("resolved_at")
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+
+  @@map("maintenance_work_orders")
+}
+
+// --- MODULE INVENTORY & STOCKS (V2) ---
+model InventoryItem {
+  id               String   @id @default(uuid()) @db.Uuid
+  sku              String   @unique @db.VarChar(50)
+  name             String   @db.VarChar(150)
+  category         String   @db.VarChar(50)
+  unit             String   @db.VarChar(20)
+  quantityOnHand   Decimal  @default(0) @map("quantity_on_hand") @db.Decimal(10, 2)
+  reorderThreshold Decimal  @default(5) @map("reorder_threshold") @db.Decimal(10, 2)
+  unitCostFcfa     Int      @default(0) @map("unit_cost_fcfa")
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+
+  @@map("inventory_items")
+}
+
+// --- MODULE COMPTABILITÉ SYSCOHADA (V3) ---
+model GeneralLedgerEntry {
+  id             String   @id @default(uuid()) @db.Uuid
+  entryDate      DateTime @map("entry_date") @db.Date
+  journalCode    String   @map("journal_code") @db.VarChar(10)
+  pieceReference String   @map("piece_reference") @db.VarChar(100)
+  accountNumber  String   @map("account_number") @db.VarChar(20)
+  debitFcfa      Int      @default(0) @map("debit_fcfa")
+  creditFcfa     Int      @default(0) @map("credit_fcfa")
+  description    String   @db.Text
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  @@map("general_ledger_entries")
+}

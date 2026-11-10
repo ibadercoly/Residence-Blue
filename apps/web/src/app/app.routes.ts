@@ -1,4 +1,5 @@
 import { Routes } from '@angular/router';
+import { moduleCanMatch } from './core/guards/module-match.guard';
 
 export const routes: Routes = [
   {
@@ -75,9 +76,10 @@ export const routes: Routes = [
         (m) => m.ExportsPageComponent
       )
   },
-  // Modules reportés V2 (gardés dans le dépôt sans alourdir le bundle initial)
+  // Modules reportés V2/V3 (protégés par canMatch pour empêcher le téléchargement de code)
   {
     path: 'housekeeping',
+    canMatch: [moduleCanMatch('housekeeping')],
     loadComponent: () =>
       import('./features/dashboard/pages/dashboard-page/dashboard-page.component').then(
         (m) => m.DashboardPageComponent
@@ -85,6 +87,47 @@ export const routes: Routes = [
   },
   {
     path: 'maintenance',
+    canMatch: [moduleCanMatch('maintenance')],
+    loadComponent: () =>
+      import('./features/dashboard/pages/dashboard-page/dashboard-page.component').then(
+        (m) => m.DashboardPageComponent
+      )
+  },
+  {
+    path: 'stocks',
+    canMatch: [moduleCanMatch('inventory')],
+    loadComponent: () =>
+      import('./features/dashboard/pages/dashboard-page/dashboard-page.component').then(
+        (m) => m.DashboardPageComponent
+      )
+  },
+  {
+    path: 'parametres',
+    canMatch: [moduleCanMatch('parametres')],
+    loadComponent: () =>
+      import('./features/dashboard/pages/dashboard-page/dashboard-page.component').then(
+        (m) => m.DashboardPageComponent
+      )
+  },
+  {
+    path: 'marketing',
+    canMatch: [moduleCanMatch('marketing_crm')],
+    loadComponent: () =>
+      import('./features/dashboard/pages/dashboard-page/dashboard-page.component').then(
+        (m) => m.DashboardPageComponent
+      )
+  },
+  {
+    path: 'channel-manager',
+    canMatch: [moduleCanMatch('channel_manager')],
+    loadComponent: () =>
+      import('./features/dashboard/pages/dashboard-page/dashboard-page.component').then(
+        (m) => m.DashboardPageComponent
+      )
+  },
+  {
+    path: 'comptabilite',
+    canMatch: [moduleCanMatch('accounting')],
     loadComponent: () =>
       import('./features/dashboard/pages/dashboard-page/dashboard-page.component').then(
         (m) => m.DashboardPageComponent

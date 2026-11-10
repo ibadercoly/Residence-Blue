@@ -5,7 +5,9 @@ WORKDIR /app
 COPY package*.json ./
 COPY tsconfig*.json ./
 COPY packages/shared/package*.json ./packages/shared/
+COPY apps/api/package*.json ./apps/api/
 COPY apps/web/package*.json ./apps/web/
+COPY config/ ./config/
 
 RUN npm install
 
@@ -18,6 +20,7 @@ RUN npm run build
 
 FROM nginx:alpine AS runner
 
+COPY apps/web/nginx.conf /etc/nginx/conf.d/default.conf
 COPY --from=builder /app/apps/web/dist/residence-blue-web/browser /usr/share/nginx/html
 
 EXPOSE 80

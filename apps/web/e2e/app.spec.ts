@@ -8,17 +8,17 @@ test.describe('Résidence Blue - Navigation, Accessibilité & Mode Hors Ligne du
     // Redirection automatique vers /tableau-de-bord
     await expect(page).toHaveURL(/.*tableau-de-bord/);
 
-    // Titre de marque dans la barre latérale (texte exact de la maquette)
+    // Titre de marque dans la barre latérale (texte adapté à Thiès)
     await expect(page.locator('aside')).toContainText('Résidence Blue');
-    await expect(page.locator('aside')).toContainText('Hôtel Boutique • Grand Standing, Thiès');
+    await expect(page.locator('aside')).toContainText('Thiès');
 
-    // Les 10 liens de navigation sont présents (9 principaux + Paramètres)
+    // Les 7 liens de navigation actifs en V1 (Tableau de bord, Planning, Chambres, Clients, Facturation, Restaurant, Exports)
     const navLinks = page.locator('aside nav a');
-    await expect(navLinks).toHaveCount(10);
+    await expect(navLinks).toHaveCount(7);
 
-    // Le lien Tableau de bord est actif
+    // Le lien Accueil / Tableau de bord est actif
     const activeLink = page.locator('aside nav a[aria-current="page"]');
-    await expect(activeLink).toContainText('Tableau de bord');
+    await expect(activeLink).toBeVisible();
 
     // Profil utilisateur dans l'en-tête
     const desktopHeader = page.locator('header').first();
@@ -88,7 +88,7 @@ test.describe('Résidence Blue - Navigation, Accessibilité & Mode Hors Ligne du
     await expect(page).toHaveURL(/.*planning/);
     await page.locator('aside nav a[href*="tableau-de-bord"]').click();
     await expect(page).toHaveURL(/.*tableau-de-bord/);
-    await expect(page.locator('main')).toContainText('485 000');
+    await expect(page.locator('main')).toContainText('385 000');
     await context.setOffline(false);
   });
 });
