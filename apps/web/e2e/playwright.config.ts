@@ -13,11 +13,11 @@ export default defineConfig({
     trace: 'on-first-retry',
   },
   webServer: {
-    command: 'npx ng serve --port 4200',
+    command: 'node scripts/serve-dist.mjs',
     url: 'http://localhost:4200',
     reuseExistingServer: true,
-    cwd: path.resolve(__dirname, '..'),
-    timeout: 120000,
+    cwd: path.resolve(__dirname, '../../..'),
+    timeout: 15000,
   },
   projects: [
     {

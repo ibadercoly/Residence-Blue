@@ -1,0 +1,208 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "version": "1.0.0-minimal",
+  "description": "Configuration des modules actifs pour la Version 1 Minimale & Performance de Résidence Blue",
+  "hotel": {
+    "name": "Résidence Blue",
+    "location": "Grand Standing, Thiès, Sénégal",
+    "roomCount": 12
+  },
+  "modules": {
+    "dashboard": {
+      "id": "dashboard",
+      "name": "Accueil",
+      "route": "/tableau-de-bord",
+      "icon": "dashboard",
+      "enabled": true,
+      "version": "v1",
+      "config": {
+        "showWeatherWidget": false,
+        "showPriorityAlerts": false,
+        "showRevenueChart": false,
+        "showAdvancedKpis": false,
+        "kpiCount": 4,
+        "actionButtonsCount": 5,
+        "enableDemoReset": true
+      }
+    },
+    "planning": {
+      "id": "planning",
+      "name": "Planning",
+      "route": "/planning",
+      "icon": "calendar_month",
+      "enabled": true,
+      "version": "v1",
+      "config": {
+        "windowDays": 14,
+        "enableServerSearch": true
+      }
+    },
+    "rooms": {
+      "id": "rooms",
+      "name": "Chambres",
+      "route": "/chambres",
+      "icon": "bed",
+      "enabled": true,
+      "version": "v1",
+      "config": {
+        "roomCount": 12,
+        "lazyImages": true
+      }
+    },
+    "clients": {
+      "id": "clients",
+      "name": "Clients",
+      "route": "/clients",
+      "icon": "group",
+      "enabled": true,
+      "version": "v1",
+      "config": {
+        "pageSize": 25,
+        "maskSensitiveData": true
+      }
+    },
+    "facturation": {
+      "id": "facturation",
+      "name": "Facturation",
+      "route": "/facturation",
+      "icon": "receipt_long",
+      "enabled": true,
+      "version": "v1",
+      "config": {
+        "currency": "FCFA",
+        "integerAmountsOnly": true
+      }
+    },
+    "restaurant": {
+      "id": "restaurant",
+      "name": "Restaurant & Bar",
+      "route": "/restaurant",
+      "icon": "restaurant",
+      "enabled": true,
+      "version": "v1",
+      "config": {
+        "enablePos": true,
+        "enableRoomService": true,
+        "enableKitchenScreen": true,
+        "kitchenRoute": "/cuisine"
+      }
+    },
+    "pool": {
+      "id": "pool",
+      "name": "Piscine",
+      "enabled": true,
+      "version": "v1",
+      "config": {
+        "isBillableProduct": true,
+        "productCode": "PASS-PISCINE",
+        "productName": "Accès Piscine Journée",
+        "priceFcfa": 5000,
+        "vatRatePercent": 10
+      }
+    },
+    "exports": {
+      "id": "exports",
+      "name": "Exports",
+      "route": "/exports",
+      "icon": "file_download",
+      "enabled": true,
+      "version": "v1",
+      "config": {
+        "maxPeriodMonths": 12,
+        "maxRowsPerExport": 50000,
+        "sanitizeFormulaCells": true,
+        "supportedFormats": ["PDF", "EXCEL"]
+      }
+    },
+    "housekeeping": {
+      "id": "housekeeping",
+      "name": "Gouvernance & Ménage",
+      "route": "/housekeeping",
+      "icon": "cleaning_services",
+      "enabled": false,
+      "version": "v2",
+      "status": "deferred"
+    },
+    "maintenance": {
+      "id": "maintenance",
+      "name": "Maintenance Technique",
+      "route": "/maintenance",
+      "icon": "build",
+      "enabled": false,
+      "version": "v2",
+      "status": "deferred"
+    },
+    "inventory": {
+      "id": "inventory",
+      "name": "Stocks & Économat",
+      "route": "/stocks",
+      "icon": "inventory_2",
+      "enabled": false,
+      "version": "v2",
+      "status": "deferred"
+    },
+    "marketing_crm": {
+      "id": "marketing_crm",
+      "name": "Fidélité & Marketing",
+      "route": "/marketing",
+      "icon": "campaign",
+      "enabled": false,
+      "version": "v3",
+      "status": "deferred"
+    },
+    "channel_manager": {
+      "id": "channel_manager",
+      "name": "Passerelle OTAs (Booking/Airbnb)",
+      "route": "/channel-manager",
+      "icon": "sync_alt",
+      "enabled": false,
+      "version": "v3",
+      "status": "deferred"
+    }
+  },
+  "roles": {
+    "DIRECTION": {
+      "allowedModules": [
+        "dashboard",
+        "planning",
+        "rooms",
+        "clients",
+        "facturation",
+        "restaurant",
+        "pool",
+        "exports"
+      ],
+      "canExportClients": true,
+      "canManageMenu": true
+    },
+    "RECEPTION": {
+      "allowedModules": [
+        "dashboard",
+        "planning",
+        "rooms",
+        "clients",
+        "facturation",
+        "restaurant",
+        "pool",
+        "exports"
+      ],
+      "canExportClients": false,
+      "canManageMenu": false
+    },
+    "SERVEUR": {
+      "allowedModules": [
+        "restaurant"
+      ],
+      "canExportClients": false,
+      "canManageMenu": false
+    },
+    "CUISINE": {
+      "allowedModules": [
+        "restaurant"
+      ],
+      "kitchenScreenOnly": true,
+      "canExportClients": false,
+      "canManageMenu": false
+    }
+  }
+}

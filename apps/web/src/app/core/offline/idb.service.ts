@@ -87,4 +87,57 @@ export class IdbService {
       req.onerror = () => reject(req.error);
     });
   }
+
+  /**
+   * Purge automatique du cache hors ligne :
+   * - Réservations : conserve uniquement les 14 prochains jours et les séjours en cours.
+   * - Factures : conserve au maximum les 100 dernières factures.
+   * - Menu restaurant : conservé intégralement pour la prise de commande.
+   */
+  async pruneOfflineCache(): Promise<{ prunedReservations: number; prunedInvoices: number }> {
+    let prunedReservations = 0;
+    let prunedInvoices = 0;
+
+    try {
+      const now = new Date();
+      const horizon = new Date(now.getTime() + 14 * 24 * 60 * 60 * 1000);
+
+      // Purge réservations hors fenêtre
+      const reservations = await this.getAll<any>('reservations');
+      for (const res of reservations) {
+        const isCurrentStay = res.status === 'CHECKED_IN' || res.status === 'OCCUPIED';
+        const checkIn = res.checkInDate ? new Date(res.checkInDate) : null;
+        const checkOut = res.checkOutDate ? new Date(res.checkOutDate) : null;
+
+        const inHorizon =
+          (checkIn && checkIn <= horizon && checkIn >= new Date(now.getTime() - 2 * 24 * 60 * 60 * 1000)) ||
+          (checkOut && checkOut >= now && checkOut <= horizon);
+
+        if (!isCurrentStay && !inHorizon && res.id) {
+          await this.delete('reservations', res.id);
+          prunedReservations++;
+        }
+      }
+
+      // Purge factures (garder les 100 dernières)
+      const db = await this.openDb();
+      if (db.objectStoreNames.contains('invoices')) {
+        const invoices = await this.getAll<any>('invoices');
+        if (invoices.length > 100) {
+          invoices.sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
+          const toDelete = invoices.slice(100);
+          for (const inv of toDelete) {
+            if (inv.id) {
+              await this.delete('invoices', inv.id);
+              prunedInvoices++;
+            }
+          }
+        }
+      }
+    } catch (err) {
+      console.warn('Avertissement purge cache hors ligne :', err);
+    }
+
+    return { prunedReservations, prunedInvoices };
+  }
 }

@@ -52,11 +52,17 @@ Les 10 maquettes interactives couvrent les parcours principaux (Tableau de bord,
   - Gestion des utilisateurs et des rôles applicatifs (`ADMIN`, `DIRECTION`, `RECEPTION`, `RESTAURANT`, `MAINTENANCE`, `HOUSEKEEPING`).
   - Journal de synchronisation hors ligne (file d'attente Outbox).
 
----
-
 ### 1.5. Formulaires et Modal de Gestion du Menu Restaurant
 - **Constat :** Aucune maquette Google Stitch n'existe pour les formulaires de gestion administrative du menu (ajout de plat, modification, duplication, archivage, gestion des catégories, import/export CSV/Excel et téléversement de photos). Seule la vue opérationnelle de prise de commande caisse (`point_de_vente_restaurant_la_teranga`) a fait l'objet d'une maquette source.
 - **Solution retenue :** Formulaires et tableaux de gestion intégrés dans le composant standard `ModalShellComponent` compact (largeur maximale 960 px, hauteur maximale 88 dvh, corps défilant, en-tête et pied fixes, plein écran sous 768 px). Réutilisation stricte et sans dérive des composants, couleurs, polices (`Manrope`, `Newsreader`), rayons et espacements du design system de l'hôtel.
+
+### 1.6. Écran Exports & Rapports Officiels V1 (`/exports`)
+- **Constat :** Aucune maquette source n'existe pour l'écran de téléchargement des exports certifiés (Facture séjour PDF, Feuille arrivées/départs PDF, État des chambres PDF, Clôture caisse Z PDF/Excel, Fichier clients Excel, Ventes restaurant et piscine Excel).
+- **Solution retenue :** Écran épuré et ergonomique créé selon les mêmes composants, grille bento, palette pierre/bleu nuit `#135bec`, typographie `Manrope`, boutons d'action $\ge 44$ px et tableau d'audit des exports récents.
+
+### 1.7. Écran Cuisine en Temps Réel (`/cuisine`)
+- **Constat :** Aucune maquette source n'existe pour le poste de travail des cuisiniers et serveurs.
+- **Solution retenue :** Interface plein écran tactile à fort contraste, adaptée aux conditions de travail en cuisine (bons de commande classés par poste : Cuisine, Bar, Pâtisserie avec horodatage et bouton de validation d'envoi en un clic).
 
 ---
 
@@ -88,191 +94,13 @@ Plusieurs éléments graphiques conçus initialement pour un resort balnéaire �
     3. *Pied fixe toujours visible* : Boutons « Annuler » et « Confirmer la réservation » avec affichage du Total TTC en direct. Le bouton de confirmation est visible immédiatement dès l'ouverture, sans aucun défilement.
   - **Compactage vertical (~30 % de réduction de hauteur) :**
     - Date d'arrivée, nombre de nuits et date de départ fusionnés sur une seule ligne.
-    - Compteurs Adultes et Enfants disposés côte à côte (steppers compacts de 40 px de hauteur).
-    - Carte client fidèle compactée sur 2 lignes informatives.
-    - Demandes particulières placées dans une section repliable par défaut (dépliée automatiquement si du texte est présent).
-    - Volet récapitulatif latéral limité à 300 px maximum (sticky au scroll), et replié sous 900 px en une barre extensible « Total : 456 000 FCFA ▾ ».
-  - **Test de fidélité visuelle :** L'évaluation de fidélité compare le style, les couleurs, les polices, les rayons et les composants internes sans imposer les dimensions extérieures de 1152×942 px de la maquette originale.
-
-### 2.4. Fiche Profil Client (M. Mamadou Diop) — Confidentialité PII & Fonctionnalités Réseau
-- **Écart constaté & Décision d'architecture :**
-  1. *Masquage PII par défaut du numéro de passeport :* Dans la maquette originale, le numéro de passeport complet (« SN-982341-B ») est affiché en clair. Pour respecter les exigences de protection des données sensibles (RGPD / CDP Sénégal et AGENTS.md), le numéro est masqué par défaut sous la forme « SN••••••1-B ». Un bouton « Afficher » permet de le révéler uniquement aux utilisateurs ayant un rôle habilité (Direction / Réceptionniste).
-  2. *Boutons de communication externe inactifs :* Les actions WhatsApp (`wa.me/...`), SMS et E-mail nécessitent une connectivité Internet et des passerelles de messagerie tierces non disponibles hors ligne. Ils sont configurés avec un retour utilisateur explicite « TODO notifications, nécessitent internet ».
-  3. *Action Scan PDF inactive :* Le bouton « Scan PDF » affiche un message informatif « TODO fonctionnalité d'envoi sécurisé de fichiers », en attente de la brique de stockage chiffré des pièces jointes.
-  4. *Conversion dynamique en euros avec taux fixe :* Le montant cumulé dépensé affiche la conversion en euros basée sur le taux officiel fixe UEMOA/BCEAO (1 EUR = 655,957 FCFA) paramétré dans le PMS (ex. 3 850 000 FCFA -> approx. 5 870 €).
-  5. *4 onglets opérationnels complets :* Historique des séjours, Préférences & Habitudes, Factures & Folios, Notes & Conciergerie (avec ajout dynamique et immédiat de consignes internes).
+    - Sélection des chambres en carrousel horizontal défilant.
+    - Options regroupées en puces cliquables.
 
 ---
 
 ## 3. Obstacles au Fonctionnement Hors Ligne (Offline-First) & Solutions
 
-Le projet Résidence Blue impose une architecture **offline-first stricte** : l'ensemble du personnel doit pouvoir travailler même en cas de coupure Internet à Thiès. Les maquettes Google Stitch comportaient plusieurs dépendances réseau qui bloquaient le fonctionnement hors ligne :
-
-### 3.1. Dépendances CDN Externes dans le `<head>`
-- **Problème :** Les maquettes chargent :
-  - `https://cdn.tailwindcss.com` (compilateur JIT Tailwind distant)
-  - `https://fonts.googleapis.com` et `https://fonts.gstatic.com`
-  - Polices distantes `Manrope` et `Newsreader`
-  - Icônes distantes `Material Symbols Outlined`
-- **Impact hors ligne :** Sans connexion Internet, Tailwind ne charge pas, les polices redeviennent des polices système (Times / Arial), et les icônes deviennent des chaînes de texte brut (ex. « tsunami », « bed ») rendant l'interface illisible.
-- **Solution mise en place :**
-  1. Tailwind est intégré localement au projet Angular via le compilateur PostCSS (`apps/web/`).
-  2. Les paquets `@fontsource/manrope`, `@fontsource/newsreader` et `material-symbols` sont installés en dépendances locales.
-  3. Pour les 10 pages de référence hors ligne (`design/reference/*.html`), les CSS sont compilés localement et les polices servies depuis `design/reference/fonts/`.
-
-### 3.2. Images Distantes sur Google User Content (`lh3.googleusercontent.com`)
-- **Problème :** Toutes les photographies (portraits de clients, plats du restaurant, vues des chambres) pointent vers des URLs distantes Google (`https://lh3.googleusercontent.com/...`).
-- **Impact hors ligne :** Images brisées hors ligne. De plus, 2 URLs sont expirées (voir `docs/design/INVENTAIRE-IMAGES.md`).
-- **Solution mise en place :**
-  1. Téléchargement des 14 images valides dans `images/maquettes-originales/`.
-  2. Images hébergées localement dans `apps/web/public/assets/images/`.
-  3. Composants de repli SVG et initiales pour les URLs expirées ou manquantes.
-
-### 3.3. Gestion de l'Idempotence et File d'Attente Outbox
-- **Règle architecturale :** Toute écriture effectuée hors ligne génère un **UUID côté client** et est enregistrée dans **IndexedDB**.
-- Chaque requête vers l'API NestJS transporte un en-tête `Idempotency-Key: <UUID>`. La synchronisation ne duplique aucun enregistrement.
-
----
-
-## 4. Audit d'Accessibilité (Contraste, Cibles Tactiles & Navigation Clavier)
-
-### 4.1. Ratios de Contraste de Couleur (Norme WCAG AA)
-- La couleur `--color-outline` (`#6d797b`) sur fond clair `#f3fafe` présente un ratio de **3.6:1**. Le texte secondaire courant est donc basé sur `--color-on-surface-variant` (**`#3d494a`**, ratio **7.2:1**), réservant `#6d797b` aux bordures et séparateurs décoratifs.
-- La pastille ambre sur fond jaune pâle (`#fffbeb` avec texte `#92400e`) conserve au moins 14px en graisse semi-bold pour respecter le ratio de 4.5:1.
-
-### 4.2. Ergonomie & Cibles Tactiles (Touch Targets)
-- Dans le planning Gantt, les boutons de navigation « < » et « > » et cellules de dates mesurent parfois moins de 32px de large dans la maquette originale.
-- Les zones d'appui tactiles (`padding` transparent) sont portées à au moins 44x44px sur tablette/mobile.
-
-### 4.3. Navigation au Clavier & Lecteurs d'Écran
-- Tous les champs comportent un `<label>` explicite ou `<label class="sr-only">`.
-- Focus visible net : `focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2`.
-- Modales accessibles avec piège du focus (`focus trap`) et fermeture avec `Escape`.
-
----
-
-## 5. Régularisations Techniques — Shell & Navigation
-
-1. **Accessibilité :**
-   - `<label for="global-search" class="sr-only">` sur la recherche globale.
-   - `role="banner"` sur `<header>`, `role="main"` sur `<main>`, `aria-label="Navigation principale"` sur `<aside>`, `aria-label="Navigation mobile"` sur la barre d'onglets mobile.
-   - `aria-current="page"` sur l'élément actif.
-   - `aria-hidden="true"` sur les icônes Material Symbols.
-2. **Thème unique (Règle absolue) :**
-   - L'application n'a **qu'un seul thème** : mode clair, barre latérale bleu nuit / ardoise sombre (`#2a3135`). Aucun mode sombre n'est implémenté ni proposé à l'utilisateur.
-   - En mobile (< 768px), la barre latérale devient une barre de navigation en bas (`tableau_de_bord_mode_clair`).
-3. **Ressources 100 % locales :**
-   - Zéro CDN. Compilation locale PostCSS/Tailwind, polices locales `@fontsource/*`, `material-symbols` local, images dans `public/assets/images/`.
-
----
-
-## 6. Décalages de Tokens : DESIGN.md vs code.html (Source de Vérité)
-
-Le tableau suivant répertorie les divergences précises entre la documentation rédigée `DESIGN.md` et les configurations Tailwind réelles contenues dans les fichiers `code.html` des maquettes. Conformément aux consignes strictes du projet, **la configuration Tailwind de `code.html` prévaut systématiquement** :
-
-| Élément / Jeton | Valeur DESIGN.md | Valeur Tailwind code.html | Décision & Justification |
-|---|---|---|---|
-| **Couleur Primaire (`primary`)** | `#0e8f9b` | `#00666f` | **`#00666f` retenu**. Le teal sombre de `code.html` offre un ratio WCAG de 4.9:1 sur fond blanc (contre 3.8:1 pour `#0e8f9b`, insuffisant pour le texte normal). Container : `#00818c`. |
-| **Couleur Secondaire (`secondary`)** | `#e0a53a` | `#7e5700` | **`#7e5700` retenu**. Or ambré foncé garantissant la lisibilité des badges et étiquettes. Container : `#fdbe51`. |
-| **Couleur Tertiaire (`tertiary`)** | Absent / non explicité | `#465d7b` | **`#465d7b` retenu** (Bleu acier opérationnel pour les états d'inventaire et maintenance). Container : `#5f7695`. |
-| **Fond général de l'application (`background` / `surface`)** | `#eaf1f5` | `#f3fafe` | **`#f3fafe` retenu**. Présent sur l'intégralité des 10 maquettes `code.html`. Teinte fraîche et lumineuse. |
-| **Fond Barre Latérale (`inverse-surface`)** | `#0a2540` (Bleu nuit profond) | `#2a3135` (Gris ardoise / bleu nuit sombre) | **`#2a3135` retenu**. C'est la couleur exacte de la sidebar dans `tableau_de_bord/code.html`. Adoucit le contraste tout en préservant le confort visuel. |
-| **Bordures d'interface (`outline-variant`)** | `#d0d7de` | `#bdc9ca` | **`#bdc9ca` retenu**. Conforme à la config Tailwind. |
-| **Rayons de courbure (Cards standard)** | `1rem` (16px) | `rounded-2xl` (16px à 24px) | **16px (`1rem`) pour cartes simples, 24px (`1.5rem`) pour cartes bento**. |
-| **Multi-thème (Dark Mode)** | Prévu / évoqué | Absent des maquettes | **Thème clair unique imposé**. Pas de mode sombre en production. |
-
----
-
-## 7. Fonctionnalités Visibles dans les Maquettes mais Absentes du Plan Initial
-
-L'analyse exhaustive des 10 maquettes met en évidence **8 fonctionnalités opérationnelles** représentées graphiquement dans les écrans, mais non couvertes ou différées dans le plan de développement initial. Voici l'état des lieux et les recommandations pour chaque fonctionnalité :
-
-### 7.1. Relogement par Glisser-Déposer (Drag-and-Drop) sur le Planning
-- **Écran concerné :** `planning_grille_des_chambres` (Écran 05).
-- **Description dans la maquette :** Déplacement direct d'un bloc de réservation d'une chambre à une autre ou d'une date à une autre avec recalcul automatique du tarif et détection de conflit de disponibilité.
-- **Statut dans le plan initial :** Le plan prévoyait la consultation du planning et la modification par formulaire / modal, sans interaction drag-and-drop.
-- **Proposition :**
-  1. *Phase 1 (Actuelle) :* Réassignation de chambre via la modal de réservation ou action « Modifier l'attribution ».
-  2. *Phase 2 :* Intégration de l'interaction glisser-déposer HTML5 / Angular CDK DragDrop avec verrouillage de confirmation (modal de validation du relogement pour éviter les manipulations involontaires sur écran tactile).
-
-### 7.2. Écran Cuisine (KDS - Kitchen Display System)
-- **Écran concerné :** Évoqué dans `point_de_vente_restaurant` (Écran 07) via le statut « Envoyé en cuisine (12:42) ».
-- **Description dans la maquette :** Les commandes passées sur le POS restaurant génèrent des bons de préparation avec minuteur, statut de préparation (*En attente*, *En cuisson*, *Prêt*) et bip sonore.
-- **Statut dans le plan initial :** Le plan couvre le POS restaurant, l'addition, le transfert sur folio chambre et l'encaissement, mais pas d'écran dédié pour le cuisinier.
-- **Proposition :** Les commandes du restaurant sont persistées avec statut (`PENDING`, `PREPARING`, `SERVED`). Un écran cuisine léger pourra être ajouté ultérieurement dans une sous-route `/restaurant/kds`.
-
-### 7.3. Scan et Pièce Jointe PDF de la Pièce d'Identité Client
-- **Écran concerné :** `fiche_profil_client_m._mamadou_diop` (Écran 06).
-- **Description dans la maquette :** Encadré « Passeport C01289432 • Validité 14/09/2028 » avec bouton « Télécharger la copie PDF du passeport » et prévisualisation du document officiel.
-- **Statut dans le plan initial :** Le plan prévoit la saisie des métadonnées d'identité (numéro de pièce, type, pays) et leur chiffrement AES-256-GCM en base, mais pas le stockage d'images / documents scannés.
-- **Proposition :**
-  1. Respecter scrupuleusement la sécurité : ne jamais stocker de document d'identité non chiffré.
-  2. Prévoir un champ optionnel d'upload de document chiffré côté serveur (AES-256-GCM) dans le cardex client en Phase 2, tout en masquant le bouton de téléchargement factice tant que le stockage de fichiers sécurisé n'est pas activé.
-
-### 7.4. Inventaire des Pièces Détachées de Maintenance
-- **Écran concerné :** `tickets_de_maintenance` (Écran 09).
-- **Description dans la maquette :** Dans le détail d'un ticket de climatisation (Chambre 204), un panneau affiche « Pièces nécessaires : Filtre climatiseur Daikin 12000 BTU (En stock : 3 unités au magasin central) » avec bouton « Déstocker la pièce ».
-- **Statut dans le plan initial :** Le plan couvre les tickets de maintenance (statut, priorité, affectation, coût de réparation en FCFA), mais pas la gestion complète d'un stock de pièces détachées avec inventaire permanent.
-- **Proposition :** Conserver un champ texte libre `piecesUtilisees` et un champ montant `coutPiecesFcfa` sur le ticket de maintenance pour impacter les charges, sans créer un module d'inventaire complet de quincaillerie en Phase 1.
-
-### 7.5. Envois Automatisés de Confirmations (WhatsApp, SMS, E-mail)
-- **Écran concerné :** `modal_nouvelle_r_servation` (Écran 04) et `fiche_profil_client_m._mamadou_diop` (Écran 06).
-- **Description dans la maquette :** Cases à cocher « Envoyer la confirmation par SMS (+221...) », « Notification WhatsApp Business » et « E-mail avec voucher PDF ».
-- **Statut dans le plan initial :** Le plan fonctionne en offline-first local sans dépendance obligatoire à un compte Twilio, Infobip ou passerelle SMS locale.
-- **Proposition :**
-  1. Ajouter un bouton client-side `Partager via WhatsApp Web` (`https://wa.me/221.../?text=...`) générant un message préformaté prêt à envoyer par le réceptionniste depuis son poste ou smartphone, sans coût d'API ni passerelle externe.
-  2. Traiter l'intégration API SMS / E-mail transactionnelle comme une extension future configurable dans les Paramètres.
-
-### 7.6. Export des Rapports Comptables en Formats Excel (.xlsx) et PDF
-- **Écran concerné :** `rapports_financiers_et_statistiques` (Écran 10).
-- **Description dans la maquette :** Boutons d'action proéminents « Exporter le rapport comptable (Excel) » et « Télécharger l'état fiscal mensuel (PDF certifié) ».
-- **Statut dans le plan initial :** Le plan prévoit la consultation des rapports en ligne et hors ligne (chiffre d'affaires, taux d'occupation, RevPAR en FCFA entiers), mais pas les moteurs d'export binaire Excel/PDF.
-- **Proposition :**
-  1. Implémenter l'export CSV UTF-8 (compatible Excel direct) et l'impression navigateur stylisée (CSS `@media print`) pour le PDF en Phase 1.
-  2. Ajouter les librairies de génération XLSX / PDF côté client en phase de clôture financière si requis.
-
-### 7.7. Support Multilingue (Langue Anglaise)
-- **Écran concerné :** Menu déroulant de langue « FR | EN » présent dans l'en-tête de certaines maquettes.
-- **Description dans la maquette :** Possibilité de basculer l'interface en anglais.
-- **Statut dans le plan initial :** `AGENTS.md` stipule formellement : « Interface en français. Code en anglais, commentaires et messages affichés en français ».
-- **Proposition :** L'interface reste strictement en français pour la version de production. Le sélecteur de langue est retiré ou masqué, conformément à la charte et à la convention du projet.
-
-### 7.8. Clôture de Caisse Journalière « Rapport Z »
-- **Écran concerné :** `point_de_vente_restaurant` (Écran 07) et `rapports_financiers_et_statistiques` (Écran 10).
-- **Description dans la maquette :** Bouton « Clôturer la caisse (Rapport Z) » avec récapitulatif des encaissements par mode de règlement (Espèces, Wave, Orange Money, Carte bancaire, Prise en charge folio chambre) et vérification du fond de caisse.
-- **Statut dans le plan initial :** Les encaissements sont rattachés aux réservations et tickets restaurant, mais la procédure comptable formelle de clôture « Z » quotidienne avec verrouillage des écritures n'était pas détaillée.
-- **Proposition :** Intégrer la clôture de caisse quotidienne dans le module Facturation / Finance, permettant au gérant ou à la direction de figer les transactions d'une journée calendaire et d'imprimer le ticket de contrôle.
-
-
----
-
-## 8. Écarts Voulus : Facturation, Folio Client & Encaissement (`/facturation`)
-
-Dans le cadre de l'implémentation de la maquette `design/maquettes/facturation_folio_client_encaissement/`, les écarts suivants ont été appliqués de manière délibérée et rigoureusement documentés :
-
-### 8.1. Données Fiscales & Légales Issues des Paramètres Établissement
-- **Maquette Stitch :** Mentions en dur dans le code HTML (`Hôtel Boutique & Spa Océanique`, `NINEA : 004819230`, `RCCM : SN-THS-2021-B-114`, adresse statique).
-- **Implémentation Angular :** Les informations légales, l'adresse de l'hôtel (`Quartier Grand Standing • Thiès, Sénégal`), le NINEA, le RCCM et le taux de TVA proviennent du service `HotelSettingsService`. Aucune donnée légale d'établissement n'est codée en dur dans le template.
-
-### 8.2. Protection PII Absolue : Exclusion du Numéro de Passeport à l'Impression
-- **Règle RGPD & CDP Sénégal :** Le numéro de passeport (`SN-982341-B`) ne doit en aucun cas figurer sur la facture ou le folio client imprimé remis au voyageur ou à des tiers.
-- **Implémentation :** Le champ est neutralisé par la classe CSS `print:hidden` et les règles `@media print`, garantissant qu'aucune copie physique ou export PDF du document comptable ne divulgue cette donnée hautement confidentielle.
-
-### 8.3. Horodatage en Heure Locale Sénégalaise
-- **Maquette Stitch :** Heure statique `10:42 GMT`.
-- **Implémentation :** L'heure est calculée dynamiquement au fuseau horaire de Dakar/Thiès (`GMT`).
-
-### 8.4. Adaptation Géographique & Culinaire (Thiès vs Saly)
-- Conformément à `docs/design/ADAPTATION-THIES.md` :
-  - `Langoustes fraîches braisées de Saly & Bouteille Sancerre` $\to$ `Thiéboudienne Penda Mbaye royale & Bouteille de vin rouge`.
-  - `Pirogue artisanale privée avec skipper (Teranga Nautic Saly)` $\to$ `Mise à disposition véhicule avec chauffeur (Excursion Réserve Bandia)`.
-  - `Expérience — Sortie Pêche au Gros en Mer` $\to$ `Excursion guidée — Forêt de Bandia & Manufacture des Arts de Thiès`.
-  - `Vue frontale mer, terrasse privée & petit-déjeuner inclus` $\to$ `Vue dégagée sur jardin arboré, terrasse privée & petit-déjeuner inclus`.
-  - `Chambre 301 — Suite Océan Panoramique` $\to$ `Chambre 301 — Suite Panoramique`.
-
-### 8.5. Taux de TVA et Taxe de Séjour Réglementaires
-- **TVA Sénégalaise :** 10 % (taux légal réduit applicable au secteur de l'hôtellerie et de la restauration au Sénégal, contre 18 % dans la maquette initiale).
-- **Taxe de Séjour :** 8 000 FCFA (calculée sur le barème légal : 4 nuits $\times$ 2 adultes $\times$ 1 000 FCFA), exonérée de TVA.
-
-### 8.6. Double Onglet Opérationnel (Folio en Cours & Clôture Z de Caisse)
-- L'écran supporte la navigation par onglets entre le folio client individuel (`#INV-2024-0542`) et le rapport de fin de journée de caisse (`Z de caisse`), permettant la visualisation instantanée des encaissements par canal (Wave, Espèces, Orange Money, Carte Bancaire) et le suivi du fond de tiroir physique.
+1. **Génération d'identifiants côté client** : Toutes les nouvelles entités créées hors ligne (réservations, commandes, factures) utilisent un UUID v4 local unique pour éviter les collisions avec les clés auto-incrémentées de la base PostgreSQL.
+2. **Idempotence des transactions (`Idempotency-Key`)** : Chaque opération envoyée dans la file d'attente (Outbox) porte un identifiant d'idempotence unique. En cas de coupure réseau ou de réessais multiples, le serveur élimine les doublons sans altérer l'état de la base.
+3. **Purge sélective du cache IndexedDB** : Pour éviter l'asphyxie mémoire sur les postes clients, le magasin local ne conserve que l'horizon utile opérationnel (14 prochains jours de réservations, séjours en cours, carte complète du restaurant et les 100 dernières factures émises).

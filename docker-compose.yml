@@ -26,6 +26,11 @@ services:
       - ./docker/postgres/init.sql:/opt/residence-blue/init.sql:ro
     networks:
       - internal_net
+    mem_limit: 512m
+    deploy:
+      resources:
+        limits:
+          memory: 512M
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
       interval: 5s
@@ -73,6 +78,11 @@ services:
     networks:
       - internal_net
       - public_net
+    mem_limit: 300m
+    deploy:
+      resources:
+        limits:
+          memory: 300M
 
   web:
     build:
