@@ -25,7 +25,7 @@ describe('RoomStatusCardComponent', () => {
     expect(component.isMenuOpen()).toBe(false);
   });
 
-  it('devrait basculer l’état du menu avec toggleMenu', () => {
+  it('devrait basculer l\'état du menu avec toggleMenu', () => {
     component.toggleMenu();
     expect(component.isMenuOpen()).toBe(true);
     component.closeMenu();
@@ -36,6 +36,14 @@ describe('RoomStatusCardComponent', () => {
     component.toggleMenu();
     expect(component.isMenuOpen()).toBe(true);
     component.onEscape();
+    expect(component.isMenuOpen()).toBe(false);
+  });
+
+  it('devrait fermer le menu lors du clic extérieur (onDocClick)', () => {
+    component.toggleMenu();
+    expect(component.isMenuOpen()).toBe(true);
+    // Sans event (chemin de code fallback)
+    component.onDocClick(undefined);
     expect(component.isMenuOpen()).toBe(false);
   });
 
@@ -67,5 +75,39 @@ describe('RoomStatusCardComponent', () => {
     component.onActionDeactivate();
     expect(component.isMenuOpen()).toBe(false);
     expect(deactivatedRoom).toBe(component.room);
+  });
+
+  it('devrait émettre onView et fermer le menu lors de onActionView', () => {
+    let viewedRoom: any = null;
+    component.onView.subscribe((r) => {
+      viewedRoom = r;
+    });
+
+    component.toggleMenu();
+    component.onActionView();
+    expect(component.isMenuOpen()).toBe(false);
+    expect(viewedRoom).toBe(component.room);
+  });
+
+  it('devrait émettre onReactivate et fermer le menu lors de onActionReactivate', () => {
+    let reactivatedRoom: any = null;
+    component.onReactivate.subscribe((r) => {
+      reactivatedRoom = r;
+    });
+
+    component.toggleMenu();
+    component.onActionReactivate();
+    expect(component.isMenuOpen()).toBe(false);
+    expect(reactivatedRoom).toBe(component.room);
+  });
+
+  it('devrait naviguer dans le menu au clavier avec onTriggerKeydown', () => {
+    // Ouvre avec ArrowDown
+    component.onTriggerKeydown({ key: 'ArrowDown', preventDefault: () => {} } as KeyboardEvent);
+    expect(component.isMenuOpen()).toBe(true);
+
+    // Ferme avec Escape
+    component.onTriggerKeydown({ key: 'Escape', preventDefault: () => {} } as KeyboardEvent);
+    expect(component.isMenuOpen()).toBe(false);
   });
 });
