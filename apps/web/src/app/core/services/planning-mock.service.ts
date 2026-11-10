@@ -1,4 +1,5 @@
-import { Injectable, signal, computed } from '@angular/core';
+import { Injectable, signal, computed, inject, Injector } from '@angular/core';
+import { RoomsService } from './rooms.service';
 import { Observable, of } from 'rxjs';
 import {
   PlanningData,
@@ -15,6 +16,15 @@ import {
   providedIn: 'root'
 })
 export class PlanningMockService {
+  private readonly injector = inject(Injector);
+
+  /**
+   * Résolution paresseuse de RoomsService : l'injection directe créerait une
+   * dépendance circulaire (RoomsService dépend déjà de PlanningMockService).
+   */
+  private get roomsService(): RoomsService | null {
+    return this.injector.get(RoomsService, null);
+  }
   // TODO(API): Raccorder au backend NestJS et à la base de données PostgreSQL / Prisma
   // Voir docs/performance/A-FAIRE-API.md pour la spécification des routes d'exploitation.
 
@@ -203,7 +213,19 @@ export class PlanningMockService {
   readonly allReservations = signal<PlanningReservation[]>(this.initialReservations);
 
   /** Définition statique des 12 chambres de l'hôtel */
-  readonly catalogRooms: Omit<PlanningRoom, 'reservations'>[] = [
+  get catalogRooms(): Omit<PlanningRoom, 'reservations'>[] {
+    if (this.roomsService) {
+      const active = this.roomsService.activeRooms();
+      if (active.length > 0) {
+        return active.map((r) => ({
+          number: r.number,
+          category: (r.category || r.type?.name || 'Standard') as any,
+          typeLabel: `${r.category || r.type?.name || 'Standard'} ${r.view || ''}`.trim(),
+          description: r.description || `Étage ${r.floor}`,
+        }));
+      }
+    }
+    return [
     { number: '101', category: 'Standard', typeLabel: 'Standard Patio', description: 'RDC Jardin' },
     { number: '102', category: 'Standard', typeLabel: 'Standard Patio', description: 'RDC Jardin' },
     { number: '103', category: 'Standard', typeLabel: 'Standard Jardin', description: 'RDC Patio' },
@@ -217,6 +239,7 @@ export class PlanningMockService {
     { number: '301', category: 'Suite', typeLabel: 'Suite Panoramique', description: 'Panoramique VIP' },
     { number: '302', category: 'Suite', typeLabel: 'Suite Élysée', description: 'Prestige Rooftop' }
   ];
+  }
 
   /** Date de référence fixe pour la démo : Mardi 10 Novembre 2026 */
   private readonly baseDate = new Date(2026, 10, 10); // 10 nov 2026
@@ -287,7 +310,7 @@ export class PlanningMockService {
         .map(r => r.roomNumber)
     );
 
-    const freeRoomsToday = Math.max(0, 12 - occupiedTodaySet.size);
+    const freeRoomsToday = Math.max(0, this.catalogRooms.length - occupiedTodaySet.size);
 
     return {
       arrivalsToday,

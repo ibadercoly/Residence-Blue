@@ -31,7 +31,7 @@ import {
     <app-modal-shell
       [isOpen]="modalService.isOpen()"
       [title]="'Nouvelle réservation'"
-      [badge]="'Boutique 12 Clés'"
+      [badge]="'Boutique ' + modalService.roomsCatalog.length + ' Clés'"
       [subtitle]="'Enregistrement séjour & émission du bon de confirmation • Thiès Grand Standing'"
       [icon]="'calendar_add_on'"
       [testId]="'modal-nouvelle-reservation'"

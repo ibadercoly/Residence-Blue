@@ -18,7 +18,7 @@ import { formatFcfa } from '@residence-blue/shared';
             Planning
           </h1>
           <p class="font-body-sm text-xs sm:text-sm text-outline mt-0.5">
-            Occupation des 12 chambres • Résidence Blue Thiès
+            Occupation des {{ planningService.catalogRooms.length }} chambres • Résidence Blue Thiès
           </p>
         </div>
         <button

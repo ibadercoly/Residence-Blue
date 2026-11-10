@@ -1,4 +1,5 @@
-import { Component, inject, signal } from '@angular/core';
+import { Component, inject, signal, computed } from '@angular/core';
+import { RoomsService } from '../../../core/services/rooms.service';
 import { CommonModule } from '@angular/common';
 import { RouterLink, RouterLinkActive } from '@angular/router';
 import { ModuleConfigService } from '../../../core/services/module-config.service';
@@ -31,7 +32,7 @@ export interface NavItem {
               Résidence Blue
             </span>
             <span class="font-label-md text-label-md text-outline-variant uppercase tracking-wider truncate">
-              Hôtel 12 Clés &bull; Thiès
+              Hôtel {{ roomsCount() }} Clés &bull; Thiès
             </span>
           </div>
         </div>
@@ -67,7 +68,7 @@ export interface NavItem {
         <div class="bg-surface-variant/10 rounded-xl p-space-md flex items-center justify-between">
           <div class="flex flex-col">
             <span class="font-label-md text-label-md text-surface-container-high">Version 1.0</span>
-            <span class="font-body-sm text-[11px] text-outline-variant">Légère &bull; 12 Chambres</span>
+            <span class="font-body-sm text-[11px] text-outline-variant">Légère &bull; {{ roomsCount() }} Chambres</span>
           </div>
           <span class="material-symbols-outlined text-primary-fixed-dim text-[20px]">speed</span>
         </div>
@@ -76,6 +77,8 @@ export interface NavItem {
   `
 })
 export class SidebarComponent {
+  readonly roomsService = inject(RoomsService, { optional: true });
+  readonly roomsCount = computed(() => this.roomsService ? this.roomsService.rooms().length : 12);
   private readonly moduleConfig = inject(ModuleConfigService, { optional: true });
 
   readonly navItems: NavItem[] = [

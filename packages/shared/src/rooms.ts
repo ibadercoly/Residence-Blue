@@ -38,8 +38,49 @@ export interface RoomDto {
   amenities: string[];
   imageUrl?: string;
   imageAlt?: string;
+  adultsCapacity?: number;
+  childrenCapacity?: number;
+  bedType?: string;
+  bedsCount?: number;
+  surfaceM2?: number;
+  view?: string;
+  smoking?: boolean;
+  connectingRoom?: string;
+  highSeasonPricePerNight?: number;
+  corporatePricePerNight?: number;
+  breakfastIncluded?: boolean;
+  description?: string;
+  internalNote?: string;
+  isActive?: boolean;
   createdAt?: string | Date;
   updatedAt?: string | Date;
+}
+
+export interface CreateRoomDto {
+  number: string;
+  floor: number;
+  category: string;
+  status?: RoomStatus;
+  pricePerNight: number; // FCFA
+  adultsCapacity?: number;
+  childrenCapacity?: number;
+  bedType?: string;
+  bedsCount?: number;
+  surfaceM2?: number;
+  view?: string;
+  smoking?: boolean;
+  connectingRoom?: string;
+  amenities?: string[];
+  highSeasonPricePerNight?: number;
+  corporatePricePerNight?: number;
+  breakfastIncluded?: boolean;
+  imageUrl?: string;
+  description?: string;
+  internalNote?: string;
+}
+
+export interface UpdateRoomDto extends Partial<CreateRoomDto> {
+  isActive?: boolean;
 }
 
 export interface UpdateRoomStatusDto {
