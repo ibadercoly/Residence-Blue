@@ -165,7 +165,11 @@ export class RoomsService {
     try {
       const cached = await this.idb.getAll<RoomUiItem>('rooms');
       if (cached && cached.length > 0) {
-        const enriched = cached.map((r) => this.normalizeRoom(r));
+        const dedup = new Map<string, RoomUiItem>();
+        for (const r of cached) {
+          dedup.set(r.number, r);
+        }
+        const enriched = Array.from(dedup.values()).map((r) => this.normalizeRoom(r));
         this.rooms.set(this.sortRooms(enriched));
       } else {
         const initialRooms = this.buildInitialRooms();
@@ -209,8 +213,13 @@ export class RoomsService {
           return normalized;
         });
 
-        this.rooms.set(this.sortRooms(merged));
+        const dedup = new Map<string, RoomUiItem>();
         for (const r of merged) {
+          dedup.set(r.number, r);
+        }
+        const uniqueMerged = Array.from(dedup.values());
+        this.rooms.set(this.sortRooms(uniqueMerged));
+        for (const r of uniqueMerged) {
           await this.idb.put('rooms', r);
         }
       }

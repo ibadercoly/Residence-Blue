@@ -4,11 +4,13 @@ import { PlanningMockService } from '../../core/services/planning-mock.service';
 import { ReservationModalService } from '../../core/services/reservation-modal.service';
 import { ReservationStatusType } from '../../core/models/planning.model';
 import { formatFcfa } from '@residence-blue/shared';
+import { StatusBadgeComponent } from '../../shared/components/status-badge/status-badge.component';
+import { ActionButtonComponent } from '../../shared/components/action-button/action-button.component';
 
 @Component({
   selector: 'app-planning-page',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, StatusBadgeComponent, ActionButtonComponent],
   template: `
     <div class="flex flex-col w-full max-w-full overflow-x-hidden pb-16 text-on-surface" data-testid="planning-page">
       <!-- 1. EN-TÊTE : Titre et bouton principal Nouvelle réservation -->
@@ -361,9 +363,7 @@ import { formatFcfa } from '@residence-blue/shared';
                     <span class="font-bold text-xs text-on-surface truncate">{{ res.guestName }}</span>
                     <span class="text-[11px] text-outline">Chambre {{ res.roomNumber }}</span>
                   </div>
-                  <span class="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-blue-100 text-blue-900 border border-blue-200">
-                    Arrivée
-                  </span>
+                  <app-status-badge status="FREE" label="Arrivée" [testId]="'mobile-badge-arrival-' + res.id"></app-status-badge>
                 </div>
               } @empty {
                 <span class="text-[11px] text-outline italic">Aucune arrivée prévue ce jour.</span>
@@ -390,9 +390,7 @@ import { formatFcfa } from '@residence-blue/shared';
                     <span class="font-bold text-xs text-on-surface truncate">{{ res.guestName }}</span>
                     <span class="text-[11px] text-outline">Chambre {{ res.roomNumber }}</span>
                   </div>
-                  <span class="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-100 text-amber-900 border border-amber-200">
-                    Départ
-                  </span>
+                  <app-status-badge status="CLEANING" label="Départ" [testId]="'mobile-badge-departure-' + res.id"></app-status-badge>
                 </div>
               } @empty {
                 <span class="text-[11px] text-outline italic">Aucun départ prévu ce jour.</span>
@@ -419,9 +417,7 @@ import { formatFcfa } from '@residence-blue/shared';
                     <span class="font-bold text-xs text-on-surface truncate">{{ res.guestName }}</span>
                     <span class="text-[11px] text-outline">Chambre {{ res.roomNumber }}</span>
                   </div>
-                  <span class="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-100 text-emerald-900 border border-emerald-200">
-                    En séjour
-                  </span>
+                  <app-status-badge status="OCCUPIED" label="En séjour" [testId]="'mobile-badge-staying-' + res.id"></app-status-badge>
                 </div>
               } @empty {
                 <span class="text-[11px] text-outline italic">Aucun client en séjour ce jour.</span>
@@ -548,52 +544,44 @@ import { formatFcfa } from '@residence-blue/shared';
           <!-- 4 BOUTONS STRICTS : Modifier, Prolonger, Check-in / Check-out, Annuler -->
           <div class="flex flex-col gap-2.5 pt-4 mt-auto" data-testid="drawer-actions">
             <!-- Bouton 1 : Modifier -->
-            <button
-              type="button"
-              (click)="onModifier(detail.id)"
-              data-testid="drawer-btn-modifier"
-              class="w-full py-2.5 px-4 rounded-xl border border-outline-variant/30 text-on-surface hover:bg-surface-container font-semibold text-xs sm:text-sm flex items-center justify-center gap-2 cursor-pointer transition-colors"
-            >
-              <span class="material-symbols-outlined text-[18px]">edit</span>
-              <span>Modifier</span>
-            </button>
+            <app-action-button
+              label="Modifier"
+              icon="edit"
+              variant="outline"
+              color="neutral"
+              testId="drawer-btn-modifier"
+              (action)="onModifier(detail.id)"
+            ></app-action-button>
 
             <!-- Bouton 2 : Prolonger -->
-            <button
-              type="button"
-              (click)="onProlonger(detail.id)"
-              data-testid="drawer-btn-prolonger"
-              class="w-full py-2.5 px-4 rounded-xl border border-outline-variant/30 text-on-surface hover:bg-surface-container font-semibold text-xs sm:text-sm flex items-center justify-center gap-2 cursor-pointer transition-colors"
-            >
-              <span class="material-symbols-outlined text-[18px]">more_time</span>
-              <span>Prolonger (+1 nuit)</span>
-            </button>
+            <app-action-button
+              label="Prolonger (+1 nuit)"
+              icon="more_time"
+              variant="outline"
+              color="neutral"
+              testId="drawer-btn-prolonger"
+              (action)="onProlonger(detail.id)"
+            ></app-action-button>
 
             <!-- Bouton 3 : Check-in ou Check-out selon l'état -->
-            <button
-              type="button"
-              (click)="onToggleCheckInOut(detail.id)"
-              data-testid="drawer-btn-checkin-checkout"
-              [class]="detail.status === 'EN_SEJOUR'
-                ? 'w-full py-2.5 px-4 rounded-xl bg-amber-600 text-white hover:bg-amber-700 font-semibold text-xs sm:text-sm flex items-center justify-center gap-2 cursor-pointer shadow-xs transition-colors'
-                : 'w-full py-2.5 px-4 rounded-xl bg-emerald-700 text-white hover:bg-emerald-800 font-semibold text-xs sm:text-sm flex items-center justify-center gap-2 cursor-pointer shadow-xs transition-colors'"
-            >
-              <span class="material-symbols-outlined text-[18px]">
-                {{ detail.status === 'EN_SEJOUR' ? 'logout' : 'login' }}
-              </span>
-              <span>{{ detail.status === 'EN_SEJOUR' ? 'Check-out' : 'Check-in' }}</span>
-            </button>
+            <app-action-button
+              [label]="detail.status === 'EN_SEJOUR' ? 'Check-out' : 'Check-in'"
+              [icon]="detail.status === 'EN_SEJOUR' ? 'logout' : 'login'"
+              variant="solid"
+              [color]="detail.status === 'EN_SEJOUR' ? 'amber' : 'success'"
+              testId="drawer-btn-checkin-checkout"
+              (action)="onToggleCheckInOut(detail.id)"
+            ></app-action-button>
 
             <!-- Bouton 4 : Annuler -->
-            <button
-              type="button"
-              (click)="onAnnuler(detail.id)"
-              data-testid="drawer-btn-annuler"
-              class="w-full py-2.5 px-4 rounded-xl text-error hover:bg-error-container/20 font-semibold text-xs sm:text-sm flex items-center justify-center gap-2 cursor-pointer transition-colors"
-            >
-              <span class="material-symbols-outlined text-[18px]">cancel</span>
-              <span>Annuler la réservation</span>
-            </button>
+            <app-action-button
+              label="Annuler la réservation"
+              icon="cancel"
+              variant="outline"
+              color="danger"
+              testId="drawer-btn-annuler"
+              (action)="onAnnuler(detail.id)"
+            ></app-action-button>
           </div>
         </aside>
       }

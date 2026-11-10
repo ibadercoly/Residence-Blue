@@ -4,11 +4,13 @@ import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { FacturationMockService, FacturationTab } from '../../core/services/facturation-mock.service';
 import { HotelSettingsService } from '../../core/services/hotel-settings.service';
+import { StatusBadgeComponent } from '../../shared/components/status-badge/status-badge.component';
+import { ActionButtonComponent } from '../../shared/components/action-button/action-button.component';
 
 @Component({
   selector: 'app-facturation-page',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink],
+  imports: [CommonModule, FormsModule, RouterLink, StatusBadgeComponent, ActionButtonComponent],
   template: `
     <div class="flex flex-col w-full pb-16 font-body-md" data-testid="facturation-container">
       <!-- Toast Notification -->
@@ -121,15 +123,9 @@ import { HotelSettingsService } from '../../core/services/hotel-settings.service
               </span>
 
               @if (folio().isPaid) {
-                <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-primary/15 text-primary font-label-lg text-label-lg shadow-sm" data-testid="badge-folio-paid">
-                  <span class="material-symbols-outlined text-[16px]">check_circle</span>
-                  Compte soldé
-                </span>
+                <app-status-badge status="FREE" label="Compte soldé" testId="badge-folio-paid"></app-status-badge>
               } @else {
-                <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-secondary-container text-on-secondary-container font-label-lg text-label-lg shadow-sm" data-testid="badge-folio-pending">
-                  <span class="material-symbols-outlined text-[16px]">pending</span>
-                  Solde débiteur
-                </span>
+                <app-status-badge status="CLEANING" label="Solde débiteur" testId="badge-folio-pending"></app-status-badge>
               }
             </div>
           </div>
@@ -304,25 +300,21 @@ import { HotelSettingsService } from '../../core/services/hotel-settings.service
                     </div>
 
                     <!-- Quick Document Actions (Hidden on print) -->
-                    <div class="flex items-center gap-space-sm pt-space-md mt-space-md print:hidden">
-                      <button
-                        type="button"
-                        class="flex-1 inline-flex items-center justify-center gap-1.5 h-10 px-3 rounded-lg bg-surface-container text-on-surface hover:bg-surface-variant transition-colors font-label-md text-label-md shadow-sm cursor-pointer"
-                        data-testid="btn-print-invoice"
-                        (click)="printInvoice()"
-                      >
-                        <span class="material-symbols-outlined text-[18px]">print</span>
-                        <span>Imprimer Folio (PDF)</span>
-                      </button>
-                      <button
-                        type="button"
-                        class="flex-1 inline-flex items-center justify-center gap-1.5 h-10 px-3 rounded-lg bg-surface-container text-on-surface hover:bg-surface-variant transition-colors font-label-md text-label-md shadow-sm cursor-pointer"
-                        data-testid="btn-share-invoice"
-                        (click)="showToast('Envoi WhatsApp / E-mail bientôt disponible (TODO: Notifications)')"
-                      >
-                        <span class="material-symbols-outlined text-[18px]">share</span>
-                        <span>WhatsApp / Email</span>
-                      </button>
+                    <div class="flex items-center gap-2 pt-space-md mt-space-md print:hidden">
+                      <app-action-button
+                        label="Imprimer Folio (PDF)"
+                        icon="print"
+                        variant="outline"
+                        testId="btn-print-invoice"
+                        (action)="printInvoice()"
+                      ></app-action-button>
+                      <app-action-button
+                        label="WhatsApp / Email"
+                        icon="share"
+                        variant="outline"
+                        testId="btn-share-invoice"
+                        (action)="showToast('Envoi WhatsApp / E-mail bientôt disponible (TODO: Notifications)')"
+                      ></app-action-button>
                     </div>
                   </div>
                 </div>
@@ -354,22 +346,11 @@ import { HotelSettingsService } from '../../core/services/hotel-settings.service
                 </div>
 
                 <!-- Balance Status Badge -->
-                <div
-                  class="flex items-center gap-1.5 px-3 py-1.5 rounded-full font-label-md text-label-md shadow-sm"
-                  data-testid="balance-status-badge"
-                  [ngClass]="{
-                    'bg-primary/15 text-primary': reconStatus() === 'BALANCED',
-                    'bg-secondary-container text-on-secondary-container': reconStatus() === 'UNDERPAID',
-                    'bg-error-container text-on-error-container': reconStatus() === 'OVERPAID'
-                  }"
-                >
-                  <span class="material-symbols-outlined text-[16px]">
-                    {{ reconStatus() === 'BALANCED' ? 'check' : reconStatus() === 'UNDERPAID' ? 'hourglass_empty' : 'error' }}
-                  </span>
-                  <span>
-                    {{ reconStatus() === 'BALANCED' ? 'Compte équilibré' : reconStatus() === 'UNDERPAID' ? 'À ventiler' : 'Dépassement' }}
-                  </span>
-                </div>
+                <app-status-badge
+                  [status]="reconStatus() === 'BALANCED' ? 'FREE' : (reconStatus() === 'UNDERPAID' ? 'CLEANING' : 'MAINTENANCE')"
+                  [label]="reconStatus() === 'BALANCED' ? 'Compte équilibré' : (reconStatus() === 'UNDERPAID' ? 'À ventiler' : 'Dépassement')"
+                  testId="balance-status-badge"
+                ></app-status-badge>
               </div>
 
               <!-- Split Payment Controls Section -->
