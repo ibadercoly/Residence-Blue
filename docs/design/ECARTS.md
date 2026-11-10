@@ -104,3 +104,19 @@ Plusieurs éléments graphiques conçus initialement pour un resort balnéaire �
 1. **Génération d'identifiants côté client** : Toutes les nouvelles entités créées hors ligne (réservations, commandes, factures) utilisent un UUID v4 local unique pour éviter les collisions avec les clés auto-incrémentées de la base PostgreSQL.
 2. **Idempotence des transactions (`Idempotency-Key`)** : Chaque opération envoyée dans la file d'attente (Outbox) porte un identifiant d'idempotence unique. En cas de coupure réseau ou de réessais multiples, le serveur élimine les doublons sans altérer l'état de la base.
 3. **Purge sélective du cache IndexedDB** : Pour éviter l'asphyxie mémoire sur les postes clients, le magasin local ne conserve que l'horizon utile opérationnel (14 prochains jours de réservations, séjours en cours, carte complète du restaurant et les 100 dernières factures émises).
+
+### 2.4. Refonte Ergonomique du Planning (Semaine 7 Jours sans Débordement Horizontal)
+- **Écart constaté dans la maquette Stitch (`planning_des_r_servations.html`) :**
+  - La maquette affiche une vue 14 jours qui force un débordement et scroll horizontal excessif.
+  - L'écran est surchargé de widgets secondaires : bandeau d'alerte de conflit volumineux, suggestions de relogement, statistiques d'occupation complexes, légendes pléthoriques, filtres multiples d'horizon temporel (14J, Semaine, Mois) et infobulles lourdes.
+- **Décision d'architecture & Écart voulu (V1 Légère) :**
+  - **Zéro scroll horizontal** : Seul le scroll vertical est autorisé. Strictement aucun débordement horizontal (`scrollWidth <= clientWidth`) à toutes les résolutions (360 px, 768 px, 1024 px, 1440 px).
+  - **Structure épurée de haut en bas** :
+    1. En-tête : Titre « Planning » et bouton principal « + Nouvelle réservation ».
+    2. Bande de 3 chiffres du jour : Arrivées aujourd'hui, Départs aujourd'hui, Chambres libres.
+    3. Barre d'outils sur une seule ligne : Navigation de période (◀ Aujourd'hui ▶ avec libellé « 10 – 16 nov. 2026 »), recherche réactive et filtre unique (Toutes / Libres / Occupées).
+    4. Grille principale 7 jours (CSS Grid `8rem repeat(7, minmax(0, 1fr))`) : 12 chambres, jour actuel surligné, week-end teinté, barres avec nom tronqué (« … »), 3 couleurs strictes (Confirmée, En séjour, Départ aujourd'hui), légende sous la grille, clic case vide pour réserver, clic barre pour détail.
+    5. Panneau de détail (tiroir latéral droit sur desktop, fenêtre inférieure sur mobile) : 6 champs d'information stricts et 4 boutons uniques (Modifier, Prolonger, Check-in/Check-out, Annuler).
+  - **Version mobile (< 768 px)** :
+    - La grille disparaît au profit d'une liste verticale par jour avec sélecteur 7 pastilles et 3 sections (Arrivées, Départs, En séjour), avec bouton flottant « + Nouvelle réservation ».
+  - **Report en V2** : Vue 14 jours, glisser-déposer, relogement automatique, statistiques avancées d'occupation.

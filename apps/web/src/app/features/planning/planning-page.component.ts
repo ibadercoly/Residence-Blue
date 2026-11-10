@@ -601,8 +601,16 @@ import { formatFcfa } from '@residence-blue/shared';
   `
 })
 export class PlanningPageComponent {
-  readonly planningService = inject(PlanningMockService);
-  readonly modalService = inject(ReservationModalService);
+  readonly planningService: PlanningMockService;
+  readonly modalService: ReservationModalService;
+
+  constructor(
+    planningService?: PlanningMockService,
+    modalService?: ReservationModalService
+  ) {
+    this.planningService = planningService ?? inject(PlanningMockService);
+    this.modalService = modalService ?? inject(ReservationModalService);
+  }
 
   /** Index du jour actif sur mobile (0 à 6) */
   readonly selectedMobileDayIndex = signal<number>(0);

@@ -122,12 +122,12 @@ export class PlanningMockService {
       roomNumber: '201',
       startDayIndex: 0,
       durationDays: 2,
-      checkInDate: '2026-11-10',
+      checkInDate: '2026-11-08',
       checkOutDate: '2026-11-12',
       status: 'EN_SEJOUR',
       statusLabel: 'En séjour',
-      nights: 2,
-      totalFcfa: 260000,
+      nights: 4,
+      totalFcfa: 520000,
       remainingFcfa: 100000,
       contactPhone: '+33 6 98 76 54 32',
       contactEmail: 'famille.moreau@lyon.fr'
@@ -148,7 +148,22 @@ export class PlanningMockService {
       contactPhone: '+33 6 45 67 89 01',
       contactEmail: 'claire.lefevre@avocat.fr'
     },
-    // Ch. 203 est libre toute la semaine
+    {
+      id: 'res-203-traore',
+      guestName: 'M. Traoré',
+      roomNumber: '203',
+      startDayIndex: 0,
+      durationDays: 1,
+      checkInDate: '2026-11-07',
+      checkOutDate: '2026-11-10',
+      status: 'DEPART_AUJ',
+      statusLabel: 'Départ aujourd\'hui',
+      nights: 3,
+      totalFcfa: 390000,
+      remainingFcfa: 0,
+      contactPhone: '+221 77 345 67 89',
+      contactEmail: 'traore@invest.sn'
+    },
     {
       id: 'res-204-sylla',
       guestName: 'Babacar Sylla',
@@ -262,7 +277,7 @@ export class PlanningMockService {
     // Départs aujourd'hui : checkOutDate === today ou status === 'DEPART_AUJ'
     const departuresToday = all.filter(r => r.checkOutDate === todayIso || r.status === 'DEPART_AUJ').length;
 
-    // Chambres occupées aujourd'hui (hors départs déjà partis)
+    // Chambres occupées aujourd'hui (hors départs déjà libérés)
     const occupiedTodaySet = new Set(
       all
         .filter(r => {

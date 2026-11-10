@@ -11,102 +11,144 @@ describe('PlanningMockService', () => {
     expect(service).toBeTruthy();
   });
 
-  it('devrait retourner les données initiales avec 12 chambres et 14 jours', (done) => {
-    service.getPlanningData().subscribe((data) => {
-      expect(data.rooms.length).toBe(12);
-      expect(data.days.length).toBe(14);
-      expect(data.occupancyStats.ratePercent).toBe('83,3%');
-      expect(data.occupancyStats.occupiedRooms).toBe(10);
-      expect(data.occupancyStats.totalRooms).toBe(12);
-      expect(data.conflictAlert.roomNumber).toBe('202');
-      done();
-    });
+  it('devrait retourner 7 jours pour la vue semaine (pas 14)', () => {
+    const days = service.currentDays();
+    expect(days.length).toBe(7);
+    expect(days[0].number).toBe('10');
+    expect(days[6].number).toBe('16');
+    expect(service.periodLabel()).toBe('10 – 16 nov. 2026');
   });
 
-  it('devrait filtrer les chambres par catégorie correctement', () => {
-    service.setCategoryFilter('STANDARD');
-    expect(service.filteredRooms().length).toBe(6);
-
-    service.setCategoryFilter('DELUXE');
-    expect(service.filteredRooms().length).toBe(4);
-
-    service.setCategoryFilter('SUITE');
-    expect(service.filteredRooms().length).toBe(2);
-
-    service.setCategoryFilter('ALL');
-    expect(service.filteredRooms().length).toBe(12);
+  it('devrait calculer les 3 chiffres du jour exacts (Arrivées, Départs, Libres)', () => {
+    const metrics = service.dailyMetrics();
+    expect(metrics.arrivalsToday).toBe(3);
+    expect(metrics.departuresToday).toBe(2);
+    expect(metrics.freeRoomsToday).toBeGreaterThanOrEqual(1);
   });
 
-  it('devrait filtrer les chambres par statut de conflit', () => {
-    service.setStatusFilter('CONFLICT');
-    const rooms = service.filteredRooms();
-    expect(rooms.length).toBe(1);
-    expect(rooms[0].number).toBe('202');
-
-    service.setStatusFilter('ALL');
-    expect(service.filteredRooms().length).toBe(12);
-  });
-
-  it('devrait basculer la visibilité du bandeau de conflit', () => {
-    expect(service.conflictBannerVisible()).toBe(true);
-    service.dismissConflictBanner();
-    expect(service.conflictBannerVisible()).toBe(false);
-    service.showConflictBanner();
-    expect(service.conflictBannerVisible()).toBe(true);
-  });
-
-  it('devrait sélectionner une réservation et mettre à jour le détail', () => {
-    const resSophie = service
-      .roomsState()
-      .find((r) => r.number === '105')
-      ?.reservations[0];
-    expect(resSophie).toBeDefined();
-
-    if (resSophie) {
-      service.selectReservation(resSophie);
-      expect(service.selectedReservationId()).toBe(resSophie.id);
-      expect(service.selectedDetail().guestName).toBe('Sophie Martin');
-      expect(service.selectedDetail().roomNumber).toBe('105');
-    }
-  });
-
-  it('devrait reloger le conflit de la chambre 202 vers la chambre 203', () => {
-    expect(service.conflictBannerVisible()).toBe(true);
-    const room202Before = service.roomsState().find((r) => r.number === '202');
-    expect(room202Before?.isConflict).toBe(true);
-
-    service.reallocateConflict();
-
-    expect(service.conflictBannerVisible()).toBe(false);
-    const room202After = service.roomsState().find((r) => r.number === '202');
-    expect(room202After?.isConflict).toBe(false);
-
-    const room203After = service.roomsState().find((r) => r.number === '203');
-    expect(room203After?.isRelocationTarget).toBe(false);
-    expect(room203After?.reservations.length).toBe(1);
-    expect(room203After?.reservations[0].statusLabel).toBe('Relogé Ch. 203');
-  });
-
-  it('devrait gérer la navigation temporelle (Précédent, Suivant, Aujourd\'hui)', () => {
-    service.navigatePrevious();
-    expect(service.periodLabel()).toBe('6 Mai – 19 Mai 2024');
-    expect(service.weeksLabel()).toBe('S19 & S20');
-
+  it('devrait naviguer de semaine (Précédent, Suivant, Aujourd\'hui)', () => {
     service.navigateNext();
-    expect(service.periodLabel()).toBe('3 Juin – 16 Juin 2024');
-    expect(service.weeksLabel()).toBe('S23 & S24');
+    expect(service.weekOffset()).toBe(1);
+    expect(service.currentDays()[0].number).toBe('17');
+
+    service.navigatePrevious();
+    expect(service.weekOffset()).toBe(0);
+    expect(service.periodLabel()).toBe('10 – 16 nov. 2026');
+
+    service.navigatePrevious();
+    expect(service.weekOffset()).toBe(-1);
 
     service.navigateToday();
-    expect(service.periodLabel()).toBe('20 Mai – 2 Juin 2024');
-    expect(service.weeksLabel()).toBe('S21 & S22');
+    expect(service.weekOffset()).toBe(0);
+    expect(service.periodLabel()).toBe('10 – 16 nov. 2026');
   });
 
-  it('devrait enregistrer les événements de glisser-déposer sans altérer les données', () => {
-    const resMamadou = service.roomsState().find((r) => r.number === '301')?.reservations[0]!;
-    service.handleDragStart(resMamadou);
-    expect(service.lastDragEventMessage()).toContain('M. Mamadou Diop');
+  it('devrait filtrer les chambres par nom de client ou numéro de chambre', () => {
+    service.setSearchQuery('Diop');
+    const filtered = service.filteredRooms();
+    expect(filtered.length).toBe(1);
+    expect(filtered[0].number).toBe('301');
 
-    service.handleDrop('201', resMamadou.id);
-    expect(service.lastDragEventMessage()).toContain('Chambre 201');
+    service.setSearchQuery('106');
+    const freeRoom = service.filteredRooms();
+    expect(freeRoom.length).toBe(1);
+    expect(freeRoom[0].number).toBe('106');
+
+    service.setSearchQuery('');
+    expect(service.filteredRooms().length).toBe(12);
+  });
+
+  it('devrait filtrer les chambres par statut : Toutes, Libres, Occupées', () => {
+    service.setFilterMode('FREE');
+    const freeRooms = service.filteredRooms();
+    expect(freeRooms.length).toBeGreaterThan(0);
+    expect(freeRooms.every(r => r.reservations.length === 0)).toBe(true);
+
+    service.setFilterMode('OCCUPIED');
+    const occRooms = service.filteredRooms();
+    expect(occRooms.length).toBeGreaterThan(0);
+    expect(occRooms.every(r => r.reservations.length > 0)).toBe(true);
+
+    service.setFilterMode('ALL');
+    expect(service.filteredRooms().length).toBe(12);
+  });
+
+  it('devrait ouvrir et fermer le panneau de détail pour une réservation', () => {
+    expect(service.selectedReservation()).toBeNull();
+
+    service.openDetail('RB-2024-0894');
+    expect(service.selectedReservation()).not.toBeNull();
+    expect(service.selectedReservation()?.guestName).toBe('M. Mamadou Diop');
+    expect(service.selectedReservation()?.roomNumber).toBe('301');
+
+    service.closeDetail();
+    expect(service.selectedReservation()).toBeNull();
+  });
+
+  it('devrait prolonger une réservation si la chambre est libre', () => {
+    const res = service.allReservations().find(r => r.id === 'res-103-faye')!;
+    const initialNights = res.nights;
+
+    const result = service.extendReservation('res-103-faye', 1);
+    expect(result.success).toBe(true);
+
+    const updated = service.allReservations().find(r => r.id === 'res-103-faye')!;
+    expect(updated.nights).toBe(initialNights + 1);
+  });
+
+  it('devrait effectuer le Check-in puis le Check-out sur une réservation', () => {
+    // Karin Lindström est CONFIRME
+    const checkInRes = service.toggleCheckInCheckOut('res-102-lindstrom');
+    expect(checkInRes.success).toBe(true);
+    expect(checkInRes.newStatus).toBe('EN_SEJOUR');
+
+    // M. Faye est EN_SEJOUR -> Check-out
+    const checkOutRes = service.toggleCheckInCheckOut('res-103-faye');
+    expect(checkOutRes.success).toBe(true);
+    expect(checkOutRes.newStatus).toBe('DEPART_AUJ');
+  });
+
+  it('devrait annuler une réservation et la retirer de la liste', () => {
+    const countBefore = service.allReservations().length;
+    const result = service.cancelReservation('res-204-sylla');
+    expect(result.success).toBe(true);
+    expect(service.allReservations().length).toBe(countBefore - 1);
+    expect(service.allReservations().find(r => r.id === 'res-204-sylla')).toBeUndefined();
+  });
+
+  it('devrait détecter un conflit et refuser une réservation en doublon', () => {
+    // Ch. 301 est occupée du 2026-11-10 au 2026-11-14 par Mamadou Diop
+    const conflict = service.hasConflict('301', '2026-11-11', '2026-11-13');
+    expect(conflict).toBe(true);
+
+    const result = service.createReservation({
+      guestName: 'Client Doublon',
+      roomNumber: '301',
+      checkInDate: '2026-11-11',
+      checkOutDate: '2026-11-13',
+      nights: 2,
+      totalFcfa: 420000
+    });
+
+    expect(result.success).toBe(false);
+    expect(result.errorMessage).toContain('déjà réservée');
+  });
+
+  it('devrait accepter une réservation sans conflit', () => {
+    // Ch. 106 est libre toute la semaine
+    const result = service.createReservation({
+      guestName: 'Nouveau Voyageur',
+      roomNumber: '106',
+      checkInDate: '2026-11-12',
+      checkOutDate: '2026-11-15',
+      nights: 3,
+      totalFcfa: 255000,
+      depositAmountFcfa: 100000
+    });
+
+    expect(result.success).toBe(true);
+    expect(result.reservation).toBeDefined();
+    expect(result.reservation?.roomNumber).toBe('106');
+    expect(result.reservation?.remainingFcfa).toBe(155000);
   });
 });
