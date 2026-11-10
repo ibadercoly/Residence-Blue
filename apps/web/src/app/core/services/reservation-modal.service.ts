@@ -1,4 +1,4 @@
-import { Injectable, signal } from '@angular/core';
+import { Injectable, inject, signal } from '@angular/core';
 import {
   CategoryCardOption,
   RegularGuest,
@@ -7,11 +7,14 @@ import {
   RoomCategoryType,
   SpecificRoomOption
 } from '../models/reservation-modal.model';
+import { PlanningMockService } from './planning-mock.service';
 
 @Injectable({
   providedIn: 'root'
 })
 export class ReservationModalService {
+  private readonly planningService = inject(PlanningMockService, { optional: true });
+
   /** État d'ouverture de la modal */
   readonly isOpen = signal<boolean>(false);
 
@@ -23,6 +26,9 @@ export class ReservationModalService {
 
   /** Message de feedback opérateur */
   readonly feedbackMessage = signal<string | null>(null);
+
+  /** Message d'erreur de validation ou conflit */
+  readonly errorMessage = signal<string | null>(null);
 
   /** Liste des clients réguliers de démonstration (Cardex) */
   readonly regularGuests: RegularGuest[] = [
@@ -206,6 +212,7 @@ export class ReservationModalService {
 
   /** Ouvre la modal avec paramètres initiaux optionnels */
   open(params?: ReservationModalParams): void {
+    this.errorMessage.set(null);
     this.currentParams.set(params ?? null);
     this.isOpen.set(true);
   }
@@ -213,17 +220,40 @@ export class ReservationModalService {
   /** Ferme la modal */
   close(): void {
     this.isOpen.set(false);
+    this.errorMessage.set(null);
     this.currentParams.set(null);
   }
 
   /** Confirme et enregistre la réservation */
   async confirmReservation(payload: ReservationSubmitPayload): Promise<boolean> {
-    // TODO(API): Remplacer par l'appel API POST /api/reservations avec idempotencyKey et outbox offline-first
-    this.lastSubmittedReservation.set(payload);
     const guestLabel =
       payload.guestMode === 'REGULAR'
         ? this.regularGuests.find((g) => g.id === payload.regularGuestId)?.name || 'Client régulier'
         : payload.newGuest?.fullName || 'Nouveau client';
+
+    // Contrôle strict de chevauchement sur la chambre demandée
+    if (this.planningService?.hasConflict(payload.roomNumber, payload.checkInDate, payload.checkOutDate)) {
+      const conflictMsg = `La chambre ${payload.roomNumber} est déjà réservée sur cette période (du ${payload.checkInDate} au ${payload.checkOutDate}). Réservation refusée.`;
+      this.errorMessage.set(conflictMsg);
+      this.feedbackMessage.set(conflictMsg);
+      return false;
+    }
+
+    this.lastSubmittedReservation.set(payload);
+    this.errorMessage.set(null);
+
+    // Enregistrement dans le planning mock
+    this.planningService?.createReservation({
+      guestName: guestLabel,
+      roomNumber: payload.roomNumber,
+      checkInDate: payload.checkInDate,
+      checkOutDate: payload.checkOutDate,
+      nights: payload.nights,
+      totalFcfa: payload.breakdown.totalStayTtcFcfa,
+      depositAmountFcfa: payload.depositAmountFcfa,
+      contactPhone: payload.guestMode === 'NEW' ? payload.newGuest?.phone : undefined,
+      contactEmail: payload.guestMode === 'NEW' ? payload.newGuest?.email : undefined
+    });
 
     this.feedbackMessage.set(
       `Réservation confirmée pour ${guestLabel} en Ch. ${payload.roomNumber} (${payload.nights} nuits, Total : ${payload.breakdown.totalStayTtcFcfa} FCFA). Bon émis avec succès.`
@@ -234,7 +264,6 @@ export class ReservationModalService {
 
   /** Enregistre un devis ou une option temporaire 48h */
   async saveDraftOption(payload: ReservationSubmitPayload): Promise<boolean> {
-    // TODO(API): Remplacer par l'appel API POST /api/reservations/options-temporaires
     this.lastSubmittedReservation.set(payload);
     this.feedbackMessage.set(
       `Option temporaire 48h réservée pour la Chambre ${payload.roomNumber} (${payload.nights} nuits).`

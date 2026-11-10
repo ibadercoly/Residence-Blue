@@ -44,6 +44,9 @@ Ce document détaille la cartographie complète des modules de l'application Ré
 | `menu_gestion_avancee` | Menu restaurant avancé | V2 | **Reporté** | `restaurant` | Recadrage photo HD, allergènes multiples, suppléments et export |
 | `mobile_complete` | Version mobile complète | V2 | **Reporté** | `dashboard` | Navigation inférieure dédiée mobile (`design/maquettes/tableau_de_bord_mode_clair/`) |
 | `roles_avances` | Rôles d'équipe avancés | V2 | **Reporté** | `housekeeping`, `maintenance`, `accounting` | Rôles HOUSEKEEPING, MAINTENANCE et COMPTABLE |
+| `planning_vue_14j` | Vue 14 jours planning | V2 | **Reporté** | `planning` | Affichage 14 jours surchargé (remplacé par vue 7 jours sans scroll horizontal en V1) |
+| `planning_relogement_auto`| Suggestions relogement | V2 | **Reporté** | `planning` | Relogement automatique et bannières de conflit Tape Chart |
+| `planning_stats_avancees`| Statistiques avancées planning | V2 | **Reporté** | `planning` | Métriques d'occupation complexes et infobulles décoratives chargées |
 
 ---
 

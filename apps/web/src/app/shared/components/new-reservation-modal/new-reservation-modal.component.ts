@@ -41,6 +41,16 @@ import {
     >
       <!-- MODAL BODY -->
       <div modal-body class="flex flex-col gap-4 text-on-surface">
+        @if (modalService.errorMessage(); as errorMsg) {
+          <div
+            class="p-3 rounded-xl bg-error-container text-on-error-container border border-error/30 flex items-center gap-2 text-xs sm:text-sm font-semibold shadow-xs"
+            role="alert"
+            data-testid="reservation-conflict-error"
+          >
+            <span class="material-symbols-outlined text-error text-[20px]" aria-hidden="true">warning</span>
+            <span>{{ errorMsg }}</span>
+          </div>
+        }
         <div class="flex flex-col min-[900px]:flex-row gap-4 items-start">
           <!-- LEFT COLUMN: Saisie Opérationnelle -->
           <div class="flex-1 w-full min-w-0 flex flex-col gap-4">
