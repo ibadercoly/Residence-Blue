@@ -7,6 +7,7 @@ RUN apk add --no-cache openssl
 # Copie des fichiers de configuration et dépendances
 COPY package*.json ./
 COPY tsconfig*.json ./
+COPY config/ ./config/
 COPY packages/shared/package*.json ./packages/shared/
 COPY apps/api/package*.json ./apps/api/
 COPY apps/web/package*.json ./apps/web/

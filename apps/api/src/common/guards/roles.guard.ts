@@ -1,11 +1,15 @@
-import { CanActivate, ExecutionContext, ForbiddenException, Injectable } from '@nestjs/common';
+import { CanActivate, ExecutionContext, ForbiddenException, Injectable, Optional } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { IS_PUBLIC_KEY, ROLES_KEY } from '../decorators/roles.decorator';
 import { UserRole } from '@residence-blue/shared';
+import { ServerModuleConfigService } from '../services/server-module-config.service';
 
 @Injectable()
 export class RolesGuard implements CanActivate {
-  constructor(private reflector: Reflector) {}
+  constructor(
+    private reflector: Reflector,
+    @Optional() private moduleConfig?: ServerModuleConfigService,
+  ) {}
 
   canActivate(context: ExecutionContext): boolean {
     // 1. Vérifier si la route est marquée explicitement comme @Public()
@@ -41,6 +45,13 @@ export class RolesGuard implements CanActivate {
     if (!user || !user.role) {
       throw new ForbiddenException(
         'Authentification requise : aucun utilisateur ou rôle identifié.',
+      );
+    }
+
+    // RÈGLE : Le rôle reporté (ex. HOUSEKEEPING, MAINTENANCE, COMPTABLE) ne peut pas être attribué ou utilisé si le module est inactif
+    if (this.moduleConfig && !this.moduleConfig.isRoleEnabled(user.role)) {
+      throw new ForbiddenException(
+        `Le rôle ${user.role} est reporté en version ultérieure et ne peut pas être utilisé en V1.`,
       );
     }
 

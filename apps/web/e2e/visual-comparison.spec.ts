@@ -15,6 +15,7 @@ test.describe('Fidélité Visuelle - Rendu Hors Ligne vs Référence', () => {
   });
 
   test('Fidélité Tableau de Bord Bureau (1280x1600) vs design/reference/tableau_de_bord.html', async ({ page }) => {
+    test.skip(true, 'À relancer à la réactivation : météo, actions prioritaires, graphique hebdomadaire, RevPAR (V2)');
     const width = 1280;
     const height = 1600;
     await page.setViewportSize({ width, height });
@@ -104,6 +105,7 @@ test.describe('Fidélité Visuelle - Rendu Hors Ligne vs Référence', () => {
   });
 
   test('Fidélité Tableau de Bord Mobile (390x1600) vs design/reference/tableau_de_bord_mode_clair.html', async ({ page }) => {
+    test.skip(true, 'À relancer à la réactivation du module mobile_complete (V2)');
     const width = 390;
     const height = 1600;
     await page.setViewportSize({ width, height });
@@ -514,13 +516,9 @@ test.describe('Fidélité Visuelle - Rendu Hors Ligne vs Référence', () => {
 
     // Masquage des zones adaptées et visuels sur la référence
     await page.evaluate(() => {
-      // Masquer le widget météo de la barre latérale
-      const sidebarFooter = document.querySelector('aside .p-gutter');
-      if (sidebarFooter) (sidebarFooter as HTMLElement).style.visibility = 'hidden';
-
-      // Masquer la navigation latérale (élément actif différent)
-      const sidebarNav = document.querySelector('aside nav');
-      if (sidebarNav) (sidebarNav as HTMLElement).style.visibility = 'hidden';
+      // Masquer la barre latérale (modules V1 actifs différents de la référence complète)
+      const aside = document.querySelector('aside');
+      if (aside) (aside as HTMLElement).style.visibility = 'hidden';
 
       // Masquer les images
       document.querySelectorAll('img').forEach(img => {
@@ -561,12 +559,9 @@ test.describe('Fidélité Visuelle - Rendu Hors Ligne vs Référence', () => {
 
     // Masquage des zones adaptées et visuels sur l'application Angular
     await page.evaluate(() => {
-      const sidebarFooter = document.querySelector('app-sidebar .p-gutter');
-      if (sidebarFooter) (sidebarFooter as HTMLElement).style.visibility = 'hidden';
-
-      // Masquer la navigation latérale (élément actif différent)
-      const sidebarNav = document.querySelector('app-sidebar nav');
-      if (sidebarNav) (sidebarNav as HTMLElement).style.visibility = 'hidden';
+      // Masquer la barre latérale (modules V1 actifs différents de la référence complète)
+      const aside = document.querySelector('app-sidebar');
+      if (aside) (aside as HTMLElement).style.visibility = 'hidden';
 
       // Masquer les images
       document.querySelectorAll('img').forEach(img => {

@@ -130,6 +130,7 @@ test.describe('Photos des 12 Chambres - Affichage, Unicité, Poids et Mode Hors 
   test('Tableau de bord mobile : le bloc « État des 12 chambres » affiche les photos des chambres', async ({
     page,
   }) => {
+    test.skip(true, 'À relancer à la réactivation du module mobile_complete (V2)');
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto('/tableau-de-bord', { waitUntil: 'networkidle' });
 
