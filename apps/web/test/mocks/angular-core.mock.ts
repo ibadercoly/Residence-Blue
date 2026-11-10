@@ -6,8 +6,31 @@ export function Component(options?: unknown) {
   return (target: unknown) => target;
 }
 
-export function inject<T>(token: new (...args: unknown[]) => T): T {
-  return new token();
+export class Injector {
+  get<T>(token: unknown, notFoundValue?: unknown, _options?: unknown): T | unknown {
+    if (typeof token === 'function') {
+      try {
+        return new (token as new (...args: unknown[]) => T)();
+      } catch {
+        return notFoundValue ?? null;
+      }
+    }
+    return notFoundValue ?? null;
+  }
+}
+
+export function inject<T>(token: unknown, _options?: unknown): T {
+  if (token === Injector) {
+    return new Injector() as unknown as T;
+  }
+  if (typeof token === 'function') {
+    try {
+      return new (token as new (...args: unknown[]) => T)();
+    } catch {
+      return {} as T;
+    }
+  }
+  return {} as T;
 }
 
 export function effect(fn: () => void, options?: unknown) {

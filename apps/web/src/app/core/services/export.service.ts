@@ -262,9 +262,12 @@ export class ExportService {
     let body = '';
     let rowCount = 0;
 
+    const allRooms = this.roomsService ? this.roomsService.rooms() : [];
+    const totalRoomsCount = allRooms.length > 0 ? allRooms.length : 12;
+
     if (type === 'ROOMS_STATUS_PDF') {
-      title = 'État des 12 Chambres • Résidence Blue';
-      const rooms = this.roomsService.rooms();
+      const rooms = allRooms;
+      title = `État des ${rooms.length} Chambres • Résidence Blue`;
       rowCount = rooms.length;
       body = `
         <table style="width:100%; border-collapse:collapse; margin-top:16px; font-size:12px;">
@@ -341,7 +344,7 @@ export class ExportService {
         <div class="header">
           <div>
             <h1 class="title">RÉSIDENCE BLUE • HÔTEL BOUTIQUE</h1>
-            <div class="subtitle">12 Clés &bull; Quartier Grand Standing, Thiès, Sénégal &bull; NINEA: 009847291 &bull; RCCM: SN.THS.2023.A.1245</div>
+            <div class="subtitle">${totalRoomsCount} Clés &bull; Quartier Grand Standing, Thiès, Sénégal &bull; NINEA: 009847291 &bull; RCCM: SN.THS.2023.A.1245</div>
           </div>
           <div style="text-align:right;">
             <div style="font-weight:bold; font-size:12px;">${today}</div>

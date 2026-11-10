@@ -31,7 +31,7 @@ import { HotelSettingsService } from '../../core/services/hotel-settings.service
                   <span class="font-label-md text-label-md tracking-wider uppercase text-surface">Thiès (Grand Standing) • Sénégal</span>
                 </div>
                 <div class="hidden sm:flex items-center px-3 py-1.5 rounded-full bg-surface-container-lowest/10 backdrop-blur-md" data-adapted-zone="true">
-                  <span class="font-label-md text-label-md text-surface/90">12 Chambres d'Exception • Restaurant La Teranga</span>
+                  <span class="font-label-md text-label-md text-surface/90">Chambres d'Exception • Restaurant La Teranga</span>
                 </div>
               </div>
               <!-- Statut & Climat Thiès (ADAPTATION-THIES.md) -->
@@ -118,7 +118,7 @@ import { HotelSettingsService } from '../../core/services/hotel-settings.service
                   Connexion Collaborateur
                 </h2>
                 <p class="font-body-md text-body-md text-on-surface-variant mt-1">
-                  Portail de gestion hôtelière 12 clés &amp; restaurant La Teranga
+                  Portail de gestion hôtelière &amp; restaurant La Teranga
                 </p>
               </div>
 

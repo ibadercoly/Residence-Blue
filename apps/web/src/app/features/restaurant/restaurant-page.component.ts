@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { DishItem, Role } from '@residence-blue/shared';
 import { RestaurantMockService } from '../../core/services/restaurant-mock.service';
 import { AuthMockService } from '../../core/services/auth-mock.service';
+import { RoomsService } from '../../core/services/rooms.service';
 import { MenuManagementModalComponent } from './menu-management-modal/menu-management-modal.component';
 
 @Component({
@@ -41,7 +42,7 @@ import { MenuManagementModalComponent } from './menu-management-modal/menu-manag
 
           <div class="flex items-baseline gap-space-md">
             <h1 class="font-headline-lg text-headline-lg text-on-surface tracking-tight">Restaurant &amp; Bar La Teranga</h1>
-            <span class="font-body-sm text-body-sm text-outline hidden sm:inline">12 Clés • Grand Standing, Thiès</span>
+            <span class="font-body-sm text-body-sm text-outline hidden sm:inline">{{ roomsCount() }} Clés • Grand Standing, Thiès</span>
           </div>
         </div>
 
@@ -458,8 +459,7 @@ import { MenuManagementModalComponent } from './menu-management-modal/menu-manag
     </div>
   `
 })
-export class RestaurantPageComponent {
-  readonly restaurantService = inject(RestaurantMockService);
+export class RestaurantPageComponent {  readonly roomsService = inject(RoomsService, { optional: true });  readonly roomsCount = computed(() => (this.roomsService ? this.roomsService.rooms().length : 12));  readonly restaurantService = inject(RestaurantMockService);
   readonly authService = inject(AuthMockService);
 
   readonly toastMessage = signal<string | null>(null);

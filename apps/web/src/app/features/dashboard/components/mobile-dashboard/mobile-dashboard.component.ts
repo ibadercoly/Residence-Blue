@@ -1,4 +1,5 @@
-import { Component, signal } from '@angular/core';
+import { Component, signal, computed, inject } from '@angular/core';
+import { RoomsService } from '../../../../core/services/rooms.service';
 import { RouterLink } from '@angular/router';
 import { ImageComponent } from '../../../../shared/components/image/image.component';
 
@@ -50,7 +51,7 @@ interface MobileRoomCard {
             <span class="w-2 h-2 rounded-full bg-primary animate-ping" aria-hidden="true"></span>
             <span class="font-body-sm text-body-sm text-on-surface font-semibold">Grand Standing • Ensoleillé 29°C</span>
           </div>
-          <span class="font-label-md text-label-md text-primary font-medium tracking-wide">12 Clés Actives</span>
+          <span class="font-label-md text-label-md text-primary font-medium tracking-wide">{{ roomsCount() }} Clés Actives</span>
         </div>
       </section>
 
@@ -69,7 +70,7 @@ interface MobileRoomCard {
                 <span class="material-symbols-outlined text-[13px]" aria-hidden="true">arrow_upward</span>+8%
               </span>
             </div>
-            <p class="font-body-sm text-[11px] text-on-surface-variant leading-tight">10 sur 12 chambres occupées</p>
+            <p class="font-body-sm text-[11px] text-on-surface-variant leading-tight">{{ occupiedCount() }} sur {{ roomsCount() }} chambres occupées</p>
           </div>
           <div class="w-full bg-surface-container-highest rounded-full h-1.5 overflow-hidden">
             <div class="bg-primary h-full rounded-full" style="width: 83.3%;"></div>
@@ -190,11 +191,11 @@ interface MobileRoomCard {
       </section>
 
       <!-- 4. Vue en direct des 12 chambres (Mini-matrice d'état tactile) -->
-      <section class="flex flex-col gap-space-sm" aria-label="État des 12 chambres">
+      <section class="flex flex-col gap-space-sm" aria-label="État des chambres">
         <div class="flex flex-col gap-1">
           <div class="flex items-center justify-between">
-            <h3 class="font-headline-sm text-headline-sm text-on-surface">État des 12 Chambres</h3>
-            <span class="font-label-md text-label-md text-primary font-semibold">12 / 12 actives</span>
+            <h3 class="font-headline-sm text-headline-sm text-on-surface">État des {{ roomsCount() }} Chambres</h3>
+            <span class="font-label-md text-label-md text-primary font-semibold">{{ activeCount() }} / {{ roomsCount() }} actives</span>
           </div>
           <p data-adapted-zone="true" class="font-body-sm text-body-sm text-on-surface-variant">Ambiance sereine au cœur de Grand Standing</p>
         </div>
@@ -439,6 +440,10 @@ interface MobileRoomCard {
   `
 })
 export class MobileDashboardComponent {
+  readonly roomsService = inject(RoomsService, { optional: true });
+  readonly roomsCount = computed(() => this.roomsService ? this.roomsService.rooms().length : 12);
+  readonly activeCount = computed(() => this.roomsService ? this.roomsService.activeRooms().length : 12);
+  readonly occupiedCount = computed(() => 10);
   readonly checkedInSylla = signal(false);
   readonly selectedRooms = signal<Set<string>>(new Set());
 

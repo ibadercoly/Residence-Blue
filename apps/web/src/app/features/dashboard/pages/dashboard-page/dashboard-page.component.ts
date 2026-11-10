@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { Router, RouterLink } from '@angular/router';
 import { ReservationModalService } from '../../../../core/services/reservation-modal.service';
 import { ModuleConfigService } from '../../../../core/services/module-config.service';
+import { RoomsService } from '../../../../core/services/rooms.service';
 
 @Component({
   selector: 'app-dashboard-page',
@@ -26,7 +27,7 @@ import { ModuleConfigService } from '../../../../core/services/module-config.ser
               </span>
             </div>
             <p class="text-xs text-stone-600 mt-0.5">
-              Données réalistes pour l'hôtel Résidence Blue (12 chambres, restaurant La Teranga &amp; piscine).
+              Données réalistes pour l'hôtel Résidence Blue ({{ roomsCount() }} chambres, restaurant La Teranga &amp; piscine).
             </p>
           </div>
         </div>
@@ -59,7 +60,7 @@ import { ModuleConfigService } from '../../../../core/services/module-config.ser
             Accueil &amp; Activité du jour
           </h1>
           <p class="text-xs text-stone-500 mt-1">
-            Résidence Blue &bull; Grand Standing, Thiès &bull; 12 Chambres
+            Résidence Blue &bull; Grand Standing, Thiès &bull; {{ roomsCount() }} Chambres
           </p>
         </div>
         <div class="text-xs text-stone-500 font-mono">
@@ -243,6 +244,8 @@ import { ModuleConfigService } from '../../../../core/services/module-config.ser
   `
 })
 export class DashboardPageComponent {
+  readonly roomsService = inject(RoomsService, { optional: true });
+  readonly roomsCount = computed(() => this.roomsService ? this.roomsService.rooms().length : 12);
   private readonly router = inject(Router);
   private readonly reservationModal = inject(ReservationModalService);
   private readonly moduleConfig = inject(ModuleConfigService);

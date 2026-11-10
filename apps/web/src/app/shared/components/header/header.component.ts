@@ -1,10 +1,23 @@
-import { Component, inject } from '@angular/core';
+import { Component, inject, signal, computed, HostListener } from '@angular/core';
+import { CommonModule } from '@angular/common';
 import { ReservationModalService } from '../../../core/services/reservation-modal.service';
+import { RoomsService } from '../../../core/services/rooms.service';
+import { Role } from '@residence-blue/shared';
+
+export interface DemoRoleItem {
+  role: Role;
+  label: string;
+  name: string;
+  title: string;
+  icon: string;
+  description: string;
+  testId: string;
+}
 
 @Component({
   selector: 'app-header',
   standalone: true,
-  imports: [],
+  imports: [CommonModule],
   host: { class: 'block' },
   template: `
     <!-- Desktop Header (tableau_de_bord) -->
@@ -55,18 +68,83 @@ import { ReservationModalService } from '../../../core/services/reservation-moda
         <!-- Separator -->
         <div class="h-8 w-px bg-surface-variant/60" aria-hidden="true"></div>
 
-        <!-- User Profile (reproduction fidèle de la maquette originale) -->
-        <div class="flex items-center gap-space-md" data-testid="user-profile">
-          <div class="w-8 h-8 rounded-full bg-primary flex items-center justify-center shadow-sm">
-            <span class="material-symbols-outlined text-on-primary text-[18px]" aria-hidden="true">person</span>
-          </div>
-          <div class="hidden xl:flex flex-col text-left">
-            <div class="flex items-center gap-space-xs">
-              <span class="font-label-lg text-label-lg text-on-surface leading-tight">Aïssatou Ba</span>
-              <span class="w-1.5 h-1.5 rounded-full bg-primary" aria-hidden="true"></span>
+        <!-- User Profile avec Sélecteur « Profil de démonstration » -->
+        <div class="relative" data-testid="user-profile">
+          <button
+            type="button"
+            (click)="toggleMenu($event)"
+            data-testid="demo-profile-dropdown-btn"
+            class="flex items-center gap-space-md p-1.5 rounded-xl hover:bg-surface-container-low transition-colors cursor-pointer text-left focus-visible:ring-2 focus-visible:ring-primary"
+            aria-haspopup="menu"
+            [attr.aria-expanded]="isMenuOpen()"
+          >
+            <div class="w-8 h-8 rounded-full bg-primary flex items-center justify-center shadow-sm">
+              <span class="material-symbols-outlined text-on-primary text-[18px]" aria-hidden="true">person</span>
             </div>
-            <span class="font-label-md text-label-md text-on-surface-variant">Directrice Générale</span>
-          </div>
+            <div class="hidden xl:flex flex-col text-left">
+              <div class="flex items-center gap-space-xs">
+                <span class="font-label-lg text-label-lg text-on-surface leading-tight font-semibold" data-testid="header-user-name">
+                  {{ currentProfile().name }}
+                </span>
+                <span class="w-1.5 h-1.5 rounded-full bg-primary" aria-hidden="true"></span>
+              </div>
+              <span class="font-label-md text-label-md text-on-surface-variant" data-testid="header-user-role">
+                {{ currentProfile().title }}
+              </span>
+            </div>
+            <span class="material-symbols-outlined text-[18px] text-on-surface-variant transition-transform" [class.rotate-180]="isMenuOpen()">
+              expand_more
+            </span>
+          </button>
+
+          <!-- Dropdown menu : Profil de démonstration -->
+          @if (isMenuOpen()) {
+            <div
+              class="absolute right-0 mt-2 w-72 bg-surface-container-lowest rounded-2xl shadow-xl border border-outline-variant/60 py-2 z-50"
+              role="menu"
+              data-testid="demo-profile-dropdown"
+              (click)="$event.stopPropagation()"
+            >
+              <div class="px-4 py-2 border-b border-outline-variant/40">
+                <span class="text-[11px] font-bold uppercase tracking-wider text-on-surface-variant block">
+                  Profil de démonstration
+                </span>
+                <span class="text-xs text-outline block mt-0.5">
+                  Basculez de rôle pour tester les droits applicatifs
+                </span>
+              </div>
+
+              <div class="py-1">
+                @for (item of demoRoles; track item.role) {
+                  <button
+                    type="button"
+                    (click)="selectRole(item.role)"
+                    [attr.data-testid]="item.testId"
+                    role="menuitem"
+                    class="w-full text-left px-4 py-2.5 flex items-center justify-between hover:bg-surface-container-low transition-colors cursor-pointer"
+                    [class.bg-surface-container-high]="roomsService.currentRole() === item.role"
+                  >
+                    <div class="flex items-center gap-3">
+                      <span class="material-symbols-outlined text-[20px]" [class.text-primary]="roomsService.currentRole() === item.role" [class.text-on-surface-variant]="roomsService.currentRole() !== item.role">
+                        {{ item.icon }}
+                      </span>
+                      <div>
+                        <div class="font-medium text-sm text-on-surface leading-tight" [class.font-bold]="roomsService.currentRole() === item.role">
+                          {{ item.label }}
+                        </div>
+                        <div class="text-[11px] text-on-surface-variant">
+                          {{ item.description }}
+                        </div>
+                      </div>
+                    </div>
+                    @if (roomsService.currentRole() === item.role) {
+                      <span class="material-symbols-outlined text-[18px] text-primary">check</span>
+                    }
+                  </button>
+                }
+              </div>
+            </div>
+          }
         </div>
       </div>
     </header>
@@ -106,20 +184,159 @@ import { ReservationModalService } from '../../../core/services/reservation-moda
             <span class="material-symbols-outlined text-[22px]" aria-hidden="true">notifications</span>
             <span class="absolute top-2.5 right-2.5 w-2 h-2 rounded-full bg-secondary"></span>
           </button>
-          <div class="flex items-center pl-1" data-testid="user-profile-mobile">
-            <img
-              alt="Profil Aïssatou Ba"
-              class="w-8 h-8 rounded-full object-cover shadow-[0_2px_6px_rgba(0,0,0,0.08)]"
-              src="assets/images/avatar-aissatou-ba.jpg"
-            />
+          <div class="relative" data-testid="user-profile-mobile">
+            <button
+              type="button"
+              (click)="toggleMenu($event)"
+              data-testid="demo-profile-dropdown-mobile-btn"
+              class="flex items-center p-0.5 rounded-full cursor-pointer focus:ring-2 focus:ring-primary"
+              aria-label="Menu profil de démonstration"
+            >
+              <img
+                alt="Profil utilisateur"
+                class="w-8 h-8 rounded-full object-cover shadow-[0_2px_6px_rgba(0,0,0,0.08)]"
+                src="assets/images/avatar-aissatou-ba.jpg"
+              />
+            </button>
+
+            <!-- Menu mobile -->
+            @if (isMenuOpen()) {
+              <div
+                class="absolute right-0 top-12 w-64 bg-surface-container-lowest rounded-2xl shadow-2xl border border-outline-variant/60 py-2 z-50"
+                role="menu"
+                data-testid="demo-profile-dropdown-mobile"
+                (click)="$event.stopPropagation()"
+              >
+                <div class="px-3 py-1.5 border-b border-outline-variant/40">
+                  <span class="text-[11px] font-bold uppercase tracking-wider text-on-surface-variant block">
+                    Profil de démonstration
+                  </span>
+                </div>
+                <div class="py-1">
+                  @for (item of demoRoles; track item.role) {
+                    <button
+                      type="button"
+                      (click)="selectRole(item.role)"
+                      [attr.data-testid]="item.testId"
+                      class="w-full text-left px-3 py-2 flex items-center justify-between hover:bg-surface-container-low transition-colors"
+                      [class.bg-surface-container-high]="roomsService.currentRole() === item.role"
+                    >
+                      <div class="flex items-center gap-2">
+                        <span class="material-symbols-outlined text-[18px]" [class.text-primary]="roomsService.currentRole() === item.role">
+                          {{ item.icon }}
+                        </span>
+                        <div>
+                          <div class="font-medium text-xs text-on-surface">
+                            {{ item.label }}
+                          </div>
+                        </div>
+                      </div>
+                      @if (roomsService.currentRole() === item.role) {
+                        <span class="material-symbols-outlined text-[16px] text-primary">check</span>
+                      }
+                    </button>
+                  }
+                </div>
+              </div>
+            }
           </div>
         </div>
       </div>
     </header>
+
+    <!-- Backdrop transparent pour fermer le menu lors d'un clic en dehors -->
+    @if (isMenuOpen()) {
+      <div
+        class="fixed inset-0 z-30"
+        (click)="closeMenu()"
+        aria-hidden="true"
+      ></div>
+    }
   `
 })
 export class HeaderComponent {
   readonly modalService = inject(ReservationModalService);
+  readonly roomsService = inject(RoomsService);
+
+  readonly isMenuOpen = signal<boolean>(false);
+
+  readonly demoRoles: DemoRoleItem[] = [
+    {
+      role: Role.DIRECTION,
+      label: 'Direction',
+      name: 'Aïssatou Ba',
+      title: 'Directrice Générale',
+      icon: 'admin_panel_settings',
+      description: 'Accès complet (ajout, modif, prix)',
+      testId: 'demo-role-direction',
+    },
+    {
+      role: Role.RECEPTION,
+      label: 'Réception',
+      name: 'Fatou Sow',
+      title: 'Chef de Réception',
+      icon: 'desk',
+      description: 'Planning, check-in, réservations',
+      testId: 'demo-role-reception',
+    },
+    {
+      role: Role.HOUSEKEEPING,
+      label: 'Gouvernance',
+      name: 'Mariama Diallo',
+      title: 'Gouvernante Générale',
+      icon: 'cleaning_services',
+      description: 'Statuts de ménage et chambres',
+      testId: 'demo-role-housekeeping',
+    },
+    {
+      role: Role.MAINTENANCE,
+      label: 'Technique',
+      name: 'Moussa Ndiaye',
+      title: 'Responsable Technique',
+      icon: 'handyman',
+      description: 'Maintenance et réparations',
+      testId: 'demo-role-maintenance',
+    },
+  ];
+
+  readonly currentProfile = computed(() => {
+    const role = this.roomsService.currentRole();
+    const matched = this.demoRoles.find((r) => r.role === role);
+    return (
+      matched || {
+        role: Role.DIRECTION,
+        label: 'Direction',
+        name: 'Aïssatou Ba',
+        title: 'Directrice Générale',
+        icon: 'admin_panel_settings',
+        description: 'Accès complet',
+        testId: 'demo-role-direction',
+      }
+    );
+  });
+
+  @HostListener('window:keydown.escape')
+  onEscape(): void {
+    if (this.isMenuOpen()) {
+      this.closeMenu();
+    }
+  }
+
+  toggleMenu(event?: MouseEvent): void {
+    if (event) {
+      event.stopPropagation();
+    }
+    this.isMenuOpen.update((v) => !v);
+  }
+
+  closeMenu(): void {
+    this.isMenuOpen.set(false);
+  }
+
+  selectRole(role: Role): void {
+    this.roomsService.setRole(role);
+    this.closeMenu();
+  }
 
   openNewReservation(): void {
     this.modalService.open();

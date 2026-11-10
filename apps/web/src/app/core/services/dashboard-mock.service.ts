@@ -1,4 +1,5 @@
-import { Injectable, signal } from '@angular/core';
+import { Injectable, signal, inject } from '@angular/core';
+import { RoomsService } from './rooms.service';
 import { Observable, of } from 'rxjs';
 import { DashboardData } from '../models/dashboard.model';
 
@@ -6,6 +7,7 @@ import { DashboardData } from '../models/dashboard.model';
   providedIn: 'root'
 })
 export class DashboardMockService {
+  private readonly roomsService = inject(RoomsService, { optional: true });
   // TODO(API): Remplacer les valeurs fictives par l'API météo de Thiès et l'API de gestion hôtelière
   private readonly mockData: DashboardData = {
     user: {

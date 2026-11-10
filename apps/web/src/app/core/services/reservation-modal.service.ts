@@ -8,12 +8,14 @@ import {
   SpecificRoomOption
 } from '../models/reservation-modal.model';
 import { PlanningMockService } from './planning-mock.service';
+import { RoomsService } from './rooms.service';
 
 @Injectable({
   providedIn: 'root'
 })
 export class ReservationModalService {
   private readonly planningService = inject(PlanningMockService, { optional: true });
+  private readonly roomsService = inject(RoomsService, { optional: true });
 
   /** État d'ouverture de la modal */
   readonly isOpen = signal<boolean>(false);
@@ -108,7 +110,24 @@ export class ReservationModalService {
   ];
 
   /** Les 12 chambres de l'hôtel réparties sur les 3 catégories physiques */
-  readonly roomsCatalog: SpecificRoomOption[] = [
+  get roomsCatalog(): SpecificRoomOption[] {
+    if (this.roomsService) {
+      const active = this.roomsService.activeRooms();
+      if (active.length > 0) {
+        return active.map((r) => ({
+          number: r.number,
+          category: (r.category || r.type?.name || 'Standard') as RoomCategoryType,
+          label: `Chambre ${r.number} - ${r.category || r.type?.name || 'Standard'}`,
+          floor: `Étage ${r.floor}`,
+          details: r.description || `Lit ${r.bedType || 'Queen'}, ${r.view || 'Jardin'}`,
+          imageFileName: r.image || r.imageUrl || 'chambre-fallback',
+        }));
+      }
+    }
+    return this.defaultRoomsCatalog;
+  }
+
+  readonly defaultRoomsCatalog: SpecificRoomOption[] = [
     // Standard (101 à 106)
     {
       number: '101',
