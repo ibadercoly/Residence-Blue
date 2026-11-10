@@ -16,86 +16,85 @@ describe('PlanningPageComponent', () => {
   it('devrait être initialisé correctement', () => {
     expect(component).toBeTruthy();
     expect(component.planningService).toBe(service);
+    expect(component.modalService).toBe(modalService);
   });
 
-  it('devrait formater les montants en FCFA entiers', () => {
-    expect(component.formatAmount(780000)).toBe('780\u202f000 FCFA');
+  it('devrait formater les montants en FCFA entiers stricts', () => {
+    expect(component.formatAmount(840000)).toBe('840\u202f000 FCFA');
     expect(component.formatAmount(0)).toBe('0 FCFA');
   });
 
-  it('devrait calculer les classes de ligne de chambre correctement', () => {
-    const room301 = service.roomsState().find((r) => r.number === '301')!;
-    const rowClasses301 = component.getRoomRowClasses(room301);
-    expect(rowClasses301).toContain('bg-primary/10');
-
-    const room202 = service.roomsState().find((r) => r.number === '202')!;
-    const rowClasses202 = component.getRoomRowClasses(room202);
-    expect(rowClasses202).toContain('bg-error-container/20');
+  it('devrait retourner les 3 couleurs exactes selon le statut', () => {
+    expect(component.getReservationColorClass('CONFIRME')).toContain('bg-blue-100');
+    expect(component.getReservationColorClass('EN_SEJOUR')).toContain('bg-emerald-100');
+    expect(component.getReservationColorClass('DEPART_AUJ')).toContain('bg-amber-100');
   });
 
-  it('devrait calculer les classes de badge de chambre correctement', () => {
-    const room301 = service.roomsState().find((r) => r.number === '301')!;
-    const badge301 = component.getRoomBadgeClasses(room301);
-    expect(badge301).toContain('bg-surface-bright text-primary');
+  it('devrait mettre à jour la recherche lors de la saisie', () => {
+    const dummyEvent = {
+      target: { value: 'Mamadou' }
+    } as unknown as Event;
 
-    const room202 = service.roomsState().find((r) => r.number === '202')!;
-    const badge202 = component.getRoomBadgeClasses(room202);
-    expect(badge202).toContain('bg-error text-on-error');
-
-    const room101 = service.roomsState().find((r) => r.number === '101')!;
-    const badge101 = component.getRoomBadgeClasses(room101);
-    expect(badge101).toContain('bg-surface-container-high');
+    component.onSearchInput(dummyEvent);
+    expect(service.searchQuery()).toBe('Mamadou');
   });
 
-  it('devrait mettre à jour la sélection de réservation', () => {
-    const res = service.roomsState().find((r) => r.number === '103')?.reservations[0]!;
-    component.onSelectReservation(res);
-    expect(service.selectedReservationId()).toBe(res.id);
+  it('devrait ouvrir le modal Nouvelle réservation lors du clic sur une case vide', () => {
+    component.onEmptySlotClick('106', '2026-11-12');
+    expect(modalService.isOpen()).toBe(true);
+    expect(modalService.currentParams()?.roomNumber).toBe('106');
+    expect(modalService.currentParams()?.checkInDate).toBe('2026-11-12');
+    expect(modalService.currentParams()?.checkOutDate).toBe('2026-11-13');
   });
 
-  it('devrait exécuter le relogement du conflit', () => {
-    expect(service.conflictBannerVisible()).toBe(true);
-    component.onRelocate();
-    expect(service.conflictBannerVisible()).toBe(false);
+  it('devrait ouvrir le tiroir de détail lors du clic sur une réservation', () => {
+    const stopPropagationMock = jest.fn();
+    const dummyEvent = {
+      stopPropagation: stopPropagationMock
+    } as unknown as Event;
+
+    component.onReservationClick('RB-2024-0894', dummyEvent);
+    expect(stopPropagationMock).toHaveBeenCalled();
+    expect(service.selectedReservationId()).toBe('RB-2024-0894');
   });
 
-  it('devrait gérer les actions de réception et export Tape Chart', () => {
-    component.onExportTapeChart();
-    expect(service.lastDragEventMessage()).toContain('Tape Chart (PDF/Excel)');
+  it('devrait fermer le tiroir de détail avec la touche Échap', () => {
+    service.openDetail('RB-2024-0894');
+    expect(service.selectedReservationId()).toBe('RB-2024-0894');
 
-    component.onAction('Modifier la réservation');
-    expect(service.lastDragEventMessage()).toContain('Modifier la réservation');
+    component.onEscapePressed();
+    expect(service.selectedReservationId()).toBeNull();
   });
 
-  it('devrait intercepter les événements de glisser-déposer inactifs', () => {
-    const res = service.roomsState().find((r) => r.number === '101')?.reservations[0]!;
-    const dummyDragEvent = {
-      dataTransfer: {
-        setData: jest.fn(),
-        effectAllowed: ''
-      }
-    } as unknown as DragEvent;
+  it('devrait exécuter les 4 actions du tiroir : Modifier, Prolonger, Check-in/out, Annuler', () => {
+    // 1. Modifier
+    service.openDetail('RB-2024-0894');
+    component.onModifier('RB-2024-0894');
+    expect(modalService.isOpen()).toBe(true);
+    expect(modalService.currentParams()?.roomNumber).toBe('301');
 
-    component.onDragStart(dummyDragEvent, res);
-    expect(dummyDragEvent.dataTransfer?.setData).toHaveBeenCalled();
-    expect(service.lastDragEventMessage()).toContain(res.guestName);
+    // 2. Prolonger
+    const extendSpy = jest.spyOn(service, 'extendReservation');
+    component.onProlonger('res-103-faye');
+    expect(extendSpy).toHaveBeenCalledWith('res-103-faye', 1);
 
-    const dummyDropEvent = {
-      preventDefault: jest.fn(),
-      dataTransfer: {
-        getData: jest.fn().mockReturnValue(JSON.stringify(res))
-      }
-    } as unknown as DragEvent;
+    // 3. Check-in / out
+    const checkInOutSpy = jest.spyOn(service, 'toggleCheckInCheckOut');
+    component.onToggleCheckInOut('res-103-faye');
+    expect(checkInOutSpy).toHaveBeenCalledWith('res-103-faye');
 
-    const targetRoom = service.roomsState().find((r) => r.number === '102')!;
-    component.onDrop(dummyDropEvent, targetRoom);
-    expect(service.lastDragEventMessage()).toContain('Chambre 102');
+    // 4. Annuler
+    const cancelSpy = jest.spyOn(service, 'cancelReservation');
+    component.onAnnuler('res-201-moreau');
+    expect(cancelSpy).toHaveBeenCalledWith('res-201-moreau');
   });
 
-  it('devrait ouvrir le modal de nouvelle réservation avec les paramètres de chambre', () => {
-    component.openNewReservation('106', 'Standard');
-    expect(component.modalService.isOpen()).toBe(true);
-    expect(component.modalService.currentParams()?.roomNumber).toBe('106');
-    expect(component.modalService.currentParams()?.category).toBe('Standard');
+  it('devrait calculer les sections du jour mobile sélectionné', () => {
+    component.selectedMobileDayIndex.set(0); // 10 nov 2026
+    const sections = component.mobileSectionReservations();
+    expect(sections).toBeDefined();
+    expect(Array.isArray(sections.arrivals)).toBe(true);
+    expect(Array.isArray(sections.departures)).toBe(true);
+    expect(Array.isArray(sections.staying)).toBe(true);
   });
 });

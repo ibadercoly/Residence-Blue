@@ -44,6 +44,9 @@ Ce document détaille la cartographie complète des modules de l'application Ré
 | `menu_gestion_avancee` | Menu restaurant avancé | V2 | **Reporté** | `restaurant` | Recadrage photo HD, allergènes multiples, suppléments et export |
 | `mobile_complete` | Version mobile complète | V2 | **Reporté** | `dashboard` | Navigation inférieure dédiée mobile (`design/maquettes/tableau_de_bord_mode_clair/`) |
 | `roles_avances` | Rôles d'équipe avancés | V2 | **Reporté** | `housekeeping`, `maintenance`, `accounting` | Rôles HOUSEKEEPING, MAINTENANCE et COMPTABLE |
+| `planning_vue_14j` | Vue 14 jours planning | V2 | **Reporté** | `planning` | Affichage 14 jours surchargé (remplacé par vue 7 jours sans scroll horizontal en V1) |
+| `planning_relogement_auto`| Suggestions relogement | V2 | **Reporté** | `planning` | Relogement automatique et bannières de conflit Tape Chart |
+| `planning_stats_avancees`| Statistiques avancées planning | V2 | **Reporté** | `planning` | Métriques d'occupation complexes et infobulles décoratives chargées |
 
 ---
 
@@ -132,3 +135,5 @@ En revanche, les tests E2E Playwright de navigation et de rendu graphique comple
 | **Fidélité Tableau de Bord Bureau** | `apps/web/e2e/visual-comparison.spec.ts` | Éléments météo, graphiques et RevPAR reportés en V2 | À relancer à la réactivation des widgets Dashboard V2 |
 | **Fidélité Tableau de Bord Mobile** | `apps/web/e2e/visual-comparison.spec.ts` | Vue mobile complète reportée en V2 | À relancer à la réactivation de `mobile_complete` |
 | **Matrice 12 Chambres Mobile** | `apps/web/e2e/photos-chambres.spec.ts` | Vue matrice mobile complète reportée en V2 | À relancer à la réactivation de `mobile_complete` |
+| **Planning 14 Jours E2E** | pps/web/e2e/planning-refonte.spec.ts | Vue 14 jours et défilement horizontal reportés en V2 | À relancer à la réactivation de planning_vue_14j |
+| **Planning Relogement Auto** | pps/web/e2e/planning-refonte.spec.ts | Relogement automatique et conflits Tape Chart reportés en V2 | À relancer à la réactivation de planning_relogement_auto |

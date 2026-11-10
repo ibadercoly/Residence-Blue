@@ -1,19 +1,20 @@
 /**
- * Modèles de données pour le Tape Chart et Planning des réservations.
+ * Modèles de données pour le Planning des réservations (Résidence Blue).
  * Tous les montants sont en FCFA entiers stricts (AGENTS.md).
- * Les textes et dénominations sont conformes à ADAPTATION-THIES.md.
+ * Semaine de 7 jours, sans scroll horizontal, 3 chiffres clés du jour.
  */
 
 export interface PlanningDay {
-  name: string; // 'Lun', 'Mar', etc.
-  number: string; // '20', '21', '01'
-  month: string; // 'Mai', 'Juin'
+  name: string; // 'Mar', 'Mer', etc.
+  number: string; // '10', '11', '16'
+  month: string; // 'Nov.', 'Déc.'
   isToday: boolean;
   isWeekend: boolean;
-  dayIndex: number;
+  dayIndex: number; // 0 à 6
+  dateIso: string; // '2026-11-10'
 }
 
-export type ReservationStatusType = 'CHECKOUT' | 'EN_SEJOUR' | 'CONFIRME' | 'ARRIVEE_AUJ' | 'CONFLIT';
+export type ReservationStatusType = 'CHECKOUT' | 'EN_SEJOUR' | 'CONFIRME' | 'ARRIVEE_AUJ' | 'CONFLIT' | 'DEPART_AUJ';
 
 export interface PlanningReservation {
   id: string;
@@ -21,12 +22,18 @@ export interface PlanningReservation {
   roomNumber: string;
   startDayIndex: number;
   durationDays: number;
-  leftPercent: number;
-  widthPercent: number;
   status: ReservationStatusType;
-  statusLabel: string;
-  icon?: string;
+  statusLabel?: string;
   nights: number;
+  checkInDate: string;
+  checkOutDate: string;
+  totalFcfa: number;
+  remainingFcfa: number;
+  contactPhone?: string;
+  contactEmail?: string;
+  leftPercent?: number;
+  widthPercent?: number;
+  icon?: string;
   isVip?: boolean;
   vipLabel?: string;
   subtitle?: string;
@@ -74,22 +81,24 @@ export interface SelectedReservationDetail {
   guestName: string;
   vipBadge?: string;
   statusBadge: string;
+  status: ReservationStatusType;
   roomNumber: string;
   roomCategory: string;
   roomDescription: string;
   checkInDate: string;
-  checkInDetails: string;
+  checkInDetails?: string;
   checkOutDate: string;
-  checkOutDetails: string;
-  adultsCount: number;
-  breakfastLabel: string;
-  shuttleLabel: string;
+  checkOutDetails?: string;
+  nights: number;
+  adultsCount?: number;
+  breakfastLabel?: string;
+  shuttleLabel?: string;
   folio: FolioSummary;
   contact: {
     phone: string;
     email: string;
   };
-  conciergeNote: string;
+  conciergeNote?: string;
 }
 
 export interface OccupancyStats {
@@ -128,3 +137,11 @@ export interface PlanningData {
   selectedReservation: SelectedReservationDetail;
   housekeeping: HousekeepingOverview;
 }
+
+export interface PlanningDailyMetrics {
+  arrivalsToday: number;
+  departuresToday: number;
+  freeRoomsToday: number;
+}
+
+export type PlanningFilterType = 'ALL' | 'FREE' | 'OCCUPIED';
