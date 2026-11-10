@@ -20,6 +20,31 @@ const mimeTypes = {
 const fileCache = new Map();
 
 const server = http.createServer((req, res) => {
+  // Proxy vers l'API backend si la requête commence par /api ou /health
+  if (req.url.startsWith('/api') || req.url.startsWith('/health')) {
+    const proxyReq = http.request({
+      hostname: 'localhost',
+      port: 3000,
+      path: req.url,
+      method: req.method,
+      headers: {
+        ...req.headers,
+        host: 'localhost:3000',
+      },
+    }, (proxyRes) => {
+      res.writeHead(proxyRes.statusCode, proxyRes.headers);
+      proxyRes.pipe(res);
+    });
+
+    proxyReq.on('error', (err) => {
+      res.writeHead(502, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'API indisponible sur localhost:3000', details: err.message }));
+    });
+
+    req.pipe(proxyReq);
+    return;
+  }
+
   const urlPath = req.url.split('?')[0];
   let filePath = path.join(BROWSER_DIR, urlPath === '/' ? 'index.html' : urlPath);
 
