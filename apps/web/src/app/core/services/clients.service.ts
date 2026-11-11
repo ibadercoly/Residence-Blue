@@ -103,7 +103,7 @@ export class ClientsService {
     } catch {
       // ignore
     }
-    return 'RECEPTION';
+    return 'DIRECTION';
   }
 
   private headers(): Record<string, string> {

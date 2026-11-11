@@ -540,22 +540,8 @@ const SENEGAL_PHONE_RE =
                     </div>
                   </div>
 
-                  <!-- Actions : Supprimer (DIRECTION) + Menu ⋯ -->
+                  <!-- Menu ⋯ -->
                   <div class="flex items-center gap-2 shrink-0">
-                    @if (isDirection()) {
-                      <button
-                        type="button"
-                        (click)="openDeleteBox(guest)"
-                        data-testid="header-delete-btn"
-                        class="h-10 px-3 rounded-xl border border-rose-200 bg-rose-50 text-rose-700 text-xs font-bold hover:bg-rose-100 inline-flex items-center gap-1.5 focus:outline-none focus:ring-2 focus:ring-rose-500"
-                      >
-                        <span class="material-symbols-outlined text-[18px]" aria-hidden="true">
-                          delete
-                        </span>
-                        Supprimer
-                      </button>
-                    }
-
                     <div class="relative">
                       <button
                         type="button"
@@ -1556,7 +1542,8 @@ export class ClientsPageComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   isDirection(): boolean {
-    return this.clientsService.getCurrentRole() === 'DIRECTION';
+    const role = this.clientsService.getCurrentRole();
+    return role === 'DIRECTION' || role === 'ADMIN';
   }
 
   openDeleteBox(guest: GuestDetail): void {
