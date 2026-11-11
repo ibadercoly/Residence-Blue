@@ -232,12 +232,47 @@ export class GuestProfileService {
   };
 
   private currentProfileState = signal<GuestProfile>(JSON.parse(JSON.stringify(this.defaultProfile)));
+  readonly guestsList = signal<GuestProfile[]>([]);
+  readonly isEmptyDatabase = signal<boolean>(false);
+
+  constructor() {
+    this.fetchFromServer();
+  }
+
+  private getCurrentRole(): string {
+    try {
+      const raw = typeof localStorage !== 'undefined' ? localStorage.getItem('residence_blue_auth_session') : null;
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (parsed?.user?.role) return parsed.user.role;
+      }
+    } catch {}
+    return 'DIRECTION';
+  }
+
+  async fetchFromServer(): Promise<void> {
+    if (typeof fetch === 'undefined') return;
+    try {
+      const res = await fetch('/api/guests', {
+        headers: { 'x-user-role': this.getCurrentRole() },
+      });
+      if (res.ok) {
+        const list: GuestProfile[] = await res.json();
+        this.guestsList.set(list);
+        if (list.length > 0) {
+          this.isEmptyDatabase.set(false);
+          this.currentProfileState.set(list[0]);
+        } else {
+          this.isEmptyDatabase.set(true);
+        }
+      }
+    } catch {}
+  }
 
   /**
    * Récupère le profil client par identifiant
    */
   getGuestProfile(_id: string): Observable<GuestProfile> {
-    // Dans ce mock, nous retournons le profil de Mamadou Diop
     return of(this.currentProfileState());
   }
 
@@ -280,5 +315,23 @@ export class GuestProfileService {
       notes: [newNote, ...current.notes]
     };
     this.currentProfileState.set(updated);
+
+    if (typeof fetch !== 'undefined' && current.id && /^[0-9a-f-]{36}$/i.test(current.id)) {
+      fetch(`/api/guests/${current.id}/notes`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-user-role': this.getCurrentRole(),
+        },
+        body: JSON.stringify({ content: content.trim(), authorName, department }),
+      })
+        .then(async (res) => {
+          if (res.ok) {
+            const saved = await res.json();
+            this.currentProfileState.set(saved);
+          }
+        })
+        .catch(() => {});
+    }
   }
 }

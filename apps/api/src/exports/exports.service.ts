@@ -1,4 +1,4 @@
-import { BadRequestException, ForbiddenException, Injectable } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, Injectable, Optional } from '@nestjs/common';
 import { Response } from 'express';
 import PDFDocument from 'pdfkit';
 import * as ExcelJS from 'exceljs';
@@ -9,6 +9,7 @@ import {
   Role,
 } from '@residence-blue/shared';
 import { ExportQueryDto } from './dto/export-query.dto';
+import { PrismaService } from '../prisma/prisma.service';
 
 export function sanitizeSpreadsheetCell(value: any): any {
   if (typeof value === 'string') {
@@ -24,6 +25,8 @@ export function sanitizeSpreadsheetCell(value: any): any {
 export class ExportsService {
   private readonly auditLogs: ExportAuditLogEntry[] = [];
 
+  constructor(@Optional() private readonly prisma?: PrismaService) {}
+
   getAuditLogs(): ExportAuditLogEntry[] {
     return [...this.auditLogs];
   }
@@ -37,6 +40,18 @@ export class ExportsService {
     this.auditLogs.unshift(entry);
     if (this.auditLogs.length > 500) {
       this.auditLogs.pop();
+    }
+    if (this.prisma?.auditLog?.create) {
+      this.prisma.auditLog
+        .create({
+          data: {
+            action: 'EXPORT_GENERATE',
+            entity: 'Export',
+            entityId: entry.id,
+            after: entry as any,
+          },
+        })
+        .catch(() => {});
     }
     return entry;
   }

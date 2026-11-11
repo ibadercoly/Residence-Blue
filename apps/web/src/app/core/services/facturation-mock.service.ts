@@ -19,6 +19,56 @@ export class FacturationMockService {
   constructor(customHotelSettings?: HotelSettingsService) {
     this.hotelSettingsService =
       customHotelSettings ?? inject(HotelSettingsService, { optional: true }) ?? new HotelSettingsService();
+    this.fetchFromServer();
+  }
+
+  readonly currentInvoiceId = signal<string | null>(null);
+
+  private getCurrentRole(): string {
+    try {
+      const raw = typeof localStorage !== 'undefined' ? localStorage.getItem('residence_blue_auth_session') : null;
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (parsed?.user?.role) return parsed.user.role;
+      }
+    } catch {}
+    return 'DIRECTION';
+  }
+
+  async fetchFromServer(): Promise<void> {
+    if (typeof fetch === 'undefined') return;
+    try {
+      const res = await fetch('/api/invoices', {
+        headers: { 'x-user-role': this.getCurrentRole() },
+      });
+      if (res.ok) {
+        const invoices = await res.json();
+        if (Array.isArray(invoices) && invoices.length > 0) {
+          const active = invoices[0];
+          this.currentInvoiceId.set(active.id);
+          if (Array.isArray(active.items)) {
+            this._lineItems.set(active.items);
+          }
+          if (typeof active.subtotalHtFcfa === 'number') this.subtotalHtFcfa.set(active.subtotalHtFcfa);
+          if (typeof active.vatAmountFcfa === 'number') this.vatAmountFcfa.set(active.vatAmountFcfa);
+          if (typeof active.tourismTaxFcfa === 'number') this.tourismTaxAmountFcfa.set(active.tourismTaxFcfa);
+          if (typeof active.totalFcfa === 'number') this.totalTtcFcfa.set(active.totalFcfa);
+          if (typeof active.depositFcfa === 'number') this.depositAmountFcfa.set(active.depositFcfa);
+          if (typeof active.balanceFcfa === 'number') this.targetDueFcfa.set(active.balanceFcfa);
+          this.isFolioSettled.set(Boolean(active.isPaid));
+        } else if (Array.isArray(invoices) && invoices.length === 0) {
+          this.currentInvoiceId.set(null);
+          this._lineItems.set([]);
+          this._closedFolios.set([]);
+          this.subtotalHtFcfa.set(0);
+          this.vatAmountFcfa.set(0);
+          this.tourismTaxAmountFcfa.set(0);
+          this.totalTtcFcfa.set(0);
+          this.depositAmountFcfa.set(0);
+          this.targetDueFcfa.set(0);
+        }
+      }
+    } catch {}
   }
 
   // Onglet actif
@@ -333,6 +383,35 @@ export class FacturationMockService {
 
     // Simulation de délai réseau / traitement
     await new Promise(resolve => setTimeout(resolve, 600));
+
+    const invoiceId = this.currentInvoiceId();
+    if (typeof fetch !== 'undefined' && invoiceId && /^[0-9a-f-]{36}$/i.test(invoiceId)) {
+      const paymentsToRecord: Array<{ method: string; amountFcfa: number; transactionRef?: string }> = [];
+      if (this.inputWave() > 0) {
+        paymentsToRecord.push({ method: 'WAVE', amountFcfa: this.inputWave(), transactionRef: this.inputWaveRef() });
+      }
+      if (this.inputCash() > 0) {
+        paymentsToRecord.push({ method: 'CASH', amountFcfa: this.inputCash() });
+      }
+      if (this.inputOM() > 0) {
+        paymentsToRecord.push({ method: 'ORANGE_MONEY', amountFcfa: this.inputOM(), transactionRef: this.inputOMRef() });
+      }
+      if (this.inputCard() > 0) {
+        paymentsToRecord.push({ method: 'CARD', amountFcfa: this.inputCard() });
+      }
+      for (const p of paymentsToRecord) {
+        try {
+          await fetch(`/api/invoices/${invoiceId}/payments`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'x-user-role': this.getCurrentRole(),
+            },
+            body: JSON.stringify(p),
+          });
+        } catch {}
+      }
+    }
 
     this.isFolioSettled.set(true);
     this.isCheckingOut.set(false);

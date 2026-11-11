@@ -13,6 +13,8 @@
     "build:web": "npm run build --workspace=@residence-blue/web",
     "build": "npm run build:shared && npm run build:api && npm run build:web",
     "prisma:generate": "npm run prisma:generate --workspace=@residence-blue/api",
+    "seed": "node --env-file=.env ./node_modules/ts-node/dist/bin.js --project apps/api/tsconfig.json apps/api/prisma/seed.ts",
+    "verify:integrity": "node --env-file=.env ./node_modules/ts-node/dist/bin.js --project apps/api/tsconfig.json scripts/verifier-integrite.ts",
     "images": "node scripts/optimiser-images.mjs",
     "lint": "npm run lint --workspaces --if-present",
     "test:unit": "npm run test --workspace=@residence-blue/shared && npm run test --workspace=@residence-blue/api && npm run test --workspace=@residence-blue/web",

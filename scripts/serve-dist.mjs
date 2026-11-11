@@ -23,13 +23,13 @@ const server = http.createServer((req, res) => {
   // Proxy vers l'API backend si la requête commence par /api ou /health
   if (req.url.startsWith('/api') || req.url.startsWith('/health')) {
     const proxyReq = http.request({
-      hostname: 'localhost',
+      hostname: '127.0.0.1',
       port: 3000,
       path: req.url,
       method: req.method,
       headers: {
         ...req.headers,
-        host: 'localhost:3000',
+        host: '127.0.0.1:3000',
       },
     }, (proxyRes) => {
       res.writeHead(proxyRes.statusCode, proxyRes.headers);
@@ -38,7 +38,7 @@ const server = http.createServer((req, res) => {
 
     proxyReq.on('error', (err) => {
       res.writeHead(502, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ error: 'API indisponible sur localhost:3000', details: err.message }));
+      res.end(JSON.stringify({ error: 'API indisponible sur 127.0.0.1:3000', details: err.message }));
     });
 
     req.pipe(proxyReq);

@@ -3,6 +3,7 @@ import { execSync } from 'child_process';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
+import { seedAll } from '../prisma/seed';
 
 describe('Base de données sécurisée (feature/base-securisee) — Intégration & Porte de Sécurité', () => {
   const dbHost = process.env.TEST_DB_HOST || 'localhost';
@@ -35,12 +36,18 @@ describe('Base de données sécurisée (feature/base-securisee) — Intégration
     await readonlyClient.$connect();
 
     // Nettoyage initial des tables non-append-only
+    await ownerClient.$executeRawUnsafe('ALTER TABLE "audit_log" DISABLE TRIGGER trg_audit_log_append_only;');
+    await ownerClient.$executeRawUnsafe('UPDATE "audit_log" SET "user_id" = NULL WHERE "user_id" IS NOT NULL;');
+    await ownerClient.$executeRawUnsafe('ALTER TABLE "audit_log" ENABLE TRIGGER trg_audit_log_append_only;');
     await ownerClient.refreshToken.deleteMany();
     await ownerClient.syncOperation.deleteMany();
     await ownerClient.user.deleteMany();
   });
 
   afterAll(async () => {
+    if (ownerClient) {
+      await seedAll(ownerClient);
+    }
     await ownerClient?.$disconnect();
     await appUserClient?.$disconnect();
     await readonlyClient?.$disconnect();

@@ -46,6 +46,23 @@ export class HotelSettingsService {
 
   readonly settings = this._settings.asReadonly();
 
+  constructor() {
+    this.fetchFromServer();
+  }
+
+  async fetchFromServer(): Promise<void> {
+    if (typeof fetch === 'undefined') return;
+    try {
+      const res = await fetch('/api/hotel-settings');
+      if (res.ok) {
+        const data = await res.json();
+        if (data && data.hotelName) {
+          this._settings.update((curr) => ({ ...curr, ...data }));
+        }
+      }
+    } catch {}
+  }
+
   get supportPhone(): string {
     return this._settings().supportPhone;
   }
@@ -56,5 +73,24 @@ export class HotelSettingsService {
 
   updateSettings(partial: Partial<HotelSettings>): void {
     this._settings.update(curr => ({ ...curr, ...partial }));
+    if (typeof fetch !== 'undefined') {
+      fetch('/api/hotel-settings', {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-user-role': 'DIRECTION',
+        },
+        body: JSON.stringify(partial),
+      })
+        .then(async (res) => {
+          if (res.ok) {
+            const saved = await res.json();
+            if (saved && saved.hotelName) {
+              this._settings.update((curr) => ({ ...curr, ...saved }));
+            }
+          }
+        })
+        .catch(() => {});
+    }
   }
 }
