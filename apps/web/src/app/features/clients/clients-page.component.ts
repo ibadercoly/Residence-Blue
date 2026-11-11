@@ -69,12 +69,12 @@ const SENEGAL_PHONE_RE =
   ],
   template: `
     <div
-      class="flex flex-col h-[calc(100vh-4.5rem)] w-full max-w-full overflow-hidden bg-[#f8fafc] font-['Manrope',sans-serif]"
+      class="flex flex-col h-[calc(100dvh-5rem)] w-full max-w-full overflow-hidden bg-[#f8fafc] font-['Manrope',sans-serif]"
       data-testid="clients-v2-root"
     >
       <!-- Grille principale : 2 colonnes >= 900px, 1 colonne plein écran < 900px -->
       <div
-        class="flex-1 min-h-0 w-full min-[900px]:grid min-[900px]:grid-cols-[380px_minmax(0,1fr)]"
+        class="flex-1 min-h-0 h-full w-full min-[900px]:grid min-[900px]:grid-cols-[380px_minmax(0,1fr)] min-[900px]:grid-rows-[minmax(0,1fr)]"
       >
         <!-- COLONNE GAUCHE : ANNUAIRE -->
         <aside
@@ -540,8 +540,22 @@ const SENEGAL_PHONE_RE =
                     </div>
                   </div>
 
-                  <!-- Menu ⋯ -->
+                  <!-- Actions : Supprimer (DIRECTION) + Menu ⋯ -->
                   <div class="flex items-center gap-2 shrink-0">
+                    @if (isDirection()) {
+                      <button
+                        type="button"
+                        (click)="openDeleteBox(guest)"
+                        data-testid="header-delete-btn"
+                        class="h-10 px-3 rounded-xl border border-rose-200 bg-rose-50 text-rose-700 text-xs font-bold hover:bg-rose-100 inline-flex items-center gap-1.5 focus:outline-none focus:ring-2 focus:ring-rose-500"
+                      >
+                        <span class="material-symbols-outlined text-[18px]" aria-hidden="true">
+                          delete
+                        </span>
+                        Supprimer
+                      </button>
+                    }
+
                     <div class="relative">
                       <button
                         type="button"
