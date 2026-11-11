@@ -12,7 +12,8 @@
     "test": "node --experimental-vm-modules ../../node_modules/jest/bin/jest.js",
     "test:watch": "node --experimental-vm-modules ../../node_modules/jest/bin/jest.js --watch",
     "test:integration": "node --experimental-vm-modules ../../node_modules/jest/bin/jest.js --config test/jest-integration.json --runInBand",
-    "test:security": "node --experimental-vm-modules ../../node_modules/jest/bin/jest.js --config test/jest-security.json --runInBand"
+    "test:security": "node --experimental-vm-modules ../../node_modules/jest/bin/jest.js --config test/jest-security.json --runInBand",
+    "vider-test": "node --env-file-if-exists=../../.env ../../node_modules/ts-node/dist/bin.js --project tsconfig.json scripts/vider-base-test.ts"
   },
   "dependencies": {
     "@nestjs/common": "^12.4.0",
