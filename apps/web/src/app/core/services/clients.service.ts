@@ -95,7 +95,7 @@ export class ClientsService {
 
   getCurrentRole(): string {
     try {
-      const raw = localStorage.getItem('rb_auth_session');
+      const raw = localStorage.getItem('residence_blue_auth_session');
       if (raw) {
         const parsed = JSON.parse(raw);
         if (parsed?.user?.role) return parsed.user.role;

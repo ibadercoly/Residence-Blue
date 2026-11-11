@@ -2,12 +2,11 @@ import { CommonModule, Location } from '@angular/common';
 import {
   AfterViewInit,
   Component,
-  ElementRef,
   HostListener,
   OnDestroy,
   OnInit,
-  ViewChild,
   computed,
+  effect,
   inject,
   signal,
 } from '@angular/core';
@@ -83,8 +82,7 @@ const SENEGAL_PHONE_RE =
           aria-label="Annuaire des clients"
           data-testid="directory-pane"
           class="flex flex-col min-h-0 h-full bg-white border-r border-slate-200 overflow-hidden"
-          [class.hidden]="mobileDetailOpen()"
-          [class.min-[900px]:flex]="true"
+          [class.max-[899px]:hidden]="mobileDetailOpen()"
         >
           <!-- En-tête recherche + filtres -->
           <div class="p-4 border-b border-slate-200 space-y-3 shrink-0 bg-white">
@@ -160,7 +158,7 @@ const SENEGAL_PHONE_RE =
           <!-- Corps scrollable de l'annuaire + index alphabétique -->
           <div class="relative flex-1 min-h-0 flex">
             <div
-              #directoryScrollEl
+              id="clients-directory-list"
               (scroll)="onDirectoryScroll()"
               (keydown)="onDirectoryKeydown($event)"
               tabindex="0"
@@ -296,7 +294,7 @@ const SENEGAL_PHONE_RE =
               variant="solid"
               color="primary"
               testId="new-client-btn"
-              (clicked)="startQuickCreate()"
+              (action)="startQuickCreate()"
             ></app-action-button>
           </div>
         </aside>
@@ -306,8 +304,7 @@ const SENEGAL_PHONE_RE =
           aria-label="Détail client"
           data-testid="detail-pane"
           class="min-h-0 h-full overflow-y-auto overflow-x-hidden bg-[#f8fafc] rb-panel-transition"
-          [class.hidden]="!mobileDetailOpen()"
-          [class.min-[900px]:block]="true"
+          [class.max-[899px]:hidden]="!mobileDetailOpen()"
         >
           <!-- Barre retour mobile (< 900px) -->
           @if (mobileDetailOpen()) {
@@ -552,7 +549,7 @@ const SENEGAL_PHONE_RE =
                       variant="solid"
                       color="primary"
                       testId="new-reservation-btn"
-                      (clicked)="openReservation(guest)"
+                      (action)="openReservation(guest)"
                     ></app-action-button>
 
                     <div class="relative">
@@ -1080,11 +1077,40 @@ export class ClientsPageComponent implements OnInit, AfterViewInit, OnDestroy {
     this.router = router ?? inject(Router);
     this.location = location ?? inject(Location);
     this.reservationModal = reservationModal ?? inject(ReservationModalService);
+
+    try {
+      effect(
+        () => {
+          const g = this.clientsService.selectedGuest();
+          if (g && this.noteGuestIdSynced !== g.id) {
+            this.noteGuestIdSynced = g.id;
+            this.noteDraftSignal.set(g.internalNote || '');
+          }
+        },
+        { allowSignalWrites: true },
+      );
+    } catch {
+      // Hors contexte d'injection Angular (tests unitaires Jest)
+    }
   }
 
-  @ViewChild('searchInputEl') searchInputEl?: ElementRef<HTMLInputElement>;
-  @ViewChild('directoryScrollEl') directoryScrollEl?: ElementRef<HTMLDivElement>;
-  @ViewChild('quickFullNameEl') quickFullNameEl?: ElementRef<HTMLInputElement>;
+  private getSearchEl(): HTMLInputElement | null {
+    return typeof document !== 'undefined'
+      ? (document.getElementById('clients-search-input') as HTMLInputElement | null)
+      : null;
+  }
+
+  private getDirectoryListEl(): HTMLElement | null {
+    return typeof document !== 'undefined'
+      ? document.getElementById('clients-directory-list')
+      : null;
+  }
+
+  private getQuickFullNameEl(): HTMLInputElement | null {
+    return typeof document !== 'undefined'
+      ? (document.getElementById('quick-fullname') as HTMLInputElement | null)
+      : null;
+  }
 
   readonly filters: Array<{ value: GuestDirectoryFilter; label: string }> = [
     { value: 'ALL', label: 'Tous' },
@@ -1141,11 +1167,6 @@ export class ClientsPageComponent implements OnInit, AfterViewInit, OnDestroy {
   );
 
   noteDraft(): string {
-    const g = this.clientsService.selectedGuest();
-    if (g && this.noteGuestIdSynced !== g.id) {
-      this.noteGuestIdSynced = g.id;
-      this.noteDraftSignal.set(g.internalNote || '');
-    }
     return this.noteDraftSignal();
   }
 
@@ -1162,10 +1183,11 @@ export class ClientsPageComponent implements OnInit, AfterViewInit, OnDestroy {
     // Focus automatique sur le champ de recherche au chargement
     setTimeout(() => {
       if (!this.mobileDetailOpen()) {
-        this.searchInputEl?.nativeElement?.focus();
+        this.getSearchEl()?.focus();
       }
-      if (this.directoryScrollEl?.nativeElement && this.clientsService.directoryScrollTop > 0) {
-        this.directoryScrollEl.nativeElement.scrollTop = this.clientsService.directoryScrollTop;
+      const listEl = this.getDirectoryListEl();
+      if (listEl && this.clientsService.directoryScrollTop > 0) {
+        listEl.scrollTop = this.clientsService.directoryScrollTop;
       }
     }, 50);
   }
@@ -1189,8 +1211,9 @@ export class ClientsPageComponent implements OnInit, AfterViewInit, OnDestroy {
       this.mobileDetailOpen.set(false);
       this.clientsService.selectGuest(null);
       setTimeout(() => {
-        if (this.directoryScrollEl?.nativeElement) {
-          this.directoryScrollEl.nativeElement.scrollTop = this.clientsService.directoryScrollTop;
+        const listEl = this.getDirectoryListEl();
+        if (listEl) {
+          listEl.scrollTop = this.clientsService.directoryScrollTop;
         }
       }, 30);
     }
@@ -1237,8 +1260,9 @@ export class ClientsPageComponent implements OnInit, AfterViewInit, OnDestroy {
       this.backToDirectoryMobile();
     }
     setTimeout(() => {
-      this.searchInputEl?.nativeElement?.focus();
-      this.searchInputEl?.nativeElement?.select();
+      const el = this.getSearchEl();
+      el?.focus();
+      el?.select();
     }, 20);
   }
 
@@ -1253,7 +1277,7 @@ export class ClientsPageComponent implements OnInit, AfterViewInit, OnDestroy {
   clearSearch(): void {
     this.clientsService.searchQuery.set('');
     this.clientsService.loadDirectory(true);
-    this.searchInputEl?.nativeElement?.focus();
+    this.getSearchEl()?.focus();
   }
 
   onFilterChange(filter: GuestDirectoryFilter): void {
@@ -1262,7 +1286,7 @@ export class ClientsPageComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   onDirectoryScroll(): void {
-    const el = this.directoryScrollEl?.nativeElement;
+    const el = this.getDirectoryListEl();
     if (!el) return;
     this.clientsService.directoryScrollTop = el.scrollTop;
     if (el.scrollTop + el.clientHeight >= el.scrollHeight - 160) {
@@ -1283,7 +1307,7 @@ export class ClientsPageComponent implements OnInit, AfterViewInit, OnDestroy {
   focusFirstOrNextRow(delta: number, event: Event): void {
     event.preventDefault();
     this.moveSelection(delta);
-    this.directoryScrollEl?.nativeElement?.focus();
+    this.getDirectoryListEl()?.focus();
   }
 
   private moveSelection(delta: number): void {
@@ -1322,8 +1346,9 @@ export class ClientsPageComponent implements OnInit, AfterViewInit, OnDestroy {
     this.clientsService.selectGuest(null);
     this.router.navigate(['/clients']);
     setTimeout(() => {
-      if (this.directoryScrollEl?.nativeElement) {
-        this.directoryScrollEl.nativeElement.scrollTop = this.clientsService.directoryScrollTop;
+      const listEl = this.getDirectoryListEl();
+      if (listEl) {
+        listEl.scrollTop = this.clientsService.directoryScrollTop;
       }
     }, 30);
   }
@@ -1338,7 +1363,7 @@ export class ClientsPageComponent implements OnInit, AfterViewInit, OnDestroy {
     this.quickDuplicateConfirmed.set(false);
     this.quickCreateMode.set(true);
     this.mobileDetailOpen.set(true);
-    setTimeout(() => this.quickFullNameEl?.nativeElement?.focus(), 40);
+    setTimeout(() => this.getQuickFullNameEl()?.focus(), 40);
   }
 
   cancelQuickCreate(): void {

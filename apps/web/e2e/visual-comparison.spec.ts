@@ -506,6 +506,21 @@ test.describe('Fidélité Visuelle - Rendu Hors Ligne vs Référence', () => {
     const width = 1440;
     const height = 900;
     await page.setViewportSize({ width, height });
+    await page.addInitScript(() => {
+      localStorage.setItem(
+        'residence_blue_auth_session',
+        JSON.stringify({
+          token: 'e2e-token',
+          expiresAt: Date.now() + 86400000,
+          user: {
+            id: 'dir-1',
+            email: 'direction@residenceblue.sn',
+            fullName: 'Aïssatou Ba',
+            role: 'DIRECTION',
+          },
+        }),
+      );
+    });
 
     await page.goto('/clients', { waitUntil: 'networkidle' });
     await page.evaluate(() => (document as any).fonts.ready);

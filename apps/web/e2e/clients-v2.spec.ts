@@ -8,11 +8,13 @@ const CAPTURES_DIR = path.resolve(
 
 test.describe('Clients V2 Fluide (E2E & Responsive)', () => {
   test.beforeEach(async ({ page }) => {
+    page.on('pageerror', (err) => console.error('PAGEERROR:', err.message));
     await page.addInitScript(() => {
       localStorage.setItem(
-        'rb_auth_session',
+        'residence_blue_auth_session',
         JSON.stringify({
           token: 'e2e-token',
+          expiresAt: Date.now() + 86400000,
           user: {
             id: 'dir-1',
             email: 'direction@residenceblue.sn',
@@ -77,7 +79,12 @@ test.describe('Clients V2 Fluide (E2E & Responsive)', () => {
     // 2. Modification en place d'un champ (adresse) + rechargement page
     await page.getByTestId('inline-display-address').click();
     await page.getByTestId('inline-input-address').fill(updatedCity);
+    const patchPromise = page.waitForResponse(
+      (res) => res.url().includes(`/api/guests/${createdId}`) && res.request().method() === 'PATCH',
+    );
     await page.getByTestId('inline-input-address').press('Enter');
+    const patchRes = await patchPromise;
+    expect(patchRes.ok()).toBe(true);
     await expect(page.getByTestId('inline-display-address')).toContainText(updatedCity);
 
     await page.reload({ waitUntil: 'networkidle' });

@@ -154,7 +154,10 @@ describe('ClientsPageComponent (V2 Fluide)', () => {
     ]);
 
     const openSpy = jest.spyOn(component, 'openGuest');
-    component.onDirectoryKeydown(new KeyboardEvent('keydown', { key: 'ArrowDown' }));
+    component.onDirectoryKeydown({
+      key: 'ArrowDown',
+      preventDefault: jest.fn(),
+    } as unknown as KeyboardEvent);
     expect(openSpy).toHaveBeenCalledWith('g-1');
   });
 
