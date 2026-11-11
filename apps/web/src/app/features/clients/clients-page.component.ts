@@ -20,7 +20,6 @@ import {
   GuestDirectoryItem,
   IdDocumentType,
 } from '../../core/services/clients.service';
-import { ReservationModalService } from '../../core/services/reservation-modal.service';
 import { ActionButtonComponent } from '../../shared/components/action-button/action-button.component';
 import { StatusBadgeComponent } from '../../shared/components/status-badge/status-badge.component';
 
@@ -541,17 +540,8 @@ const SENEGAL_PHONE_RE =
                     </div>
                   </div>
 
-                  <!-- Deux actions : Nouvelle réservation + Menu ⋯ -->
+                  <!-- Menu ⋯ -->
                   <div class="flex items-center gap-2 shrink-0">
-                    <app-action-button
-                      label="Nouvelle réservation"
-                      icon="add"
-                      variant="solid"
-                      color="primary"
-                      testId="new-reservation-btn"
-                      (action)="openReservation(guest)"
-                    ></app-action-button>
-
                     <div class="relative">
                       <button
                         type="button"
@@ -1063,20 +1053,17 @@ export class ClientsPageComponent implements OnInit, AfterViewInit, OnDestroy {
   private readonly route: ActivatedRoute;
   private readonly router: Router;
   private readonly location: Location;
-  private readonly reservationModal: ReservationModalService;
 
   constructor(
     clientsService?: ClientsService,
     route?: ActivatedRoute,
     router?: Router,
     location?: Location,
-    reservationModal?: ReservationModalService,
   ) {
     this.clientsService = clientsService ?? inject(ClientsService);
     this.route = route ?? inject(ActivatedRoute);
     this.router = router ?? inject(Router);
     this.location = location ?? inject(Location);
-    this.reservationModal = reservationModal ?? inject(ReservationModalService);
 
     try {
       effect(
@@ -1528,10 +1515,6 @@ export class ClientsPageComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   // --- Actions fiche ---
-  openReservation(guest: GuestDetail): void {
-    this.reservationModal.open({ guestId: guest.id });
-  }
-
   openStayReservation(_stayId: string): void {
     this.router.navigate(['/planning']);
   }

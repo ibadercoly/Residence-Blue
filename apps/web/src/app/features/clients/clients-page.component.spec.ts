@@ -2,12 +2,10 @@ import { Location } from '@angular/common';
 import { ActivatedRoute, Router } from '@angular/router';
 import { ClientsPageComponent } from './clients-page.component';
 import { ClientsService } from '../../core/services/clients.service';
-import { ReservationModalService } from '../../core/services/reservation-modal.service';
 
 describe('ClientsPageComponent (V2 Fluide)', () => {
   let component: ClientsPageComponent;
   let clientsService: ClientsService;
-  let reservationModal: ReservationModalService;
   let mockRouter: { navigate: jest.Mock };
   let mockLocation: { path: jest.Mock };
 
@@ -23,7 +21,6 @@ describe('ClientsPageComponent (V2 Fluide)', () => {
     }) as unknown as typeof fetch;
 
     clientsService = new ClientsService();
-    reservationModal = new ReservationModalService();
     mockRouter = { navigate: jest.fn() };
     mockLocation = { path: jest.fn().mockReturnValue('/clients') };
     const mockRoute = {
@@ -35,7 +32,6 @@ describe('ClientsPageComponent (V2 Fluide)', () => {
       mockRoute,
       mockRouter as unknown as Router,
       mockLocation as unknown as Location,
-      reservationModal,
     );
   });
 
@@ -159,33 +155,5 @@ describe('ClientsPageComponent (V2 Fluide)', () => {
       preventDefault: jest.fn(),
     } as unknown as KeyboardEvent);
     expect(openSpy).toHaveBeenCalledWith('g-1');
-  });
-
-  it('devrait ouvrir la modale de réservation pour le client sélectionné', () => {
-    const openSpy = jest.spyOn(reservationModal, 'open');
-    component.openReservation({
-      id: 'g-1',
-      civility: 'Mme',
-      firstName: 'Aminata',
-      lastName: 'Diagne',
-      fullName: 'Aminata Diagne',
-      phone: '+221 77 410 20 30',
-      email: '',
-      birthDate: '',
-      nationality: 'Sénégalaise',
-      address: '',
-      idDocumentType: 'CNI',
-      idDocumentMasked: '',
-      hasIdDocument: false,
-      internalNote: '',
-      state: 'NONE',
-      version: 1,
-      updatedAt: '2026-11-11T10:00:00.000Z',
-      stays: [],
-      staysNextCursor: null,
-      staysTotal: 0,
-      invoicesTotal: 0,
-    });
-    expect(openSpy).toHaveBeenCalledWith({ guestId: 'g-1' });
   });
 });
