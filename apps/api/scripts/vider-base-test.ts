@@ -100,13 +100,20 @@ function validateLocalDatabaseUrl(): {
     throw new Error('Nom de base de données introuvable dans DATABASE_URL.');
   }
 
+  const ownerPassword = process.env.APP_OWNER_PASSWORD;
+  const effectiveUrl = new URL(parsed.toString());
+  if (ownerPassword && parsed.username === 'app_user') {
+    effectiveUrl.username = 'app_owner';
+    effectiveUrl.password = ownerPassword;
+  }
+
   return {
-    url: parsed,
-    host: parsed.hostname,
-    port: parsed.port || '5432',
+    url: effectiveUrl,
+    host: effectiveUrl.hostname,
+    port: effectiveUrl.port || '5432',
     dbName,
-    username: decodeURIComponent(parsed.username),
-    password: decodeURIComponent(parsed.password),
+    username: decodeURIComponent(effectiveUrl.username),
+    password: decodeURIComponent(effectiveUrl.password),
   };
 }
 
@@ -400,7 +407,13 @@ async function main(): Promise<void> {
   console.log(`🖥️  Hôte : ${dbInfo.host}:${dbInfo.port}`);
   console.log(`🗄️  Base : ${dbInfo.dbName}`);
 
-  const prisma = new PrismaClient();
+  const prisma = new PrismaClient({
+    datasources: {
+      db: {
+        url: dbInfo.url.toString(),
+      },
+    },
+  });
 
   try {
     const before = await getTableCounts(prisma);
