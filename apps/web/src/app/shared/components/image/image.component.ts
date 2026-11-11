@@ -29,7 +29,19 @@ import { Component, Input, signal, computed } from '@angular/core';
   `]
 })
 export class ImageComponent {
-  @Input({ required: true }) src!: string;
+  private readonly srcSignal = signal<string>('');
+
+  @Input({ required: true })
+  set src(value: string) {
+    this.srcSignal.set(value || '');
+    if (this.hasError()) {
+      this.hasError.set(false);
+    }
+  }
+  get src(): string {
+    return this.srcSignal();
+  }
+
   @Input({ required: true }) alt!: string;
   @Input() width: number | string = '100%';
   @Input() height: number | string = '100%';
@@ -44,14 +56,14 @@ export class ImageComponent {
     if (this.hasError()) {
       return this.fallbackSrc;
     }
-    return this.src || this.fallbackSrc;
+    return this.srcSignal() || this.fallbackSrc;
   });
 
   readonly webpSrcset = computed(() => {
     if (this.hasError()) {
       return 'assets/images/chambres/chambre-fallback.webp 800w';
     }
-    const current = this.src || '';
+    const current = this.srcSignal() || '';
     if (current.includes('assets/images/chambres/chambre-')) {
       const base = current.replace(/\.(jpg|jpeg|png|webp)$/i, '');
       return `${base}-400w.webp 400w, ${base}-800w.webp 800w, ${base}-1600w.webp 1600w`;

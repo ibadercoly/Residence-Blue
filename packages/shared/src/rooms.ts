@@ -81,6 +81,7 @@ export interface CreateRoomDto {
 
 export interface UpdateRoomDto extends Partial<CreateRoomDto> {
   isActive?: boolean;
+  removeImage?: boolean;
 }
 
 export interface UpdateRoomStatusDto {

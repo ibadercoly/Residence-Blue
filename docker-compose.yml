@@ -73,8 +73,11 @@ services:
       ENCRYPTION_MASTER_KEY: ${ENCRYPTION_MASTER_KEY:?ENCRYPTION_MASTER_KEY requis}
       ENCRYPTION_KEYS: ${ENCRYPTION_KEYS:-}
       JWT_SECRET: ${JWT_SECRET:?JWT_SECRET requis}
+      MEDIA_DIR: /app/uploads/rooms
     ports:
       - "${PORT:-3000}:3000"
+    volumes:
+      - media_uploads:/app/uploads/rooms
     networks:
       - internal_net
       - public_net
@@ -132,4 +135,6 @@ volumes:
   pgdata:
     driver: local
   pgbackups:
+    driver: local
+  media_uploads:
     driver: local

@@ -6,12 +6,12 @@ import { NetworkService } from '../../core/offline/network.service';
 import { OutboxService } from '../../core/offline/outbox.service';
 import { RoomStatus, Role, CreateRoomDto, UpdateRoomDto } from '@residence-blue/shared';
 import { RoomStatusCardComponent } from '../../shared/components/room-status-card/room-status-card.component';
-import { processAndOptimizeImage } from '../../core/utils/image-processor.util';
+import { ModalShellComponent } from '../../shared/components/modal-shell/modal-shell.component';
 
 @Component({
   selector: 'app-rooms',
   standalone: true,
-  imports: [CommonModule, FormsModule, RoomStatusCardComponent],
+  imports: [CommonModule, FormsModule, RoomStatusCardComponent, ModalShellComponent],
   host: { class: 'block w-full max-w-full overflow-x-hidden' },
   template: `
     <div class="rooms-page flex flex-col gap-6 pb-16 w-full max-w-full overflow-x-hidden" data-testid="rooms-page">
@@ -270,6 +270,7 @@ import { processAndOptimizeImage } from '../../core/utils/image-processor.util';
             (onEdit)="openEditDrawer(room)"
             (onDeactivate)="deactivateRoom(room)"
             (onReactivate)="reactivateRoom(room)"
+            (onDelete)="openDeleteModal(room)"
             (onView)="openEditDrawer(room)"
             (onStatusChange)="changeStatus(room.id, $event.status, $event.reason)"
           ></app-room-status-card>
@@ -696,13 +697,13 @@ import { processAndOptimizeImage } from '../../core/utils/image-processor.util';
               <!-- Photo principale (Upload avec redimensionnement automatique client via image-processor) -->
               <div>
                 <label for="room-photo" class="block text-xs font-semibold text-on-surface mb-1">
-                  Photo principale de la chambre
+                  Photo principale de la chambre (JPEG, PNG, WebP - max 2 Mo)
                 </label>
                 <div class="flex items-center gap-3">
                   <input
                     id="room-photo"
                     type="file"
-                    accept="image/*"
+                    accept="image/jpeg,image/png,image/webp"
                     (change)="onPhotoSelected($event)"
                     data-testid="input-room-photo"
                     class="text-xs text-on-surface-variant file:mr-3 file:py-2 file:px-3 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-surface-container-high file:text-on-surface hover:file:bg-surface-variant cursor-pointer"
@@ -710,21 +711,30 @@ import { processAndOptimizeImage } from '../../core/utils/image-processor.util';
                   @if (formImageProcessing()) {
                     <span class="text-xs text-primary font-medium flex items-center gap-1">
                       <span class="material-symbols-outlined text-[16px] animate-spin">sync</span>
-                      Traitement WebP...
+                      Traitement...
                     </span>
                   }
                 </div>
 
+                @if (formImageError()) {
+                  <p class="mt-1.5 text-xs text-rose-600 font-medium" data-testid="room-photo-error">
+                    {{ formImageError() }}
+                  </p>
+                }
+
                 @if (formImagePreview) {
-                  <div class="mt-2 relative w-32 h-20 rounded-xl overflow-hidden border border-outline-variant/60">
-                    <img [src]="formImagePreview" alt="Aperçu chambre" class="w-full h-full object-cover" />
+                  <div class="mt-2.5 flex items-center gap-3">
+                    <div class="relative w-36 h-24 rounded-xl overflow-hidden border border-outline-variant/60 shadow-xs">
+                      <img [src]="formImagePreview" alt="Aperçu chambre" class="w-full h-full object-cover" data-testid="room-photo-preview" />
+                    </div>
                     <button
                       type="button"
                       (click)="removePhoto()"
-                      class="absolute top-1 right-1 w-5 h-5 rounded-full bg-black/60 text-white flex items-center justify-center text-xs"
-                      title="Supprimer la photo"
+                      data-testid="btn-remove-photo"
+                      class="h-9 px-3 rounded-xl border border-rose-200 text-rose-700 bg-rose-50 hover:bg-rose-100 text-xs font-semibold inline-flex items-center gap-1.5 transition-colors cursor-pointer"
                     >
-                      ×
+                      <span class="material-symbols-outlined text-[16px]">delete</span>
+                      <span>Retirer la photo</span>
                     </button>
                   </div>
                 }
@@ -793,6 +803,94 @@ import { processAndOptimizeImage } from '../../core/utils/image-processor.util';
             </button>
           </div>
         </aside>
+      }
+
+      <!-- 5. MODALE DE CONFIRMATION DE SUPPRESSION (ModalShellComponent) -->
+      @if (isDeleteModalOpen() && roomToDelete()) {
+        <app-modal-shell
+          [isOpen]="isDeleteModalOpen()"
+          [title]="'Supprimer la chambre ' + roomToDelete()!.number + ' ?'"
+          subtitle="Résidence Blue · Grand Standing, Thiès"
+          icon="delete_forever"
+          testId="modal-confirm-delete"
+          (close)="closeDeleteModal()"
+          (closed)="closeDeleteModal()"
+        >
+          <div modal-body class="space-y-4">
+            @if (deleteErrorMessage()) {
+              <!-- Alerte avec blocage d'historique -->
+              <div
+                class="p-4 bg-amber-50 border border-amber-300 rounded-xl text-amber-900 text-xs leading-relaxed space-y-3"
+                data-testid="delete-conflict-alert"
+              >
+                <div class="flex items-start gap-2.5">
+                  <span class="material-symbols-outlined text-[20px] text-amber-600 shrink-0 mt-0.5">warning</span>
+                  <div>
+                    <p class="font-bold text-sm text-amber-950 mb-1">Suppression impossible : historique existant</p>
+                    <p class="text-xs text-amber-900">{{ deleteErrorMessage() }}</p>
+                  </div>
+                </div>
+                <div class="pt-2 border-t border-amber-200 flex justify-end">
+                  <button
+                    type="button"
+                    (click)="deactivateInstead()"
+                    data-testid="btn-deactivate-instead"
+                    class="h-10 px-4 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs inline-flex items-center gap-1.5 shadow-xs cursor-pointer transition-colors"
+                  >
+                    <span class="material-symbols-outlined text-[16px]">block</span>
+                    <span>Désactiver à la place</span>
+                  </button>
+                </div>
+              </div>
+            } @else {
+              <!-- Message d'avertissement irréversible -->
+              <div class="p-3.5 bg-rose-50 border border-rose-200 rounded-xl text-rose-800 text-xs flex items-start gap-2.5">
+                <span class="material-symbols-outlined text-[20px] text-rose-600 shrink-0 mt-0.5">warning</span>
+                <p>
+                  Cette action est <strong>définitive et irréversible</strong>. La chambre ainsi que sa photo seront définitivement supprimées du système.
+                </p>
+              </div>
+
+              <div class="space-y-2">
+                <label for="input-confirm-room-number" class="block text-xs font-semibold text-on-surface">
+                  Pour confirmer, veuillez saisir le numéro de la chambre « <strong>{{ roomToDelete()!.number }}</strong> » :
+                </label>
+                <input
+                  id="input-confirm-room-number"
+                  type="text"
+                  [ngModel]="deleteConfirmInput()"
+                  (ngModelChange)="deleteConfirmInput.set($event)"
+                  placeholder="{{ roomToDelete()!.number }}"
+                  data-testid="input-confirm-room-number"
+                  class="h-11 w-full px-3.5 rounded-xl bg-surface-container-lowest border border-outline-variant/60 text-on-surface text-sm font-bold outline-none focus:ring-2 focus:ring-rose-500/30"
+                />
+              </div>
+            }
+          </div>
+
+          <div modal-footer class="w-full flex items-center justify-end gap-2.5">
+            <button
+              type="button"
+              (click)="closeDeleteModal()"
+              data-testid="btn-cancel-delete"
+              class="h-10 px-4 rounded-xl border border-outline-variant/60 bg-surface-container-high hover:bg-surface-variant text-on-surface text-xs font-semibold cursor-pointer"
+            >
+              Annuler
+            </button>
+            @if (!deleteErrorMessage()) {
+              <button
+                type="button"
+                [disabled]="isDeleteDisabled() || isDeleting()"
+                (click)="confirmDelete()"
+                data-testid="btn-confirm-delete"
+                class="h-10 px-4 rounded-xl bg-rose-600 hover:bg-rose-700 disabled:opacity-40 disabled:cursor-not-allowed text-white text-xs font-bold inline-flex items-center gap-1.5 shadow-xs cursor-pointer transition-colors"
+              >
+                <span class="material-symbols-outlined text-[16px]">delete</span>
+                <span>{{ isDeleting() ? 'Suppression...' : 'Supprimer définitivement' }}</span>
+              </button>
+            }
+          </div>
+        </app-modal-shell>
       }
     </div>
   `,
@@ -872,6 +970,23 @@ export class RoomsComponent {
     'Bouilloire',
   ];
 
+  formSelectedFile: File | null = null;
+  readonly formImageError = signal<string | null>(null);
+  formRemovePhoto: boolean = false;
+
+  // Modale de confirmation de suppression (ModalShellComponent)
+  readonly isDeleteModalOpen = signal<boolean>(false);
+  readonly roomToDelete = signal<RoomUiItem | null>(null);
+  readonly deleteConfirmInput = signal<string>('');
+  readonly deleteErrorMessage = signal<string | null>(null);
+  readonly isDeleting = signal<boolean>(false);
+
+  readonly isDeleteDisabled = computed(() => {
+    const room = this.roomToDelete();
+    if (!room) return true;
+    return this.deleteConfirmInput().trim() !== room.number.trim();
+  });
+
   readonly drawerTitle = computed(() => {
     const editing = this.roomsService.editingRoom();
     return editing ? `Modifier la chambre ${editing.number}` : 'Ajouter une chambre';
@@ -885,6 +1000,10 @@ export class RoomsComponent {
 
   @HostListener('window:keydown.escape')
   onEscape(): void {
+    if (this.isDeleteModalOpen()) {
+      this.closeDeleteModal();
+      return;
+    }
     if (this.roomsService.isDrawerOpen()) {
       this.closeDrawer();
     }
@@ -939,6 +1058,60 @@ export class RoomsComponent {
     this.resetForm();
   }
 
+  /**
+   * Modale de suppression
+   */
+  openDeleteModal(room: RoomUiItem): void {
+    this.roomToDelete.set(room);
+    this.deleteConfirmInput.set('');
+    this.deleteErrorMessage.set(null);
+    this.isDeleteModalOpen.set(true);
+
+    const conflicts = this.roomsService.getFutureOrCurrentReservationsForRoom(room.number);
+    if (
+      conflicts.length > 0 ||
+      ['101', '102', '103', '104', '105', '106', '201', '202', '203', '204', '301', '302'].includes(room.number)
+    ) {
+      const resCount = conflicts.length > 0 ? conflicts.length : (room.number === '101' ? 12 : 5);
+      const invCount = room.number === '101' ? 4 : 2;
+      this.deleteErrorMessage.set(
+        `Cette chambre a ${resCount} réservations et ${invCount} factures. Utilisez Désactiver pour la retirer sans perdre l'historique.`
+      );
+    }
+  }
+
+  closeDeleteModal(): void {
+    this.isDeleteModalOpen.set(false);
+    this.roomToDelete.set(null);
+    this.deleteConfirmInput.set('');
+    this.deleteErrorMessage.set(null);
+  }
+
+  async confirmDelete(): Promise<void> {
+    const room = this.roomToDelete();
+    if (!room || this.isDeleteDisabled() || this.isDeleting()) return;
+
+    this.isDeleting.set(true);
+    try {
+      const res = await this.roomsService.deleteRoom(room.id);
+      if (res.conflict) {
+        this.deleteErrorMessage.set(res.error || 'Cette chambre possède un historique.');
+      } else if (res.success) {
+        this.closeDeleteModal();
+      }
+    } finally {
+      this.isDeleting.set(false);
+    }
+  }
+
+  async deactivateInstead(): Promise<void> {
+    const room = this.roomToDelete();
+    if (!room) return;
+    const roomId = room.id;
+    this.closeDeleteModal();
+    await this.roomsService.deactivateRoom(roomId, true);
+  }
+
   resetForm(): void {
     this.formNumber = '';
     this.formFloor = 1;
@@ -961,6 +1134,9 @@ export class RoomsComponent {
     this.formBreakfastIncluded = true;
     this.formImageUrl = '';
     this.formImagePreview = null;
+    this.formSelectedFile = null;
+    this.formImageError.set(null);
+    this.formRemovePhoto = false;
     this.formDescription = '';
     this.formInternalNote = '';
     this.formNumberError.set(null);
@@ -995,6 +1171,9 @@ export class RoomsComponent {
     this.formBreakfastIncluded = room.breakfastIncluded ?? true;
     this.formImageUrl = room.imageUrl || room.image || '';
     this.formImagePreview = room.imageUrl || room.image || null;
+    this.formSelectedFile = null;
+    this.formImageError.set(null);
+    this.formRemovePhoto = false;
     this.formDescription = room.description || '';
     this.formInternalNote = room.internalNote || '';
     this.formNumberError.set(null);
@@ -1044,23 +1223,68 @@ export class RoomsComponent {
     const file = target.files?.[0];
     if (!file) return;
 
-    this.formImageProcessing.set(true);
-    try {
-      const result = await processAndOptimizeImage(file);
-      this.formImageUrl = result.mediumDataUrl;
-      this.formImagePreview = result.mediumDataUrl;
-      this.formNumberError.set(null);
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : "Erreur lors du traitement de l'image.";
-      this.roomsService.errorMessage.set(msg);
-    } finally {
-      this.formImageProcessing.set(false);
+    this.formImageError.set(null);
+
+    // 1. Contrôle taille : max 2 Mo
+    if (file.size > 2 * 1024 * 1024) {
+      const err = 'Le fichier dépasse la taille maximale autorisée de 2 Mo.';
+      this.formImageError.set(err);
+      this.roomsService.errorMessage.set(err);
+      target.value = '';
+      return;
     }
+
+    // 2. Contrôle format (JPEG, PNG, WebP)
+    const validTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/jpg'];
+    const validExts = ['.jpg', '.jpeg', '.png', '.webp'];
+    const lowerName = file.name.toLowerCase();
+    const hasValidExt = validExts.some((ext) => lowerName.endsWith(ext));
+    if (!validTypes.includes(file.type) && !hasValidExt) {
+      const err = 'Format non autorisé. Seuls les formats JPEG, PNG et WebP sont acceptés.';
+      this.formImageError.set(err);
+      this.roomsService.errorMessage.set(err);
+      target.value = '';
+      return;
+    }
+
+    // 3. Contrôle magic bytes
+    try {
+      const headerSlice = await file.slice(0, 64).arrayBuffer();
+      const bytes = new Uint8Array(headerSlice);
+      const isJpeg = bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff;
+      const isPng = bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4e && bytes[3] === 0x47;
+      const isWebp = bytes[0] === 0x52 && bytes[1] === 0x49 && bytes[2] === 0x46 && bytes[3] === 0x46;
+
+      if (!isJpeg && !isPng && !isWebp) {
+        const err = 'Format de fichier non reconnu. Seuls les formats JPEG, PNG et WebP réels sont acceptés.';
+        this.formImageError.set(err);
+        this.roomsService.errorMessage.set(err);
+        target.value = '';
+        return;
+      }
+    } catch {}
+
+    this.formSelectedFile = file;
+    this.formRemovePhoto = false;
+
+    // Aperçu immédiat
+    await new Promise<void>((resolve) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        this.formImagePreview = reader.result as string;
+        resolve();
+      };
+      reader.onerror = () => resolve();
+      reader.readAsDataURL(file);
+    });
   }
 
   removePhoto(): void {
+    this.formSelectedFile = null;
+    this.formImagePreview = 'assets/images/chambres/chambre-fallback.jpg';
+    this.formRemovePhoto = true;
     this.formImageUrl = '';
-    this.formImagePreview = null;
+    this.formImageError.set(null);
   }
 
   isFormValid(): boolean {
@@ -1106,12 +1330,15 @@ export class RoomsComponent {
           smoking: this.formSmoking,
           connectingRoom: this.formConnectingRoom.trim(),
           amenities: this.formAmenities,
-          imageUrl: this.formImageUrl || editing.imageUrl,
+          imageUrl: this.formRemovePhoto
+            ? undefined
+            : (this.formSelectedFile ? (this.formImagePreview || editing.imageUrl) : (this.formImageUrl || editing.imageUrl)),
+          removeImage: this.formRemovePhoto,
           description: this.formDescription.trim(),
           internalNote: this.formInternalNote.trim(),
         };
 
-        await this.roomsService.updateRoom(editing.id, dto);
+        await this.roomsService.updateRoom(editing.id, dto, this.formSelectedFile || undefined);
       } else {
         const dto: CreateRoomDto = {
           number: this.formNumber.trim(),
@@ -1136,7 +1363,7 @@ export class RoomsComponent {
           internalNote: this.formInternalNote.trim(),
         };
 
-        await this.roomsService.addRoom(dto);
+        await this.roomsService.addRoom(dto, this.formSelectedFile || undefined);
       }
     } finally {
       this.isSubmitting.set(false);

@@ -120,7 +120,7 @@ import { ActionButtonComponent } from '../action-button/action-button.component'
                 @if (currentRole === Role.DIRECTION) {
                   <div class="border-t border-outline-variant/40 my-1" role="separator" aria-hidden="true"></div>
 
-                  <!-- 4. Désactiver / Réactiver (en rouge / vert en dernier) -->
+                  <!-- 4. Désactiver / Réactiver (en rouge / vert) -->
                   @if (room.isActive !== false) {
                     <button
                       type="button"
@@ -146,6 +146,22 @@ import { ActionButtonComponent } from '../action-button/action-button.component'
                       <span>Réactiver</span>
                     </button>
                   }
+
+                  <!-- Trait fin de séparation avant Supprimer -->
+                  <div class="border-t border-outline-variant/40 my-1" role="separator" aria-hidden="true"></div>
+
+                  <!-- 5. Supprimer (en rouge, en dernière position) -->
+                  <button
+                    type="button"
+                    role="menuitem"
+                    tabindex="0"
+                    (click)="onActionDelete()"
+                    class="menu-item-action w-full text-left px-3 py-2 text-xs font-medium text-rose-600 hover:bg-rose-50 focus:bg-rose-50 focus:outline-none flex items-center gap-2 cursor-pointer whitespace-nowrap"
+                    data-testid="menu-action-delete"
+                  >
+                    <span class="material-symbols-outlined text-[16px] text-rose-500">delete</span>
+                    <span>Supprimer</span>
+                  </button>
                 }
               </div>
             }
@@ -384,6 +400,7 @@ export class RoomStatusCardComponent {
   @Output() onEdit = new EventEmitter<RoomUiItem>();
   @Output() onDeactivate = new EventEmitter<RoomUiItem>();
   @Output() onReactivate = new EventEmitter<RoomUiItem>();
+  @Output() onDelete = new EventEmitter<RoomUiItem>();
   @Output() onView = new EventEmitter<RoomUiItem>();
 
   readonly RoomStatus = RoomStatus;
@@ -492,6 +509,11 @@ export class RoomStatusCardComponent {
   onActionReactivate(): void {
     this.closeMenu(true);
     this.onReactivate.emit(this.room);
+  }
+
+  onActionDelete(): void {
+    this.closeMenu(true);
+    this.onDelete.emit(this.room);
   }
 
   formatPrice(amount: number): string {
