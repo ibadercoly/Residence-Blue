@@ -9,6 +9,24 @@ describe('PlanningPageComponent', () => {
 
   beforeEach(() => {
     service = new PlanningMockService();
+    service.allReservations.set([
+      {
+        id: 'RB-2024-0894',
+        guestName: 'M. Mamadou Diop',
+        roomNumber: '301',
+        startDayIndex: 0,
+        durationDays: 4,
+        checkInDate: '2026-11-10',
+        checkOutDate: '2026-11-14',
+        status: 'EN_SEJOUR',
+        statusLabel: 'En séjour',
+        nights: 4,
+        totalFcfa: 840000,
+        remainingFcfa: 280000,
+        contactPhone: '+221 77 654 32 10',
+        contactEmail: 'mamadou.diop@orange-sonatel.sn'
+      }
+    ]);
     modalService = new ReservationModalService();
     component = new PlanningPageComponent(service, modalService);
   });

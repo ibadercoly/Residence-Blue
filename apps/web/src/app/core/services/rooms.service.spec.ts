@@ -4,6 +4,21 @@ import { OutboxService } from '../offline/outbox.service';
 import { NetworkService } from '../offline/network.service';
 import { RoomStatus, Role } from '@residence-blue/shared';
 
+const TEST_ROOMS: RoomUiItem[] = [
+  { id: 'r-101', number: '101', typeId: 't-std', floor: 1, status: RoomStatus.FREE, amenities: [], syncPending: false, type: { id: 't-std', name: 'Standard', pricePerNight: 35000 } },
+  { id: 'r-102', number: '102', typeId: 't-std', floor: 1, status: RoomStatus.FREE, amenities: [], syncPending: false, type: { id: 't-std', name: 'Standard', pricePerNight: 35000 } },
+  { id: 'r-103', number: '103', typeId: 't-std', floor: 1, status: RoomStatus.FREE, amenities: [], syncPending: false, type: { id: 't-std', name: 'Standard', pricePerNight: 35000 } },
+  { id: 'r-104', number: '104', typeId: 't-std', floor: 1, status: RoomStatus.FREE, amenities: [], syncPending: false, type: { id: 't-std', name: 'Standard', pricePerNight: 35000 } },
+  { id: 'r-105', number: '105', typeId: 't-std', floor: 1, status: RoomStatus.FREE, amenities: [], syncPending: false, type: { id: 't-std', name: 'Standard', pricePerNight: 35000 } },
+  { id: 'r-106', number: '106', typeId: 't-std', floor: 1, status: RoomStatus.FREE, amenities: [], syncPending: false, type: { id: 't-std', name: 'Standard', pricePerNight: 35000 } },
+  { id: 'r-201', number: '201', typeId: 't-dlx', floor: 2, status: RoomStatus.FREE, amenities: [], syncPending: false, type: { id: 't-dlx', name: 'Deluxe', pricePerNight: 55000 } },
+  { id: 'r-202', number: '202', typeId: 't-dlx', floor: 2, status: RoomStatus.FREE, amenities: [], syncPending: false, type: { id: 't-dlx', name: 'Deluxe', pricePerNight: 55000 } },
+  { id: 'r-203', number: '203', typeId: 't-dlx', floor: 2, status: RoomStatus.FREE, amenities: [], syncPending: false, type: { id: 't-dlx', name: 'Deluxe', pricePerNight: 55000 } },
+  { id: 'r-204', number: '204', typeId: 't-dlx', floor: 2, status: RoomStatus.FREE, amenities: [], syncPending: false, type: { id: 't-dlx', name: 'Deluxe', pricePerNight: 55000 } },
+  { id: 'r-301', number: '301', typeId: 't-ste', floor: 3, status: RoomStatus.FREE, amenities: [], syncPending: false, type: { id: 't-ste', name: 'Suite', pricePerNight: 95000 } },
+  { id: 'r-302', number: '302', typeId: 't-ste', floor: 3, status: RoomStatus.FREE, amenities: [], syncPending: false, type: { id: 't-ste', name: 'Suite', pricePerNight: 95000 } },
+];
+
 describe('RoomsService', () => {
   let service: RoomsService;
   let mockIdb: jest.Mocked<IdbService>;
@@ -53,16 +68,11 @@ describe('RoomsService', () => {
   });
 
   describe('Initialisation', () => {
-    it('doit initialiser 12 chambres par défaut quand IndexedDB est vide', async () => {
-      // Le constructeur a déjà appelé initRooms()
+    it('ne doit injecter aucune chambre fictive quand IndexedDB et API sont vides', async () => {
+      await service.initRooms();
       const rooms = service.rooms();
 
-      expect(rooms).toHaveLength(12);
-      expect(mockIdb.put).toHaveBeenCalledWith('rooms', expect.objectContaining({ number: '101' }));
-      expect(rooms[0].number).toBe('101');
-      expect(rooms[0].type?.pricePerNight).toBe(35000);
-      expect(rooms[11].number).toBe('302');
-      expect(rooms[11].type?.pricePerNight).toBe(95000);
+      expect(rooms).toHaveLength(0);
     });
 
     it('doit charger les chambres depuis IndexedDB si elles existent déjà en cache', async () => {
@@ -91,6 +101,7 @@ describe('RoomsService', () => {
 
   describe('Filtres et Statistiques (Signaux)', () => {
     beforeEach(async () => {
+      mockIdb.getAll.mockResolvedValueOnce(TEST_ROOMS);
       await service.initRooms();
     });
 
@@ -133,6 +144,7 @@ describe('RoomsService', () => {
 
   describe('Changement de Statut (Online et Offline)', () => {
     beforeEach(async () => {
+      mockIdb.getAll.mockResolvedValueOnce(TEST_ROOMS);
       await service.initRooms();
     });
 

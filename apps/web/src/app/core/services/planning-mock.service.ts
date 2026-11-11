@@ -209,9 +209,10 @@ export class PlanningMockService {
     // Ch. 302 est libre toute la semaine
   ];
 
-  /** État réactif de toutes les réservations */
-  readonly allReservations = signal<PlanningReservation[]>(this.initialReservations);
+  /** État réactif de toutes les réservations (source : API PostgreSQL, vide par défaut) */
+  readonly allReservations = signal<PlanningReservation[]>([]);
   readonly serverSynced = signal<boolean>(false);
+  readonly testCatalogRooms = signal<Omit<PlanningRoom, 'reservations'>[]>([]);
 
   constructor() {
     this.fetchFromServer();
@@ -242,33 +243,20 @@ export class PlanningMockService {
     } catch {}
   }
 
-  /** Définition des chambres de l'hôtel */
+  /** Définition des chambres de l'hôtel (depuis RoomsService ou vide si base vide) */
   get catalogRooms(): Omit<PlanningRoom, 'reservations'>[] {
-    if (this.roomsService) {
-      const active = this.roomsService.activeRooms();
-      if (active.length > 0 || this.serverSynced()) {
-        return active.map((r) => ({
-          number: r.number,
-          category: (r.category || r.type?.name || 'Standard') as any,
-          typeLabel: `${r.category || r.type?.name || 'Standard'} ${r.view || ''}`.trim(),
-          description: r.description || `Étage ${r.floor}`,
-        }));
-      }
+    if (this.testCatalogRooms().length > 0) {
+      return this.testCatalogRooms();
     }
-    return [
-    { number: '101', category: 'Standard', typeLabel: 'Standard Patio', description: 'RDC Jardin' },
-    { number: '102', category: 'Standard', typeLabel: 'Standard Patio', description: 'RDC Jardin' },
-    { number: '103', category: 'Standard', typeLabel: 'Standard Jardin', description: 'RDC Patio' },
-    { number: '104', category: 'Standard', typeLabel: 'Standard Jardin', description: 'RDC Patio' },
-    { number: '105', category: 'Standard', typeLabel: 'Standard Piscine', description: 'Vue Piscine' },
-    { number: '106', category: 'Standard', typeLabel: 'Standard Piscine', description: 'Vue Piscine' },
-    { number: '201', category: 'Deluxe', typeLabel: 'Deluxe Balcon', description: 'Étage Balcon' },
-    { number: '202', category: 'Deluxe', typeLabel: 'Deluxe Balcon', description: 'Étage Balcon' },
-    { number: '203', category: 'Deluxe', typeLabel: 'Bungalow Jardin', description: 'Bungalow RDC' },
-    { number: '204', category: 'Deluxe', typeLabel: 'Bungalow Terrasse', description: 'Bungalow Terrasse' },
-    { number: '301', category: 'Suite', typeLabel: 'Suite Panoramique', description: 'Panoramique VIP' },
-    { number: '302', category: 'Suite', typeLabel: 'Suite Élysée', description: 'Prestige Rooftop' }
-  ];
+    if (this.roomsService) {
+      return this.roomsService.activeRooms().map((r) => ({
+        number: r.number,
+        category: (r.category || r.type?.name || 'Standard') as any,
+        typeLabel: `${r.category || r.type?.name || 'Standard'} ${r.view || ''}`.trim(),
+        description: r.description || `Étage ${r.floor}`,
+      }));
+    }
+    return [];
   }
 
   /** Date de référence fixe pour la démo : Mardi 10 Novembre 2026 */

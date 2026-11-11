@@ -176,25 +176,10 @@ export class RoomsService {
       } catch {}
 
       if (this.network.isOnline()) {
-        const ok = await this.fetchFromServer();
-        if (!ok && this.rooms().length === 0) {
-          const initialRooms = this.buildInitialRooms();
-          for (const r of initialRooms) {
-            this.idb.put('rooms', r).catch(() => {});
-          }
-          this.rooms.set(initialRooms);
-        }
-      } else if (this.rooms().length === 0) {
-        const initialRooms = this.buildInitialRooms();
-        for (const r of initialRooms) {
-          this.idb.put('rooms', r).catch(() => {});
-        }
-        this.rooms.set(initialRooms);
+        await this.fetchFromServer();
       }
     } catch {
-      if (this.rooms().length === 0) {
-        this.rooms.set(this.buildInitialRooms());
-      }
+      // Aucun jeu de démonstration en dur : en cas d'erreur et cache vide, rooms reste []
     }
   }
 
