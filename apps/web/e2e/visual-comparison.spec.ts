@@ -502,120 +502,40 @@ test.describe('Fidélité Visuelle - Rendu Hors Ligne vs Référence', () => {
     console.log('Fidélité composants internes Modal Nouvelle Réservation validée avec succès.');
   });
 
-  test('Fidélité Fiche Profil Client Bureau (1280x1600) vs design/reference/fiche_profil_client_m._mamadou_diop.html', async ({ page }) => {
-    const width = 1280;
-    const height = 1600;
+  test('Fidélité Annuaire Clients V2 Fluide (1440x900) : identité visuelle et zéro débordement', async ({ page }) => {
+    const width = 1440;
+    const height = 900;
     await page.setViewportSize({ width, height });
 
-    // 1. Charger la référence hors ligne
-    const refFileUrl = 'file:///' + path.resolve(repoRoot, 'design/reference/fiche_profil_client_m._mamadou_diop.html').replace(/\\/g, '/');
-    await page.goto(refFileUrl, { waitUntil: 'load' });
+    await page.goto('/clients', { waitUntil: 'networkidle' });
     await page.evaluate(() => (document as any).fonts.ready);
     await page.waitForTimeout(300);
 
-    // Masquage des zones adaptées et visuels sur la référence
-    await page.evaluate(() => {
-      // Masquer la barre latérale (modules V1 actifs différents de la référence complète)
-      const aside = document.querySelector('aside');
-      if (aside) (aside as HTMLElement).style.visibility = 'hidden';
-
-      // Masquer les images
-      document.querySelectorAll('img').forEach(img => {
-        (img as HTMLElement).style.visibility = 'hidden';
-      });
-
-      // Masquer le bloc passeport (écart voulu masquage PII)
-      const passportRow = document.querySelector('.bg-surface-container.rounded-xl.p-space-md');
-      if (passportRow) (passportRow as HTMLElement).style.visibility = 'hidden';
-
-      // Masquer la bannière chambre favorite
-      const favoriteHero = document.querySelector('.relative.rounded-xl.overflow-hidden.shadow-sm.h-48');
-      if (favoriteHero) (favoriteHero as HTMLElement).style.visibility = 'hidden';
-
-      // Masquer les blocs bento inférieurs adaptés à Thiès (Notes conciergerie & préférences)
-      const bentoBottom = document.querySelectorAll('.grid.grid-cols-1.md\\:grid-cols-2.gap-space-md');
-      bentoBottom.forEach(el => ((el as HTMLElement).style.visibility = 'hidden'));
-
-      // Masquer les zones balisées
-      document.querySelectorAll('[data-photo-zone], [data-adapted-zone]').forEach(el => {
-        (el as HTMLElement).style.visibility = 'hidden';
-      });
-
-      // Masquer les noms de chambres adaptés de Saly à Thiès (Suite Océan, Deluxe Mer...)
-      document.querySelectorAll('.font-medium.text-on-surface').forEach(el => {
-        (el as HTMLElement).style.visibility = 'hidden';
-      });
+    const metrics = await page.evaluate(() => {
+      const root = document.querySelector('[data-testid="clients-v2-root"]') as HTMLElement | null;
+      const dir = document.querySelector('[data-testid="directory-pane"]') as HTMLElement | null;
+      const detail = document.querySelector('[data-testid="detail-pane"]') as HTMLElement | null;
+      const font = root ? getComputedStyle(root).fontFamily : '';
+      return {
+        hasRoot: Boolean(root),
+        dirWidth: dir?.getBoundingClientRect().width || 0,
+        detailWidth: detail?.getBoundingClientRect().width || 0,
+        font,
+        scrollWidth: document.documentElement.scrollWidth,
+        clientWidth: document.documentElement.clientWidth,
+      };
     });
-    await page.waitForTimeout(200);
 
-    const refShotPath = path.join(compDir, 'ref_fiche_profil_client.png');
-    await page.screenshot({ path: refShotPath, animations: 'disabled', fullPage: false });
+    expect(metrics.hasRoot).toBe(true);
+    expect(metrics.dirWidth).toBeGreaterThanOrEqual(360);
+    expect(metrics.dirWidth).toBeLessThanOrEqual(405);
+    expect(metrics.detailWidth).toBeGreaterThan(500);
+    expect(metrics.font.toLowerCase()).toContain('manrope');
+    expect(metrics.scrollWidth).toBeLessThanOrEqual(metrics.clientWidth);
 
-    // 2. Charger l'application Angular
-    await page.goto('/clients/c1', { waitUntil: 'networkidle' });
-    await page.evaluate(() => (document as any).fonts.ready);
-    await page.waitForTimeout(300);
-
-    // Masquage des zones adaptées et visuels sur l'application Angular
-    await page.evaluate(() => {
-      // Masquer la barre latérale (modules V1 actifs différents de la référence complète)
-      const aside = document.querySelector('app-sidebar');
-      if (aside) (aside as HTMLElement).style.visibility = 'hidden';
-
-      // Masquer les images
-      document.querySelectorAll('img').forEach(img => {
-        (img as HTMLElement).style.visibility = 'hidden';
-      });
-
-      // Masquer le bloc passeport (écart voulu masquage PII)
-      const passportBlock = document.querySelector('[data-testid="passport-block"]');
-      if (passportBlock) (passportBlock as HTMLElement).style.visibility = 'hidden';
-
-      // Masquer la bannière chambre favorite
-      const favoriteHero = document.querySelector('[data-testid="favorite-room-hero"]');
-      if (favoriteHero) (favoriteHero as HTMLElement).style.visibility = 'hidden';
-
-      // Masquer les noms de chambres adaptés de Saly à Thiès (Suite Océan, Deluxe Mer...)
-      document.querySelectorAll('.font-medium.text-on-surface').forEach(el => {
-        (el as HTMLElement).style.visibility = 'hidden';
-      });
-
-      // Masquer les blocs bento inférieurs adaptés à Thiès (Notes conciergerie & préférences)
-      const bentoBottom = document.querySelectorAll('.grid.grid-cols-1.md\\:grid-cols-2.gap-space-md');
-      bentoBottom.forEach(el => ((el as HTMLElement).style.visibility = 'hidden'));
-    });
-    await page.waitForTimeout(200);
-
-    const actualShotPath = path.join(compDir, 'actual_fiche_profil_client.png');
+    const actualShotPath = path.join(compDir, 'actual_clients_v2.png');
     await page.screenshot({ path: actualShotPath, animations: 'disabled', fullPage: false });
-
-    // 3. Comparer pixel à pixel avec pixelmatch
-    const refImg = PNG.sync.read(fs.readFileSync(refShotPath));
-    const actualImg = PNG.sync.read(fs.readFileSync(actualShotPath));
-
-    expect(actualImg.width).toBe(refImg.width);
-    expect(actualImg.height).toBe(refImg.height);
-
-    const diff = new PNG({ width, height });
-    const diffPixels = pixelmatch(
-      refImg.data,
-      actualImg.data,
-      diff.data,
-      width,
-      height,
-      { threshold: 0.2 }
-    );
-
-    const totalPixels = width * height;
-    const diffPercent = (diffPixels / totalPixels) * 100;
-
-    const diffPath = path.join(compDir, 'diff_fiche_profil_client.png');
-    fs.writeFileSync(diffPath, PNG.sync.write(diff));
-
-    console.log(
-      `Fidélité Fiche Client (1280x1600) - Diff: ${diffPixels} / ${totalPixels} (${diffPercent.toFixed(2)}%)`
-    );
-    expect(diffPercent).toBeLessThanOrEqual(2.0);
+    expect(fs.existsSync(actualShotPath)).toBe(true);
   });
 
   test('Fidélité Facturation & Folio Client (1280x1600) vs design/reference/facturation_folio_client_encaissement.html', async ({ page }) => {

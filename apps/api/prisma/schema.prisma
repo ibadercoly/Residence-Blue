@@ -148,7 +148,12 @@ model Guest {
   vipTier               String?       @map("vip_tier")
   avatarUrl             String?       @map("avatar_url")
   idDocumentEncrypted   String?       @map("id_document_encrypted") @db.Text
+  idDocumentType        String?       @map("id_document_type")
   idDocumentExpiry      String?       @map("id_document_expiry")
+  birthDate             String?       @map("birth_date")
+  address               String?
+  internalNote          String?       @map("internal_note") @db.Text
+  version               Int           @default(1)
   dietaryPreferences    Json?         @map("dietary_preferences") @db.JsonB
   preferences           Json?         @db.JsonB
   permanentInstructions Json?         @map("permanent_instructions") @db.JsonB
