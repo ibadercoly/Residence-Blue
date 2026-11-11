@@ -117,6 +117,7 @@ test.describe('Chambres - Suppression et Remplacement d\'Image', () => {
     });
 
     await page.goto('/chambres', { waitUntil: 'networkidle' });
+    await expect(page.locator('[data-testid="rooms-page-subtitle"]')).toContainText('2 chambres');
 
     // Ouvrir le menu ⋯ de la chambre 102
     const menuBtn = page.locator('[data-testid="room-menu-btn-102"]');

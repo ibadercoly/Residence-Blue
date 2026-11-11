@@ -11,6 +11,7 @@ export default defineConfig({
   use: {
     baseURL: 'http://localhost:4200',
     trace: 'on-first-retry',
+    serviceWorkers: 'block',
   },
   webServer: {
     command: 'node scripts/serve-dist.mjs',

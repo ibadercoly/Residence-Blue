@@ -45,9 +45,15 @@ export class IdbService {
 
     this.dbPromise = new Promise((resolve, reject) => {
       if (typeof indexedDB === 'undefined') {
+        this.dbPromise = null;
         reject(new Error('IndexedDB n’est pas supporté dans cet environnement.'));
         return;
       }
+
+      const timeoutId = setTimeout(() => {
+        this.dbPromise = null;
+        reject(new Error('Délai dépassé lors de l’ouverture d’IndexedDB.'));
+      }, 400);
 
       const request = indexedDB.open(this.dbName, this.dbVersion);
 
@@ -67,8 +73,28 @@ export class IdbService {
         }
       };
 
-      request.onsuccess = () => resolve(request.result);
-      request.onerror = () => reject(request.error);
+      request.onsuccess = () => {
+        clearTimeout(timeoutId);
+        const db = request.result;
+        db.onversionchange = () => {
+          db.close();
+          this.dbPromise = null;
+        };
+        db.onclose = () => {
+          this.dbPromise = null;
+        };
+        resolve(db);
+      };
+      request.onerror = () => {
+        clearTimeout(timeoutId);
+        this.dbPromise = null;
+        reject(request.error);
+      };
+      request.onblocked = () => {
+        clearTimeout(timeoutId);
+        this.dbPromise = null;
+        reject(new Error('IndexedDB est temporairement bloqué.'));
+      };
     });
 
     return this.dbPromise;

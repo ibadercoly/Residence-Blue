@@ -211,12 +211,42 @@ export class PlanningMockService {
 
   /** État réactif de toutes les réservations */
   readonly allReservations = signal<PlanningReservation[]>(this.initialReservations);
+  readonly serverSynced = signal<boolean>(false);
 
-  /** Définition statique des 12 chambres de l'hôtel */
+  constructor() {
+    this.fetchFromServer();
+  }
+
+  private getCurrentRole(): string {
+    try {
+      const raw = typeof localStorage !== 'undefined' ? localStorage.getItem('residence_blue_auth_session') : null;
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (parsed?.user?.role) return parsed.user.role;
+      }
+    } catch {}
+    return 'DIRECTION';
+  }
+
+  async fetchFromServer(): Promise<void> {
+    if (typeof fetch === 'undefined') return;
+    try {
+      const res = await fetch('/api/reservations', {
+        headers: { 'x-user-role': this.getCurrentRole() },
+      });
+      if (res.ok) {
+        const list: PlanningReservation[] = await res.json();
+        this.serverSynced.set(true);
+        this.allReservations.set(list);
+      }
+    } catch {}
+  }
+
+  /** Définition des chambres de l'hôtel */
   get catalogRooms(): Omit<PlanningRoom, 'reservations'>[] {
     if (this.roomsService) {
       const active = this.roomsService.activeRooms();
-      if (active.length > 0) {
+      if (active.length > 0 || this.serverSynced()) {
         return active.map((r) => ({
           number: r.number,
           category: (r.category || r.type?.name || 'Standard') as any,
@@ -542,6 +572,21 @@ export class PlanningMockService {
       })
     );
 
+    if (typeof fetch !== 'undefined' && /^[0-9a-f-]{36}$/i.test(id)) {
+      const actionPath = nextStatus === 'EN_SEJOUR' ? 'check-in' : 'check-out';
+      fetch(`/api/reservations/${id}/${actionPath}`, {
+        method: 'POST',
+        headers: { 'x-user-role': this.getCurrentRole() },
+      })
+        .then(async (response) => {
+          if (response.ok) {
+            const updated = await response.json();
+            this.allReservations.update((list) => list.map((r) => (r.id === id ? updated : r)));
+          }
+        })
+        .catch(() => {});
+    }
+
     this.feedbackMessage.set(msg);
     return { success: true, newStatus: nextStatus, message: msg };
   }
@@ -555,6 +600,13 @@ export class PlanningMockService {
 
     this.allReservations.update(list => list.filter(r => r.id !== id));
     this.closeDetail();
+
+    if (typeof fetch !== 'undefined' && /^[0-9a-f-]{36}$/i.test(id)) {
+      fetch(`/api/reservations/${id}/cancel`, {
+        method: 'POST',
+        headers: { 'x-user-role': this.getCurrentRole() },
+      }).catch(() => {});
+    }
 
     const msg = `Réservation de ${res.guestName} en Chambre ${res.roomNumber} annulée.`;
     this.feedbackMessage.set(msg);
@@ -611,6 +663,37 @@ export class PlanningMockService {
 
     this.allReservations.update(list => [...list, newRes]);
     this.feedbackMessage.set(`Réservation confirmée pour ${payload.guestName} en Chambre ${payload.roomNumber}.`);
+
+    if (typeof fetch !== 'undefined') {
+      fetch('/api/reservations', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-user-role': this.getCurrentRole(),
+        },
+        body: JSON.stringify({
+          guestName: payload.guestName,
+          roomNumber: payload.roomNumber,
+          checkInDate: payload.checkInDate,
+          checkOutDate: payload.checkOutDate,
+          nights: payload.nights,
+          totalFcfa: payload.totalFcfa,
+          depositFcfa: payload.depositAmountFcfa || 0,
+          contactPhone: payload.contactPhone,
+          contactEmail: payload.contactEmail,
+        }),
+      })
+        .then(async (res) => {
+          if (res.ok) {
+            const saved = await res.json();
+            this.allReservations.update((list) =>
+              list.map((r) => (r.id === newRes.id ? saved : r)),
+            );
+          }
+        })
+        .catch(() => {});
+    }
+
     return { success: true, reservation: newRes };
   }
 

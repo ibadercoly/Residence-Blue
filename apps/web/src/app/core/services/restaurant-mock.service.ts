@@ -22,6 +22,40 @@ export class RestaurantMockService {
       // Ignorer si hors contexte d'injection
     }
     this.hotelSettingsService = hotelSettingsService ?? injected ?? new HotelSettingsService();
+    this.fetchFromServer();
+  }
+
+  private getCurrentRole(): string {
+    try {
+      const raw = typeof localStorage !== 'undefined' ? localStorage.getItem('residence_blue_auth_session') : null;
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (parsed?.user?.role) return parsed.user.role;
+      }
+    } catch {}
+    return 'DIRECTION';
+  }
+
+  async fetchFromServer(): Promise<void> {
+    if (typeof fetch === 'undefined') return;
+    try {
+      const [catRes, prodRes] = await Promise.all([
+        fetch('/api/restaurant/categories', { headers: { 'x-user-role': this.getCurrentRole() } }),
+        fetch('/api/restaurant/products', { headers: { 'x-user-role': this.getCurrentRole() } }),
+      ]);
+      if (catRes.ok && prodRes.ok) {
+        const cats: DishCategory[] = await catRes.json();
+        const prods: DishItem[] = await prodRes.json();
+        this._categories.set(cats);
+        this._dishes.set(prods);
+        if (cats.length > 0 && !cats.some((c) => c.id === this.activeCategoryId())) {
+          this.activeCategoryId.set(cats[0].id);
+        }
+        if (prods.length === 0) {
+          this._ticketItems.set([]);
+        }
+      }
+    } catch {}
   }
 
   // Catégories de plats
@@ -396,15 +430,74 @@ export class RestaurantMockService {
     this._dishes.update(list =>
       list.map(d => (d.id === dishId ? { ...d, status } : d))
     );
+    if (typeof fetch !== 'undefined' && /^[0-9a-f-]{36}$/i.test(dishId)) {
+      fetch(`/api/restaurant/products/${dishId}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-user-role': this.getCurrentRole(),
+        },
+        body: JSON.stringify({ status }),
+      }).catch(() => {});
+    }
   }
 
   addDish(dish: DishItem): void {
     this._dishes.update(list => [...list, dish]);
+    if (typeof fetch !== 'undefined') {
+      fetch('/api/restaurant/products', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-user-role': this.getCurrentRole(),
+        },
+        body: JSON.stringify({
+          name: dish.name,
+          description: dish.description,
+          categoryId: dish.categoryId,
+          categoryName: dish.categoryName,
+          priceFcfa: dish.priceFcfa,
+          halfPortionPriceFcfa: dish.halfPortionPriceFcfa,
+          tags: dish.tags,
+          allergens: dish.allergens,
+          prepTimeMinutes: dish.prepTimeMinutes,
+          prepStation: dish.prepStation,
+          status: dish.status,
+        }),
+      })
+        .then(async (res) => {
+          if (res.ok) {
+            const saved = await res.json();
+            this._dishes.update((list) => list.map((d) => (d.id === dish.id ? saved : d)));
+          }
+        })
+        .catch(() => {});
+    }
   }
 
   updateDish(dish: DishItem): void {
     this._dishes.update(list =>
       list.map(d => (d.id === dish.id ? dish : d))
     );
+    if (typeof fetch !== 'undefined' && /^[0-9a-f-]{36}$/i.test(dish.id)) {
+      fetch(`/api/restaurant/products/${dish.id}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-user-role': this.getCurrentRole(),
+        },
+        body: JSON.stringify({
+          name: dish.name,
+          description: dish.description,
+          categoryId: dish.categoryId,
+          priceFcfa: dish.priceFcfa,
+          tags: dish.tags,
+          allergens: dish.allergens,
+          prepTimeMinutes: dish.prepTimeMinutes,
+          prepStation: dish.prepStation,
+          status: dish.status,
+        }),
+      }).catch(() => {});
+    }
   }
 }

@@ -109,7 +109,53 @@ export class AuthMockService {
         throw new Error('Veuillez renseigner votre identifiant et mot de passe.');
       }
 
-      // Recherche de l'utilisateur dans le catalogue mock
+      // 1. Appel prioritaire à l'API NestJS réelle (POST /api/auth/login)
+      if (typeof fetch !== 'undefined') {
+        try {
+          const response = await fetch('/api/auth/login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              login: trimmedLogin,
+              password: trimmedPassword,
+              stayConnected8h: !!credentials.stayConnected8h,
+            }),
+          });
+
+          if (response.ok) {
+            const data = await response.json();
+            const now = Date.now();
+            const session: AuthSession = {
+              user: data.user,
+              token: data.token,
+              expiresAt: data.expiresAt || now + (credentials.stayConnected8h ? this.SESSION_DURATION_8H_MS : this.STANDARD_SESSION_MS),
+              stayConnected8h: !!credentials.stayConnected8h,
+              lastActivityAt: now,
+              isLocked: false,
+            };
+            this._session.set(session);
+            this.saveSessionToStorage(session);
+            return data.user;
+          } else if (response.status === 401 || response.status === 403 || response.status === 400) {
+            const errBody = await response.json().catch(() => ({}));
+            throw new Error(
+              errBody.message || 'Identifiants incorrects. Veuillez vérifier votre adresse ou mot de passe.',
+            );
+          }
+        } catch (apiErr: any) {
+          if (
+            apiErr instanceof Error &&
+            (apiErr.message.includes('Identifiants') ||
+              apiErr.message.includes('désactivé') ||
+              apiErr.message.includes('verrouillé'))
+          ) {
+            throw apiErr;
+          }
+          // Repli hors-ligne si l'API n'est pas joignable
+        }
+      }
+
+      // 2. Repli hors-ligne : recherche dans le catalogue local
       const matched = this.mockUsers.find(
         u => u.email.toLowerCase() === trimmedLogin && u.passwordHash === trimmedPassword
       );

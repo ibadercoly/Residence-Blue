@@ -12,6 +12,8 @@ enum Role {
   DIRECTION
   RECEPTION
   RESTAURANT
+  SERVEUR
+  CUISINE
   HOUSEKEEPING
   MAINTENANCE
   COMPTABLE
@@ -24,19 +26,47 @@ enum RoomStatus {
   MAINTENANCE
 }
 
+enum ReservationStatus {
+  PENDING
+  CONFIRMED
+  CHECKED_IN
+  CHECKED_OUT
+  CANCELLED
+  NO_SHOW
+}
+
+enum InvoiceStatus {
+  OPEN
+  PARTIAL
+  PAID
+  CANCELLED
+}
+
+enum PaymentMethod {
+  CASH
+  WAVE
+  ORANGE_MONEY
+  CARD
+  BANK_TRANSFER
+}
+
 model User {
-  id            String          @id @default(uuid()) @db.Uuid
-  email         String          @unique
-  passwordHash  String          @map("password_hash")
-  role          Role
-  isActive      Boolean         @default(true) @map("is_active")
-  failedLogins  Int             @default(0) @map("failed_logins")
-  lockedUntil   DateTime?       @map("locked_until")
-  createdAt     DateTime        @default(now()) @map("created_at")
-  updatedAt     DateTime        @updatedAt @map("updated_at")
-  refreshTokens RefreshToken[]
-  auditLogs     AuditLog[]
-  syncOps       SyncOperation[]
+  id                  String          @id @default(uuid()) @db.Uuid
+  email               String          @unique
+  fullName            String          @default("") @map("full_name")
+  jobTitle            String?         @map("job_title")
+  passwordHash        String          @map("password_hash")
+  role                Role
+  isActive            Boolean         @default(true) @map("is_active")
+  failedLogins        Int             @default(0) @map("failed_logins")
+  lockedUntil         DateTime?       @map("locked_until")
+  createdAt           DateTime        @default(now()) @map("created_at")
+  updatedAt           DateTime        @updatedAt @map("updated_at")
+  refreshTokens       RefreshToken[]
+  auditLogs           AuditLog[]
+  syncOps             SyncOperation[]
+  createdReservations Reservation[]   @relation("CreatedReservations")
+  receivedPayments    Payment[]       @relation("ReceivedPayments")
 
   @@map("users")
 }
@@ -68,21 +98,284 @@ model RoomType {
 }
 
 model Room {
-  id        String     @id @default(uuid()) @db.Uuid
-  number    String     @unique
-  typeId    String     @map("type_id") @db.Uuid
-  type      RoomType   @relation(fields: [typeId], references: [id], onDelete: Restrict)
-  floor     Int
-  status    RoomStatus @default(FREE)
-  amenities String[]
-  imageUrl  String?    @map("image_url")
-  isActive  Boolean    @default(true) @map("is_active")
-  createdAt DateTime   @default(now()) @map("created_at")
-  updatedAt DateTime   @updatedAt @map("updated_at")
+  id                      String            @id @default(uuid()) @db.Uuid
+  number                  String            @unique
+  typeId                  String            @map("type_id") @db.Uuid
+  type                    RoomType          @relation(fields: [typeId], references: [id], onDelete: Restrict)
+  floor                   Int
+  category                String            @default("Standard")
+  status                  RoomStatus        @default(FREE)
+  adultsCapacity          Int               @default(2) @map("adults_capacity")
+  childrenCapacity        Int               @default(0) @map("children_capacity")
+  bedType                 String            @default("queen") @map("bed_type")
+  bedsCount               Int               @default(1) @map("beds_count")
+  surfaceM2               Int               @default(25) @map("surface_m2")
+  view                    String            @default("jardin")
+  smoking                 Boolean           @default(false)
+  connectingRoom          String?           @map("connecting_room")
+  amenities               String[]
+  pricePerNight           Int               @default(35000) @map("price_per_night")
+  highSeasonPricePerNight Int?              @map("high_season_price_per_night")
+  corporatePricePerNight  Int?              @map("corporate_price_per_night")
+  breakfastIncluded       Boolean           @default(true) @map("breakfast_included")
+  imageUrl                String?           @map("image_url")
+  description             String?           @db.Text
+  internalNote            String?           @map("internal_note") @db.Text
+  isActive                Boolean           @default(true) @map("is_active")
+  createdAt               DateTime          @default(now()) @map("created_at")
+  updatedAt               DateTime          @updatedAt @map("updated_at")
+  reservations            Reservation[]
+  invoices                Invoice[]
+  orders                  RestaurantOrder[]
 
   @@index([typeId])
   @@index([status])
   @@map("rooms")
+}
+
+model Guest {
+  id                    String        @id @default(uuid()) @db.Uuid
+  civility              String        @default("M.")
+  firstName             String        @map("first_name")
+  lastName              String        @map("last_name")
+  fullName              String        @map("full_name")
+  phone                 String
+  email                 String?
+  nationality           String?       @default("Sénégalaise")
+  residenceCity         String?       @map("residence_city")
+  companyName           String?       @map("company_name")
+  companyRole           String?       @map("company_role")
+  vipTier               String?       @map("vip_tier")
+  avatarUrl             String?       @map("avatar_url")
+  idDocumentEncrypted   String?       @map("id_document_encrypted") @db.Text
+  idDocumentExpiry      String?       @map("id_document_expiry")
+  dietaryPreferences    Json?         @map("dietary_preferences") @db.JsonB
+  preferences           Json?         @db.JsonB
+  permanentInstructions Json?         @map("permanent_instructions") @db.JsonB
+  notes                 Json?         @db.JsonB
+  isActive              Boolean       @default(true) @map("is_active")
+  createdAt             DateTime      @default(now()) @map("created_at")
+  updatedAt             DateTime      @updatedAt @map("updated_at")
+  reservations          Reservation[]
+  invoices              Invoice[]
+
+  @@index([phone])
+  @@index([email])
+  @@index([fullName])
+  @@map("guests")
+}
+
+model Reservation {
+  id            String            @id @default(uuid()) @db.Uuid
+  reference     String            @unique
+  guestId       String            @map("guest_id") @db.Uuid
+  guest         Guest             @relation(fields: [guestId], references: [id], onDelete: Restrict)
+  roomId        String            @map("room_id") @db.Uuid
+  room          Room              @relation(fields: [roomId], references: [id], onDelete: Restrict)
+  checkInDate   DateTime          @map("check_in_date") @db.Date
+  checkOutDate  DateTime          @map("check_out_date") @db.Date
+  adultsCount   Int               @default(1) @map("adults_count")
+  childrenCount Int               @default(0) @map("children_count")
+  nights        Int               @default(1)
+  status        ReservationStatus @default(CONFIRMED)
+  depositFcfa   Int               @default(0) @map("deposit_fcfa")
+  totalFcfa     Int               @map("total_fcfa")
+  checkedInAt   DateTime?         @map("checked_in_at")
+  checkedOutAt  DateTime?         @map("checked_out_at")
+  notes         String?           @db.Text
+  createdById   String?           @map("created_by_id") @db.Uuid
+  createdBy     User?             @relation("CreatedReservations", fields: [createdById], references: [id], onDelete: SetNull)
+  createdAt     DateTime          @default(now()) @map("created_at")
+  updatedAt     DateTime          @updatedAt @map("updated_at")
+  invoices      Invoice[]
+  orders        RestaurantOrder[]
+
+  @@index([roomId, checkInDate, checkOutDate])
+  @@index([guestId])
+  @@index([status])
+  @@index([checkInDate, checkOutDate])
+  @@map("reservations")
+}
+
+model Invoice {
+  id                 String        @id @default(uuid()) @db.Uuid
+  invoiceNumber      String        @unique @map("invoice_number")
+  reservationId      String?       @map("reservation_id") @db.Uuid
+  reservation        Reservation?  @relation(fields: [reservationId], references: [id], onDelete: Restrict)
+  guestId            String?       @map("guest_id") @db.Uuid
+  guest              Guest?        @relation(fields: [guestId], references: [id], onDelete: Restrict)
+  roomId             String?       @map("room_id") @db.Uuid
+  room               Room?         @relation(fields: [roomId], references: [id], onDelete: Restrict)
+  subtotalHtFcfa     Int           @default(0) @map("subtotal_ht_fcfa")
+  vatRatePercent     Int           @default(10) @map("vat_rate_percent")
+  vatAmountFcfa      Int           @default(0) @map("vat_amount_fcfa")
+  tourismTaxFcfa     Int           @default(0) @map("tourism_tax_fcfa")
+  totalFcfa          Int           @default(0) @map("total_fcfa")
+  depositFcfa        Int           @default(0) @map("deposit_fcfa")
+  paidAmountFcfa     Int           @default(0) @map("paid_amount_fcfa")
+  balanceFcfa        Int           @default(0) @map("balance_fcfa")
+  status             InvoiceStatus @default(OPEN)
+  billingCompanyName String?       @map("billing_company_name")
+  billingNinea       String?       @map("billing_ninea")
+  billingAddress     String?       @map("billing_address")
+  issuedAt           DateTime      @default(now()) @map("issued_at")
+  settledAt          DateTime?     @map("settled_at")
+  createdAt          DateTime      @default(now()) @map("created_at")
+  updatedAt          DateTime      @updatedAt @map("updated_at")
+  lines              InvoiceLine[]
+  payments           Payment[]
+
+  @@index([reservationId])
+  @@index([guestId])
+  @@index([roomId])
+  @@index([status])
+  @@map("invoices")
+}
+
+model InvoiceLine {
+  id             String   @id @default(uuid()) @db.Uuid
+  invoiceId      String   @map("invoice_id") @db.Uuid
+  invoice        Invoice  @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  dateLabel      String   @default("") @map("date_label")
+  description    String
+  subDescription String?  @map("sub_description")
+  category       String   @default("ROOM")
+  quantity       Int      @default(1)
+  quantityLabel  String?  @map("quantity_label")
+  unitPriceFcfa  Int      @map("unit_price_fcfa")
+  totalPriceFcfa Int      @map("total_price_fcfa")
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  @@index([invoiceId])
+  @@map("invoice_lines")
+}
+
+model Payment {
+  id             String        @id @default(uuid()) @db.Uuid
+  invoiceId      String        @map("invoice_id") @db.Uuid
+  invoice        Invoice       @relation(fields: [invoiceId], references: [id], onDelete: Restrict)
+  method         PaymentMethod
+  amountFcfa     Int           @map("amount_fcfa")
+  transactionRef String?       @map("transaction_ref")
+  receivedById   String?       @map("received_by_id") @db.Uuid
+  receivedBy     User?         @relation("ReceivedPayments", fields: [receivedById], references: [id], onDelete: SetNull)
+  paidAt         DateTime      @default(now()) @map("paid_at")
+  createdAt      DateTime      @default(now()) @map("created_at")
+
+  @@index([invoiceId])
+  @@index([method])
+  @@index([paidAt])
+  @@map("payments")
+}
+
+model RestaurantCategory {
+  id           String              @id @default(uuid()) @db.Uuid
+  name         String              @unique
+  icon         String              @default("dinner_dining")
+  displayOrder Int                 @default(1) @map("display_order")
+  isArchived   Boolean             @default(false) @map("is_archived")
+  createdAt    DateTime            @default(now()) @map("created_at")
+  updatedAt    DateTime            @updatedAt @map("updated_at")
+  products     RestaurantProduct[]
+
+  @@map("restaurant_categories")
+}
+
+model RestaurantProduct {
+  id                   String                @id @default(uuid()) @db.Uuid
+  name                 String                @unique
+  description          String                @default("") @db.Text
+  categoryId           String                @map("category_id") @db.Uuid
+  category             RestaurantCategory    @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  priceFcfa            Int                   @map("price_fcfa")
+  halfPortionPriceFcfa Int?                  @map("half_portion_price_fcfa")
+  tags                 String[]
+  allergens            String[]
+  prepTimeMinutes      Int                   @default(15) @map("prep_time_minutes")
+  prepStation          String                @default("CUISINE") @map("prep_station")
+  availability         Json?                 @db.JsonB
+  options              Json?                 @db.JsonB
+  vatRatePercent       Int                   @default(10) @map("vat_rate_percent")
+  displayOrder         Int                   @default(1) @map("display_order")
+  photoUrl             String?               @map("photo_url")
+  status               String                @default("AVAILABLE")
+  createdAt            DateTime              @default(now()) @map("created_at")
+  updatedAt            DateTime              @updatedAt @map("updated_at")
+  orderLines           RestaurantOrderLine[]
+
+  @@index([categoryId])
+  @@index([status])
+  @@map("restaurant_products")
+}
+
+model RestaurantOrder {
+  id              String                @id @default(uuid()) @db.Uuid
+  ticketNumber    String                @unique @map("ticket_number")
+  destinationType String                @default("TABLE") @map("destination_type")
+  tableLabel      String?               @map("table_label")
+  roomId          String?               @map("room_id") @db.Uuid
+  room            Room?                 @relation(fields: [roomId], references: [id], onDelete: Restrict)
+  reservationId   String?               @map("reservation_id") @db.Uuid
+  reservation     Reservation?          @relation(fields: [reservationId], references: [id], onDelete: Restrict)
+  invoiceId       String?               @map("invoice_id") @db.Uuid
+  serverName      String                @default("Service") @map("server_name")
+  status          String                @default("SENT_TO_KITCHEN")
+  subtotalHtFcfa  Int                   @default(0) @map("subtotal_ht_fcfa")
+  vatAmountFcfa   Int                   @default(0) @map("vat_amount_fcfa")
+  totalTtcFcfa    Int                   @default(0) @map("total_ttc_fcfa")
+  paymentMethod   String?               @map("payment_method")
+  createdAt       DateTime              @default(now()) @map("created_at")
+  updatedAt       DateTime              @updatedAt @map("updated_at")
+  lines           RestaurantOrderLine[]
+
+  @@index([roomId])
+  @@index([reservationId])
+  @@index([status])
+  @@index([createdAt])
+  @@map("orders")
+}
+
+model RestaurantOrderLine {
+  id              String             @id @default(uuid()) @db.Uuid
+  orderId         String             @map("order_id") @db.Uuid
+  order           RestaurantOrder    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  productId       String?            @map("product_id") @db.Uuid
+  product         RestaurantProduct? @relation(fields: [productId], references: [id], onDelete: SetNull)
+  name            String
+  quantity        Int                @default(1)
+  unitPriceFcfa   Int                @map("unit_price_fcfa")
+  totalPriceFcfa  Int                @map("total_price_fcfa")
+  selectedOptions String[]           @map("selected_options")
+  notes           String?
+  prepStation     String             @default("CUISINE") @map("prep_station")
+  createdAt       DateTime           @default(now()) @map("created_at")
+
+  @@index([orderId])
+  @@map("order_lines")
+}
+
+model HotelSetting {
+  id                          String   @id @default("default")
+  hotelName                   String   @default("Résidence Blue") @map("hotel_name")
+  legalName                   String   @default("Résidence Blue S.A.R.L.") @map("legal_name")
+  tagline                     String   @default("Hôtel Boutique • Grand Standing, Thiès")
+  city                        String   @default("Thiès")
+  neighborhood                String   @default("Grand Standing")
+  country                     String   @default("Sénégal")
+  fullAddress                 String   @default("Quartier Grand Standing • Thiès, Sénégal") @map("full_address")
+  ninea                       String   @default("004819230")
+  rccm                        String   @default("SN-THS-2021-B-114")
+  supportPhone                String   @default("+221 33 957 00 00") @map("support_phone")
+  supportEmail                String   @default("support@residenceblue.sn") @map("support_email")
+  roomCount                   Int      @default(12) @map("room_count")
+  restaurantName              String   @default("La Teranga") @map("restaurant_name")
+  currency                    String   @default("XOF")
+  vatRatePercent              Int      @default(10) @map("vat_rate_percent")
+  tourismTaxPerNightPerPerson Int      @default(1000) @map("tourism_tax_per_night_per_person")
+  exchangeRateEurToFcfa       Float    @default(655.957) @map("exchange_rate_eur_to_fcfa")
+  updatedAt                   DateTime @updatedAt @map("updated_at")
+
+  @@map("hotel_settings")
 }
 
 model AuditLog {

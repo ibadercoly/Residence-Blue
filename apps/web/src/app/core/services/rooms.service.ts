@@ -163,24 +163,33 @@ export class RoomsService {
    */
   async initRooms(): Promise<void> {
     try {
-      const cached = await this.idb.getAll<RoomUiItem>('rooms');
-      if (cached && cached.length > 0) {
-        const dedup = new Map<string, RoomUiItem>();
-        for (const r of cached) {
-          dedup.set(r.number, r);
+      try {
+        const cached = await this.idb.getAll<RoomUiItem>('rooms');
+        if (cached && cached.length > 0) {
+          const dedup = new Map<string, RoomUiItem>();
+          for (const r of cached) {
+            dedup.set(r.number, r);
+          }
+          const enriched = Array.from(dedup.values()).map((r) => this.normalizeRoom(r));
+          this.rooms.set(this.sortRooms(enriched));
         }
-        const enriched = Array.from(dedup.values()).map((r) => this.normalizeRoom(r));
-        this.rooms.set(this.sortRooms(enriched));
-      } else {
-        const initialRooms = this.buildInitialRooms();
-        for (const r of initialRooms) {
-          await this.idb.put('rooms', r);
-        }
-        this.rooms.set(initialRooms);
-      }
+      } catch {}
 
       if (this.network.isOnline()) {
-        await this.fetchFromServer();
+        const ok = await this.fetchFromServer();
+        if (!ok && this.rooms().length === 0) {
+          const initialRooms = this.buildInitialRooms();
+          for (const r of initialRooms) {
+            this.idb.put('rooms', r).catch(() => {});
+          }
+          this.rooms.set(initialRooms);
+        }
+      } else if (this.rooms().length === 0) {
+        const initialRooms = this.buildInitialRooms();
+        for (const r of initialRooms) {
+          this.idb.put('rooms', r).catch(() => {});
+        }
+        this.rooms.set(initialRooms);
       }
     } catch {
       if (this.rooms().length === 0) {
@@ -192,7 +201,7 @@ export class RoomsService {
   /**
    * Récupère la liste des chambres depuis l'API serveur (source de vérité).
    */
-  async fetchFromServer(): Promise<void> {
+  async fetchFromServer(): Promise<boolean> {
     try {
       const response = await fetch('/api/rooms', {
         headers: {
@@ -231,9 +240,12 @@ export class RoomsService {
             await this.idb.put('rooms', r);
           }
         } catch {}
+        return true;
       }
+      return false;
     } catch {
       // Mode hors-ligne transparent
+      return false;
     }
   }
 
@@ -343,10 +355,8 @@ export class RoomsService {
       }
     }, 3000);
 
-    // Persistance IndexedDB locale
-    try {
-      await this.idb.put('rooms', newRoom);
-    } catch {}
+    // Persistance IndexedDB locale (non bloquante pour l'appel réseau)
+    this.idb.put('rooms', newRoom).catch(() => {});
 
     // Enregistrement hors-ligne / réseau
     if (!this.network.isOnline()) {
@@ -495,10 +505,8 @@ export class RoomsService {
       }
     }, 3000);
 
-    // Persistance IndexedDB locale
-    try {
-      await this.idb.put('rooms', optimisticRoom);
-    } catch {}
+    // Persistance IndexedDB locale (non bloquante pour l'appel réseau)
+    this.idb.put('rooms', optimisticRoom).catch(() => {});
 
     // Envoi réseau ou Outbox
     if (!this.network.isOnline()) {
@@ -549,10 +557,10 @@ export class RoomsService {
               ...serverRoom,
               syncPending: false,
             });
-            this.rooms.update((list) => list.map((r) => (r.id === roomId ? normalizedServer : r)));
-            try {
-              await this.idb.put('rooms', normalizedServer);
-            } catch {}
+            this.rooms.update((list) =>
+              list.map((r) => (r.id === roomId || r.number === normalizedServer.number ? normalizedServer : r))
+            );
+            this.idb.put('rooms', normalizedServer).catch(() => {});
             this.successMessage.set(`La chambre ${normalizedServer.number} a été modifiée avec succès.`);
             return { success: true, room: normalizedServer };
           }
@@ -643,9 +651,7 @@ export class RoomsService {
 
     // Suppression locale réactive immédiate (sans rechargement)
     this.rooms.update((list) => list.filter((r) => r.id !== roomId));
-    try {
-      await this.idb.delete('rooms', roomId);
-    } catch {}
+    this.idb.delete('rooms', roomId).catch(() => {});
 
     this.successMessage.set(`La chambre ${room.number} a été définitivement supprimée.`);
     return { success: true };
