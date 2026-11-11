@@ -4,6 +4,8 @@ import { Router, RouterLink } from '@angular/router';
 import { ReservationModalService } from '../../../../core/services/reservation-modal.service';
 import { ModuleConfigService } from '../../../../core/services/module-config.service';
 import { RoomsService } from '../../../../core/services/rooms.service';
+import { PlanningMockService } from '../../../../core/services/planning-mock.service';
+import { FacturationMockService } from '../../../../core/services/facturation-mock.service';
 
 @Component({
   selector: 'app-dashboard-page',
@@ -78,10 +80,10 @@ import { RoomsService } from '../../../../core/services/rooms.service';
           </div>
           <div>
             <div class="text-3xl font-black text-stone-900 tracking-tight font-mono">
-              75 %
+              {{ occupancyRatePercent() }} %
             </div>
             <div class="text-xs text-stone-500 mt-1">
-              <strong class="text-emerald-700 font-bold">9 chambres occupées</strong> sur 12
+              <strong class="text-emerald-700 font-bold">{{ occupiedRoomsCount() }} chambres occupées</strong> sur {{ roomsCount() }}
             </div>
           </div>
         </div>
@@ -94,7 +96,7 @@ import { RoomsService } from '../../../../core/services/rooms.service';
           </div>
           <div>
             <div class="text-3xl font-black text-stone-900 tracking-tight font-mono">
-              3
+              {{ arrivalsTodayCount() }}
             </div>
             <div class="text-xs text-stone-500 mt-1">
               Clients attendus cet après-midi
@@ -110,10 +112,10 @@ import { RoomsService } from '../../../../core/services/rooms.service';
           </div>
           <div>
             <div class="text-3xl font-black text-stone-900 tracking-tight font-mono">
-              2
+              {{ departuresTodayCount() }}
             </div>
             <div class="text-xs text-stone-500 mt-1">
-              Dont 1 chambre déjà libérée
+              Dont {{ freedTodayCount() }} chambre déjà libérée
             </div>
           </div>
         </div>
@@ -126,7 +128,7 @@ import { RoomsService } from '../../../../core/services/rooms.service';
           </div>
           <div>
             <div class="text-2xl sm:text-3xl font-black text-[#135bec] tracking-tight font-mono">
-              385 000 <span class="text-xs font-semibold text-stone-500">FCFA</span>
+              {{ formattedTodayRevenue() }} <span class="text-xs font-semibold text-stone-500">FCFA</span>
             </div>
             <div class="text-xs text-stone-500 mt-1">
               Chambres, restaurant &amp; piscine
@@ -245,7 +247,34 @@ import { RoomsService } from '../../../../core/services/rooms.service';
 })
 export class DashboardPageComponent {
   readonly roomsService = inject(RoomsService, { optional: true });
-  readonly roomsCount = computed(() => this.roomsService ? this.roomsService.rooms().length : 12);
+  readonly planningService = inject(PlanningMockService, { optional: true });
+  readonly facturationService = inject(FacturationMockService, { optional: true });
+
+  readonly roomsCount = computed(() => (this.roomsService ? this.roomsService.rooms().length : 0));
+  readonly occupiedRoomsCount = computed(() =>
+    this.roomsService ? this.roomsService.activeRooms().filter((r) => r.status === 'OCCUPIED').length : 0
+  );
+  readonly occupancyRatePercent = computed(() => {
+    const total = this.roomsCount();
+    return total > 0 ? Math.round((this.occupiedRoomsCount() / total) * 100) : 0;
+  });
+  readonly arrivalsTodayCount = computed(() =>
+    this.planningService ? this.planningService.dailyMetrics().arrivalsToday : 0
+  );
+  readonly departuresTodayCount = computed(() =>
+    this.planningService ? this.planningService.dailyMetrics().departuresToday : 0
+  );
+  readonly freedTodayCount = computed(() =>
+    this.planningService
+      ? this.planningService.allReservations().filter((r) => r.status === 'CHECKOUT').length
+      : 0
+  );
+  readonly todayRevenueFcfa = computed(() => {
+    if (!this.facturationService) return 0;
+    const paidFolios = this.facturationService.closedFolios().reduce((sum, f) => sum + f.amountFcfa, 0);
+    return paidFolios;
+  });
+  readonly formattedTodayRevenue = computed(() => this.todayRevenueFcfa().toLocaleString('fr-FR'));
   private readonly router = inject(Router);
   private readonly reservationModal = inject(ReservationModalService);
   private readonly moduleConfig = inject(ModuleConfigService);
