@@ -441,26 +441,28 @@ interface MobileRoomCard {
 })
 export class MobileDashboardComponent {
   readonly roomsService = inject(RoomsService, { optional: true });
-  readonly roomsCount = computed(() => this.roomsService ? this.roomsService.rooms().length : 12);
-  readonly activeCount = computed(() => this.roomsService ? this.roomsService.activeRooms().length : 12);
-  readonly occupiedCount = computed(() => 10);
+  readonly roomsCount = computed(() => (this.roomsService ? this.roomsService.rooms().length : 0));
+  readonly activeCount = computed(() => (this.roomsService ? this.roomsService.activeRooms().length : 0));
+  readonly occupiedCount = computed(() =>
+    this.roomsService ? this.roomsService.rooms().filter((r) => r.status === 'OCCUPIED').length : 0
+  );
   readonly checkedInSylla = signal(false);
   readonly selectedRooms = signal<Set<string>>(new Set());
 
-  readonly rooms: MobileRoomCard[] = [
-    { number: 'Ch. 01', name: 'Suite Panoramique', nameColorClass: 'text-primary', status: 'Occupée', footerText: 'M. Ndiaye', footerType: 'guest', footerIcon: 'chevron_right', imageUrl: 'assets/images/chambres/chambre-101-standard.jpg', imageAlt: 'Chambre 101, Standard, lit double sobre et tons chauds' },
-    { number: 'Ch. 02', name: 'Deluxe Balcon', nameColorClass: 'text-primary', status: 'Occupée', footerText: 'Fam. Moreau', footerType: 'guest', footerIcon: 'chevron_right', imageUrl: 'assets/images/chambres/chambre-102-standard.jpg', imageAlt: 'Chambre 102, Standard, espace bureau et parquet en bois clair' },
-    { number: 'Ch. 03', name: 'Standard Patio', nameColorClass: 'text-primary', status: 'Occupée', footerText: 'M. Sow', footerType: 'guest', footerIcon: 'chevron_right', imageUrl: 'assets/images/chambres/chambre-103-standard.jpg', imageAlt: 'Chambre 103, Standard, lit en bois et vue sur patio intérieur' },
-    { number: 'Ch. 04', name: 'Suite Baobab', nameColorClass: 'text-primary', status: 'Libre', footerText: 'Prête • 14h00', footerType: 'ready-gold', footerIcon: 'star', imageUrl: 'assets/images/chambres/chambre-104-standard.jpg', imageAlt: 'Chambre 104, Standard, balcon privatif et jardin arboré' },
-    { number: 'Ch. 05', name: 'Deluxe Balcon', nameColorClass: 'text-primary', status: 'Occupée', footerText: 'Dr. Faye', footerType: 'guest', footerIcon: 'chevron_right', imageUrl: 'assets/images/chambres/chambre-105-standard.jpg', imageAlt: 'Chambre 105, Standard, chambre ensoleillée avec vue sur la piscine' },
-    { number: 'Ch. 06', name: 'Standard Patio', nameColorClass: 'text-primary', status: 'Occupée', footerText: 'Mme Dubois', footerType: 'guest', footerIcon: 'chevron_right', imageUrl: 'assets/images/chambres/chambre-106-standard.jpg', imageAlt: 'Chambre 106, Standard, literie blanche épurée et douche à l’italienne' },
-    { number: 'Ch. 07', name: 'Deluxe Jardin', nameColorClass: 'text-primary', status: 'Occupée', footerText: 'M. Touré', footerType: 'guest', footerIcon: 'chevron_right', imageUrl: 'assets/images/chambres/chambre-201-deluxe.jpg', imageAlt: 'Chambre 201, Deluxe, lit King et tête de lit bleu nuit boutique' },
-    { number: 'Ch. 08', name: 'Deluxe Balcon', nameColorClass: 'text-primary', status: 'Occupée', footerText: 'M. Leroy', footerType: 'guest', footerIcon: 'chevron_right', imageUrl: 'assets/images/chambres/chambre-202-deluxe.jpg', imageAlt: 'Chambre 202, Deluxe, grande baie vitrée et coin détente' },
-    { number: 'Ch. 09', name: 'Deluxe Jardin', nameColorClass: 'text-primary', status: 'Occupée', footerText: 'Mme Cissé', footerType: 'guest', footerIcon: 'chevron_right', imageUrl: 'assets/images/chambres/chambre-203-bungalow-deluxe.jpg', imageAlt: 'Chambre 203, Bungalow Deluxe, lit à baldaquin et terrasse tropicale' },
-    { number: 'Ch. 10', name: 'Deluxe Jardin', nameColorClass: 'text-primary', status: 'Ménage', footerText: 'Équipe Aminata', footerType: 'cleaning', footerIcon: 'mop', imageUrl: 'assets/images/chambres/chambre-204-bungalow-deluxe.jpg', imageAlt: 'Chambre 204, Bungalow Deluxe, pavillon indépendant avec toit de chaume' },
-    { number: 'Ch. 11', name: 'Suite Terrasse', nameColorClass: 'text-primary', status: 'Libre', footerText: 'Prête • 15h30', footerType: 'ready-teal', footerIcon: 'directions_car', imageUrl: 'assets/images/chambres/chambre-301-suite.jpg', imageAlt: 'Chambre 301, Suite Prestige, vaste salon privé et baies panoramiques' },
-    { number: 'Ch. 12', name: 'Suite Panoramique', nameColorClass: 'text-tertiary', status: 'Maint.', footerText: 'Révision clim', footerType: 'maintenance', footerIcon: 'ac_unit', imageUrl: 'assets/images/chambres/chambre-302-suite.jpg', imageAlt: 'Chambre 302, Suite Prestige, salon luxueux et terrasse privative' }
-  ];
+  get rooms(): MobileRoomCard[] {
+    if (!this.roomsService) return [];
+    return this.roomsService.activeRooms().map((r) => ({
+      number: `Ch. ${r.number}`,
+      name: r.category || r.type?.name || 'Chambre',
+      nameColorClass: 'text-primary',
+      status: r.status === 'OCCUPIED' ? 'Occupée' : r.status === 'CLEANING' ? 'Ménage' : r.status === 'MAINTENANCE' ? 'Maint.' : 'Libre',
+      footerText: r.status === 'FREE' ? 'Prête' : r.status === 'CLEANING' ? 'Ménage' : r.status === 'MAINTENANCE' ? 'Maintenance' : 'Occupée',
+      footerType: r.status === 'CLEANING' ? 'cleaning' : r.status === 'MAINTENANCE' ? 'maintenance' : r.status === 'FREE' ? 'ready-teal' : 'guest',
+      footerIcon: r.status === 'CLEANING' ? 'mop' : r.status === 'MAINTENANCE' ? 'build' : 'chevron_right',
+      imageUrl: r.imageUrl || 'assets/images/chambres/chambre-101-standard.jpg',
+      imageAlt: `Chambre ${r.number}`,
+    }));
+  }
 
   toggleRoomSelection(roomNumber: string): void {
     const next = new Set(this.selectedRooms());

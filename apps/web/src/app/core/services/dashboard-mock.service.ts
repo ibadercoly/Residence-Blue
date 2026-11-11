@@ -63,62 +63,8 @@ export class DashboardMockService {
         { day: 'Dim', amountLabel: '590k*', heightPercent: 95, isConfirmed: true }
       ]
     },
-    arrivals: [
-      {
-        id: 'guest-1',
-        initials: 'MD',
-        name: 'M. Mamadou Diop',
-        badge: 'VIP Gold',
-        badgeIcon: 'workspace_premium',
-        room: 'Suite Panoramique (Ch. 301)',
-        nights: '3 nuits',
-        arrivalTime: 'Arrivée prévue 14h30',
-        colorVariant: 'primary'
-      },
-      {
-        id: 'guest-2',
-        initials: 'CL',
-        name: 'Mme Claire Lefèvre',
-        badge: 'Navette aéroport confirmée',
-        badgeIcon: 'directions_car',
-        room: 'Deluxe Balcon (Ch. 201)',
-        nights: '2 nuits',
-        arrivalTime: 'Arrivée prévue 16h00',
-        colorVariant: 'tertiary'
-      }
-    ],
-    priorityAlerts: [
-      {
-        id: 'alert-1',
-        category: 'Stock Épicerie • Alerte',
-        meta: 'Il y a 30m',
-        title: 'Café Touba & Vins de réserve bas',
-        description: 'Seuil critique atteint au Bar Teranga. Réapprovisionnement nécessaire avant le service du dîner.',
-        buttonLabel: 'Commander',
-        buttonIcon: 'shopping_cart',
-        variant: 'warning'
-      },
-      {
-        id: 'alert-2',
-        category: 'Technique • Urgent',
-        meta: 'Ch. 302',
-        title: 'Climatisation Suite Panoramique',
-        description: 'Dysfonctionnement signalé ce matin. Technicien froid convoqué sur place pour 15h00.',
-        buttonLabel: 'Suivre le ticket',
-        buttonIcon: 'build',
-        variant: 'urgent'
-      },
-      {
-        id: 'alert-3',
-        category: 'Facturation en suspens',
-        meta: '145 000 FCFA',
-        title: 'Folios en attente de clôture',
-        description: 'Règlements extras piscine & restaurant pour Ch. 103 (M. Diallo) et Ch. 202 (Mme Ndiaye).',
-        buttonLabel: 'Voir folios',
-        buttonIcon: 'visibility',
-        variant: 'info'
-      }
-    ],
+    arrivals: [],
+    priorityAlerts: [],
     thiesWeather: {
       title: 'Climat & Espaces Extérieurs',
       locationBadge: 'Grand Standing',

@@ -34,8 +34,8 @@ describe('DashboardMockService', () => {
     expect(data.weeklyRevenue.totalEstimated).toBe(3465000);
 
     expect(data.weeklyRevenue.days).toHaveLength(7);
-    expect(data.arrivals).toHaveLength(2);
-    expect(data.priorityAlerts).toHaveLength(3);
+    expect(data.arrivals).toHaveLength(0);
+    expect(data.priorityAlerts).toHaveLength(0);
 
     // Météo continentale Thiès
     expect(data.thiesWeather.title).toBe('Climat & Espaces Extérieurs');
@@ -90,9 +90,9 @@ describe('SidebarComponent & LayoutComponent', () => {
 });
 
 describe('MobileDashboardComponent', () => {
-  it('doit lister les 12 chambres et gérer la sélection ainsi que le check-in rapide', () => {
+  it('doit démarrer sans chambres fictives et gérer la sélection ainsi que le check-in rapide', () => {
     const mobile = new MobileDashboardComponent();
-    expect(mobile.rooms).toHaveLength(12);
+    expect(mobile.rooms).toHaveLength(0);
     expect(mobile.checkedInSylla()).toBe(false);
 
     mobile.toggleRoomSelection('Ch. 01');

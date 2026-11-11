@@ -113,28 +113,5 @@ export interface ArrivalItem {
   `
 })
 export class ExpectedArrivalsComponent {
-  readonly arrivals = input<ArrivalItem[]>([
-    {
-      id: 'guest-1',
-      initials: 'MD',
-      name: 'M. Mamadou Diop',
-      badge: 'VIP Gold',
-      badgeIcon: 'workspace_premium',
-      room: 'Suite Océan (Ch. 01)',
-      nights: '3 nuits',
-      arrivalTime: 'Arrivée prévue 14h30',
-      colorVariant: 'primary'
-    },
-    {
-      id: 'guest-2',
-      initials: 'CL',
-      name: 'Mme Claire Lefèvre',
-      badge: 'Navette aéroport confirmée',
-      badgeIcon: 'directions_car',
-      room: 'Deluxe Plage (Ch. 05)',
-      nights: '2 nuits',
-      arrivalTime: 'Arrivée prévue 16h00',
-      colorVariant: 'tertiary'
-    }
-  ]);
+  readonly arrivals = input<ArrivalItem[]>([]);
 }
