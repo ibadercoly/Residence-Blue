@@ -257,7 +257,8 @@ export class GuestProfileService {
         headers: { 'x-user-role': this.getCurrentRole() },
       });
       if (res.ok) {
-        const list: GuestProfile[] = await res.json();
+        const data = await res.json();
+        const list: GuestProfile[] = Array.isArray(data) ? data : (Array.isArray(data?.items) ? data.items : []);
         this.guestsList.set(list);
         if (list.length > 0) {
           this.isEmptyDatabase.set(false);

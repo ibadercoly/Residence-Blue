@@ -1,122 +1,208 @@
-import { IsBoolean, IsOptional, IsString, MinLength } from 'class-validator';
-import { Transform } from 'class-transformer';
+import { Type } from 'class-transformer';
+import {
+  IsEmail,
+  IsIn,
+  IsInt,
+  IsOptional,
+  IsString,
+  Matches,
+  Max,
+  MaxLength,
+  Min,
+  MinLength,
+} from 'class-validator';
+
+/**
+ * Accepte les numéros sénégalais (+221 77/78/76/70/75 ou format local à 9 chiffres)
+ * ainsi que les espaces, tirets et points usuels.
+ */
+export const SENEGAL_PHONE_REGEX =
+  /^(?:\+?221[\s.-]?)?(?:77|78|76|70|75|33)(?:[\s.-]?\d){7}$|^\+\d{8,15}$/;
+
+export class ListGuestsQueryDto {
+  @IsOptional()
+  @IsString()
+  @MaxLength(120)
+  search?: string;
+
+  @IsOptional()
+  @IsIn(['ALL', 'IN_STAY', 'UPCOMING'])
+  filter?: 'ALL' | 'IN_STAY' | 'UPCOMING';
+
+  @IsOptional()
+  @IsString()
+  cursor?: string;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(100)
+  limit?: number;
+}
+
+export class ListGuestStaysQueryDto {
+  @IsOptional()
+  @IsString()
+  cursor?: string;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(50)
+  limit?: number;
+}
+
+export class CheckDuplicateQueryDto {
+  @IsOptional()
+  @IsString()
+  @MaxLength(40)
+  phone?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(64)
+  idDocumentNumber?: string;
+
+  @IsOptional()
+  @IsString()
+  excludeId?: string;
+}
 
 export class CreateGuestDto {
   @IsOptional()
   @IsString()
+  @MaxLength(20)
   civility?: string;
-
-  @IsString()
-  @MinLength(1)
-  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
-  firstName!: string;
-
-  @IsString()
-  @MinLength(1)
-  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
-  lastName!: string;
-
-  @IsString()
-  @MinLength(4)
-  phone!: string;
 
   @IsOptional()
   @IsString()
+  @MaxLength(160)
+  fullName?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(80)
+  firstName?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(80)
+  lastName?: string;
+
+  @IsString()
+  @Matches(SENEGAL_PHONE_REGEX, {
+    message:
+      'Numéro de téléphone sénégalais invalide (ex. +221 77 123 45 67 ou 77 123 45 67).',
+  })
+  phone!: string;
+
+  @IsOptional()
+  @IsEmail({}, { message: 'Adresse e-mail invalide.' })
+  @MaxLength(160)
   email?: string;
 
   @IsOptional()
   @IsString()
+  @MaxLength(32)
+  birthDate?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(80)
   nationality?: string;
 
   @IsOptional()
   @IsString()
-  residenceCity?: string;
+  @MaxLength(200)
+  address?: string;
+
+  @IsOptional()
+  @IsIn(['CNI', 'PASSPORT', 'PERMIS', 'AUTRE'])
+  idDocumentType?: 'CNI' | 'PASSPORT' | 'PERMIS' | 'AUTRE';
 
   @IsOptional()
   @IsString()
-  companyName?: string;
+  @MaxLength(64)
+  idDocumentNumber?: string;
 
+  /** Rétrocompatibilité tests existants */
   @IsOptional()
   @IsString()
-  companyRole?: string;
-
-  @IsOptional()
-  @IsString()
-  vipTier?: string;
-
-  @IsOptional()
-  @IsString()
+  @MaxLength(64)
   passportNumber?: string;
 
   @IsOptional()
   @IsString()
-  passportExpiry?: string;
+  @MaxLength(2000)
+  internalNote?: string;
 }
 
 export class UpdateGuestDto {
   @IsOptional()
   @IsString()
-  civility?: string;
+  @MinLength(1, { message: 'Le nom complet ne peut pas être vide.' })
+  @MaxLength(160)
+  fullName?: string;
 
   @IsOptional()
   @IsString()
+  @MinLength(1)
+  @MaxLength(80)
   firstName?: string;
 
   @IsOptional()
   @IsString()
+  @MinLength(1)
+  @MaxLength(80)
   lastName?: string;
 
   @IsOptional()
   @IsString()
+  @Matches(SENEGAL_PHONE_REGEX, {
+    message:
+      'Numéro de téléphone sénégalais invalide (ex. +221 77 123 45 67 ou 77 123 45 67).',
+  })
   phone?: string;
 
   @IsOptional()
-  @IsString()
+  @IsEmail({}, { message: 'Adresse e-mail invalide.' })
+  @MaxLength(160)
   email?: string;
 
   @IsOptional()
   @IsString()
+  @MaxLength(32)
+  birthDate?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(80)
   nationality?: string;
 
   @IsOptional()
   @IsString()
-  residenceCity?: string;
+  @MaxLength(200)
+  address?: string;
+
+  @IsOptional()
+  @IsIn(['CNI', 'PASSPORT', 'PERMIS', 'AUTRE'])
+  idDocumentType?: 'CNI' | 'PASSPORT' | 'PERMIS' | 'AUTRE';
 
   @IsOptional()
   @IsString()
-  companyName?: string;
+  @MaxLength(64)
+  idDocumentNumber?: string;
 
   @IsOptional()
   @IsString()
-  companyRole?: string;
+  @MaxLength(2000)
+  internalNote?: string;
 
   @IsOptional()
-  @IsString()
-  vipTier?: string;
-
-  @IsOptional()
-  @IsString()
-  passportNumber?: string;
-
-  @IsOptional()
-  @IsString()
-  passportExpiry?: string;
-
-  @IsOptional()
-  @IsBoolean()
-  isActive?: boolean;
-}
-
-export class AddGuestNoteDto {
-  @IsString()
-  @MinLength(1)
-  content!: string;
-
-  @IsOptional()
-  @IsString()
-  authorName?: string;
-
-  @IsOptional()
-  @IsString()
-  department?: string;
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  expectedVersion?: number;
 }

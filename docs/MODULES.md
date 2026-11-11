@@ -11,7 +11,7 @@ Ce document détaille la cartographie complète des modules de l'application Ré
 | **Accueil & Activité** | `dashboard` | **V1** | **Actif** | *Aucune* | `design/maquettes/tableau_de_bord/` | `dashboard-page.component.spec.ts`, `dashboard-mock.service.spec.ts`, `playwright/dashboard.spec.ts` | < 15 Ko gzip, TTI < 1.0s |
 | **Planning des Séjours** | `planning` | **V1** | **Actif** | `rooms` | `design/maquettes/planning_des_r_servations/`, `design/maquettes/modal_nouvelle_r_servation/` | `planning-page.component.spec.ts`, `planning-mock.service.spec.ts`, `reservation-modal.service.spec.ts` | < 25 Ko gzip, 14 jours visibles |
 | **Chambres** | `rooms` | **V1** | **Actif** | *Aucune* | `design/maquettes/saly_coastal_boutique_hospitality/` | `rooms.service.spec.ts`, `room-status-card.component.spec.ts`, `status-badge.component.spec.ts`, `action-button.component.spec.ts`, `e2e/rooms.spec.ts`, `e2e/chambres-boutons-pastilles.spec.ts`, `e2e/chambres-etat-dans-menu.spec.ts`, `e2e/chambres-suppression-et-image.spec.ts`, `test/rooms.e2e-spec.ts` | < 20 Ko gzip, parc dynamique |
-| **Répertoire Clients** | `clients` | **V1** | **Actif** | *Aucune* | `design/maquettes/fiche_profil_client_m._mamadou_diop/` | `client-profile-page.component.spec.ts`, `guest-profile.service.spec.ts` | < 25 Ko gzip, pagination 25 |
+| **Répertoire Clients** | `clients` | **V1** | **Actif** | *Aucune* | `design/maquettes/fiche_profil_client_m._mamadou_diop/` (annuaire 2 volets V2 fluide) | `clients-page.component.spec.ts`, `clients-v2.e2e-spec.ts`, `e2e/clients-v2.spec.ts` | < 25 Ko gzip, curseur lots de 40 |
 | **Facturation & Caisse** | `facturation` | **V1** | **Actif** | `clients` | `design/maquettes/facturation_folio_client_encaissement/` | `facturation-page.component.spec.ts`, `facturation-mock.service.spec.ts` | < 30 Ko gzip, calcul direct |
 | **Restaurant & Bar** | `restaurant` | **V1** | **Actif** | *Aucune* | `design/maquettes/point_de_vente_restaurant_la_teranga/` | `restaurant-page.component.spec.ts`, `restaurant-mock.service.spec.ts`, `kitchen-screen.component.spec.ts` | < 35 Ko gzip, tactile réactif |
 | **Accès Piscine** | `pool` | **V1** | **Actif** | `facturation` | *Sous-produit POS Restaurant* | `restaurant-mock.service.spec.ts` (PASS-PISCINE) | 0 Ko (intégré au catalogue) |
@@ -47,6 +47,8 @@ Ce document détaille la cartographie complète des modules de l'application Ré
 | `planning_vue_14j` | Vue 14 jours planning | V2 | **Reporté** | `planning` | Affichage 14 jours surchargé (remplacé par vue 7 jours sans scroll horizontal en V1) |
 | `planning_relogement_auto`| Suggestions relogement | V2 | **Reporté** | `planning` | Relogement automatique et bannières de conflit Tape Chart |
 | `planning_stats_avancees`| Statistiques avancées planning | V2 | **Reporté** | `planning` | Métriques d'occupation complexes et infobulles décoratives chargées |
+| `clients_contact_direct`| WhatsApp / SMS / E-mail direct | V2 | **Reporté** | `clients` | Boutons d'envoi direct WhatsApp, SMS et e-mail retirés de la fiche client |
+| `clients_analytics_preferences`| Onglets Préférences & Graphiques | V2 | **Reporté** | `clients` | Graphiques dépenses, onglets Préférences/Notes et stats avancées retirés de la fiche client |
 
 ---
 

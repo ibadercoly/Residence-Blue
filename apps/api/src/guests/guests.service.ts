@@ -1,7 +1,20 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CryptoService } from '../common/security/crypto.service';
-import { AddGuestNoteDto, CreateGuestDto, UpdateGuestDto } from './dto/guest.dto';
+import {
+  CheckDuplicateQueryDto,
+  CreateGuestDto,
+  ListGuestsQueryDto,
+  ListGuestStaysQueryDto,
+  UpdateGuestDto,
+} from './dto/guest.dto';
+
+export type GuestStayState = 'IN_STAY' | 'UPCOMING' | 'NONE';
 
 @Injectable()
 export class GuestsService {
@@ -10,7 +23,7 @@ export class GuestsService {
     private readonly cryptoService: CryptoService,
   ) {}
 
-  private decryptPassport(encrypted: string | null | undefined): string {
+  private decryptDocument(encrypted: string | null | undefined): string {
     if (!encrypted) return '';
     try {
       return this.cryptoService.decrypt(encrypted);
@@ -19,286 +32,486 @@ export class GuestsService {
     }
   }
 
-  private formatGuestProfile(guest: any) {
+  private maskDocument(encrypted: string | null | undefined): string {
+    const plain = this.decryptDocument(encrypted);
+    if (!plain) return '';
+    if (plain.length <= 4) return '****';
+    return `****${plain.slice(-4)}`;
+  }
+
+  private normalizePhoneDigits(phone: string | null | undefined): string {
+    if (!phone) return '';
+    return phone.replace(/\D/g, '').replace(/^221/, '');
+  }
+
+  private splitFullName(fullName: string): { firstName: string; lastName: string; fullName: string } {
+    const cleaned = fullName.trim().replace(/\s+/g, ' ');
+    const parts = cleaned.split(' ');
+    if (parts.length === 1) {
+      return { firstName: parts[0], lastName: parts[0], fullName: cleaned };
+    }
+    const firstName = parts[0];
+    const lastName = parts.slice(1).join(' ');
+    return { firstName, lastName, fullName: cleaned };
+  }
+
+  private computeState(reservations: Array<{ status: string; checkInDate: Date }>): GuestStayState {
+    if (reservations.some((r) => r.status === 'CHECKED_IN')) {
+      return 'IN_STAY';
+    }
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+    if (
+      reservations.some(
+        (r) => r.status === 'CONFIRMED' && new Date(r.checkInDate) >= todayStart,
+      )
+    ) {
+      return 'UPCOMING';
+    }
+    return 'NONE';
+  }
+
+  private formatDirectoryItem(guest: any) {
     const reservations = guest.reservations || [];
-    const invoices = guest.invoices || [];
-
-    const totalNights = reservations.reduce((acc: number, r: any) => acc + (r.nights || 1), 0);
-    const totalSpentFcfa = reservations.reduce((acc: number, r: any) => acc + (r.totalFcfa || 0), 0);
-    const stayCount = reservations.length;
-
-    const stays = reservations.map((r: any, idx: number) => ({
-      id: r.id,
-      order: idx + 1,
-      periodTitle: `${idx + 1}. ${new Date(r.checkInDate).toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' })}`,
-      status: r.status === 'CHECKED_IN' ? 'ACTIVE' : r.status === 'CANCELLED' ? 'CANCELLED' : 'COMPLETED',
-      statusBadge: `${r.status === 'CHECKED_IN' ? 'Actif' : 'Confirmé'} • Ch. ${r.room?.number || ''}`,
-      roomNumber: r.room?.number || '',
-      roomName: r.room?.category || 'Standard',
-      reference: r.reference,
-      datesLabel: `Du ${new Date(r.checkInDate).toISOString().slice(0, 10)} au ${new Date(r.checkOutDate).toISOString().slice(0, 10)} (${r.nights} nuits)`,
-      nights: r.nights,
-      adults: r.adultsCount,
-      extrasSummary: r.notes || 'Séjour Résidence Blue Thiès',
-      totalFcfa: r.totalFcfa,
-      remainingFcfa: Math.max(0, r.totalFcfa - (r.depositFcfa || 0)),
-      paymentInfo: r.depositFcfa > 0 ? `Acompte de ${r.depositFcfa} FCFA reçu` : 'En attente de règlement',
-      isCurrent: r.status === 'CHECKED_IN',
-    }));
-
-    const folios = invoices.map((inv: any) => ({
-      id: inv.id,
-      reference: inv.invoiceNumber,
-      stayDate: new Date(inv.issuedAt).toLocaleDateString('fr-FR', { month: 'short', year: 'numeric' }),
-      roomLabel: inv.room ? `Ch. ${inv.room.number} - ${inv.room.category}` : 'Chambre',
-      totalAmountFcfa: inv.totalFcfa,
-      paidAmountFcfa: inv.paidAmountFcfa + inv.depositFcfa,
-      balanceFcfa: inv.balanceFcfa,
-      paymentMethod: inv.status === 'PAID' ? 'Réglé' : 'Partiel',
-      status: inv.status === 'PAID' ? 'PAID' : inv.status === 'PARTIAL' ? 'PARTIAL' : 'PENDING',
-    }));
-
+    const state = this.computeState(reservations);
     return {
       id: guest.id,
       civility: guest.civility || 'M.',
       firstName: guest.firstName,
       lastName: guest.lastName,
       fullName: guest.fullName,
-      vipTier: guest.vipTier || 'Client Standard',
-      avatarUrl: guest.avatarUrl || 'assets/images/clients/avatar-mamadou-diop.jpg',
-      loyaltyStayCount: stayCount,
-      totalNights,
-      totalSpentFcfa,
-      averageBasketFcfa: stayCount > 0 ? Math.round(totalSpentFcfa / stayCount) : 0,
-      averageStayNights: stayCount > 0 ? Math.round((totalNights / stayCount) * 10) / 10 : 0,
-      memberSinceDate: new Date(guest.createdAt).toLocaleDateString('fr-FR'),
-      memberSinceDuration: 'Client enregistré',
-      lodgingRatioPercent: 80,
-      fbRatioPercent: 20,
-      nationality: guest.nationality || 'Sénégalaise',
       phone: guest.phone,
       email: guest.email || '',
-      affiliationCompany: guest.companyName || '',
-      affiliationRole: guest.companyRole || '',
-      residenceCity: guest.residenceCity || 'Thiès, Sénégal',
-      passportNumber: this.decryptPassport(guest.idDocumentEncrypted),
-      passportExpiry: guest.idDocumentExpiry || '',
-      isActive: guest.isActive,
-      favoriteRoom: {
-        name: stays[0] ? `${stays[0].roomName} (${stays[0].roomNumber})` : 'Suite Panoramique (301)',
-        number: stays[0]?.roomNumber || '301',
-        photoUrl: 'assets/images/clients/room-favorite-suite.jpg',
-        reason: 'Chambre préférée à Thiès',
-      },
-      permanentInstructions: Array.isArray(guest.permanentInstructions) ? guest.permanentInstructions : [],
-      dietaryPreferences: (guest.dietaryPreferences as any) || {
-        diet: 'Standard',
-        allergies: 'Aucune déclarée',
-      },
-      stays,
-      preferences: Array.isArray(guest.preferences) ? guest.preferences : [],
-      folios,
-      notes: Array.isArray(guest.notes) ? guest.notes : [],
+      birthDate: guest.birthDate || '',
+      nationality: guest.nationality || 'Sénégalaise',
+      address: guest.address || guest.residenceCity || '',
+      idDocumentType: guest.idDocumentType || 'CNI',
+      idDocumentMasked: this.maskDocument(guest.idDocumentEncrypted),
+      hasIdDocument: Boolean(guest.idDocumentEncrypted),
+      internalNote: guest.internalNote || '',
+      state,
+      version: guest.version ?? 1,
+      updatedAt: guest.updatedAt ? new Date(guest.updatedAt).toISOString() : new Date().toISOString(),
     };
   }
 
-  async findAll() {
-    const guests = await this.prisma.guest.findMany({
-      where: { isActive: true },
+  private formatStay(r: any) {
+    return {
+      id: r.id,
+      reference: r.reference,
+      checkInDate: new Date(r.checkInDate).toISOString().slice(0, 10),
+      checkOutDate: new Date(r.checkOutDate).toISOString().slice(0, 10),
+      nights: r.nights,
+      roomNumber: r.room?.number || '',
+      roomCategory: r.room?.category || 'Standard',
+      totalFcfa: r.totalFcfa,
+      status: r.status,
+    };
+  }
+
+  private async logAudit(
+    actorRole: string,
+    action: string,
+    targetId: string,
+    details?: Record<string, unknown>,
+  ): Promise<void> {
+    try {
+      await this.prisma.auditLog.create({
+        data: {
+          action,
+          entity: 'GUEST',
+          entityId: targetId,
+          after: { actorRole: actorRole || 'RECEPTION', ...(details ?? {}) } as any,
+        },
+      });
+    } catch {
+      // Ne jamais bloquer une opération métier si le journal échoue,
+      // tout en garantissant l'absence de données sensibles dans le payload.
+    }
+  }
+
+  async findAll(query: ListGuestsQueryDto = {}) {
+    const limit = Math.min(Math.max(query.limit ?? 40, 1), 100);
+    const search = (query.search || '').trim();
+    const filter = query.filter || 'ALL';
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+    const todayEnd = new Date(todayStart);
+    todayEnd.setHours(23, 59, 59, 999);
+    const monthStart = new Date(todayStart.getFullYear(), todayStart.getMonth(), 1);
+
+    const where: any = { isActive: true };
+
+    if (filter === 'IN_STAY') {
+      where.reservations = { some: { status: 'CHECKED_IN' } };
+    } else if (filter === 'UPCOMING') {
+      where.reservations = {
+        some: { status: 'CONFIRMED', checkInDate: { gte: todayStart } },
+      };
+    }
+
+    // Recherche texte + support du numéro de pièce chiffré
+    let matchedDocIds: string[] = [];
+    if (search.length > 0) {
+      if (search.length >= 2) {
+        const candidates = await this.prisma.guest.findMany({
+          where: { isActive: true, idDocumentEncrypted: { not: null } },
+          select: { id: true, idDocumentEncrypted: true },
+        });
+        const qLower = search.toLowerCase();
+        matchedDocIds = candidates
+          .filter((c) => this.decryptDocument(c.idDocumentEncrypted).toLowerCase().includes(qLower))
+          .map((c) => c.id);
+      }
+
+      where.OR = [
+        { fullName: { contains: search, mode: 'insensitive' } },
+        { firstName: { contains: search, mode: 'insensitive' } },
+        { lastName: { contains: search, mode: 'insensitive' } },
+        { phone: { contains: search, mode: 'insensitive' } },
+        ...(matchedDocIds.length > 0 ? [{ id: { in: matchedDocIds } }] : []),
+      ];
+    }
+
+    const findArgs: any = {
+      where,
       include: {
-        reservations: { include: { room: true }, orderBy: { checkInDate: 'desc' } },
-        invoices: { include: { room: true }, orderBy: { issuedAt: 'desc' } },
+        reservations: {
+          select: { status: true, checkInDate: true },
+        },
       },
-      orderBy: { createdAt: 'desc' },
+      orderBy: [{ fullName: 'asc' }, { id: 'asc' }],
+      take: limit + 1,
+    };
+
+    if (query.cursor) {
+      findArgs.cursor = { id: query.cursor };
+      findArgs.skip = 1;
+    }
+
+    const [rows, total, inStayCount, expectedTodayCount, newThisMonthCount] =
+      await Promise.all([
+        this.prisma.guest.findMany(findArgs),
+        this.prisma.guest.count({ where }),
+        this.prisma.guest.count({
+          where: { isActive: true, reservations: { some: { status: 'CHECKED_IN' } } },
+        }),
+        this.prisma.reservation.count({
+          where: {
+            status: 'CONFIRMED',
+            checkInDate: { gte: todayStart, lte: todayEnd },
+          },
+        }),
+        this.prisma.guest.count({
+          where: { isActive: true, createdAt: { gte: monthStart } },
+        }),
+      ]);
+
+    const hasMore = rows.length > limit;
+    const slice = hasMore ? rows.slice(0, limit) : rows;
+    const nextCursor = hasMore && slice.length > 0 ? slice[slice.length - 1].id : null;
+
+    return {
+      items: slice.map((g) => this.formatDirectoryItem(g)),
+      nextCursor,
+      total,
+      stats: {
+        inStayCount,
+        expectedTodayCount,
+        newThisMonthCount,
+      },
+    };
+  }
+
+  async checkDuplicate(query: CheckDuplicateQueryDto) {
+    const phoneDigits = this.normalizePhoneDigits(query.phone);
+    const docNum = (query.idDocumentNumber || '').trim().toLowerCase();
+
+    if (!phoneDigits && !docNum) {
+      return { duplicate: null };
+    }
+
+    const candidates = await this.prisma.guest.findMany({
+      where: {
+        isActive: true,
+        ...(query.excludeId ? { id: { not: query.excludeId } } : {}),
+      },
+      select: {
+        id: true,
+        fullName: true,
+        phone: true,
+        idDocumentEncrypted: true,
+      },
     });
-    return guests.map((g) => this.formatGuestProfile(g));
+
+    for (const c of candidates) {
+      if (phoneDigits && phoneDigits.length >= 6 && this.normalizePhoneDigits(c.phone) === phoneDigits) {
+        return { duplicate: { id: c.id, fullName: c.fullName, phone: c.phone } };
+      }
+      if (docNum && docNum.length >= 3) {
+        const plain = this.decryptDocument(c.idDocumentEncrypted).trim().toLowerCase();
+        if (plain && plain === docNum) {
+          return { duplicate: { id: c.id, fullName: c.fullName, phone: c.phone } };
+        }
+      }
+    }
+
+    return { duplicate: null };
   }
 
   async findOne(id: string) {
-    let guest = await this.prisma.guest.findFirst({
-      where: /^[0-9a-f-]{36}$/i.test(id) ? { id } : { isActive: true },
+    const guest = await this.prisma.guest.findUnique({
+      where: { id },
       include: {
-        reservations: { include: { room: true }, orderBy: { checkInDate: 'desc' } },
-        invoices: { include: { room: true }, orderBy: { issuedAt: 'desc' } },
+        reservations: {
+          include: { room: { select: { number: true, category: true } } },
+          orderBy: [{ checkInDate: 'desc' }, { id: 'desc' }],
+          take: 11,
+        },
+        _count: { select: { reservations: true, invoices: true } },
       },
-      orderBy: { createdAt: 'asc' },
     });
 
     if (!guest) {
-      throw new NotFoundException(`Client "${id}" introuvable.`);
+      throw new NotFoundException('Client introuvable.');
     }
 
-    return this.formatGuestProfile(guest);
+    const hasMoreStays = guest.reservations.length > 10;
+    const staysSlice = hasMoreStays ? guest.reservations.slice(0, 10) : guest.reservations;
+    const staysNextCursor =
+      hasMoreStays && staysSlice.length > 0 ? staysSlice[staysSlice.length - 1].id : null;
+
+    return {
+      ...this.formatDirectoryItem(guest),
+      stays: staysSlice.map((r) => this.formatStay(r)),
+      staysNextCursor,
+      staysTotal: guest._count.reservations,
+      invoicesTotal: guest._count.invoices,
+    };
   }
 
-  async create(dto: CreateGuestDto) {
-    const civility = dto.civility?.trim() || 'M.';
-    const firstName = dto.firstName.trim();
-    const lastName = dto.lastName.trim();
-    const fullName = `${civility} ${firstName} ${lastName}`.trim();
-
-    const encryptedDoc = dto.passportNumber
-      ? this.cryptoService.encrypt(dto.passportNumber.trim())
-      : null;
-
-    const created = await this.prisma.$transaction(async (tx) => {
-      const g = await tx.guest.create({
-        data: {
-          civility,
-          firstName,
-          lastName,
-          fullName,
-          phone: dto.phone.trim(),
-          email: dto.email?.trim() || null,
-          nationality: dto.nationality?.trim() || 'Sénégalaise',
-          residenceCity: dto.residenceCity?.trim() || 'Thiès, Sénégal',
-          companyName: dto.companyName?.trim() || null,
-          companyRole: dto.companyRole?.trim() || null,
-          vipTier: dto.vipTier?.trim() || 'Client Fidèle',
-          idDocumentEncrypted: encryptedDoc,
-          idDocumentExpiry: dto.passportExpiry?.trim() || null,
-          notes: [],
-          preferences: [],
-          permanentInstructions: [],
-        },
-        include: {
-          reservations: { include: { room: true } },
-          invoices: { include: { room: true } },
-        },
-      });
-
-      await tx.auditLog.create({
-        data: {
-          action: 'GUEST_CREATE',
-          entity: 'Guest',
-          entityId: g.id,
-          after: { id: g.id, fullName: g.fullName, phone: g.phone },
-        },
-      });
-
-      return g;
+  async listStays(id: string, query: ListGuestStaysQueryDto = {}) {
+    const exists = await this.prisma.guest.findUnique({
+      where: { id },
+      select: { id: true },
     });
-
-    return this.formatGuestProfile(created);
-  }
-
-  async update(id: string, dto: UpdateGuestDto) {
-    const existing = await this.prisma.guest.findUnique({ where: { id } });
-    if (!existing) {
-      throw new NotFoundException(`Client "${id}" introuvable.`);
+    if (!exists) {
+      throw new NotFoundException('Client introuvable.');
     }
 
-    const civility = dto.civility !== undefined ? dto.civility.trim() : existing.civility;
-    const firstName = dto.firstName !== undefined ? dto.firstName.trim() : existing.firstName;
-    const lastName = dto.lastName !== undefined ? dto.lastName.trim() : existing.lastName;
-    const fullName = `${civility} ${firstName} ${lastName}`.trim();
-
-    const encryptedDoc =
-      dto.passportNumber !== undefined
-        ? dto.passportNumber
-          ? this.cryptoService.encrypt(dto.passportNumber.trim())
-          : null
-        : existing.idDocumentEncrypted;
-
-    const updated = await this.prisma.$transaction(async (tx) => {
-      const g = await tx.guest.update({
-        where: { id },
-        data: {
-          civility,
-          firstName,
-          lastName,
-          fullName,
-          ...(dto.phone !== undefined ? { phone: dto.phone.trim() } : {}),
-          ...(dto.email !== undefined ? { email: dto.email.trim() || null } : {}),
-          ...(dto.nationality !== undefined ? { nationality: dto.nationality.trim() } : {}),
-          ...(dto.residenceCity !== undefined ? { residenceCity: dto.residenceCity.trim() } : {}),
-          ...(dto.companyName !== undefined ? { companyName: dto.companyName.trim() || null } : {}),
-          ...(dto.companyRole !== undefined ? { companyRole: dto.companyRole.trim() || null } : {}),
-          ...(dto.vipTier !== undefined ? { vipTier: dto.vipTier.trim() } : {}),
-          idDocumentEncrypted: encryptedDoc,
-          ...(dto.passportExpiry !== undefined ? { idDocumentExpiry: dto.passportExpiry.trim() || null } : {}),
-          ...(dto.isActive !== undefined ? { isActive: dto.isActive } : {}),
-        },
-        include: {
-          reservations: { include: { room: true } },
-          invoices: { include: { room: true } },
-        },
-      });
-
-      await tx.auditLog.create({
-        data: {
-          action: 'GUEST_UPDATE',
-          entity: 'Guest',
-          entityId: g.id,
-          before: { fullName: existing.fullName, phone: existing.phone },
-          after: { fullName: g.fullName, phone: g.phone },
-        },
-      });
-
-      return g;
-    });
-
-    return this.formatGuestProfile(updated);
-  }
-
-  async addNote(id: string, dto: AddGuestNoteDto) {
-    const existing = await this.prisma.guest.findUnique({ where: { id } });
-    if (!existing) {
-      throw new NotFoundException(`Client "${id}" introuvable.`);
-    }
-
-    const currentNotes = Array.isArray(existing.notes) ? (existing.notes as any[]) : [];
-    const newNote = {
-      id: `note-${Date.now()}`,
-      authorName: dto.authorName || 'Aïssatou Ba',
-      department: dto.department || 'Direction',
-      timeAgo: "À l'instant",
-      content: dto.content.trim(),
+    const limit = Math.min(Math.max(query.limit ?? 10, 1), 50);
+    const args: any = {
+      where: { guestId: id },
+      include: { room: { select: { number: true, category: true } } },
+      orderBy: [{ checkInDate: 'desc' }, { id: 'desc' }],
+      take: limit + 1,
     };
 
-    const updated = await this.prisma.guest.update({
-      where: { id },
-      data: {
-        notes: [newNote, ...currentNotes],
-      },
-      include: {
-        reservations: { include: { room: true } },
-        invoices: { include: { room: true } },
-      },
-    });
+    if (query.cursor) {
+      args.cursor = { id: query.cursor };
+      args.skip = 1;
+    }
 
-    return this.formatGuestProfile(updated);
+    const [rows, total] = await Promise.all([
+      this.prisma.reservation.findMany(args),
+      this.prisma.reservation.count({ where: { guestId: id } }),
+    ]);
+
+    const hasMore = rows.length > limit;
+    const slice = hasMore ? rows.slice(0, limit) : rows;
+    const nextCursor = hasMore && slice.length > 0 ? slice[slice.length - 1].id : null;
+
+    return {
+      items: slice.map((r) => this.formatStay(r)),
+      nextCursor,
+      total,
+    };
   }
 
-  async deleteOrDeactivate(id: string) {
-    const existing = await this.prisma.guest.findUnique({ where: { id } });
-    if (!existing) {
-      throw new NotFoundException(`Client "${id}" introuvable.`);
+  async create(dto: CreateGuestDto, actorRole = 'RECEPTION') {
+    let firstName = (dto.firstName || '').trim();
+    let lastName = (dto.lastName || '').trim();
+    let fullName = (dto.fullName || '').trim();
+
+    if (!fullName && (firstName || lastName)) {
+      fullName = `${firstName} ${lastName}`.trim();
+    } else if (fullName && (!firstName || !lastName)) {
+      const split = this.splitFullName(fullName);
+      firstName = firstName || split.firstName;
+      lastName = lastName || split.lastName;
+      fullName = split.fullName;
     }
 
-    const resCount = await this.prisma.reservation.count({ where: { guestId: id } });
-    const invCount = await this.prisma.invoice.count({ where: { guestId: id } });
-
-    if (resCount > 0 || invCount > 0) {
-      const deactivated = await this.prisma.guest.update({
-        where: { id },
-        data: { isActive: false },
-      });
-      return { deleted: false, deactivated: true, id: deactivated.id };
+    if (!fullName) {
+      throw new BadRequestException('Le nom complet est obligatoire.');
     }
 
-    await this.prisma.$transaction(async (tx) => {
-      await tx.auditLog.create({
-        data: {
-          action: 'GUEST_DELETE',
-          entity: 'Guest',
-          entityId: existing.id,
-          before: { id: existing.id, fullName: existing.fullName, phone: existing.phone },
-        },
-      });
-      await tx.guest.delete({ where: { id } });
+    const rawDoc = (dto.idDocumentNumber ?? dto.passportNumber ?? '').trim();
+    const idDocumentEncrypted = rawDoc ? this.cryptoService.encrypt(rawDoc) : null;
+
+    const created = await this.prisma.guest.create({
+      data: {
+        civility: dto.civility || 'M.',
+        firstName: firstName || fullName,
+        lastName: lastName || fullName,
+        fullName,
+        phone: dto.phone.trim(),
+        email: dto.email?.trim() || null,
+        birthDate: dto.birthDate?.trim() || null,
+        nationality: dto.nationality?.trim() || 'Sénégalaise',
+        address: dto.address?.trim() || null,
+        residenceCity: dto.address?.trim() || null,
+        idDocumentType: dto.idDocumentType || 'CNI',
+        idDocumentEncrypted,
+        internalNote: dto.internalNote?.trim() || null,
+        version: 1,
+      },
+      include: { reservations: { select: { status: true, checkInDate: true } } },
     });
 
-    return { deleted: true, deactivated: false, id };
+    await this.logAudit(actorRole, 'GUEST_CREATE', created.id, {
+      hasIdDocument: Boolean(idDocumentEncrypted),
+    });
+
+    return {
+      ...this.formatDirectoryItem(created),
+      stays: [],
+      staysNextCursor: null,
+      staysTotal: 0,
+      invoicesTotal: 0,
+    };
+  }
+
+  async update(id: string, dto: UpdateGuestDto, actorRole = 'RECEPTION') {
+    const existing = await this.prisma.guest.findUnique({ where: { id } });
+    if (!existing) {
+      throw new NotFoundException('Client introuvable.');
+    }
+
+    if (
+      dto.expectedVersion !== undefined &&
+      dto.expectedVersion !== existing.version
+    ) {
+      throw new ConflictException({
+        code: 'VERSION_CONFLICT',
+        message:
+          'Ce client a été modifié entre-temps par un autre utilisateur. Veuillez recharger la fiche.',
+        currentVersion: existing.version,
+      });
+    }
+
+    const data: Record<string, unknown> = {
+      version: { increment: 1 },
+    };
+    const changedFields: string[] = [];
+
+    if (dto.fullName !== undefined) {
+      const split = this.splitFullName(dto.fullName);
+      data.fullName = split.fullName;
+      data.firstName = dto.firstName !== undefined ? dto.firstName.trim() : split.firstName;
+      data.lastName = dto.lastName !== undefined ? dto.lastName.trim() : split.lastName;
+      changedFields.push('fullName');
+    } else if (dto.firstName !== undefined || dto.lastName !== undefined) {
+      const nextFirst = dto.firstName !== undefined ? dto.firstName.trim() : existing.firstName;
+      const nextLast = dto.lastName !== undefined ? dto.lastName.trim() : existing.lastName;
+      data.firstName = nextFirst;
+      data.lastName = nextLast;
+      data.fullName = `${nextFirst} ${nextLast}`.trim();
+      changedFields.push('name');
+    }
+
+    if (dto.phone !== undefined) {
+      data.phone = dto.phone.trim();
+      changedFields.push('phone');
+    }
+    if (dto.email !== undefined) {
+      data.email = dto.email.trim() || null;
+      changedFields.push('email');
+    }
+    if (dto.birthDate !== undefined) {
+      data.birthDate = dto.birthDate.trim() || null;
+      changedFields.push('birthDate');
+    }
+    if (dto.nationality !== undefined) {
+      data.nationality = dto.nationality.trim() || 'Sénégalaise';
+      changedFields.push('nationality');
+    }
+    if (dto.address !== undefined) {
+      const addr = dto.address.trim() || null;
+      data.address = addr;
+      data.residenceCity = addr;
+      changedFields.push('address');
+    }
+    if (dto.idDocumentType !== undefined) {
+      data.idDocumentType = dto.idDocumentType;
+      changedFields.push('idDocumentType');
+    }
+    if (dto.idDocumentNumber !== undefined) {
+      const raw = dto.idDocumentNumber.trim();
+      data.idDocumentEncrypted = raw ? this.cryptoService.encrypt(raw) : null;
+      changedFields.push('idDocumentNumber');
+    }
+    if (dto.internalNote !== undefined) {
+      data.internalNote = dto.internalNote.trim() || null;
+      changedFields.push('internalNote');
+    }
+
+    await this.prisma.guest.update({
+      where: { id },
+      data,
+    });
+
+    await this.logAudit(actorRole, 'GUEST_UPDATE', id, {
+      fields: changedFields,
+    });
+
+    return this.findOne(id);
+  }
+
+  async revealDocument(id: string, actorRole = 'RECEPTION') {
+    const guest = await this.prisma.guest.findUnique({
+      where: { id },
+      select: { id: true, idDocumentEncrypted: true },
+    });
+    if (!guest) {
+      throw new NotFoundException('Client introuvable.');
+    }
+
+    await this.logAudit(actorRole, 'GUEST_REVEAL_DOCUMENT', id);
+
+    return {
+      idDocumentNumber: this.decryptDocument(guest.idDocumentEncrypted),
+    };
+  }
+
+  async remove(id: string, actorRole = 'DIRECTION') {
+    const guest = await this.prisma.guest.findUnique({
+      where: { id },
+      include: {
+        _count: {
+          select: { reservations: true, invoices: true },
+        },
+      },
+    });
+
+    if (!guest) {
+      throw new NotFoundException('Client introuvable.');
+    }
+
+    const reservationsCount = guest._count.reservations;
+    const invoicesCount = guest._count.invoices;
+
+    if (reservationsCount > 0 || invoicesCount > 0) {
+      throw new ConflictException(
+        `Ce client a ${reservationsCount} séjour${reservationsCount > 1 ? 's' : ''} et ${invoicesCount} facture${invoicesCount > 1 ? 's' : ''} : il ne peut pas être supprimé pour garder l'historique.`,
+      );
+    }
+
+    await this.prisma.guest.delete({ where: { id } });
+    await this.logAudit(actorRole, 'GUEST_DELETE', id, {
+      fullName: guest.fullName,
+    });
+
+    return { deleted: true, id };
   }
 }

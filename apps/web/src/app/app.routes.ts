@@ -32,14 +32,16 @@ export const routes: Routes = [
   {
     path: 'clients/:id',
     loadComponent: () =>
-      import('./features/clients/client-profile-page.component').then(
-        (m) => m.ClientProfilePageComponent
+      import('./features/clients/clients-page.component').then(
+        (m) => m.ClientsPageComponent
       )
   },
   {
     path: 'clients',
-    redirectTo: 'clients/c1',
-    pathMatch: 'full'
+    loadComponent: () =>
+      import('./features/clients/clients-page.component').then(
+        (m) => m.ClientsPageComponent
+      )
   },
   {
     path: 'restaurant',
