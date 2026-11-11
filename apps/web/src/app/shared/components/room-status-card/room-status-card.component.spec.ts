@@ -101,6 +101,18 @@ describe('RoomStatusCardComponent', () => {
     expect(reactivatedRoom).toBe(component.room);
   });
 
+  it('devrait émettre onDelete et fermer le menu lors de onActionDelete', () => {
+    let deletedRoom: any = null;
+    component.onDelete.subscribe((r) => {
+      deletedRoom = r;
+    });
+
+    component.toggleMenu();
+    component.onActionDelete();
+    expect(component.isMenuOpen()).toBe(false);
+    expect(deletedRoom).toBe(component.room);
+  });
+
   it('devrait naviguer dans le menu au clavier avec onTriggerKeydown', () => {
     // Ouvre avec ArrowDown
     component.onTriggerKeydown({ key: 'ArrowDown', preventDefault: () => {} } as KeyboardEvent);

@@ -208,7 +208,7 @@ export class RoomsService {
             ...sr,
             syncPending: currentLocal?.syncPending || false,
             status: currentLocal?.syncPending ? currentLocal.status : sr.status,
-            isActive: currentLocal?.isActive !== undefined ? currentLocal.isActive : (sr.isActive !== false),
+            isActive: sr.isActive !== undefined ? sr.isActive : (currentLocal?.isActive ?? true),
           });
           return normalized;
         });
@@ -219,9 +219,18 @@ export class RoomsService {
         }
         const uniqueMerged = Array.from(dedup.values());
         this.rooms.set(this.sortRooms(uniqueMerged));
-        for (const r of uniqueMerged) {
-          await this.idb.put('rooms', r);
-        }
+        try {
+          const validIds = new Set(uniqueMerged.map((r) => r.id));
+          const existingInIdb = await this.idb.getAll<RoomUiItem>('rooms');
+          for (const old of existingInIdb || []) {
+            if (!validIds.has(old.id)) {
+              await this.idb.delete('rooms', old.id);
+            }
+          }
+          for (const r of uniqueMerged) {
+            await this.idb.put('rooms', r);
+          }
+        } catch {}
       }
     } catch {
       // Mode hors-ligne transparent
@@ -259,7 +268,10 @@ export class RoomsService {
   /**
    * Ajout d'une nouvelle chambre avec validation stricte de l'unicité du numéro.
    */
-  async addRoom(dto: CreateRoomDto): Promise<{ success: boolean; error?: string; room?: RoomUiItem }> {
+  async addRoom(
+    dto: CreateRoomDto,
+    imageFile?: File | Blob,
+  ): Promise<{ success: boolean; error?: string; room?: RoomUiItem }> {
     this.errorMessage.set(null);
     this.successMessage.set(null);
 
@@ -334,27 +346,74 @@ export class RoomsService {
     // Persistance IndexedDB locale
     try {
       await this.idb.put('rooms', newRoom);
-    } catch {
-      // Ignorer les erreurs IndexedDB locales si non bloquantes
-    }
+    } catch {}
 
     // Enregistrement hors-ligne / réseau
     if (!this.network.isOnline()) {
       await this.outbox.enqueue('POST_ROOM', '/api/rooms', dto);
     } else {
       try {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 2000);
-        await fetch('/api/rooms', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'x-user-role': this.currentRole(),
-          },
-          body: JSON.stringify(dto),
-          signal: controller.signal,
-        });
-        clearTimeout(timeoutId);
+        let response: Response;
+        if (imageFile) {
+          const formData = new FormData();
+          formData.append('image', imageFile, 'photo.webp');
+          formData.append('number', cleanNumber);
+          formData.append('floor', String(floor));
+          formData.append('category', category);
+          formData.append('pricePerNight', String(price));
+          if (dto.status) formData.append('status', dto.status);
+          if (dto.amenities) formData.append('amenities', JSON.stringify(dto.amenities));
+          if (dto.description) formData.append('description', dto.description);
+          if (dto.internalNote) formData.append('internalNote', dto.internalNote);
+
+          response = await fetch('/api/rooms', {
+            method: 'POST',
+            headers: {
+              'x-user-role': this.currentRole(),
+            },
+            body: formData,
+          });
+        } else {
+          response = await fetch('/api/rooms', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'x-user-role': this.currentRole(),
+            },
+            body: JSON.stringify({
+              ...dto,
+              number: cleanNumber,
+              floor,
+              category,
+              pricePerNight: price,
+            }),
+          });
+        }
+
+        if (response.ok) {
+          const serverRoom: RoomDto = await response.json().catch(() => ({} as RoomDto));
+          if (serverRoom && serverRoom.id && serverRoom.number) {
+            const normalizedServer = this.normalizeRoom({
+              ...serverRoom,
+              syncPending: false,
+            });
+            this.rooms.update((list) =>
+              this.sortRooms([...list.filter((r) => r.id !== newRoom.id && r.number !== cleanNumber), normalizedServer])
+            );
+            try {
+              await this.idb.put('rooms', normalizedServer);
+            } catch {}
+            return { success: true, room: normalizedServer };
+          }
+          return { success: true, room: newRoom };
+        } else if (response.status >= 500) {
+          await this.outbox.enqueue('POST_ROOM', '/api/rooms', dto);
+        } else {
+          const errorData = await response.json().catch(() => ({}));
+          const errMsg = errorData.message || 'Erreur serveur lors de la création de la chambre.';
+          this.errorMessage.set(errMsg);
+          return { success: false, error: errMsg };
+        }
       } catch {
         await this.outbox.enqueue('POST_ROOM', '/api/rooms', dto);
       }
@@ -366,7 +425,11 @@ export class RoomsService {
   /**
    * Modification d'une chambre existante.
    */
-  async updateRoom(roomId: string, dto: UpdateRoomDto): Promise<{ success: boolean; error?: string }> {
+  async updateRoom(
+    roomId: string,
+    dto: UpdateRoomDto,
+    imageFile?: File | Blob,
+  ): Promise<{ success: boolean; error?: string; room?: RoomUiItem }> {
     this.errorMessage.set(null);
     this.successMessage.set(null);
 
@@ -393,34 +456,35 @@ export class RoomsService {
     const updatedPrice = dto.pricePerNight !== undefined
       ? Math.round(Number(dto.pricePerNight))
       : (room.type?.pricePerNight || 35000);
+    const cleanNumber = dto.number?.trim() || room.number;
 
-    this.rooms.update((list) =>
-      list.map((r) => {
-        if (r.id !== roomId) return r;
-        const cleanNumber = dto.number?.trim() || r.number;
-        return this.normalizeRoom({
-          ...r,
-          ...dto,
-          number: cleanNumber,
-          floor: dto.floor !== undefined ? Number(dto.floor) : r.floor,
-          category: updatedCategory,
-          type: {
-            id: `type-${updatedCategory.toLowerCase().replace(/\s+/g, '-')}`,
-            name: updatedCategory,
-            pricePerNight: updatedPrice,
-          },
-          typeId: `type-${updatedCategory.toLowerCase().replace(/\s+/g, '-')}`,
-          imageUrl: dto.imageUrl || r.imageUrl,
-          image: dto.imageUrl || r.image,
-          imageAlt: `Chambre ${cleanNumber} - ${updatedCategory}`,
-          syncPending: !this.network.isOnline(),
-        });
-      })
-    );
+    let pendingImageUrl = room.imageUrl;
+    if (dto.removeImage) {
+      pendingImageUrl = FALLBACK_ROOM_IMAGE;
+    } else if (dto.imageUrl) {
+      pendingImageUrl = dto.imageUrl;
+    }
+
+    const optimisticRoom: RoomUiItem = this.normalizeRoom({
+      ...room,
+      ...dto,
+      number: cleanNumber,
+      floor: dto.floor !== undefined ? Number(dto.floor) : room.floor,
+      category: updatedCategory,
+      type: {
+        id: `type-${updatedCategory.toLowerCase().replace(/\s+/g, '-')}`,
+        name: updatedCategory,
+        pricePerNight: updatedPrice,
+      },
+      typeId: `type-${updatedCategory.toLowerCase().replace(/\s+/g, '-')}`,
+      imageUrl: pendingImageUrl,
+      image: pendingImageUrl,
+      imageAlt: `Chambre ${cleanNumber} - ${updatedCategory}`,
+      syncPending: !this.network.isOnline(),
+    });
 
     // Mise à jour locale réactive immédiate & fermeture du tiroir (Offline-First)
-    const updated = this.rooms().find((r) => r.id === roomId)!;
-    this.successMessage.set(`La chambre ${updated.number} a été modifiée avec succès.`);
+    this.rooms.update((list) => list.map((r) => (r.id === roomId ? optimisticRoom : r)));
     this.closeDrawer();
 
     // Effet de mise en évidence
@@ -433,40 +497,94 @@ export class RoomsService {
 
     // Persistance IndexedDB locale
     try {
-      await this.idb.put('rooms', updated);
-    } catch {
-      // Ignorer les erreurs IndexedDB locales si non bloquantes
-    }
+      await this.idb.put('rooms', optimisticRoom);
+    } catch {}
 
     // Envoi réseau ou Outbox
     if (!this.network.isOnline()) {
-      await this.outbox.enqueue('PUT_ROOM', `/api/rooms/${roomId}`, dto);
+      await this.outbox.enqueue('PATCH_ROOM', `/api/rooms/${roomId}`, dto);
     } else {
       try {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 2000);
-        await fetch(`/api/rooms/${roomId}`, {
-          method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json',
-            'x-user-role': this.currentRole(),
-          },
-          body: JSON.stringify(dto),
-          signal: controller.signal,
-        });
-        clearTimeout(timeoutId);
+        let response: Response;
+        if (imageFile) {
+          const formData = new FormData();
+          formData.append('image', imageFile, 'photo.webp');
+          formData.append('number', cleanNumber);
+          if (dto.floor !== undefined) formData.append('floor', String(dto.floor));
+          if (dto.category) formData.append('category', updatedCategory);
+          if (dto.pricePerNight !== undefined) formData.append('pricePerNight', String(updatedPrice));
+          if (dto.status) formData.append('status', dto.status);
+          if (dto.amenities) formData.append('amenities', JSON.stringify(dto.amenities));
+          if (dto.description !== undefined) formData.append('description', dto.description);
+          if (dto.internalNote !== undefined) formData.append('internalNote', dto.internalNote);
+
+          response = await fetch(`/api/rooms/${roomId}`, {
+            method: 'PATCH',
+            headers: {
+              'x-user-role': this.currentRole(),
+            },
+            body: formData,
+          });
+        } else {
+          response = await fetch(`/api/rooms/${roomId}`, {
+            method: 'PATCH',
+            headers: {
+              'Content-Type': 'application/json',
+              'x-user-role': this.currentRole(),
+            },
+            body: JSON.stringify({
+              ...dto,
+              number: cleanNumber,
+              floor: dto.floor !== undefined ? Number(dto.floor) : room.floor,
+              category: updatedCategory,
+              pricePerNight: updatedPrice,
+            }),
+          });
+        }
+
+        if (response.ok) {
+          const serverRoom: RoomDto = await response.json().catch(() => ({} as RoomDto));
+          if (serverRoom && serverRoom.id && serverRoom.number) {
+            const normalizedServer = this.normalizeRoom({
+              ...serverRoom,
+              syncPending: false,
+            });
+            this.rooms.update((list) => list.map((r) => (r.id === roomId ? normalizedServer : r)));
+            try {
+              await this.idb.put('rooms', normalizedServer);
+            } catch {}
+            this.successMessage.set(`La chambre ${normalizedServer.number} a été modifiée avec succès.`);
+            return { success: true, room: normalizedServer };
+          }
+          this.successMessage.set(`La chambre ${optimisticRoom.number} a été modifiée avec succès.`);
+          return { success: true, room: optimisticRoom };
+        } else if (response.status >= 500) {
+          await this.outbox.enqueue('PATCH_ROOM', `/api/rooms/${roomId}`, dto);
+        } else {
+          const errorData = await response.json().catch(() => ({}));
+          const errMsg = errorData.message || 'Erreur lors de la modification de la chambre.';
+          this.errorMessage.set(errMsg);
+          return { success: false, error: errMsg };
+        }
       } catch {
-        await this.outbox.enqueue('PUT_ROOM', `/api/rooms/${roomId}`, dto);
+        await this.outbox.enqueue('PATCH_ROOM', `/api/rooms/${roomId}`, dto);
       }
     }
 
-    return { success: true };
+    this.successMessage.set(`La chambre ${optimisticRoom.number} a été modifiée avec succès.`);
+    return { success: true, room: optimisticRoom };
   }
 
   /**
-   * Désactive une chambre après vérification de l'absence de réservations en cours ou à venir.
+   * Suppression définitive d'une chambre (Réservé à la DIRECTION).
    */
-  async deactivateRoom(roomId: string): Promise<{ success: boolean; error?: string }> {
+  async deleteRoom(roomId: string): Promise<{
+    success: boolean;
+    conflict?: boolean;
+    forbidden?: boolean;
+    error?: string;
+    history?: { reservationsCount: number; invoicesCount: number; ordersCount: number };
+  }> {
     this.errorMessage.set(null);
     this.successMessage.set(null);
     this.deactivationConflictMessage.set(null);
@@ -478,16 +596,88 @@ export class RoomsService {
       return { success: false, error: err };
     }
 
-    // Vérification des réservations actives via PlanningMockService
-    const conflicts = this.getFutureOrCurrentReservationsForRoom(room.number);
-    if (conflicts.length > 0) {
-      const conflictList = conflicts
-        .map((c) => `• Dossier #${c.id} : ${c.guestName} (${c.checkIn} au ${c.checkOut})`)
-        .join('\n');
-      const errorMsg = `Impossible de désactiver la chambre ${room.number} : ${conflicts.length} réservation(s) en cours ou à venir détectée(s) :\n${conflictList}`;
-      this.errorMessage.set(errorMsg);
-      this.deactivationConflictMessage.set(errorMsg);
-      return { success: false, error: errorMsg };
+    if (this.currentRole() !== Role.DIRECTION) {
+      const err = 'Action réservée exclusivement à la DIRECTION.';
+      this.errorMessage.set(err);
+      return { success: false, forbidden: true, error: err };
+    }
+
+    if (this.network.isOnline()) {
+      try {
+        const response = await fetch(`/api/rooms/${roomId}`, {
+          method: 'DELETE',
+          headers: {
+            'x-user-role': this.currentRole(),
+          },
+        });
+
+        if (response.status === 409) {
+          const conflictData = await response.json().catch(() => ({}));
+          const msg =
+            conflictData.message ||
+            `Cette chambre possède un historique de réservations ou factures. Utilisez Désactiver pour la retirer sans perdre l'historique.`;
+          this.errorMessage.set(msg);
+          this.deactivationConflictMessage.set(msg);
+          return {
+            success: false,
+            conflict: true,
+            error: msg,
+            history: conflictData.history,
+          };
+        }
+
+        if (response.status === 403) {
+          const err = 'Action réservée exclusivement à la DIRECTION.';
+          this.errorMessage.set(err);
+          return { success: false, forbidden: true, error: err };
+        }
+
+        if (!response.ok && response.status < 500) {
+          const errData = await response.json().catch(() => ({}));
+          const errMsg = errData.message || 'Erreur lors de la suppression de la chambre.';
+          this.errorMessage.set(errMsg);
+          return { success: false, error: errMsg };
+        }
+      } catch {}
+    }
+
+    // Suppression locale réactive immédiate (sans rechargement)
+    this.rooms.update((list) => list.filter((r) => r.id !== roomId));
+    try {
+      await this.idb.delete('rooms', roomId);
+    } catch {}
+
+    this.successMessage.set(`La chambre ${room.number} a été définitivement supprimée.`);
+    return { success: true };
+  }
+
+  /**
+   * Désactive une chambre après vérification de l'absence de réservations en cours ou à venir.
+   */
+  async deactivateRoom(roomId: string, force = false): Promise<{ success: boolean; error?: string }> {
+    this.errorMessage.set(null);
+    this.successMessage.set(null);
+    this.deactivationConflictMessage.set(null);
+
+    const room = this.rooms().find((r) => r.id === roomId);
+    if (!room) {
+      const err = 'Chambre introuvable.';
+      this.errorMessage.set(err);
+      return { success: false, error: err };
+    }
+
+    if (!force) {
+      // Vérification des réservations actives via PlanningMockService
+      const conflicts = this.getFutureOrCurrentReservationsForRoom(room.number);
+      if (conflicts.length > 0) {
+        const conflictList = conflicts
+          .map((c) => `• Dossier #${c.id} : ${c.guestName} (${c.checkIn} au ${c.checkOut})`)
+          .join('\n');
+        const errorMsg = `Impossible de désactiver la chambre ${room.number} : ${conflicts.length} réservation(s) en cours ou à venir détectée(s) :\n${conflictList}`;
+        this.errorMessage.set(errorMsg);
+        this.deactivationConflictMessage.set(errorMsg);
+        return { success: false, error: errorMsg };
+      }
     }
 
     // Aucun conflit : marquage en tant qu'inactive
