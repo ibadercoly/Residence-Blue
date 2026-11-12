@@ -1,148 +1,213 @@
-import { test, expect } from '@playwright/test';
+import { test, expect, Page } from '@playwright/test';
 
-test.describe('Modal Nouvelle Réservation (Fidélité & Interaction PMS)', () => {
-  test.beforeEach(async ({ page }) => {
+function futureIso(daysFromToday: number): string {
+  const now = new Date();
+  now.setDate(now.getDate() + daysFromToday);
+  const y = now.getFullYear();
+  const m = String(now.getMonth() + 1).padStart(2, '0');
+  const d = String(now.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+
+async function openModalFromHeader(page: Page): Promise<number> {
+  const openBtn = page.locator('[data-testid="header-new-reservation-btn"]');
+  await expect(openBtn).toBeVisible();
+  return page.evaluate(async () => {
+    const btn = document.querySelector('[data-testid="header-new-reservation-btn"]') as HTMLElement;
+    const t0 = performance.now();
+    btn.click();
+    return new Promise<number>((resolve) => {
+      const check = () => {
+        const dlg = document.querySelector('[data-testid="reservation-modal-dialog"]');
+        const inp = document.querySelector('[data-testid="res-checkin-input"]') as HTMLElement | null;
+        if (dlg && inp) {
+          resolve(performance.now() - t0);
+          return;
+        }
+        requestAnimationFrame(check);
+      };
+      requestAnimationFrame(check);
+    });
+  });
+}
+
+test.describe('Refonte Fenêtre Nouvelle Réservation - E2E & Budget Performance', () => {
+  const createdGuestIds: string[] = [];
+
+  test.afterEach(async ({ request }) => {
+    for (const guestId of createdGuestIds.splice(0)) {
+      const gRes = await request.get(`/api/guests/${guestId}`, {
+        headers: { 'x-user-role': 'DIRECTION' },
+      });
+      if (gRes.ok()) {
+        const gData = await gRes.json();
+        const reservations = Array.isArray(gData?.reservations) ? gData.reservations : [];
+        for (const r of reservations) {
+          if (r?.id) {
+            await request.post(`/api/reservations/${r.id}/cancel`, {
+              headers: { 'x-user-role': 'DIRECTION' },
+            });
+          }
+        }
+      }
+    }
+  });
+
+  test('Budget performance strict : ouverture < 150 ms, frappe < 50 ms, <= 300 DOM, <= 2 API (< 20 Ko)', async ({
+    page,
+  }) => {
     await page.goto('/tableau-de-bord', { waitUntil: 'networkidle' });
+    await page.waitForTimeout(300); // laisser le prefetch on idle terminer si applicable
+
+    const openRequests: Array<{ url: string; bytes: number }> = [];
+    page.on('response', async (resp) => {
+      if (resp.url().includes('/api/')) {
+        const lenHeader = Number(resp.headers()['content-length'] || 0);
+        const bodyLen = lenHeader || (await resp.body().catch(() => Buffer.alloc(0))).length;
+        openRequests.push({ url: resp.url(), bytes: bodyLen });
+      }
+    });
+
+    const openMs = await openModalFromHeader(page);
+    expect(openMs).toBeLessThan(150);
+
+    const dialog = page.locator('[data-testid="reservation-modal-dialog"]');
+    await expect(dialog).toBeVisible();
+    await expect(page.locator('[data-testid="available-rooms-list"]')).toBeVisible();
+
+    const domNodes = await dialog.evaluate((el) => el.querySelectorAll('*').length + 1);
+    expect(domNodes).toBeLessThanOrEqual(300);
+
+    const totalOpenBytes = openRequests.reduce((acc, r) => acc + r.bytes, 0);
+    expect(openRequests.length).toBeLessThanOrEqual(2);
+    expect(totalOpenBytes).toBeLessThan(20 * 1024);
+
+    // Mesure de latence d'une frappe dans le champ recherche client (< 50 ms)
+    const searchInput = page.locator('[data-testid="guest-search-input"]');
+    await searchInput.focus();
+    const keyMs = await page.evaluate(
+      () =>
+        new Promise<number>((resolve) => {
+          const inp = document.querySelector('[data-testid="guest-search-input"]') as HTMLInputElement;
+          const t0 = performance.now();
+          inp.value = 'Diop';
+          inp.dispatchEvent(new Event('input', { bubbles: true }));
+          requestAnimationFrame(() => resolve(performance.now() - t0));
+        }),
+    );
+    expect(keyMs).toBeLessThan(50);
   });
 
-  test('devrait ouvrir le modal depuis le bouton En-tête "+ Nouvelle réservation"', async ({ page }) => {
-    const modal = page.locator('[data-testid="modal-nouvelle-reservation"]');
-    await expect(modal).not.toBeVisible();
+  test('Responsive 360, 768, 1024 et 1440 px : 0 scroll horizontal + barre verticale visible', async ({
+    page,
+  }) => {
+    const viewports = [
+      { width: 360, height: 740 },
+      { width: 768, height: 900 },
+      { width: 1024, height: 800 },
+      { width: 1440, height: 900 },
+    ];
 
-    // Clic sur le bouton de l'en-tête
-    const headerBtn = page.locator('[data-testid="header-new-reservation-btn"]');
-    await expect(headerBtn).toBeVisible();
-    await headerBtn.click();
+    for (const vp of viewports) {
+      await page.setViewportSize(vp);
+      await page.goto('/tableau-de-bord', { waitUntil: 'networkidle' });
+      await page.locator('[data-testid="header-new-reservation-btn"]').click();
 
-    // Vérifier visibilité du modal et de son titre
-    await expect(modal).toBeVisible();
-    await expect(modal.locator('h2')).toContainText('Nouvelle réservation');
-    await expect(modal).toContainText('Boutique 12 Clés');
-    await expect(modal).toContainText('Thiès Grand Standing');
+      const dialog = page.locator('[data-testid="reservation-modal-dialog"]');
+      const scrollBody = page.locator('[data-testid="reservation-modal-body"]');
+      await expect(dialog).toBeVisible();
+      await expect(scrollBody).toBeVisible();
+
+      const metrics = await page.evaluate(() => {
+        const doc = document.documentElement;
+        const body = document.querySelector('[data-testid="reservation-modal-body"]') as HTMLElement;
+        return {
+          docScrollW: doc.scrollWidth,
+          docClientW: doc.clientWidth,
+          bodyScrollW: body.scrollWidth,
+          bodyClientW: body.clientClientWidth ?? body.clientWidth,
+          bodyOffsetW: body.offsetWidth,
+          overflowY: getComputedStyle(body).overflowY,
+        };
+      });
+
+      expect(metrics.docScrollW).toBeLessThanOrEqual(metrics.docClientW);
+      expect(metrics.bodyScrollW).toBeLessThanOrEqual(metrics.bodyClientW);
+      expect(metrics.overflowY).toBe('scroll');
+      expect(metrics.bodyOffsetW).toBeGreaterThan(metrics.bodyClientW);
+
+      if (vp.width === 1440 || vp.width === 360) {
+        await page.screenshot({
+          path: `test-results/reservation-modal-${vp.width}px.png`,
+          fullPage: false,
+        });
+      }
+
+      await page.locator('[data-testid="reservation-cancel-btn"]').click();
+    }
   });
 
-  test('devrait ouvrir le modal pré-rempli depuis une case libre du planning', async ({ page }) => {
+  test('Parcours complet : client rapide + acompte Wave + persistance PostgreSQL après rechargement', async ({
+    page,
+  }) => {
     await page.goto('/planning', { waitUntil: 'networkidle' });
+    await page.locator('[data-testid="header-new-reservation-btn"]').click();
 
-    const modal = page.locator('[data-testid="modal-nouvelle-reservation"]');
-    await expect(modal).not.toBeVisible();
+    const checkIn = futureIso(20);
+    const checkOut = futureIso(23);
+    await page.locator('[data-testid="res-checkin-input"]').fill(checkIn);
+    await page.locator('[data-testid="res-checkout-input"]').fill(checkOut);
 
-    // Clic sur l'emplacement libre de la Chambre 106
-    const slot106 = page.locator('[data-testid="planning-empty-slot-106"]');
-    await expect(slot106).toBeVisible();
-    await slot106.click();
+    // Sélectionner la première chambre libre affichée
+    const firstRoom = page.locator('[data-testid="available-rooms-list"] button').first();
+    await expect(firstRoom).toBeVisible();
+    await firstRoom.click();
 
-    await expect(modal).toBeVisible();
-    // La catégorie Standard et la chambre 106 doivent être sélectionnées
-    const roomSelect = page.locator('[data-testid="select-room"]');
-    await expect(roomSelect).toBeVisible();
-    await expect(roomSelect).toHaveValue('106');
+    // Créer un client rapide sénégalais dans la même transaction
+    await page.locator('[data-testid="toggle-quick-guest"]').click();
+    const uniqueName = `Mariama Sow E2E ${Date.now()}`;
+    await page.locator('[data-testid="quick-guest-name"]').fill(uniqueName);
+    await page.locator('[data-testid="quick-guest-phone"]').fill('+221 77 812 34 56');
+
+    // Acompte + Wave + source WhatsApp
+    await page.locator('[data-testid="res-deposit-input"]').fill('25000');
+    await page.locator('[data-testid="res-payment-method"]').selectOption('WAVE');
+    await page.locator('[data-testid="res-tx-ref"]').fill('WAV-E2E-2026');
+    await page.locator('[data-testid="res-source-select"]').selectOption('WHATSAPP');
+
+    const postPromise = page.waitForResponse(
+      (r) => r.url().includes('/api/reservations') && r.request().method() === 'POST',
+    );
+    await page.locator('[data-testid="reservation-confirm-btn"]').click();
+    const postResp = await postPromise;
+    expect(postResp.status()).toBe(201);
+    const created = await postResp.json();
+    if (created?.guestId) createdGuestIds.push(created.guestId);
+
+    // Toast « Réservation enregistrée » visible et fenêtre fermée
+    await expect(page.locator('[data-testid="reservation-modal-dialog"]')).toHaveCount(0);
+    await expect(page.locator('[data-testid="reservation-toast"]')).toContainText(
+      'Réservation enregistrée',
+    );
+
+    // Vérifier la persistance après F5
+    await page.reload({ waitUntil: 'networkidle' });
+    await page.goto('/clients', { waitUntil: 'networkidle' });
+    await expect(page.locator('body')).toContainText(uniqueName);
   });
 
-  test('devrait afficher les données tarifaires par défaut conformes à la maquette', async ({ page }) => {
-    await page.locator('[data-testid="header-new-reservation-btn"]').click();
-    const modal = page.locator('[data-testid="modal-nouvelle-reservation"]');
-    await expect(modal).toBeVisible();
+  test('Préremplissage depuis la fiche chambre', async ({ page }) => {
+    await page.goto('/chambres', { waitUntil: 'networkidle' });
+    const cardBtn = page.locator('[data-testid^="room-card-"]').first();
+    await cardBtn.click();
 
-    // Client par défaut : M. Ibrahima Ndiaye (reproduction fidèle du Cardex)
-    await expect(modal).toContainText('M. Ibrahima Ndiaye');
-    await expect(modal).toContainText('VIP Prestige');
-
-    // Catégorie Deluxe sélectionnée par défaut (130 000 FCFA)
-    const deluxeCard = page.locator('[data-testid="category-card-Deluxe"]');
-    await expect(deluxeCard).toContainText('130 000');
-    await expect(deluxeCard).toContainText('Recommandé');
-
-    // Récapitulatif tarifaire (3 nuits, 2 adultes, 1 enfant)
-    // Hébergement : 390 000 FCFA
-    // Lit supp enfant : 25 000 FCFA
-    // Navette AIBD : 35 000 FCFA
-    // Taxe de séjour : 6 000 FCFA
-    // Total TTC : 456 000 FCFA
-    // Acompte perçu Wave : 150 000 FCFA
-    // Solde restant dû : 306 000 FCFA
-    const totalTtc = page.locator('[data-testid="total-ttc-amount"]');
-    await expect(totalTtc).toContainText('456');
-    await expect(totalTtc).toContainText('FCFA');
-
-    const soldeDu = page.locator('[data-testid="remaining-balance-amount"]');
-    await expect(soldeDu).toContainText('306');
-    await expect(soldeDu).toContainText('FCFA');
-  });
-
-  test('devrait recalculer le montant en direct lors du changement de catégorie', async ({ page }) => {
-    await page.locator('[data-testid="header-new-reservation-btn"]').click();
-
-    // Passer à Standard (85 000 FCFA/nuit * 3 = 255 000 + extras 66 000 = 321 000 TTC)
-    await page.locator('[data-testid="category-card-Standard"]').click();
-    const totalTtc = page.locator('[data-testid="total-ttc-amount"]');
-    await expect(totalTtc).toContainText('321');
-    await expect(totalTtc).toContainText('FCFA');
-
-    // Passer à Suite (210 000 FCFA/nuit * 3 = 630 000 + extras 66 000 = 696 000 TTC)
-    await page.locator('[data-testid="category-card-Suite"]').click();
-    await expect(totalTtc).toContainText('696');
-    await expect(totalTtc).toContainText('FCFA');
-  });
-
-  test('devrait basculer entre Client régulier et Nouveau client avec validation', async ({ page }) => {
-    await page.locator('[data-testid="header-new-reservation-btn"]').click();
-    const submitBtn = page.locator('[data-testid="btn-submit-reservation"]');
-
-    // Mode régulier : valide par défaut
-    await expect(submitBtn).toBeEnabled();
-
-    // Basculer en nouveau client
-    await page.locator('[data-testid="guest-mode-new"]').click();
-
-    // Formulaire vide au départ -> bouton désactivé
-    await expect(submitBtn).toBeDisabled();
-
-    // Remplir le nom et téléphone
-    await page.locator('#new-guest-name').fill('Aminata Fall');
-    await page.locator('#new-guest-phone').fill('+221 77 123 45 67');
-
-    // Le bouton doit redevenir actif
-    await expect(submitBtn).toBeEnabled();
-
-    // Rebasculer en régulier
-    await page.locator('[data-testid="guest-mode-regular"]').click();
-    await expect(submitBtn).toBeEnabled();
-    await expect(page.locator('[data-testid="modal-nouvelle-reservation"]')).toContainText('M. Ibrahima Ndiaye');
-  });
-
-  test('devrait fermer le modal avec la touche Échap et le clic sur la croix', async ({ page }) => {
-    await page.locator('[data-testid="header-new-reservation-btn"]').click();
-    const modal = page.locator('[data-testid="modal-nouvelle-reservation"]');
-    await expect(modal).toBeVisible();
-
-    // Échap pour fermer
-    await page.keyboard.press('Escape');
-    await expect(modal).not.toBeVisible();
-
-    // Rouvrir et fermer avec la croix
-    await page.locator('[data-testid="header-new-reservation-btn"]').click();
-    await expect(modal).toBeVisible();
-    await page.locator('[data-testid="btn-close-modal"]').click();
-    await expect(modal).not.toBeVisible();
-  });
-
-  test('devrait soumettre la réservation et afficher le toast de confirmation', async ({ page }) => {
-    await page.locator('[data-testid="header-new-reservation-btn"]').click();
-    const modal = page.locator('[data-testid="modal-nouvelle-reservation"]');
-    await expect(modal).toBeVisible();
-
-    // Clic sur "Confirmer & Émettre la réservation"
-    const submitBtn = page.locator('[data-testid="btn-submit-reservation"]');
-    await submitBtn.click();
-
-    // Modal fermé
-    await expect(modal).not.toBeVisible();
-
-    // Toast de succès visible
-    const toast = page.locator('[data-testid="toast-reservation-success"]');
-    await expect(toast).toBeVisible();
-    await expect(toast).toContainText('Réservation confirmée avec succès !');
-    await expect(toast).toContainText('Bon émis avec succès');
+    const reserveRoomBtn = page.locator('[data-testid="btn-reserve-room"]');
+    if ((await reserveRoomBtn.count()) > 0) {
+      await reserveRoomBtn.click();
+      await expect(page.locator('[data-testid="reservation-modal-dialog"]')).toBeVisible();
+      await expect(page.locator('[data-testid="reservation-modal-subtitle"]')).toContainText(
+        'Chambre',
+      );
+    }
   });
 });

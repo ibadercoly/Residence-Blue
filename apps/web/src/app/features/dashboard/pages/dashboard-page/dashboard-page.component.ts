@@ -300,7 +300,7 @@ export class DashboardPageComponent {
 
   // Action 1 : Nouvelle réservation
   openNewReservation(): void {
-    this.reservationModal.isOpen.set(true);
+    this.reservationModal.open();
   }
 
   // Action 2 : Arrivée (Check-in)

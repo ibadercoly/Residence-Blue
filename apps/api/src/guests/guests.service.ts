@@ -11,6 +11,7 @@ import {
   CreateGuestDto,
   ListGuestsQueryDto,
   ListGuestStaysQueryDto,
+  SearchGuestsQueryDto,
   UpdateGuestDto,
 } from './dto/guest.dto';
 
@@ -128,6 +129,31 @@ export class GuestsService {
       // Ne jamais bloquer une opération métier si le journal échoue,
       // tout en garantissant l'absence de données sensibles dans le payload.
     }
+  }
+
+  async searchQuick(query: SearchGuestsQueryDto = {}) {
+    const q = (query.q || '').trim();
+    const limit = Math.min(Math.max(query.limit ?? 5, 1), 5);
+    const where: any = { isActive: true };
+    if (q.length > 0) {
+      where.OR = [
+        { fullName: { contains: q, mode: 'insensitive' } },
+        { firstName: { contains: q, mode: 'insensitive' } },
+        { lastName: { contains: q, mode: 'insensitive' } },
+        { phone: { contains: q, mode: 'insensitive' } },
+      ];
+    }
+    const items = await this.prisma.guest.findMany({
+      where,
+      select: {
+        id: true,
+        fullName: true,
+        phone: true,
+      },
+      orderBy: [{ fullName: 'asc' }, { id: 'asc' }],
+      take: limit,
+    });
+    return { items };
   }
 
   async findAll(query: ListGuestsQueryDto = {}) {

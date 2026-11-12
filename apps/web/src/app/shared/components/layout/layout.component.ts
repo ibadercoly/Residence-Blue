@@ -1,9 +1,10 @@
-import { Component, inject } from '@angular/core';
+import { ChangeDetectionStrategy, Component, OnDestroy, inject } from '@angular/core';
 import { Router, RouterLink, RouterLinkActive, NavigationEnd } from '@angular/router';
+import { Subscription } from 'rxjs';
 import { filter } from 'rxjs/operators';
 import { SidebarComponent } from '../sidebar/sidebar.component';
 import { HeaderComponent } from '../header/header.component';
-import { NewReservationModalComponent } from '../new-reservation-modal/new-reservation-modal.component';
+import { ReservationModalComponent } from '../../../features/reservation-modal/reservation-modal.component';
 import { ReservationModalService } from '../../../core/services/reservation-modal.service';
 
 interface MobileNavItem {
@@ -15,7 +16,8 @@ interface MobileNavItem {
 @Component({
   selector: 'app-layout',
   standalone: true,
-  imports: [RouterLink, RouterLinkActive, SidebarComponent, HeaderComponent, NewReservationModalComponent],
+  changeDetection: ChangeDetectionStrategy.OnPush,
+  imports: [RouterLink, RouterLinkActive, SidebarComponent, HeaderComponent, ReservationModalComponent],
   host: { class: 'block' },
   template: `
     <div class="min-h-screen bg-surface text-on-surface font-body-md text-body-md antialiased selection:bg-primary selection:text-on-primary flex flex-col md:block">
@@ -30,8 +32,48 @@ interface MobileNavItem {
         </main>
       </div>
 
-      <!-- Modal Nouvelle Réservation Réutilisable -->
-      <app-new-reservation-modal />
+      <!-- Toast de confirmation -->
+      @if (modalService?.feedbackMessage(); as toastMsg) {
+        <div
+          role="status"
+          aria-live="polite"
+          data-testid="reservation-toast"
+          class="fixed bottom-20 md:bottom-6 right-4 md:right-6 z-50 px-4 py-3 rounded-xl bg-teal-900 text-white text-sm font-semibold shadow-sm flex items-center gap-3"
+        >
+          <span>{{ toastMsg }}</span>
+          <button
+            type="button"
+            (click)="modalService.clearFeedback()"
+            class="text-white/80 hover:text-white text-xs font-bold px-2 py-1"
+            aria-label="Fermer la notification"
+          >
+            ✕
+          </button>
+        </div>
+      }
+
+      <!-- Modal Nouvelle Réservation Réutilisable (chargée à la demande) -->
+      @defer (when modalService?.isOpen(); prefetch on idle) {
+        @if (modalService?.isOpen()) {
+          <app-reservation-modal />
+        }
+      } @loading (minimum 0ms) {
+        @if (modalService?.isOpen()) {
+          <div
+            class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 md:p-4"
+            data-testid="reservation-modal-skeleton"
+            role="status"
+            aria-label="Chargement de la fenêtre de réservation"
+          >
+            <div class="w-full max-w-[960px] h-dvh md:h-[90dvh] md:rounded-2xl bg-white border border-slate-200 p-6 animate-pulse">
+              <div class="h-6 w-48 bg-slate-200 rounded mb-4"></div>
+              <div class="h-4 w-72 bg-slate-100 rounded mb-6"></div>
+              <div class="h-32 w-full bg-slate-100 rounded mb-4"></div>
+              <div class="h-32 w-full bg-slate-100 rounded"></div>
+            </div>
+          </div>
+        }
+      }
 
       <!-- Mobile Bottom Navigation (tableau_de_bord_mode_clair) -->
       <nav
@@ -59,9 +101,10 @@ interface MobileNavItem {
     </div>
   `
 })
-export class LayoutComponent {
+export class LayoutComponent implements OnDestroy {
   private readonly router = inject(Router, { optional: true });
-  private readonly modalService = inject(ReservationModalService, { optional: true });
+  readonly modalService = inject(ReservationModalService, { optional: true });
+  private readonly routerSub: Subscription | null = null;
 
   readonly mobileNavItems: MobileNavItem[] = [
     { path: '/tableau-de-bord', label: 'Bord', icon: 'dashboard' },
@@ -73,7 +116,7 @@ export class LayoutComponent {
 
   constructor() {
     if (this.router && this.modalService) {
-      this.router.events
+      this.routerSub = this.router.events
         .pipe(filter((e): e is NavigationEnd => e instanceof NavigationEnd))
         .subscribe((e) => {
           if (e.urlAfterRedirects?.includes('/reservations/nouvelle') || e.url?.includes('/reservations/nouvelle')) {
@@ -84,5 +127,9 @@ export class LayoutComponent {
         this.modalService.open();
       }
     }
+  }
+
+  ngOnDestroy(): void {
+    this.routerSub?.unsubscribe();
   }
 }

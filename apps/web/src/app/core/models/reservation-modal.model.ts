@@ -1,92 +1,111 @@
-/**
- * Modèles de données pour le modal Nouvelle Réservation.
- * Conforme à AGENTS.md (FCFA entiers stricts) et ADAPTATION-THIES.md.
- */
-
-export type GuestMode = 'REGULAR' | 'NEW';
-
 export type RoomCategoryType = 'Standard' | 'Deluxe' | 'Suite';
 
-export type PaymentStatusType = 'PERCU' | 'EN_ATTENTE';
+export type PaymentMethodType =
+  | 'CASH'
+  | 'ORANGE_MONEY'
+  | 'WAVE'
+  | 'CARD'
+  | 'BANK_TRANSFER';
 
-export type PaymentChannelType = 'WAVE' | 'ORANGE_MONEY' | 'CARTE_TPE' | 'ESPECES';
+export type ReservationSourceType =
+  | 'RECEPTION'
+  | 'TELEPHONE'
+  | 'WHATSAPP'
+  | 'EN_LIGNE'
+  | 'ENTREPRISE';
 
-export interface RegularGuest {
+export interface AvailableRoomItem {
   id: string;
-  name: string;
-  initials: string;
-  vipBadge?: string;
-  vipIcon?: string;
-  phone: string;
-  email: string;
-  city: string;
+  number: string;
+  category: string;
+  floor: number;
+  adultsCapacity: number;
+  childrenCapacity: number;
+  capacity: number;
+  pricePerNight: number;
+  breakfastIncluded: boolean;
 }
 
-export interface NewGuestData {
+export interface HotelRatesConfig {
+  tourismTaxPerNightPerPerson: number;
+  vatRatePercent: number;
+}
+
+export interface AvailableRoomsResponse {
+  checkIn: string;
+  checkOut: string;
+  nights: number;
+  total: number;
+  rates: HotelRatesConfig;
+  items: AvailableRoomItem[];
+}
+
+export interface GuestQuickSearchItem {
+  id: string;
   fullName: string;
   phone: string;
-  email: string;
-  city: string;
-  isVip?: boolean;
-}
-
-export interface CategoryCardOption {
-  id: RoomCategoryType;
-  title: string;
-  subtitle: string;
-  ratePerNightFcfa: number; // Entier strict
-  badge?: string;
-  badgeType?: 'primary' | 'secondary' | 'neutral';
-  availableCountLabel: string;
-  recommended?: boolean;
-}
-
-export interface SpecificRoomOption {
-  number: string;
-  category: RoomCategoryType;
-  label: string;
-  floor: string;
-  details: string;
-  imageFileName: string;
 }
 
 export interface ReservationModalParams {
+  roomId?: string;
   roomNumber?: string;
   category?: RoomCategoryType;
   checkInDate?: string;
   checkOutDate?: string;
   guestId?: string;
+  guestName?: string;
+  guestPhone?: string;
 }
 
-export interface ReservationCostBreakdown {
-  nights: number;
-  ratePerNightFcfa: number;
-  accommodationTotalFcfa: number;
-  breakfastIncluded: boolean;
-  extraChildBedFcfa: number;
-  airportShuttleFcfa: number;
-  cityTaxFcfa: number; // 1000 FCFA par adulte par nuit
-  totalStayTtcFcfa: number;
-  depositAmountFcfa: number;
-  depositPercentage: number;
-  remainingBalanceFcfa: number;
-}
-
-export interface ReservationSubmitPayload {
-  guestMode: GuestMode;
-  regularGuestId?: string;
-  newGuest?: NewGuestData;
+export interface CreateReservationPayload {
+  roomId: string;
+  roomNumber?: string;
+  guestId?: string;
+  newGuest?: {
+    fullName: string;
+    phone: string;
+  };
   checkInDate: string;
   checkOutDate: string;
-  nights: number;
   adultsCount: number;
   childrenCount: number;
-  category: RoomCategoryType;
+  depositFcfa: number;
+  discountFcfa?: number;
+  paymentMethod?: PaymentMethodType;
+  transactionRef?: string;
+  breakfastIncluded: boolean;
+  source: ReservationSourceType;
+  notes?: string;
+}
+
+export interface CreatedReservationResponse {
+  id: string;
+  reference: string;
+  guestId: string;
+  guestName: string;
+  roomId: string;
   roomNumber: string;
-  depositAmountFcfa: number;
-  paymentStatus: PaymentStatusType;
-  paymentChannel: PaymentChannelType;
-  airportShuttleIncluded: boolean;
-  specialRequests: string;
-  breakdown: ReservationCostBreakdown;
+  roomCategory: string;
+  ratePerNightFcfa: number;
+  startDayIndex: number;
+  durationDays: number;
+  checkInDate: string;
+  checkOutDate: string;
+  dbStatus: string;
+  status: string;
+  statusLabel: string;
+  adultsCount: number;
+  childrenCount: number;
+  nights: number;
+  source: ReservationSourceType;
+  breakfastIncluded: boolean;
+  discountFcfa: number;
+  tourismTaxFcfa: number;
+  depositFcfa: number;
+  totalFcfa: number;
+  remainingFcfa: number;
+  contactPhone: string;
+  contactEmail: string;
+  notes: string;
+  paymentId?: string;
 }

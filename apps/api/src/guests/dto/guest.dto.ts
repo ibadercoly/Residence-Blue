@@ -41,6 +41,20 @@ export class ListGuestsQueryDto {
   limit?: number;
 }
 
+export class SearchGuestsQueryDto {
+  @IsOptional()
+  @IsString()
+  @MaxLength(120)
+  q?: string;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(5)
+  limit?: number;
+}
+
 export class ListGuestStaysQueryDto {
   @IsOptional()
   @IsString()

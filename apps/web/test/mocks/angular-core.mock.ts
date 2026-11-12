@@ -2,6 +2,11 @@ export function Injectable() {
   return (target: unknown) => target;
 }
 
+export const ChangeDetectionStrategy = {
+  OnPush: 0,
+  Default: 1,
+} as const;
+
 export function Component(options?: unknown) {
   return (target: unknown) => target;
 }

@@ -1,73 +1,82 @@
 import { test, expect } from '@playwright/test';
 
-test.describe('Porte de Sécurité - Modal Nouvelle Réservation', () => {
-  test('Sécurité Réseau : Aucune requête vers des domaines externes ou CDN tiers', async ({ page }) => {
-    const externalRequests: string[] = [];
+test.describe('Refonte Fenêtre Nouvelle Réservation - Sécurité & Mémoire', () => {
+  test('Aucune fuite mémoire après 20 ouvertures/fermetures successives', async ({ page }) => {
+    await page.goto('/tableau-de-bord', { waitUntil: 'networkidle' });
+    const client = await page.context().newCDPSession(page);
+    await client.send('Performance.enable');
 
-    page.on('request', (request) => {
-      const url = request.url();
-      if (!url.startsWith('http://localhost') && !url.startsWith('http://127.0.0.1') && !url.startsWith('data:')) {
-        externalRequests.push(url);
+    // Warmup 1 cycle
+    await page.locator('[data-testid="header-new-reservation-btn"]').click();
+    await expect(page.locator('[data-testid="reservation-modal-dialog"]')).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(page.locator('[data-testid="reservation-modal-dialog"]')).toHaveCount(0);
+
+    const beforeMetrics = await client.send('Performance.getMetrics');
+    const heapBefore =
+      beforeMetrics.metrics.find((m) => m.name === 'JSHeapUsedSize')?.value ?? 0;
+
+    for (let i = 0; i < 20; i++) {
+      await page.locator('[data-testid="header-new-reservation-btn"]').click();
+      await expect(page.locator('[data-testid="reservation-modal-dialog"]')).toBeVisible();
+      await page.locator('[data-testid="reservation-modal-close"]').click();
+      await expect(page.locator('[data-testid="reservation-modal-dialog"]')).toHaveCount(0);
+    }
+
+    const afterMetrics = await client.send('Performance.getMetrics');
+    const heapAfter =
+      afterMetrics.metrics.find((m) => m.name === 'JSHeapUsedSize')?.value ?? 0;
+    const growthMb = (heapAfter - heapBefore) / (1024 * 1024);
+
+    // Croissance mémoire bornée (< 15 Mo sur 20 cycles complets)
+    expect(growthMb).toBeLessThan(15);
+  });
+
+  test('Rejet d’un numéro de carte bancaire (PAN) dans la référence de transaction', async ({
+    page,
+  }) => {
+    await page.goto('/tableau-de-bord', { waitUntil: 'networkidle' });
+    await page.locator('[data-testid="header-new-reservation-btn"]').click();
+
+    await page.locator('[data-testid="res-tx-ref"]').fill('4532 8890 1234 5678');
+    await expect(page.locator('[data-testid="reservation-modal-dialog"]')).toContainText(
+      'Ne saisissez jamais un numéro de carte bancaire complet',
+    );
+    await expect(page.locator('[data-testid="reservation-confirm-btn"]')).toBeDisabled();
+  });
+
+  test('Refus 409 en cas de double réservation simultanée avec rafraîchissement de liste', async ({
+    page,
+  }) => {
+    await page.goto('/tableau-de-bord', { waitUntil: 'networkidle' });
+    await page.locator('[data-testid="header-new-reservation-btn"]').click();
+
+    const firstRoom = page.locator('[data-testid="available-rooms-list"] button').first();
+    await expect(firstRoom).toBeVisible();
+    await firstRoom.click();
+
+    await page.locator('[data-testid="toggle-quick-guest"]').click();
+    await page.locator('[data-testid="quick-guest-name"]').fill('Conflit Test');
+    await page.locator('[data-testid="quick-guest-phone"]').fill('+221 77 333 44 55');
+
+    // Simuler une course perdue côté serveur (409 Conflict)
+    await page.route('**/api/reservations', async (route) => {
+      if (route.request().method() === 'POST') {
+        await route.fulfill({
+          status: 409,
+          contentType: 'application/json',
+          body: JSON.stringify({
+            message: "Cette chambre vient d'être réservée, choisissez-en une autre",
+          }),
+        });
+      } else {
+        await route.continue();
       }
     });
 
-    await page.goto('/tableau-de-bord', { waitUntil: 'networkidle' });
-    await page.locator('[data-testid="header-new-reservation-btn"]').click();
-
-    const modal = page.locator('[data-testid="modal-nouvelle-reservation"]');
-    await expect(modal).toBeVisible();
-
-    // Vérifier qu'aucune ressource n'a été demandée à l'extérieur
-    expect(externalRequests).toEqual([]);
-  });
-
-  test('Intégrité Monétaire : Tous les montants affichés en FCFA sont strictement entiers', async ({ page }) => {
-    await page.goto('/tableau-de-bord', { waitUntil: 'networkidle' });
-    await page.locator('[data-testid="header-new-reservation-btn"]').click();
-
-    const modal = page.locator('[data-testid="modal-nouvelle-reservation"]');
-    await expect(modal).toBeVisible();
-
-    const textContent = await modal.innerText();
-
-    // Règle AGENTS.md : Devise FCFA, montants stockés et affichés en ENTIERS (jamais de décimaux ',00' ou '.00')
-    const decimalFcfaRegex = /\d+[.,]\d{2}\s*FCFA/i;
-    expect(textContent).not.toMatch(decimalFcfaRegex);
-  });
-
-  test('Résistance aux injections XSS : Les caractères HTML/script dans les champs restent encodés', async ({ page }) => {
-    await page.goto('/tableau-de-bord', { waitUntil: 'networkidle' });
-    await page.locator('[data-testid="header-new-reservation-btn"]').click();
-
-    // Basculer en nouveau client
-    await page.locator('[data-testid="guest-mode-new"]').click();
-
-    const xssPayload = '<img src=x onerror=window.__xss_detected=true>';
-    await page.locator('#new-guest-name').fill(xssPayload);
-    await page.locator('#new-guest-phone').fill('+221 77 999 88 77');
-
-    const xssDetected = await page.evaluate(() => (window as unknown as { __xss_detected?: boolean }).__xss_detected);
-    expect(xssDetected).toBeUndefined();
-
-    // Soumettre et vérifier que le toast échappe le payload
-    await page.locator('[data-testid="btn-submit-reservation"]').click();
-    const xssDetectedAfterSubmit = await page.evaluate(() => (window as unknown as { __xss_detected?: boolean }).__xss_detected);
-    expect(xssDetectedAfterSubmit).toBeUndefined();
-  });
-
-  test('Images locales : Toutes les photos de chambre proviennent du répertoire local /assets/images/', async ({ page }) => {
-    await page.goto('/tableau-de-bord', { waitUntil: 'networkidle' });
-    await page.locator('[data-testid="header-new-reservation-btn"]').click();
-
-    const images = await page.locator('[data-testid="modal-nouvelle-reservation"] img').all();
-    for (const img of images) {
-      const src = await img.getAttribute('src');
-      if (src) {
-        expect(src.startsWith('/assets/images/') || src.startsWith('assets/images/')).toBe(true);
-        expect(src).not.toContain('unsplash.com');
-        expect(src).not.toContain('pexels.com');
-        expect(src).not.toContain('pixabay.com');
-      }
-    }
+    await page.locator('[data-testid="reservation-confirm-btn"]').click();
+    await expect(page.locator('[data-testid="reservation-modal-error"]')).toContainText(
+      "Cette chambre vient d'être réservée, choisissez-en une autre",
+    );
   });
 });

@@ -18,6 +18,7 @@ import {
   CreateGuestDto,
   ListGuestsQueryDto,
   ListGuestStaysQueryDto,
+  SearchGuestsQueryDto,
   UpdateGuestDto,
 } from './dto/guest.dto';
 import { GuestsService } from './guests.service';
@@ -30,6 +31,12 @@ export class GuestsController {
   @Roles(Role.DIRECTION, Role.RECEPTION)
   async findAll(@Query() query: ListGuestsQueryDto) {
     return this.guestsService.findAll(query);
+  }
+
+  @Get('search')
+  @Roles(Role.DIRECTION, Role.RECEPTION)
+  async searchQuick(@Query() query: SearchGuestsQueryDto) {
+    return this.guestsService.searchQuick(query);
   }
 
   @Get('check-duplicate')
