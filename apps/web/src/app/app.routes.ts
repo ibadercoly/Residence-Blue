@@ -46,19 +46,27 @@ export const routes: Routes = [
       import('./features/clients/clients-page.component').then((m) => m.ClientsPageComponent),
   },
   {
+    path: 'restaurant/carte',
+    canActivate: [authGuard],
+    loadComponent: () =>
+      import('./restaurant-v3/components/carte-admin-page.component').then(
+        (m) => m.CarteAdminPageComponent,
+      ),
+  },
+  {
     path: 'restaurant',
     canActivate: [authGuard],
     loadComponent: () =>
-      import('./features/restaurant/restaurant-page.component').then(
-        (m) => m.RestaurantPageComponent,
+      import('./restaurant-v3/components/restaurant-pos-page.component').then(
+        (m) => m.RestaurantPosPageComponent,
       ),
   },
   {
     path: 'cuisine',
     canActivate: [authGuard],
     loadComponent: () =>
-      import('./features/restaurant/kitchen-screen/kitchen-screen.component').then(
-        (m) => m.KitchenScreenComponent,
+      import('./restaurant-v3/components/kitchen-board-page.component').then(
+        (m) => m.KitchenBoardPageComponent,
       ),
   },
   {

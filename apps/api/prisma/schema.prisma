@@ -359,6 +359,7 @@ model RestaurantProduct {
   vatRatePercent       Int                   @default(10) @map("vat_rate_percent")
   displayOrder         Int                   @default(1) @map("display_order")
   photoUrl             String?               @map("photo_url")
+  thumbnailUrl         String?               @map("thumbnail_url")
   status               String                @default("AVAILABLE")
   createdAt            DateTime              @default(now()) @map("created_at")
   updatedAt            DateTime              @updatedAt @map("updated_at")
@@ -366,6 +367,7 @@ model RestaurantProduct {
 
   @@index([categoryId])
   @@index([status])
+  @@index([status, displayOrder])
   @@map("restaurant_products")
 }
 
@@ -379,13 +381,21 @@ model RestaurantOrder {
   room            Room?                 @relation(fields: [roomId], references: [id], onDelete: Restrict)
   reservationId   String?               @map("reservation_id") @db.Uuid
   reservation     Reservation?          @relation(fields: [reservationId], references: [id], onDelete: Restrict)
-  invoiceId       String?               @map("invoice_id") @db.Uuid
+  invoiceId          String?               @map("invoice_id") @db.Uuid
+  guestName          String?               @map("guest_name")
   serverName      String                @default("Service") @map("server_name")
-  status          String                @default("SENT_TO_KITCHEN")
+  status          String                @default("PENDING")
   subtotalHtFcfa  Int                   @default(0) @map("subtotal_ht_fcfa")
   vatAmountFcfa   Int                   @default(0) @map("vat_amount_fcfa")
   totalTtcFcfa    Int                   @default(0) @map("total_ttc_fcfa")
-  paymentMethod   String?               @map("payment_method")
+  paymentMethod      String?               @map("payment_method")
+  cancellationReason String?               @map("cancellation_reason") @db.Text
+  cancelledAt        DateTime?             @map("cancelled_at")
+  cancelledById      String?               @map("cancelled_by_id") @db.Uuid
+  cancelledByName    String?               @map("cancelled_by_name")
+  preparingAt        DateTime?             @map("preparing_at")
+  readyAt            DateTime?             @map("ready_at")
+  servedAt           DateTime?             @map("served_at")
   createdAt       DateTime              @default(now()) @map("created_at")
   updatedAt       DateTime              @updatedAt @map("updated_at")
   lines           RestaurantOrderLine[]
@@ -394,6 +404,8 @@ model RestaurantOrder {
   @@index([reservationId])
   @@index([status])
   @@index([createdAt])
+  @@index([status, createdAt])
+  @@index([destinationType, createdAt])
   @@map("orders")
 }
 

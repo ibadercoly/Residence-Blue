@@ -438,7 +438,7 @@ export class BillingService {
         const activeRes = await this.prisma.reservation.findFirst({
           where: {
             roomId: ord.roomId,
-            status: { in: [ReservationStatus.CHECKED_IN, ReservationStatus.CONFIRMED] },
+            status: ReservationStatus.CHECKED_IN,
           },
           orderBy: { status: 'desc' },
         });

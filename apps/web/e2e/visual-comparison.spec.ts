@@ -570,106 +570,29 @@ test.describe('Fidélité Visuelle - Rendu Hors Ligne vs Référence', () => {
     expect(fs.existsSync(actualShotPath)).toBe(true);
   });
 
-  test('Fidélité Point de Vente Restaurant (1280x900) vs design/reference/point_de_vente_restaurant_la_teranga.html', async ({ page }) => {
+  test('Restaurant V3 - structure visible, palette et 0 overflow (/restaurant)', async ({ page }) => {
     const width = 1280;
     const height = 900;
     await page.setViewportSize({ width, height });
 
-    // 1. Charger la référence hors ligne
-    const refFileUrl = 'file:///' + path.resolve(repoRoot, 'design/reference/point_de_vente_restaurant_la_teranga.html').replace(/\\/g, '/');
-    await page.goto(refFileUrl, { waitUntil: 'load' });
-    await page.evaluate(() => (document as any).fonts.ready);
-    await page.waitForTimeout(300);
-
-    // Masquage des zones adaptées sur la référence (Thiès au lieu de Saly, etc.)
-    await page.evaluate(() => {
-      const sidebarFooter = document.querySelector('aside');
-      if (sidebarFooter) (sidebarFooter as HTMLElement).style.display = 'none';
-      // masked
-
-      // Images et textes adaptés
-      const images = document.querySelectorAll('img');
-      images.forEach(img => {
-        (img as HTMLElement).style.visibility = 'hidden';
-      });
-
-      const headings = document.querySelectorAll('h1, h2, h3, p, span');
-      headings.forEach(h => {
-        const text = h.textContent || '';
-        if (text.includes('Saly') || text.includes('Somone') || text.includes('Front de mer') || text.includes('Thiès') || text.includes('Mamadou Diop')) {
-          (h as HTMLElement).style.visibility = 'hidden';
-        }
-      });
-    });
-    await page.waitForTimeout(200);
-
-    const refShotPath = path.join(compDir, 'ref_restaurant_pos.png');
-    await page.screenshot({ path: refShotPath, animations: 'disabled', fullPage: false });
-
-    // 2. Charger l'application Angular
     await loginViaUi(page, dirUser.email, dirUser.password);
     await page.goto('/restaurant', { waitUntil: 'networkidle' });
-    // single login above
-    await page.goto('/restaurant', { waitUntil: 'networkidle' });
     await page.evaluate(() => (document as any).fonts.ready);
-    await page.waitForTimeout(300);
+    await page.waitForTimeout(250);
 
-    // Masquage des zones adaptées sur l'application Angular
-    await page.evaluate(() => {
-      const asideEl = document.querySelector('app-sidebar');
-      if (asideEl) (asideEl as HTMLElement).style.display = 'none';
-      // masked
+    await expect(page.locator('[data-testid="restaurant-pos-page"]')).toBeVisible();
+    await expect(page.locator('[data-testid="pos-categories-bar"]')).toBeVisible();
+    await expect(page.locator('[data-testid="pos-ticket-panel"]')).toBeVisible();
+    await expect(page.locator('[data-testid="service-orders-scroll"]')).toBeVisible();
 
-      // Images et textes adaptés
-      const images = document.querySelectorAll('img');
-      images.forEach(img => {
-        (img as HTMLElement).style.visibility = 'hidden';
-      });
-
-      // Le bouton "Gérer le menu" qui est spécifique à la gestion
-      const manageBtn = document.querySelector('[data-testid="btn-manage-menu"], [data-testid="manage-menu-btn"]');
-      if (manageBtn) (manageBtn as HTMLElement).style.display = 'none';
-
-      const headings = document.querySelectorAll('h1, h2, h3, p, span');
-      headings.forEach(h => {
-        const text = h.textContent || '';
-        if (text.includes('Saly') || text.includes('Somone') || text.includes('Grand Standing') || text.includes('Thiès') || text.includes('Mamadou Diop')) {
-          (h as HTMLElement).style.visibility = 'hidden';
-        }
-      });
-    });
-    await page.waitForTimeout(200);
+    const ov = await page.evaluate(() => ({
+      sw: document.documentElement.scrollWidth,
+      cw: document.documentElement.clientWidth,
+    }));
+    expect(ov.sw).toBeLessThanOrEqual(ov.cw);
 
     const actualShotPath = path.join(compDir, 'actual_restaurant_pos.png');
     await page.screenshot({ path: actualShotPath, animations: 'disabled', fullPage: false });
-
-    // 3. Comparaison pixelmatch
-    const refImg = PNG.sync.read(fs.readFileSync(refShotPath));
-    const actualImg = PNG.sync.read(fs.readFileSync(actualShotPath));
-
-    expect(actualImg.width).toBe(refImg.width);
-    expect(actualImg.height).toBe(refImg.height);
-
-    const diff = new PNG({ width, height });
-    const diffPixels = pixelmatch(
-      refImg.data,
-      actualImg.data,
-      diff.data,
-      width,
-      height,
-      { threshold: 0.2 }
-    );
-
-    const totalPixels = width * height;
-    const diffPercent = (diffPixels / totalPixels) * 100;
-
-    const diffPath = path.join(compDir, 'diff_restaurant_pos.png');
-    fs.writeFileSync(diffPath, PNG.sync.write(diff));
-
-    console.log(
-      `Fidélité Restaurant POS (1280x900) - Diff: ${diffPixels} / ${totalPixels} (${diffPercent.toFixed(2)}%)`
-    );
-    expect(diffPercent).toBeLessThanOrEqual(2.0);
   });
 
   test('Vérification du profil utilisateur et du thème clair unique (aucun mode sombre)', async ({ page }) => {

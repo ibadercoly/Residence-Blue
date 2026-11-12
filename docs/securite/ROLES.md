@@ -31,10 +31,13 @@ Tous les points de terminaison sont protégés par les guards globaux :
 | **Clients** | `DELETE /api/guests/:id` | `@Roles(DIRECTION)` | Tous les autres rôles |
 | **Réservations** | `GET /api/reservations`, `:id`, `POST /api/reservations` (`Idempotency-Key`), `PATCH`, `check-in`, `check-out`, `cancel` | `@Roles(DIRECTION, RECEPTION)` | `RESTAURANT`, `SERVEUR`, `CUISINE`, `COMPTABLE`, etc. |
 | **Réservations** | `DELETE /api/reservations/:id` | `@Roles(DIRECTION)` | Tous les autres rôles |
-| **Restaurant** | `GET /api/restaurant/categories`, `products`, `orders` | `@Roles(DIRECTION, RECEPTION, RESTAURANT, SERVEUR, CUISINE)` | `COMPTABLE`, `HOUSEKEEPING`, `MAINTENANCE` |
-| **Restaurant** | `POST/PATCH/DELETE /api/restaurant/products*` | `@Roles(DIRECTION, RESTAURANT)` | `RECEPTION`, `SERVEUR`, `CUISINE`, `COMPTABLE` |
-| **Restaurant** | `POST /api/restaurant/orders` (`Idempotency-Key`) | `@Roles(DIRECTION, RECEPTION, RESTAURANT, SERVEUR)` | `CUISINE`, `COMPTABLE` |
-| **Restaurant** | `PATCH /api/restaurant/orders/:id` | `@Roles(DIRECTION, RECEPTION, RESTAURANT, SERVEUR, CUISINE)` | `COMPTABLE` |
+| **Restaurant** | `GET /api/restaurant/catalog`, `categories`, `products`, `orders`, `orders/page`, `orders/stream` | `@Roles(DIRECTION, RECEPTION, RESTAURANT, SERVEUR, CUISINE, COMPTABLE)` (`stream` sans `COMPTABLE`) | `HOUSEKEEPING`, `MAINTENANCE` (`403`) |
+| **Restaurant** | `GET /api/restaurant/rooms-in-stay` | `@Roles(DIRECTION, RECEPTION, RESTAURANT, SERVEUR, COMPTABLE)` | `CUISINE`, `HOUSEKEEPING`, `MAINTENANCE` |
+| **Restaurant** | `POST/PATCH/DELETE /api/restaurant/products*` (+ `/image`) | `@Roles(DIRECTION)` | `RESTAURANT`, `RECEPTION`, `SERVEUR`, `CUISINE`, `COMPTABLE`, `HOUSEKEEPING`, `MAINTENANCE` |
+| **Restaurant** | `GET /api/restaurant/products/images/:filename` | `@Public()` (validation stricte UUID `.webp`) | — |
+| **Restaurant** | `POST /api/restaurant/orders`, `POST /api/restaurant/orders/:id/pay` (`Idempotency-Key`) | `@Roles(DIRECTION, RECEPTION, RESTAURANT, SERVEUR)` | `CUISINE`, `COMPTABLE`, `HOUSEKEEPING`, `MAINTENANCE` |
+| **Restaurant** | `POST /api/restaurant/orders/:id/cancel` | `@Roles(DIRECTION, RECEPTION)` (motif obligatoire) | `RESTAURANT`, `SERVEUR`, `CUISINE`, `COMPTABLE`, `HOUSEKEEPING`, `MAINTENANCE` |
+| **Restaurant** | `PATCH /api/restaurant/orders/:id`, `PATCH /api/restaurant/orders/:id/status` | `@Roles(DIRECTION, RECEPTION, RESTAURANT, SERVEUR, CUISINE)` (`CANCELLED` restreint à `DIRECTION`, `RECEPTION`) | `COMPTABLE`, `HOUSEKEEPING`, `MAINTENANCE` |
 | **Facturation** | `GET /api/invoices/counter`, `GET /api/invoices/archives`, `GET /api/invoices`, `GET /api/invoices/:id`, `GET /api/invoices/:id/pdf` | `@Roles(DIRECTION, RECEPTION, COMPTABLE)` | `RESTAURANT`, `SERVEUR`, `CUISINE` |
 | **Facturation** | `GET /api/invoices/cash-closure/export`, `GET /api/invoices/archives/export`, `POST /api/invoices/:id/credit-notes` | `@Roles(DIRECTION, COMPTABLE)` | `RECEPTION`, `RESTAURANT`, `SERVEUR`, `CUISINE` |
 | **Facturation** | `POST /api/invoices`, `PATCH /api/invoices/:id/discount`, `POST /api/invoices/:id/payments` (`Idempotency-Key`), `POST checkout`, `POST issue`, `DELETE lines/:lineId` | `@Roles(DIRECTION, RECEPTION)` | `COMPTABLE`, `RESTAURANT`, `SERVEUR`, `CUISINE` |
