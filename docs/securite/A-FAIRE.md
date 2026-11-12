@@ -23,4 +23,6 @@ Analyse effectuée le 2026-11-12 après ajout de `argon2@0.45.2` (aucune vulnér
 3. **Mode hors ligne avec session sécurisée** :
    - Le jeton d'accès (15 minutes) est conservé strictement en mémoire (jamais dans `localStorage`). À la réouverture du navigateur ou après expiration, une connexion réseau vers `POST /api/auth/refresh` (avec le cookie `httpOnly`) ou une ré-authentification sur `/connexion` est requise.
 4. **Sauvegarde de la clé de chiffrement hors base** :
-   - Les pièces d'identité clients et les secrets TOTP sont chiffrés en AES-256-GCM avant stockage PostgreSQL ; conserver `ENCRYPTION_MASTER_KEY` dans le gestionnaire de secrets / coffre-fort hors base de données.
+   - Les pièces d'identité clients sont chiffrées en AES-256-GCM avant stockage PostgreSQL ; conserver `ENCRYPTION_MASTER_KEY` dans le gestionnaire de secrets / coffre-fort hors base de données.
+5. **Authentification directe (sans 2FA TOTP)** :
+   - La double authentification TOTP a été retirée à la demande de l'établissement au profit d'une connexion directe par mot de passe robuste (`argon2id`, 10 caractères min., limitation anti-bruteforce IP/compte, jeton 15 min en mémoire, inactivité 30 min).

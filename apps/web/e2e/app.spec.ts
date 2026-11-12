@@ -93,7 +93,8 @@ test.describe('Résidence Blue - Navigation, Accessibilité & Mode Hors Ligne du
     await expect(page).toHaveURL(/.*planning/);
     await page.locator('aside nav a[href*="tableau-de-bord"]').click();
     await expect(page).toHaveURL(/.*tableau-de-bord/);
-    await expect(page.locator('main')).toContainText('385 000');
+    await expect(page.locator('main')).toContainText('12 Chambres');
+    await expect(page.locator('main')).toContainText('FCFA');
     await context.setOffline(false);
   });
 });

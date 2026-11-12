@@ -1,7 +1,7 @@
 import { Component, inject, signal, computed, HostListener } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ReservationModalService } from '../../../core/services/reservation-modal.service';
-import { AuthService, ConnectedSessionItem, TotpSetupPayload } from '../../../core/services/auth.service';
+import { AuthService, ConnectedSessionItem } from '../../../core/services/auth.service';
 import { ModalShellComponent } from '../modal-shell/modal-shell.component';
 import { Role } from '@residence-blue/shared';
 
@@ -93,22 +93,6 @@ import { Role } from '@residence-blue/shared';
               <div class="py-1">
                 <button
                   type="button"
-                  (click)="openSecurityModal()"
-                  data-testid="menu-security-2fa-btn"
-                  role="menuitem"
-                  class="w-full text-left px-4 py-2.5 flex items-center gap-3 hover:bg-surface-container-low transition-colors cursor-pointer"
-                >
-                  <span class="material-symbols-outlined text-[20px] text-primary">verified_user</span>
-                  <div>
-                    <div class="font-medium text-sm text-on-surface">Double authentification (2FA)</div>
-                    <div class="text-[11px] text-outline">
-                      {{ currentUser()?.totpEnabled ? 'Activée sur ce compte' : 'Configurer TOTP' }}
-                    </div>
-                  </div>
-                </button>
-
-                <button
-                  type="button"
                   (click)="openSessionsModal()"
                   data-testid="menu-sessions-btn"
                   role="menuitem"
@@ -194,14 +178,6 @@ import { Role } from '@residence-blue/shared';
                 <div class="py-1">
                   <button
                     type="button"
-                    (click)="openSecurityModal()"
-                    class="w-full text-left px-3 py-2 flex items-center gap-2 hover:bg-surface-container-low text-sm text-on-surface"
-                  >
-                    <span class="material-symbols-outlined text-[18px] text-primary">verified_user</span>
-                    <span>Sécurité 2FA</span>
-                  </button>
-                  <button
-                    type="button"
                     (click)="openSessionsModal()"
                     class="w-full text-left px-3 py-2 flex items-center gap-2 hover:bg-surface-container-low text-sm text-on-surface"
                   >
@@ -283,74 +259,6 @@ import { Role } from '@residence-blue/shared';
         </button>
       </div>
     </app-modal-shell>
-
-    <!-- Modal Sécurité 2FA (ModalShellComponent) -->
-    <app-modal-shell
-      [isOpen]="isSecurityModalOpen()"
-      title="Double authentification (TOTP)"
-      subtitle="Protection renforcée de votre accès Résidence Blue"
-      icon="verified_user"
-      testId="security-2fa-modal"
-      (closed)="closeSecurityModal()"
-    >
-      <div class="flex flex-col gap-4">
-        @if (securityError()) {
-          <div class="p-3 rounded-xl bg-error-container/30 text-error text-xs">{{ securityError() }}</div>
-        }
-        @if (securityBackupCodes().length > 0) {
-          <div class="p-3 rounded-xl bg-amber-50 border border-amber-300 text-xs text-amber-900">
-            Codes de secours à conserver précieusement (usage unique) :
-          </div>
-          <div class="grid grid-cols-2 gap-2">
-            @for (c of securityBackupCodes(); track c) {
-              <code class="p-2 rounded bg-surface-container text-center font-mono text-sm font-bold">{{ c }}</code>
-            }
-          </div>
-        } @else if (currentUser()?.totpEnabled) {
-          <div class="p-3 rounded-xl bg-emerald-50 text-emerald-900 text-sm font-medium">
-            La double authentification TOTP est active sur votre compte.
-          </div>
-          @if (!currentUser()?.totpRequired) {
-            <div class="flex flex-col gap-2">
-              <label class="text-xs font-semibold text-on-surface" for="disable-totp-pwd">Mot de passe actuel</label>
-              <input id="disable-totp-pwd" type="password" [value]="disablePwd()" (input)="disablePwd.set($any($event.target).value)" class="h-10 px-3 rounded-lg border border-outline-variant" />
-              <label class="text-xs font-semibold text-on-surface" for="disable-totp-code">Code TOTP actuel</label>
-              <input id="disable-totp-code" type="text" [value]="totpInputCode()" (input)="totpInputCode.set($any($event.target).value)" class="h-10 px-3 rounded-lg border border-outline-variant font-mono" />
-              <button type="button" (click)="confirmDisableTotp()" class="h-10 px-4 rounded-xl bg-error text-on-error text-sm font-semibold cursor-pointer">
-                Désactiver la 2FA
-              </button>
-            </div>
-          }
-        } @else {
-          @if (!optionalTotpSetup()) {
-            <p class="text-sm text-on-surface-variant">
-              Activez la double authentification pour protéger votre compte contre le vol de mot de passe.
-            </p>
-            <button type="button" (click)="startOptionalTotpSetup()" class="h-10 px-4 rounded-xl bg-primary text-on-primary text-sm font-semibold cursor-pointer">
-              Générer une clé TOTP
-            </button>
-          } @else {
-            <div class="p-3 rounded-xl bg-surface-container">
-              <div class="text-xs text-outline mb-1">Clé secrète Base32 :</div>
-              <code class="text-sm font-mono font-bold text-primary break-all">{{ optionalTotpSetup()!.secret }}</code>
-            </div>
-            <input type="text" placeholder="Code à 6 chiffres" [value]="totpInputCode()" (input)="totpInputCode.set($any($event.target).value)" class="h-10 px-3 rounded-lg border border-outline-variant font-mono" />
-            <button type="button" (click)="confirmEnableOptionalTotp()" class="h-10 px-4 rounded-xl bg-primary text-on-primary text-sm font-semibold cursor-pointer">
-              Confirmer et activer
-            </button>
-          }
-        }
-      </div>
-      <div modal-footer class="flex justify-end">
-        <button
-          type="button"
-          (click)="closeSecurityModal()"
-          class="px-4 py-2 rounded-xl bg-surface-container-high text-on-surface text-sm font-semibold cursor-pointer"
-        >
-          Fermer
-        </button>
-      </div>
-    </app-modal-shell>
   `,
 })
 export class HeaderComponent {
@@ -363,13 +271,6 @@ export class HeaderComponent {
   readonly isSessionsModalOpen = signal<boolean>(false);
   readonly sessionsLoading = signal<boolean>(false);
   readonly sessions = signal<ConnectedSessionItem[]>([]);
-
-  readonly isSecurityModalOpen = signal<boolean>(false);
-  readonly optionalTotpSetup = signal<TotpSetupPayload | null>(null);
-  readonly totpInputCode = signal<string>('');
-  readonly disablePwd = signal<string>('');
-  readonly securityError = signal<string | null>(null);
-  readonly securityBackupCodes = signal<string[]>([]);
 
   readonly displayName = computed(() => this.currentUser()?.fullName || 'Collaborateur');
   readonly displayRoleLabel = computed(() => {
@@ -423,49 +324,6 @@ export class HeaderComponent {
     const ok = await this.authService.revokeConnectedSession(familyId);
     if (ok) {
       this.sessions.set(await this.authService.listConnectedSessions());
-    }
-  }
-
-  openSecurityModal(): void {
-    this.closeMenu();
-    this.securityError.set(null);
-    this.securityBackupCodes.set([]);
-    this.optionalTotpSetup.set(null);
-    this.totpInputCode.set('');
-    this.disablePwd.set('');
-    this.isSecurityModalOpen.set(true);
-  }
-
-  closeSecurityModal(): void {
-    this.isSecurityModalOpen.set(false);
-  }
-
-  async startOptionalTotpSetup(): Promise<void> {
-    this.securityError.set(null);
-    try {
-      this.optionalTotpSetup.set(await this.authService.setupOptionalTotp());
-    } catch (e) {
-      this.securityError.set(e instanceof Error ? e.message : 'Erreur.');
-    }
-  }
-
-  async confirmEnableOptionalTotp(): Promise<void> {
-    this.securityError.set(null);
-    try {
-      const res = await this.authService.enableOptionalTotp(this.totpInputCode());
-      this.securityBackupCodes.set(res.backupCodes);
-    } catch (e) {
-      this.securityError.set(e instanceof Error ? e.message : 'Code invalide.');
-    }
-  }
-
-  async confirmDisableTotp(): Promise<void> {
-    this.securityError.set(null);
-    try {
-      await this.authService.disableOptionalTotp(this.disablePwd(), this.totpInputCode());
-      this.closeSecurityModal();
-    } catch (e) {
-      this.securityError.set(e instanceof Error ? e.message : 'Désactivation impossible.');
     }
   }
 

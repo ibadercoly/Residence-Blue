@@ -1,4 +1,4 @@
-import { Injectable, computed, inject, signal } from '@angular/core';
+import { Injectable, computed, effect, inject, signal } from '@angular/core';
 import {
   DishCategory,
   DishItem,
@@ -28,6 +28,15 @@ export class RestaurantMockService {
     this.hotelSettingsService = hotelSettingsService ?? injected ?? new HotelSettingsService();
     this.authService = authService ?? injectedAuth ?? null;
     this.fetchFromServer();
+    try {
+      effect(() => {
+        if (this.authService?.isAuthenticated()) {
+          void this.fetchFromServer();
+        }
+      });
+    } catch {
+      // Hors contexte d'injection Angular
+    }
   }
 
   private getAuthHeaders(extra?: Record<string, string>): Record<string, string> {

@@ -66,50 +66,34 @@ describe('AuthService (Sécurité En Ligne)', () => {
     expect(sessionStorage.length).toBe(0);
   });
 
-  it('gère le flux TOTP MFA_REQUIRED sans authentifier avant validation du code', async () => {
-    global.fetch = jest
-      .fn()
-      .mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({
-          status: 'MFA_REQUIRED',
-          mfaToken: 'mfa-challenge-jwt',
-          user: { fullName: 'Aïssatou Ba', role: Role.DIRECTION },
-        }),
-      })
-      .mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({
-          status: 'AUTHENTICATED',
-          accessToken: 'jwt.direction.verified',
-          expiresInSeconds: 900,
-          user: {
-            id: 'u-dir',
-            email: 'aissatou.ba@residenceblue.sn',
-            fullName: 'Aïssatou Ba',
-            role: Role.DIRECTION,
-            jobTitle: 'Directrice',
-            totpEnabled: true,
-            totpRequired: true,
-          },
-        }),
-      }) as any;
+  it('authentifie directement un compte DIRECTION par mot de passe sans étape 2FA', async () => {
+    global.fetch = jest.fn().mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        status: 'AUTHENTICATED',
+        accessToken: 'jwt.direction.verified',
+        expiresInSeconds: 900,
+        user: {
+          id: 'u-dir',
+          email: 'aissatou.ba@residenceblue.sn',
+          fullName: 'Aïssatou Ba',
+          role: Role.DIRECTION,
+          jobTitle: 'Directrice',
+          totpEnabled: false,
+          totpRequired: false,
+        },
+      }),
+    }) as any;
 
     const step1 = await service.login({
       login: 'aissatou.ba@residenceblue.sn',
       password: 'PasswordSecurise2026!',
     });
 
-    expect(step1.status).toBe('MFA_REQUIRED');
-    expect(service.isAuthenticated()).toBe(false);
-    expect(service.getAccessToken()).toBeNull();
-
-    if (step1.status === 'MFA_REQUIRED') {
-      const user = await service.verifyTotpLogin(step1.mfaToken, '123456');
-      expect(user.role).toBe(Role.DIRECTION);
-      expect(service.isAuthenticated()).toBe(true);
-      expect(service.getAccessToken()).toBe('jwt.direction.verified');
-    }
+    expect(step1.status).toBe('AUTHENTICATED');
+    expect(step1.user.role).toBe(Role.DIRECTION);
+    expect(service.isAuthenticated()).toBe(true);
+    expect(service.getAccessToken()).toBe('jwt.direction.verified');
   });
 
   it('déconnecte automatiquement après 30 minutes d’inactivité', async () => {

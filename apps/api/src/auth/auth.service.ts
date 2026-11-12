@@ -16,10 +16,8 @@ import { CryptoService } from '../common/security/crypto.service';
 import { AuditService, appendChainedAuditLog } from '../common/audit/audit.service';
 import {
   CreateUserDto,
-  DisableTotpDto,
   LoginDto,
   UpdateUserDto,
-  VerifyTotpLoginDto,
 } from './dto/auth.dto';
 import {
   hashPassword,
@@ -28,21 +26,10 @@ import {
   verifyPassword,
 } from './password-hash.util';
 import {
-  buildOtpAuthUri,
-  consumeBackupCode,
-  generateBackupCodes,
-  generateTotpSecret,
-  StoredBackupCode,
-  verifyTotpCode,
-} from './totp.util';
-import {
   ACCESS_TOKEN_TTL_SECONDS,
   INACTIVITY_TIMEOUT_MS,
-  MFA_TOKEN_TTL_SECONDS,
-  MfaTokenPayload,
   REFRESH_COOKIE_NAME,
   signJwt,
-  verifyJwt,
 } from './jwt.util';
 
 export interface RequestMeta {
@@ -96,8 +83,8 @@ export class AuthService {
     @Optional() private readonly auditService?: AuditService,
   ) {}
 
-  isTotpMandatory(role: string): boolean {
-    return role === Role.DIRECTION || role === Role.COMPTABLE;
+  isTotpMandatory(_role: string): boolean {
+    return false;
   }
 
   private sanitizeUser(u: any) {
@@ -108,8 +95,8 @@ export class AuthService {
       jobTitle: u.jobTitle || '',
       role: u.role,
       isActive: u.isActive,
-      totpEnabled: Boolean(u.totpEnabled),
-      totpRequired: this.isTotpMandatory(u.role),
+      totpEnabled: false,
+      totpRequired: false,
       lastLoginAt: u.lastLoginAt || null,
       createdAt: u.createdAt,
       updatedAt: u.updatedAt,
@@ -292,34 +279,18 @@ export class AuthService {
         fullName: user.fullName || user.email,
         jobTitle: user.jobTitle || '',
         role: user.role,
-        totpEnabled: Boolean(user.totpEnabled),
-        totpRequired: this.isTotpMandatory(user.role),
+        totpEnabled: false,
+        totpRequired: false,
       },
       refreshTokenRaw: rawRefresh,
       refreshMaxAgeMs,
-      ...(extra?.backupCodes ? { backupCodes: extra.backupCodes } : {}),
     };
   }
 
   async login(
     dto: LoginDto,
     meta?: RequestMeta,
-  ): Promise<
-    | IssuedAuthResult
-    | {
-        status: 'MFA_REQUIRED';
-        mfaRequired: true;
-        mfaToken: string;
-        user: { fullName: string; role: string };
-      }
-    | {
-        status: 'MFA_SETUP_REQUIRED';
-        mfaSetupRequired: true;
-        mfaToken: string;
-        totpSetup: { secret: string; otpauthUri: string };
-        user: { fullName: string; role: string };
-      }
-  > {
+  ): Promise<IssuedAuthResult> {
     const loginNormalized = dto.login.trim().toLowerCase();
     const ipKey = this.normalizeIp(meta?.ip);
 
@@ -392,275 +363,8 @@ export class AuthService {
 
     this.clearThrottleForSuccess(loginNormalized, ipKey);
 
-    // 4. Double authentification TOTP (obligatoire pour DIRECTION / COMPTABLE, facultative pour les autres)
-    if (user.totpEnabled) {
-      const mfaToken = signJwt(
-        {
-          sub: user.id,
-          email: user.email,
-          role: user.role,
-          stayConnected8h: Boolean(dto.stayConnected8h),
-          type: 'mfa_pending',
-        },
-        MFA_TOKEN_TTL_SECONDS,
-      );
-      return {
-        status: 'MFA_REQUIRED',
-        mfaRequired: true,
-        mfaToken,
-        user: {
-          fullName: user.fullName || user.email,
-          role: user.role,
-        },
-      };
-    }
-
-    if (this.isTotpMandatory(user.role)) {
-      const secret = generateTotpSecret();
-      const pendingEncrypted = this.cryptoService.encrypt(secret);
-      await this.prisma.user.update({
-        where: { id: user.id },
-        data: { totpPendingSecretEncrypted: pendingEncrypted },
-      });
-
-      const mfaToken = signJwt(
-        {
-          sub: user.id,
-          email: user.email,
-          role: user.role,
-          stayConnected8h: Boolean(dto.stayConnected8h),
-          type: 'mfa_setup',
-        },
-        MFA_TOKEN_TTL_SECONDS,
-      );
-
-      return {
-        status: 'MFA_SETUP_REQUIRED',
-        mfaSetupRequired: true,
-        mfaToken,
-        totpSetup: {
-          secret,
-          otpauthUri: buildOtpAuthUri(secret, user.email),
-        },
-        user: {
-          fullName: user.fullName || user.email,
-          role: user.role,
-        },
-      };
-    }
-
-    // 5. Rôle sans 2FA activée ni obligatoire : émission directe de la session
+    // 4. Connexion directe par mot de passe vérifié (double authentification supprimée)
     return this.issueSession(user, Boolean(dto.stayConnected8h), meta);
-  }
-
-  async verifyTotpLogin(dto: VerifyTotpLoginDto, meta?: RequestMeta): Promise<IssuedAuthResult> {
-    const payload = verifyJwt<MfaTokenPayload>(dto.mfaToken, 'mfa_pending');
-    if (!payload?.sub) {
-      throw new UnauthorizedException('Jeton de double authentification invalide ou expiré.');
-    }
-
-    const ipKey = this.normalizeIp(meta?.ip);
-    const mfaBucketKey = `mfa:${payload.sub}`;
-    if (
-      this.getBucketLockRemainingMs(this.ipBuckets, ipKey) > 0 ||
-      this.getBucketLockRemainingMs(this.accountBuckets, mfaBucketKey) > 0
-    ) {
-      throw new HttpException(GENERIC_LOCKED_MSG, HttpStatus.TOO_MANY_REQUESTS);
-    }
-
-    const user = await this.prisma.user.findUnique({ where: { id: payload.sub } });
-    if (!user || !user.isActive || !user.totpEnabled || !user.totpSecretEncrypted) {
-      throw new UnauthorizedException('Authentification impossible.');
-    }
-
-    const secret = this.cryptoService.decrypt(user.totpSecretEncrypted);
-    const totpMatched = verifyTotpCode(secret, dto.code);
-    let twoFactorMethod = 'TOTP';
-
-    if (!totpMatched) {
-      const backupList = (user.totpBackupCodesJson as StoredBackupCode[] | null) || [];
-      const backupCheck = consumeBackupCode(backupList, dto.code);
-      if (!backupCheck.matched) {
-        const accLocked = this.recordBucketFailure(this.accountBuckets, mfaBucketKey);
-        const ipLocked = this.recordBucketFailure(this.ipBuckets, ipKey);
-        await this.logAudit(
-          user.id,
-          'LOGIN_2FA_FAILED',
-          'User',
-          user.id,
-          { locked: accLocked || ipLocked },
-          ipKey,
-        );
-        if (accLocked || ipLocked) {
-          throw new HttpException(GENERIC_LOCKED_MSG, HttpStatus.TOO_MANY_REQUESTS);
-        }
-        throw new UnauthorizedException('Code de vérification invalide.');
-      }
-
-      twoFactorMethod = 'BACKUP_CODE';
-      await this.prisma.user.update({
-        where: { id: user.id },
-        data: { totpBackupCodesJson: backupCheck.updatedCodes as any },
-      });
-    }
-
-    this.clearThrottleForSuccess(mfaBucketKey, ipKey);
-    return this.issueSession(user, Boolean(payload.stayConnected8h), meta, {
-      twoFactorMethod,
-    });
-  }
-
-  async confirmMandatoryTotpSetup(
-    dto: VerifyTotpLoginDto,
-    meta?: RequestMeta,
-  ): Promise<IssuedAuthResult> {
-    const payload = verifyJwt<MfaTokenPayload>(dto.mfaToken, 'mfa_setup');
-    if (!payload?.sub) {
-      throw new UnauthorizedException('Jeton de configuration 2FA invalide ou expiré.');
-    }
-
-    const user = await this.prisma.user.findUnique({ where: { id: payload.sub } });
-    if (!user || !user.isActive || !user.totpPendingSecretEncrypted) {
-      throw new UnauthorizedException('Configuration 2FA introuvable.');
-    }
-
-    const secret = this.cryptoService.decrypt(user.totpPendingSecretEncrypted);
-    if (!verifyTotpCode(secret, dto.code)) {
-      throw new UnauthorizedException('Code TOTP invalide pour activer la double authentification.');
-    }
-
-    const { plainCodes, storedCodes } = generateBackupCodes(8);
-    const updatedUser = await this.prisma.user.update({
-      where: { id: user.id },
-      data: {
-        totpEnabled: true,
-        totpSecretEncrypted: user.totpPendingSecretEncrypted,
-        totpPendingSecretEncrypted: null,
-        totpBackupCodesJson: storedCodes as any,
-      },
-    });
-
-    await this.logAudit(
-      user.id,
-      'TOTP_ENABLED',
-      'User',
-      user.id,
-      { mandatory: true },
-      this.normalizeIp(meta?.ip),
-    );
-
-    return this.issueSession(updatedUser, Boolean(payload.stayConnected8h), meta, {
-      backupCodes: plainCodes,
-      twoFactorMethod: 'TOTP_INITIAL_SETUP',
-    });
-  }
-
-  async initiateOptionalTotpSetup(userId: string) {
-    const user = await this.prisma.user.findUnique({ where: { id: userId } });
-    if (!user || !user.isActive) {
-      throw new UnauthorizedException('Utilisateur introuvable ou désactivé.');
-    }
-
-    const secret = generateTotpSecret();
-    const encrypted = this.cryptoService.encrypt(secret);
-    await this.prisma.user.update({
-      where: { id: user.id },
-      data: { totpPendingSecretEncrypted: encrypted },
-    });
-
-    return {
-      secret,
-      otpauthUri: buildOtpAuthUri(secret, user.email),
-    };
-  }
-
-  async enableOptionalTotp(userId: string, code: string, ip?: string) {
-    const user = await this.prisma.user.findUnique({ where: { id: userId } });
-    if (!user || !user.isActive || !user.totpPendingSecretEncrypted) {
-      throw new BadRequestException('Aucune configuration 2FA en attente.');
-    }
-
-    const secret = this.cryptoService.decrypt(user.totpPendingSecretEncrypted);
-    if (!verifyTotpCode(secret, code)) {
-      throw new BadRequestException('Code TOTP invalide.');
-    }
-
-    const { plainCodes, storedCodes } = generateBackupCodes(8);
-    await this.prisma.user.update({
-      where: { id: user.id },
-      data: {
-        totpEnabled: true,
-        totpSecretEncrypted: user.totpPendingSecretEncrypted,
-        totpPendingSecretEncrypted: null,
-        totpBackupCodesJson: storedCodes as any,
-      },
-    });
-
-    await this.logAudit(user.id, 'TOTP_ENABLED', 'User', user.id, { mandatory: false }, ip);
-
-    return {
-      totpEnabled: true,
-      backupCodes: plainCodes,
-    };
-  }
-
-  async disableOptionalTotp(userId: string, dto: DisableTotpDto, ip?: string) {
-    const user = await this.prisma.user.findUnique({ where: { id: userId } });
-    if (!user || !user.isActive) {
-      throw new UnauthorizedException('Utilisateur introuvable.');
-    }
-
-    if (this.isTotpMandatory(user.role)) {
-      throw new ForbiddenException(
-        'La double authentification est obligatoire pour les rôles DIRECTION et COMPTABLE.',
-      );
-    }
-
-    const pwdOk = await verifyPassword(dto.password, user.passwordHash);
-    if (!pwdOk) {
-      throw new UnauthorizedException('Mot de passe invalide.');
-    }
-
-    if (user.totpEnabled && user.totpSecretEncrypted) {
-      const secret = this.cryptoService.decrypt(user.totpSecretEncrypted);
-      if (!verifyTotpCode(secret, dto.code)) {
-        throw new UnauthorizedException('Code TOTP invalide.');
-      }
-    }
-
-    await this.prisma.user.update({
-      where: { id: user.id },
-      data: {
-        totpEnabled: false,
-        totpSecretEncrypted: null,
-        totpPendingSecretEncrypted: null,
-        totpBackupCodesJson: null as any,
-      },
-    });
-
-    await this.logAudit(user.id, 'TOTP_DISABLED', 'User', user.id, {}, ip);
-
-    return { totpEnabled: false };
-  }
-
-  async regenerateBackupCodes(userId: string, code: string, ip?: string) {
-    const user = await this.prisma.user.findUnique({ where: { id: userId } });
-    if (!user || !user.isActive || !user.totpEnabled || !user.totpSecretEncrypted) {
-      throw new BadRequestException('La double authentification TOTP doit être active.');
-    }
-    const secret = this.cryptoService.decrypt(user.totpSecretEncrypted);
-    if (!verifyTotpCode(secret, code)) {
-      throw new UnauthorizedException('Code TOTP invalide.');
-    }
-
-    const { plainCodes, storedCodes } = generateBackupCodes(8);
-    await this.prisma.user.update({
-      where: { id: user.id },
-      data: { totpBackupCodesJson: storedCodes as any },
-    });
-
-    await this.logAudit(user.id, 'TOTP_BACKUP_REGENERATED', 'User', user.id, {}, ip);
-    return { backupCodes: plainCodes };
   }
 
   async refreshSession(

@@ -394,6 +394,15 @@ export class FacturationService {
       }
 
       const all = await this.idb.getAll<OutboxItem>('outbox');
+      const activeOutboxKeys = new Set(all.map((i) => i.idempotencyKey));
+      let reconciledByOutbox = false;
+      const beforePending = this.pendingOfflinePaymentKeys();
+      const remainingTracked = beforePending.filter((k) => activeOutboxKeys.has(k));
+      if (remainingTracked.length !== beforePending.length) {
+        this.pendingOfflinePaymentKeys.set(remainingTracked);
+        reconciledByOutbox = true;
+      }
+
       const paymentItems = all.filter(
         (item) =>
           item.type === 'CREATE_INVOICE_PAYMENT' &&
@@ -426,7 +435,7 @@ export class FacturationService {
         }
       }
 
-      if (syncedCount > 0) {
+      if (syncedCount > 0 || reconciledByOutbox) {
         await this.outbox?.refreshPendingCount?.();
         const activeId = this.currentNote()?.id;
         if (activeId) {

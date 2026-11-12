@@ -16,11 +16,8 @@ import { Request, Response } from 'express';
 import { AuthService, IssuedAuthResult, RequestMeta } from './auth.service';
 import {
   CreateUserDto,
-  DisableTotpDto,
   LoginDto,
   UpdateUserDto,
-  VerifyTotpCodeDto,
-  VerifyTotpLoginDto,
 } from './dto/auth.dto';
 import { Public, Roles } from '../common/decorators/roles.decorator';
 import { ALL_ROLES, Role } from '@residence-blue/shared';
@@ -69,7 +66,6 @@ export class AuthController {
       accessToken: issued.accessToken,
       expiresInSeconds: issued.expiresInSeconds,
       user: issued.user,
-      ...(issued.backupCodes ? { backupCodes: issued.backupCodes } : {}),
     };
   }
 
@@ -82,39 +78,6 @@ export class AuthController {
     @Res({ passthrough: true }) res: Response,
   ) {
     const result = await this.authService.login(dto, this.extractMeta(req, dto.deviceLabel));
-    if (result.status === 'AUTHENTICATED') {
-      return this.respondAuthenticated(res, result);
-    }
-    return result;
-  }
-
-  @Public()
-  @Post('auth/login/totp')
-  @HttpCode(HttpStatus.OK)
-  async verifyTotpLogin(
-    @Body() dto: VerifyTotpLoginDto,
-    @Req() req: Request,
-    @Res({ passthrough: true }) res: Response,
-  ) {
-    const result = await this.authService.verifyTotpLogin(
-      dto,
-      this.extractMeta(req, dto.deviceLabel),
-    );
-    return this.respondAuthenticated(res, result);
-  }
-
-  @Public()
-  @Post('auth/login/totp-setup')
-  @HttpCode(HttpStatus.OK)
-  async confirmMandatoryTotpSetup(
-    @Body() dto: VerifyTotpLoginDto,
-    @Req() req: Request,
-    @Res({ passthrough: true }) res: Response,
-  ) {
-    const result = await this.authService.confirmMandatoryTotpSetup(
-      dto,
-      this.extractMeta(req, dto.deviceLabel),
-    );
     return this.respondAuthenticated(res, result);
   }
 
@@ -152,37 +115,6 @@ export class AuthController {
   async getMe(@Req() req: Request) {
     const actor = (req as any).user as { id: string; sid?: string };
     return this.authService.getMe(actor.id, actor.sid);
-  }
-
-  @Post('auth/totp/setup')
-  @Roles(...ALL_ROLES)
-  async setupOptionalTotp(@Req() req: Request) {
-    const actor = (req as any).user as { id: string };
-    return this.authService.initiateOptionalTotpSetup(actor.id);
-  }
-
-  @Post('auth/totp/enable')
-  @Roles(...ALL_ROLES)
-  @HttpCode(HttpStatus.OK)
-  async enableOptionalTotp(@Body() dto: VerifyTotpCodeDto, @Req() req: Request) {
-    const actor = (req as any).user as { id: string };
-    return this.authService.enableOptionalTotp(actor.id, dto.code, this.extractMeta(req).ip);
-  }
-
-  @Post('auth/totp/disable')
-  @Roles(...ALL_ROLES)
-  @HttpCode(HttpStatus.OK)
-  async disableOptionalTotp(@Body() dto: DisableTotpDto, @Req() req: Request) {
-    const actor = (req as any).user as { id: string };
-    return this.authService.disableOptionalTotp(actor.id, dto, this.extractMeta(req).ip);
-  }
-
-  @Post('auth/totp/backup-codes/regenerate')
-  @Roles(...ALL_ROLES)
-  @HttpCode(HttpStatus.OK)
-  async regenerateBackupCodes(@Body() dto: VerifyTotpCodeDto, @Req() req: Request) {
-    const actor = (req as any).user as { id: string };
-    return this.authService.regenerateBackupCodes(actor.id, dto.code, this.extractMeta(req).ip);
   }
 
   @Get('auth/sessions')

@@ -8,14 +8,10 @@ Tous les points de terminaison sont protégés par les guards globaux :
 | Domaine | Méthode & Route | Décorateur / Rôles autorisés | Rôles refusés (`403`) |
 | :--- | :--- | :--- | :--- |
 | **Santé** | `GET /health`, `GET /api/health` | `@Public()` | — |
-| **Authentification** | `POST /api/auth/login` | `@Public()` (limité par compte & IP) | — |
-| **Authentification** | `POST /api/auth/login/totp` | `@Public()` (jeton MFA validé) | — |
-| **Authentification** | `POST /api/auth/login/totp-setup` | `@Public()` (onboarding MFA DIRECTION/COMPTABLE) | — |
+| **Authentification** | `POST /api/auth/login` | `@Public()` (limité par compte & IP, argon2id) | — |
 | **Authentification** | `POST /api/auth/refresh` | `@Public()` (cookie `httpOnly`, `Secure`, `SameSite=Strict`, rotation + détection de réutilisation) | — |
 | **Authentification** | `POST /api/auth/logout` | `@Public()` (révoque la famille de jetons et supprime le cookie) | — |
 | **Authentification** | `GET /api/auth/me` | `@Roles(Tous rôles actifs)` | Sans jeton (`401`) |
-| **Authentification** | `POST /api/auth/totp/setup`, `enable`, `backup-codes/regenerate` | `@Roles(Tous rôles actifs)` | Sans jeton (`401`) |
-| **Authentification** | `POST /api/auth/totp/disable` | `@Roles(Tous rôles actifs)` + contrôle service | `DIRECTION`, `COMPTABLE` (2FA obligatoire -> `403`) |
 | **Sessions / Appareils** | `GET /api/auth/sessions` | `@Roles(DIRECTION)` | Tous les autres rôles |
 | **Sessions / Appareils** | `GET /api/auth/my-sessions` | `@Roles(Tous rôles actifs)` | Sans jeton (`401`) |
 | **Sessions / Appareils** | `DELETE /api/auth/sessions/:familyId` | `@Roles(Tous rôles actifs)` (autre utilisateur réservé à `DIRECTION`) | Autre utilisateur si non `DIRECTION` |

@@ -1,4 +1,4 @@
-import { Component, computed, inject, signal } from '@angular/core';
+import { Component, computed, effect, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router, RouterLink } from '@angular/router';
 import { ReservationModalService } from '../../../../core/services/reservation-modal.service';
@@ -6,6 +6,7 @@ import { ModuleConfigService } from '../../../../core/services/module-config.ser
 import { RoomsService } from '../../../../core/services/rooms.service';
 import { PlanningMockService } from '../../../../core/services/planning-mock.service';
 import { FacturationService } from '../../../../facturation-v3/services/facturation.service';
+import { AuthService } from '../../../../core/services/auth.service';
 
 @Component({
   selector: 'app-dashboard-page',
@@ -249,6 +250,15 @@ export class DashboardPageComponent {
   readonly roomsService = inject(RoomsService, { optional: true });
   readonly planningService = inject(PlanningMockService, { optional: true });
   readonly facturationService = inject(FacturationService, { optional: true });
+  private readonly authService = inject(AuthService, { optional: true });
+
+  constructor() {
+    effect(() => {
+      if (this.authService?.isAuthenticated()) {
+        void this.facturationService?.loadCounter();
+      }
+    });
+  }
 
   readonly roomsCount = computed(() => (this.roomsService ? this.roomsService.rooms().length : 0));
   readonly occupiedRoomsCount = computed(() =>

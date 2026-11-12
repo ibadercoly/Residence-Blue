@@ -71,8 +71,8 @@ test.describe('Point de vente restaurant La Teranga', () => {
     await page.locator('[data-testid="btn-clear-ticket"]').click();
     await expect(page.getByText('Aucun article sur ce ticket')).toBeVisible();
 
-    // Le plat dish-3 (Poisson Grillé du Jour) est configuré comme épuisé (SOLD_OUT)
-    const soldOutCard = page.locator('[data-dish-id="dish-3"]');
+    // Le plat Poisson Grillé du Jour est configuré comme épuisé (SOLD_OUT) en base
+    const soldOutCard = page.locator('[data-testid="dish-card"]').filter({ hasText: 'Poisson Grillé du Jour' }).first();
     await expect(soldOutCard).toContainText('Épuisé');
 
     // Cliquer dessus

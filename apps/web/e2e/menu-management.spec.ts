@@ -1,7 +1,27 @@
 import { test, expect } from '@playwright/test';
+import { execFileSync } from 'child_process';
+import * as path from 'path';
 import { loginViaUi } from './auth-e2e.helper';
 
 test.describe('Gestion du menu restaurant La Teranga', () => {
+  test.afterAll(() => {
+    const repoRoot = path.resolve(__dirname, '../../..');
+    const script = `
+      const { PrismaClient } = require('@prisma/client');
+      const p = new PrismaClient();
+      (async () => {
+        await p.restaurantProduct.deleteMany({
+          where: { name: { in: ['Yassa Poulet Fermier (copie)', 'Caldou de Mérou Frais'] } },
+        });
+        await p.restaurantCategory.deleteMany({ where: { name: 'Glaces & Sorbets Locaux' } });
+        await p.restaurantProduct.updateMany({ where: { name: 'Thiéboudienne Royale' }, data: { status: 'AVAILABLE' } });
+        await p.restaurantProduct.updateMany({ where: { name: 'Mafé de Bœuf Fondant' }, data: { status: 'AVAILABLE' } });
+        await p.$disconnect();
+      })();
+    `;
+    execFileSync('node', ['--env-file=.env', '-e', script], { cwd: repoRoot, encoding: 'utf8' });
+  });
+
   test.beforeEach(async ({ page }) => {
     await loginViaUi(page, 'teranga.resto@residenceblue.sn', 'ThiesTeranga2024!');
   });

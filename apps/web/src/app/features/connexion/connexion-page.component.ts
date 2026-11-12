@@ -1,10 +1,8 @@
 import { Component, OnInit, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router } from '@angular/router';
-import { AuthService, TotpSetupPayload } from '../../core/services/auth.service';
+import { AuthService } from '../../core/services/auth.service';
 import { HotelSettingsService } from '../../core/services/hotel-settings.service';
-
-type LoginUiStep = 'CREDENTIALS' | 'MFA_VERIFY' | 'MFA_SETUP' | 'BACKUP_CODES';
 
 @Component({
   selector: 'app-connexion-page',
@@ -107,15 +105,7 @@ type LoginUiStep = 'CREDENTIALS' | 'MFA_VERIFY' | 'MFA_SETUP' | 'BACKUP_CODES';
 
               <div class="mb-6">
                 <h2 class="font-headline-sm text-headline-sm font-serif text-on-surface">
-                  @if (step() === 'CREDENTIALS') {
-                    Connexion Collaborateur
-                  } @else if (step() === 'MFA_VERIFY') {
-                    Double Authentification (2FA)
-                  } @else if (step() === 'MFA_SETUP') {
-                    Activation 2FA Obligatoire
-                  } @else {
-                    Codes de secours à conserver
-                  }
+                  Connexion Collaborateur
                 </h2>
                 <p class="font-body-md text-body-md text-on-surface-variant mt-1">
                   Portail de gestion hôtelière &amp; restaurant La Teranga
@@ -150,8 +140,7 @@ type LoginUiStep = 'CREDENTIALS' | 'MFA_VERIFY' | 'MFA_SETUP' | 'BACKUP_CODES';
                 </div>
               }
 
-              @if (step() === 'CREDENTIALS') {
-                <form class="flex flex-col gap-4" id="pms-login-form" (submit)="handleLogin($event)">
+              <form class="flex flex-col gap-4" id="pms-login-form" (submit)="handleLogin($event)">
                   <div class="flex flex-col gap-1.5">
                     <label class="font-label-lg text-label-lg text-on-surface flex items-center justify-between" for="user-login">
                       <span>Identifiant ou Email professionnel</span>
@@ -252,115 +241,6 @@ type LoginUiStep = 'CREDENTIALS' | 'MFA_VERIFY' | 'MFA_SETUP' | 'BACKUP_CODES';
                     }
                   </button>
                 </form>
-              }
-
-              @if (step() === 'MFA_VERIFY') {
-                <form class="flex flex-col gap-4" (submit)="handleTotpVerify($event)" data-testid="mfa-verify-form">
-                  <div class="p-3 rounded-xl bg-surface-container-low text-sm text-on-surface-variant">
-                    Bonjour <strong>{{ pendingUserName() }}</strong>. Saisissez le code à 6 chiffres de votre application d’authentification (ou un code de secours).
-                  </div>
-                  <div class="flex flex-col gap-1.5">
-                    <label class="font-label-lg text-label-lg text-on-surface" for="totp-code-input">
-                      Code TOTP ou code de secours
-                    </label>
-                    <input
-                      id="totp-code-input"
-                      type="text"
-                      [value]="totpCode()"
-                      (input)="onTotpCodeChange($event)"
-                      placeholder="123456 ou XXXX-XXXX"
-                      autocomplete="one-time-code"
-                      class="w-full h-12 px-4 rounded-lg bg-surface-container-lowest text-on-surface font-mono text-lg tracking-widest shadow-sm outline-none border border-outline-variant/40 focus:border-primary"
-                    />
-                  </div>
-                  <div class="flex gap-2">
-                    <button
-                      type="button"
-                      (click)="resetToCredentials()"
-                      class="px-4 h-12 rounded-lg bg-surface-container-high text-on-surface font-label-lg cursor-pointer"
-                    >
-                      Retour
-                    </button>
-                    <button
-                      id="verify-totp-btn"
-                      type="submit"
-                      [disabled]="authService.isLoading()"
-                      class="flex-1 h-12 rounded-lg bg-primary hover:bg-primary-container text-on-primary font-title-md cursor-pointer"
-                    >
-                      Valider le code
-                    </button>
-                  </div>
-                </form>
-              }
-
-              @if (step() === 'MFA_SETUP' && totpSetup(); as setup) {
-                <form class="flex flex-col gap-4" (submit)="handleTotpSetupConfirm($event)" data-testid="mfa-setup-form">
-                  <div class="p-3 rounded-xl bg-surface-container-low text-xs text-on-surface-variant leading-relaxed">
-                    La double authentification (2FA) est obligatoire pour votre rôle (<strong>{{ pendingUserName() }}</strong>).
-                    Ajoutez cette clé secrète dans votre application TOTP :
-                  </div>
-                  <div class="p-3 rounded-xl bg-surface-container border border-outline-variant/30 flex flex-col gap-1">
-                    <span class="text-[11px] uppercase tracking-wider text-outline font-bold">Clé secrète TOTP (Base32)</span>
-                    <code class="text-sm font-mono font-bold text-primary break-all select-all" data-testid="totp-secret-display">
-                      {{ setup.secret }}
-                    </code>
-                  </div>
-                  <div class="flex flex-col gap-1.5">
-                    <label class="font-label-lg text-label-lg text-on-surface" for="totp-setup-code-input">
-                      Confirmez avec le code à 6 chiffres généré
-                    </label>
-                    <input
-                      id="totp-setup-code-input"
-                      type="text"
-                      [value]="totpCode()"
-                      (input)="onTotpCodeChange($event)"
-                      placeholder="123456"
-                      autocomplete="one-time-code"
-                      class="w-full h-12 px-4 rounded-lg bg-surface-container-lowest text-on-surface font-mono text-lg tracking-widest shadow-sm outline-none border border-outline-variant/40 focus:border-primary"
-                    />
-                  </div>
-                  <div class="flex gap-2">
-                    <button
-                      type="button"
-                      (click)="resetToCredentials()"
-                      class="px-4 h-12 rounded-lg bg-surface-container-high text-on-surface font-label-lg cursor-pointer"
-                    >
-                      Annuler
-                    </button>
-                    <button
-                      id="confirm-totp-setup-btn"
-                      type="submit"
-                      [disabled]="authService.isLoading()"
-                      class="flex-1 h-12 rounded-lg bg-primary hover:bg-primary-container text-on-primary font-title-md cursor-pointer"
-                    >
-                      Activer la 2FA et continuer
-                    </button>
-                  </div>
-                </form>
-              }
-
-              @if (step() === 'BACKUP_CODES') {
-                <div class="flex flex-col gap-4" data-testid="backup-codes-panel">
-                  <div class="p-3 rounded-xl bg-amber-50 border border-amber-300 text-xs text-amber-900">
-                    Notez ces codes de secours à usage unique dès maintenant. Ils ne seront plus réaffichés.
-                  </div>
-                  <div class="grid grid-cols-2 gap-2 p-3 rounded-xl bg-surface-container">
-                    @for (code of backupCodes(); track code) {
-                      <code class="px-2 py-1.5 rounded bg-surface-container-lowest font-mono text-sm text-center font-semibold text-on-surface">
-                        {{ code }}
-                      </code>
-                    }
-                  </div>
-                  <button
-                    id="continue-after-backup-btn"
-                    type="button"
-                    (click)="proceedToDashboard()"
-                    class="w-full h-12 rounded-lg bg-primary hover:bg-primary-container text-on-primary font-title-md cursor-pointer"
-                  >
-                    J'ai enregistré mes codes • Accéder au PMS
-                  </button>
-                </div>
-              }
 
               <!-- Security Badge -->
               <div class="mt-6 flex items-center justify-center gap-2 py-2 px-3 rounded-lg bg-surface-container-low text-tertiary" data-adapted-zone="true">
@@ -396,16 +276,10 @@ export class ConnexionPageComponent implements OnInit {
   private readonly router = inject(Router, { optional: true });
   private readonly route = inject(ActivatedRoute, { optional: true });
 
-  readonly step = signal<LoginUiStep>('CREDENTIALS');
   readonly login = signal<string>('');
   readonly password = signal<string>('');
-  readonly totpCode = signal<string>('');
   readonly stayConnected8h = signal<boolean>(true);
   readonly showPassword = signal<boolean>(false);
-  readonly mfaToken = signal<string>('');
-  readonly pendingUserName = signal<string>('');
-  readonly totpSetup = signal<TotpSetupPayload | null>(null);
-  readonly backupCodes = signal<string[]>([]);
   readonly inactivityNotice = signal<boolean>(false);
 
   readonly loginInvalid = signal<boolean>(false);
@@ -435,11 +309,6 @@ export class ConnexionPageComponent implements OnInit {
     this.errorMessage.set(null);
   }
 
-  onTotpCodeChange(event: Event): void {
-    this.totpCode.set((event.target as HTMLInputElement).value);
-    this.errorMessage.set(null);
-  }
-
   onStayConnectedChange(event: Event): void {
     this.stayConnected8h.set((event.target as HTMLInputElement).checked);
   }
@@ -448,14 +317,6 @@ export class ConnexionPageComponent implements OnInit {
     alert(
       `Veuillez vous adresser au support informatique (${this.settingsService.supportPhone}) pour la réinitialisation de vos accès sécurisés Résidence Blue.`,
     );
-  }
-
-  resetToCredentials(): void {
-    this.step.set('CREDENTIALS');
-    this.totpCode.set('');
-    this.mfaToken.set('');
-    this.totpSetup.set(null);
-    this.errorMessage.set(null);
   }
 
   async handleLogin(event?: Event): Promise<void> {
@@ -477,29 +338,11 @@ export class ConnexionPageComponent implements OnInit {
 
     try {
       this.errorMessage.set(null);
-      const result = await this.authService.login({
+      await this.authService.login({
         login: currentLogin,
         password: currentPassword,
         stayConnected8h: this.stayConnected8h(),
       });
-
-      if (result.status === 'MFA_REQUIRED') {
-        this.mfaToken.set(result.mfaToken);
-        this.pendingUserName.set(result.user.fullName);
-        this.totpCode.set('');
-        this.step.set('MFA_VERIFY');
-        return;
-      }
-
-      if (result.status === 'MFA_SETUP_REQUIRED') {
-        this.mfaToken.set(result.mfaToken);
-        this.pendingUserName.set(result.user.fullName);
-        this.totpSetup.set(result.totpSetup);
-        this.totpCode.set('');
-        this.step.set('MFA_SETUP');
-        return;
-      }
-
       await this.router?.navigate(['/tableau-de-bord']);
     } catch (err) {
       this.errorMessage.set(
@@ -508,51 +351,5 @@ export class ConnexionPageComponent implements OnInit {
           : 'Identifiants incorrects. Veuillez vérifier votre adresse email ou mot de passe.',
       );
     }
-  }
-
-  async handleTotpVerify(event?: Event): Promise<void> {
-    if (event) event.preventDefault();
-    if (!this.totpCode().trim()) {
-      this.errorMessage.set('Veuillez saisir votre code à 6 chiffres ou code de secours.');
-      return;
-    }
-    try {
-      this.errorMessage.set(null);
-      await this.authService.verifyTotpLogin(this.mfaToken(), this.totpCode());
-      await this.router?.navigate(['/tableau-de-bord']);
-    } catch (err) {
-      this.errorMessage.set(
-        err instanceof Error ? err.message : 'Code de vérification invalide.',
-      );
-    }
-  }
-
-  async handleTotpSetupConfirm(event?: Event): Promise<void> {
-    if (event) event.preventDefault();
-    if (!this.totpCode().trim()) {
-      this.errorMessage.set('Veuillez saisir le code à 6 chiffres généré.');
-      return;
-    }
-    try {
-      this.errorMessage.set(null);
-      const res = await this.authService.confirmMandatoryTotpSetup(
-        this.mfaToken(),
-        this.totpCode(),
-      );
-      if (res.backupCodes.length > 0) {
-        this.backupCodes.set(res.backupCodes);
-        this.step.set('BACKUP_CODES');
-      } else {
-        await this.router?.navigate(['/tableau-de-bord']);
-      }
-    } catch (err) {
-      this.errorMessage.set(
-        err instanceof Error ? err.message : 'Code TOTP invalide.',
-      );
-    }
-  }
-
-  async proceedToDashboard(): Promise<void> {
-    await this.router?.navigate(['/tableau-de-bord']);
   }
 }

@@ -1,4 +1,4 @@
-import { Injectable, computed, inject, signal } from '@angular/core';
+import { Injectable, NgZone, computed, inject, signal } from '@angular/core';
 import { Router } from '@angular/router';
 import { Role } from '@residence-blue/shared';
 
@@ -34,24 +34,7 @@ export interface ConnectedSessionItem {
   expiresAt: string;
 }
 
-export interface TotpSetupPayload {
-  secret: string;
-  otpauthUri: string;
-}
-
-export type LoginStepResult =
-  | { status: 'AUTHENTICATED'; user: AuthUser }
-  | {
-      status: 'MFA_REQUIRED';
-      mfaToken: string;
-      user: { fullName: string; role: string };
-    }
-  | {
-      status: 'MFA_SETUP_REQUIRED';
-      mfaToken: string;
-      totpSetup: TotpSetupPayload;
-      user: { fullName: string; role: string };
-    };
+export type LoginStepResult = { status: 'AUTHENTICATED'; user: AuthUser };
 
 export const INACTIVITY_TIMEOUT_MS = 30 * 60 * 1000; // 30 minutes
 const ACCESS_REFRESH_MARGIN_MS = 60 * 1000; // Rafraîchissement anticipé 60s avant expiration
@@ -61,6 +44,7 @@ const ACCESS_REFRESH_MARGIN_MS = 60 * 1000; // Rafraîchissement anticipé 60s a
 })
 export class AuthService {
   private readonly router: Router | null;
+  private readonly ngZone: NgZone | null;
 
   // Jeton d'accès gardé STRICTEMENT en mémoire (jamais en localStorage ni sessionStorage)
   private accessToken: string | null = null;
@@ -84,14 +68,18 @@ export class AuthService {
   readonly error = this._error.asReadonly();
   readonly inactivityExpired = this._inactivityExpired.asReadonly();
 
-  constructor(routerOverride?: Router) {
+  constructor(routerOverride?: Router, ngZoneOverride?: NgZone) {
     let injectedRouter: Router | null = null;
+    let injectedNgZone: NgZone | null = null;
     try {
       injectedRouter = inject(Router, { optional: true });
+      injectedNgZone = inject(NgZone, { optional: true });
     } catch {
       injectedRouter = null;
+      injectedNgZone = null;
     }
     this.router = routerOverride ?? injectedRouter;
+    this.ngZone = ngZoneOverride ?? injectedNgZone;
     this.cleanupLegacyStorage();
     this.bindActivityListeners();
   }
@@ -165,13 +153,30 @@ export class AuthService {
       }
     };
 
-    for (const evt of ['mousemove', 'keydown', 'mousedown', 'touchstart', 'scroll']) {
-      window.addEventListener(evt, onUserActivity, { passive: true });
-    }
+    const attach = () => {
+      for (const evt of ['mousemove', 'keydown', 'mousedown', 'touchstart', 'scroll']) {
+        window.addEventListener(evt, onUserActivity, { passive: true });
+      }
 
-    this.inactivityInterval = setInterval(() => {
-      void this.checkInactivityAndLogoutIfExpired();
-    }, 30_000);
+      this.inactivityInterval = setInterval(() => {
+        if (!this.isAuthenticated()) return;
+        if (Date.now() - this.lastActivityAtMs >= INACTIVITY_TIMEOUT_MS) {
+          if (this.ngZone) {
+            this.ngZone.run(() => {
+              void this.logout('inactivity');
+            });
+          } else {
+            void this.logout('inactivity');
+          }
+        }
+      }, 30_000);
+    };
+
+    if (this.ngZone && typeof this.ngZone.runOutsideAngular === 'function') {
+      this.ngZone.runOutsideAngular(attach);
+    } else {
+      attach();
+    }
   }
 
   private applyAuthenticatedResponse(data: {
@@ -195,14 +200,28 @@ export class AuthService {
       this.refreshTimer = null;
     }
     const delay = Math.max(10_000, ttlMs - ACCESS_REFRESH_MARGIN_MS);
-    this.refreshTimer = setTimeout(() => {
-      if (!this.isAuthenticated()) return;
-      if (Date.now() - this.lastActivityAtMs >= INACTIVITY_TIMEOUT_MS) {
-        void this.logout('inactivity');
-        return;
-      }
-      void this.refreshToken();
-    }, delay);
+    const schedule = () => {
+      this.refreshTimer = setTimeout(() => {
+        if (!this.isAuthenticated()) return;
+        const runAction = () => {
+          if (Date.now() - this.lastActivityAtMs >= INACTIVITY_TIMEOUT_MS) {
+            void this.logout('inactivity');
+            return;
+          }
+          void this.refreshToken();
+        };
+        if (this.ngZone && typeof this.ngZone.run === 'function') {
+          this.ngZone.run(runAction);
+        } else {
+          runAction();
+        }
+      }, delay);
+    };
+    if (this.ngZone && typeof this.ngZone.runOutsideAngular === 'function') {
+      this.ngZone.runOutsideAngular(schedule);
+    } else {
+      schedule();
+    }
   }
 
   private clearInMemorySession(): void {
@@ -248,85 +267,15 @@ export class AuthService {
       if (!response.ok) {
         const msg =
           (typeof body?.message === 'string' && body.message) ||
-          'Identifiants incorrects. Veuillez vérifier votre adresse email ou mot de passe.';
+          (response.status === 401
+            ? 'Identifiants incorrects. Veuillez vérifier votre adresse email ou mot de passe.'
+            : `Serveur d'authentification inaccessible (HTTP ${response.status}).`);
         this._error.set(msg);
         throw new Error(msg);
-      }
-
-      if (body?.status === 'MFA_REQUIRED') {
-        return {
-          status: 'MFA_REQUIRED',
-          mfaToken: body.mfaToken,
-          user: body.user,
-        };
-      }
-
-      if (body?.status === 'MFA_SETUP_REQUIRED') {
-        return {
-          status: 'MFA_SETUP_REQUIRED',
-          mfaToken: body.mfaToken,
-          totpSetup: body.totpSetup,
-          user: body.user,
-        };
       }
 
       const user = this.applyAuthenticatedResponse(body);
       return { status: 'AUTHENTICATED', user };
-    } finally {
-      this._isLoading.set(false);
-    }
-  }
-
-  async verifyTotpLogin(mfaToken: string, code: string): Promise<AuthUser> {
-    this._isLoading.set(true);
-    this._error.set(null);
-    try {
-      const response = await fetch('/api/auth/login/totp', {
-        method: 'POST',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ mfaToken, code: code.trim() }),
-      });
-      const body = await response.json().catch(() => null);
-      if (!response.ok) {
-        const msg =
-          (typeof body?.message === 'string' && body.message) ||
-          'Code de vérification invalide.';
-        this._error.set(msg);
-        throw new Error(msg);
-      }
-      return this.applyAuthenticatedResponse(body);
-    } finally {
-      this._isLoading.set(false);
-    }
-  }
-
-  async confirmMandatoryTotpSetup(
-    mfaToken: string,
-    code: string,
-  ): Promise<{ user: AuthUser; backupCodes: string[] }> {
-    this._isLoading.set(true);
-    this._error.set(null);
-    try {
-      const response = await fetch('/api/auth/login/totp-setup', {
-        method: 'POST',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ mfaToken, code: code.trim() }),
-      });
-      const body = await response.json().catch(() => null);
-      if (!response.ok) {
-        const msg =
-          (typeof body?.message === 'string' && body.message) ||
-          'Code TOTP invalide.';
-        this._error.set(msg);
-        throw new Error(msg);
-      }
-      const user = this.applyAuthenticatedResponse(body);
-      return {
-        user,
-        backupCodes: Array.isArray(body?.backupCodes) ? body.backupCodes : [],
-      };
     } finally {
       this._isLoading.set(false);
     }
@@ -440,36 +389,6 @@ export class AuthService {
       credentials: 'include',
       headers: retryHeaders,
     });
-  }
-
-  async setupOptionalTotp(): Promise<TotpSetupPayload> {
-    const res = await this.authenticatedFetch('/api/auth/totp/setup', { method: 'POST' });
-    const body = await res.json().catch(() => null);
-    if (!res.ok) throw new Error(body?.message || 'Impossible d’initialiser le 2FA.');
-    return body;
-  }
-
-  async enableOptionalTotp(code: string): Promise<{ totpEnabled: boolean; backupCodes: string[] }> {
-    const res = await this.authenticatedFetch('/api/auth/totp/enable', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ code: code.trim() }),
-    });
-    const body = await res.json().catch(() => null);
-    if (!res.ok) throw new Error(body?.message || 'Code TOTP invalide.');
-    this._user.update((u) => (u ? { ...u, totpEnabled: true } : u));
-    return body;
-  }
-
-  async disableOptionalTotp(password: string, code: string): Promise<void> {
-    const res = await this.authenticatedFetch('/api/auth/totp/disable', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ password, code: code.trim() }),
-    });
-    const body = await res.json().catch(() => null);
-    if (!res.ok) throw new Error(body?.message || 'Désactivation 2FA refusée.');
-    this._user.update((u) => (u ? { ...u, totpEnabled: false } : u));
   }
 
   async listConnectedSessions(): Promise<ConnectedSessionItem[]> {

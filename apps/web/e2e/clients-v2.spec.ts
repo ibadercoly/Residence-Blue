@@ -88,7 +88,7 @@ test.describe('Clients V2 Fluide (E2E & Responsive)', () => {
     await expect(page.getByTestId('inline-display-address')).toContainText(updatedCity);
 
     // 3. Rollback sur échec de l'API
-    await page.route(`**/api/guests/${createdId}`, async (route) => {
+    await page.context().route(`**/api/guests/${createdId}`, async (route) => {
       if (route.request().method() === 'PATCH') {
         await route.fulfill({
           status: 500,
@@ -105,7 +105,7 @@ test.describe('Clients V2 Fluide (E2E & Responsive)', () => {
     await page.getByTestId('inline-input-nationality').press('Enter');
     await expect(page.getByTestId('inline-error-banner')).toBeVisible();
     await expect(page.getByTestId('inline-display-nationality')).toContainText('Sénégalaise');
-    await page.unroute(`**/api/guests/${createdId}`);
+    await page.context().unroute(`**/api/guests/${createdId}`);
 
     // 4. Détection de doublon pendant la frappe
     await page.getByTestId('new-client-btn').click();

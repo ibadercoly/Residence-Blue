@@ -1,4 +1,4 @@
-import { Injectable, signal, computed, inject, Injector } from '@angular/core';
+import { Injectable, signal, computed, effect, inject, Injector } from '@angular/core';
 import { IdbService } from '../offline/idb.service';
 import { OutboxService } from '../offline/outbox.service';
 import { NetworkService } from '../offline/network.service';
@@ -159,6 +159,15 @@ export class RoomsService {
     }
     this.authService = authServiceOverride ?? injectedAuth;
     this.initRooms();
+    try {
+      effect(() => {
+        if (this.authService?.isAuthenticated()) {
+          void this.fetchFromServer();
+        }
+      });
+    } catch {
+      // Hors contexte d'injection Angular
+    }
 
     // Rejeu automatique de l'outbox au retour de la connexion
     if (typeof window !== 'undefined') {

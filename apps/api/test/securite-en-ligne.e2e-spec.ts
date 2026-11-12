@@ -9,7 +9,6 @@ import { AppModule } from '../src/app.module';
 import { PrismaService } from '../src/prisma/prisma.service';
 import { SanitizedExceptionFilter } from '../src/common/filters/http-exception.filter';
 import { signJwt } from '../src/auth/jwt.util';
-import { generateTotpCode } from '../src/auth/totp.util';
 import { issueDbTestToken } from './auth-test.helper';
 
 describe('Sécurité En Ligne — Tests complets d’intrusion et de conformité (e2e)', () => {
@@ -291,9 +290,9 @@ describe('Sécurité En Ligne — Tests complets d’intrusion et de conformité
       expect(dbUser!.passwordHash.startsWith('$argon2id$')).toBe(true);
     });
 
-    it('impose le 2FA TOTP pour DIRECTION/COMPTABLE avec codes de secours à usage unique', async () => {
+    it('permet la connexion directe DIRECTION/COMPTABLE sans 2FA et rejette les anciennes routes TOTP', async () => {
       const dir = await issueDbTestToken(prisma, Role.DIRECTION);
-      const email = `totp.comptable.${Date.now()}@residenceblue.sn`;
+      const email = `direct.comptable.${Date.now()}@residenceblue.sn`;
       const pwd = 'ComptableStrong2026#!';
 
       const created = await request(app.getHttpServer())
@@ -303,60 +302,29 @@ describe('Sécurité En Ligne — Tests complets d’intrusion et de conformité
         .expect(201);
       createdUserIds.push(created.body.id);
 
-      // 1re connexion -> MFA_SETUP_REQUIRED
-      const step1 = await request(app.getHttpServer())
+      const loginRes = await request(app.getHttpServer())
         .post('/api/auth/login')
         .send({ login: email, password: pwd })
         .expect(200);
 
-      expect(step1.body.status).toBe('MFA_SETUP_REQUIRED');
-      expect(step1.body.accessToken).toBeUndefined();
-      const secret = step1.body.totpSetup.secret as string;
-      const totpCode = generateTotpCode(secret);
-
-      // Validation setup -> jeton d'accès + cookie httpOnly Secure SameSite=Strict + 8 codes de secours
-      const setupDone = await request(app.getHttpServer())
-        .post('/api/auth/login/totp-setup')
-        .send({ mfaToken: step1.body.mfaToken, code: totpCode })
-        .expect(200);
-
-      expect(setupDone.body.status).toBe('AUTHENTICATED');
-      expect(setupDone.body.accessToken).toBeDefined();
-      expect(setupDone.body.backupCodes).toHaveLength(8);
-      const setCookie = setupDone.headers['set-cookie'] as string[];
+      expect(loginRes.body.status).toBe('AUTHENTICATED');
+      expect(loginRes.body.accessToken).toBeDefined();
+      expect(loginRes.body.user.totpEnabled).toBe(false);
+      expect(loginRes.body.user.totpRequired).toBe(false);
+      const setCookie = loginRes.headers['set-cookie'] as string[];
       expect(setCookie.join(';')).toContain('HttpOnly');
       expect(setCookie.join(';')).toContain('Secure');
       expect(setCookie.join(';')).toContain('SameSite=Strict');
 
-      // Impossible pour COMPTABLE de désactiver sa 2FA
-      await request(app.getHttpServer())
-        .post('/api/auth/totp/disable')
-        .set('Authorization', `Bearer ${setupDone.body.accessToken}`)
-        .send({ password: pwd, code: generateTotpCode(secret) })
-        .expect(403);
-
-      // Connexion suivante -> MFA_REQUIRED, puis usage d'un code de secours (usage unique)
-      const step2 = await request(app.getHttpServer())
-        .post('/api/auth/login')
-        .send({ login: email, password: pwd })
-        .expect(200);
-      expect(step2.body.status).toBe('MFA_REQUIRED');
-
-      const oneBackup = setupDone.body.backupCodes[0] as string;
+      // Anciennes routes TOTP retirées
       await request(app.getHttpServer())
         .post('/api/auth/login/totp')
-        .send({ mfaToken: step2.body.mfaToken, code: oneBackup })
-        .expect(200);
-
-      // Rejouer le même code de secours doit échouer (401)
-      const step3 = await request(app.getHttpServer())
-        .post('/api/auth/login')
-        .send({ login: email, password: pwd })
-        .expect(200);
+        .send({ mfaToken: 'x', code: '123456' })
+        .expect(404);
       await request(app.getHttpServer())
-        .post('/api/auth/login/totp')
-        .send({ mfaToken: step3.body.mfaToken, code: oneBackup })
-        .expect(401);
+        .post('/api/auth/totp/setup')
+        .set('Authorization', `Bearer ${loginRes.body.accessToken}`)
+        .expect(404);
     });
   });
 

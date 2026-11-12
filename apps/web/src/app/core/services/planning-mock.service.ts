@@ -1,4 +1,4 @@
-import { Injectable, signal, computed, inject, Injector } from '@angular/core';
+import { Injectable, signal, computed, effect, inject, Injector } from '@angular/core';
 import { RoomsService } from './rooms.service';
 import { AuthService } from './auth.service';
 import { Observable, of } from 'rxjs';
@@ -217,6 +217,15 @@ export class PlanningMockService {
 
   constructor() {
     this.fetchFromServer();
+    try {
+      effect(() => {
+        if (this.authService?.isAuthenticated()) {
+          void this.fetchFromServer();
+        }
+      });
+    } catch {
+      // Hors contexte d'injection Angular
+    }
   }
 
   private get authService(): AuthService | null {

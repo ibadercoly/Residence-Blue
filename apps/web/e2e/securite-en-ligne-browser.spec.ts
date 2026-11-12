@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { execFileSync } from 'child_process';
 import * as path from 'path';
-import { deleteE2eUsers, generateTotpCode } from './auth-e2e.helper';
+import { deleteE2eUsers } from './auth-e2e.helper';
 
 const repoRoot = path.resolve(__dirname, '../../..');
 
@@ -73,20 +73,25 @@ test.describe('Sécurité En Ligne — Vérifications Navigateur E2E', () => {
     await page.waitForURL('**/connexion', { timeout: 10000 });
   });
 
-  test('impose le 2FA TOTP pour DIRECTION, affiche les codes de secours et la liste des appareils dans ModalShell', async ({
+  test('connecte directement DIRECTION sans 2FA et affiche la liste des appareils dans ModalShell', async ({
     page,
   }) => {
     const uniqueEmail = `e2e.dir.${Date.now()}@residenceblue.sn`;
     const pwd = 'DirectionStrong2026#!';
     createdEmails.push(uniqueEmail);
 
-    // Créer un utilisateur DIRECTION neuf (totpEnabled=false) en base avec argon2id
+    // Créer un utilisateur DIRECTION neuf en base avec argon2id
     runPrismaSnippet(`
       const argon2 = require('argon2');
       const { PrismaClient } = require('@prisma/client');
       const p = new PrismaClient();
       (async () => {
-        const hash = await argon2.hash(${JSON.stringify(pwd)}, { type: argon2.argon2id });
+        const hash = await argon2.hash(${JSON.stringify(pwd)}, {
+          type: argon2.argon2id,
+          memoryCost: 19456,
+          timeCost: 2,
+          parallelism: 1,
+        });
         await p.user.create({
           data: {
             email: ${JSON.stringify(uniqueEmail)},
@@ -106,20 +111,9 @@ test.describe('Sécurité En Ligne — Vérifications Navigateur E2E', () => {
     await page.locator('#user-password').fill(pwd);
     await page.locator('#login-btn').click();
 
-    // Étape 1 : activation obligatoire 2FA
-    await expect(page.getByTestId('mfa-setup-form')).toBeVisible({ timeout: 10000 });
-    const secret = (await page.getByTestId('totp-secret-display').innerText()).trim();
-    expect(secret.length).toBeGreaterThanOrEqual(16);
+    await page.waitForURL('**/tableau-de-bord', { timeout: 25000 });
 
-    await page.locator('#totp-setup-code-input').fill(generateTotpCode(secret));
-    await page.locator('#confirm-totp-setup-btn').click();
-
-    // Étape 2 : codes de secours affichés une fois
-    await expect(page.getByTestId('backup-codes-panel')).toBeVisible({ timeout: 10000 });
-    await page.locator('#continue-after-backup-btn').click();
-    await page.waitForURL('**/tableau-de-bord', { timeout: 10000 });
-
-    // Étape 3 : modale Appareils connectés (ModalShellComponent)
+    // Modale Appareils connectés (ModalShellComponent)
     await page.getByTestId('user-profile-dropdown-btn').click();
     await page.getByTestId('menu-sessions-btn').click();
     await expect(page.getByTestId('sessions-modal')).toBeVisible({ timeout: 10000 });

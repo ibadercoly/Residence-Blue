@@ -15,7 +15,9 @@ function cleanupEntities(opts: {
 }) {
   const prismaDir = path.join(repoRoot, 'apps/api');
   const script = `
-    import { PrismaClient } from '@prisma/client';
+    import { createRequire } from 'module';
+    const require = createRequire(${JSON.stringify(path.join(prismaDir, 'package.json'))});
+    const { PrismaClient } = require('@prisma/client');
     const prisma = new PrismaClient();
     async function main() {
       const invIds = ${JSON.stringify(opts.invoiceIds)};
@@ -43,7 +45,13 @@ function cleanupEntities(opts: {
     }
     main().finally(() => prisma.$disconnect());
   `;
-  execFileSync('npx', ['tsx', '-e', script], { cwd: prismaDir, stdio: 'inherit', shell: true });
+  const tmpScript = path.join(os.tmpdir(), `rb-cleanup-${Date.now()}-${Math.random().toString(36).slice(2)}.mjs`);
+  fs.writeFileSync(tmpScript, script, 'utf8');
+  try {
+    execFileSync(process.execPath, ['--env-file=.env', tmpScript], { cwd: repoRoot, stdio: 'inherit' });
+  } finally {
+    fs.rmSync(tmpScript, { force: true });
+  }
 }
 
 test.describe('Facturation V3 — Stabilité Service Worker (20 reloads) & Hors ligne', () => {
@@ -131,7 +139,12 @@ test.describe('Facturation V3 — Stabilité Service Worker (20 reloads) & Hors 
     });
 
     await loginViaUi(page, 'fatou.ndiaye@residenceblue.sn', 'ThiesTeranga2024!');
-    await page.waitForTimeout(1500);
+    await expect
+      .poll(
+        () => page.evaluate(async () => (await navigator.serviceWorker.getRegistrations()).length),
+        { timeout: 10000 },
+      )
+      .toBeGreaterThanOrEqual(1);
     const swRegs = await page.evaluate(async () => {
       const regs = await navigator.serviceWorker.getRegistrations();
       return regs.length;
@@ -266,7 +279,11 @@ test.describe('Facturation V3 — Stabilité Service Worker (20 reloads) & Hors 
 
       await ctx.close();
     } finally {
-      fs.rmSync(userDataDir, { recursive: true, force: true });
+      try {
+        fs.rmSync(userDataDir, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
+      } catch {
+        // Ignorer un verrou Windows transitoire sur le profil temporaire après fermeture de Chromium
+      }
     }
   });
 
