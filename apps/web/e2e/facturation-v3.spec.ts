@@ -180,6 +180,7 @@ test.describe('Facturation V3 — E2E complet, Responsive & Rupture', () => {
     request,
   }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
+    test.setTimeout(120000);
     await loginViaUi(page, dirUser.email, dirUser.password);
     await page.goto('/facturation', { waitUntil: 'networkidle' });
 

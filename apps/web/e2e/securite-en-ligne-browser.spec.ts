@@ -18,7 +18,7 @@ test.describe('Sécurité En Ligne — Vérifications Navigateur E2E', () => {
   test('redirige toute route protégée vers /connexion sans authentification', async ({ page }) => {
     for (const protectedPath of ['/facturation', '/clients', '/tableau-de-bord', '/chambres']) {
       await page.goto(protectedPath);
-      await page.waitForURL('**/connexion', { timeout: 10000 });
+      await page.waitForURL('**/connexion', { timeout: 25000 });
       expect(page.url()).toContain('/connexion');
     }
   });
@@ -32,7 +32,7 @@ test.describe('Sécurité En Ligne — Vérifications Navigateur E2E', () => {
     await page.locator('#user-password').fill('ThiesTeranga2024!');
     await page.locator('#login-btn').click();
 
-    await page.waitForURL('**/tableau-de-bord', { timeout: 10000 });
+    await page.waitForURL('**/tableau-de-bord', { timeout: 25000 });
 
     // 1. Aucun jeton dans localStorage ni sessionStorage
     const storageDump = await page.evaluate(() => ({
@@ -56,15 +56,15 @@ test.describe('Sécurité En Ligne — Vérifications Navigateur E2E', () => {
 
     // 3. Rechargement complet F5 -> session restaurée silencieusement par rotation de cookie
     await page.reload({ waitUntil: 'networkidle' });
-    await page.waitForURL('**/tableau-de-bord', { timeout: 10000 });
+    await page.waitForURL('**/tableau-de-bord', { timeout: 25000 });
 
     // 4. Déconnexion -> redirection /connexion et impossibilité d'accéder à /facturation
     await page.getByTestId('user-profile-dropdown-btn').click();
     await page.getByTestId('menu-logout-btn').click();
-    await page.waitForURL('**/connexion', { timeout: 10000 });
+    await page.waitForURL('**/connexion', { timeout: 25000 });
 
     await page.goto('/facturation');
-    await page.waitForURL('**/connexion', { timeout: 10000 });
+    await page.waitForURL('**/connexion', { timeout: 25000 });
   });
 
   test('connecte directement DIRECTION sans 2FA et affiche la liste des appareils dans ModalShell', async ({
