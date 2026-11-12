@@ -7,7 +7,7 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
-import { IS_PUBLIC_KEY, ROLES_KEY } from '../decorators/roles.decorator';
+import { ALLOW_DEFERRED_ROLES_KEY, IS_PUBLIC_KEY, ROLES_KEY } from '../decorators/roles.decorator';
 import { ServerModuleConfigService } from '../services/server-module-config.service';
 
 @Injectable()
@@ -54,7 +54,12 @@ export class RolesGuard implements CanActivate {
 
     const userRole = this.normalizeRole(user.role);
 
-    if (this.moduleConfig && !this.moduleConfig.isRoleEnabled(userRole)) {
+    const allowDeferredRoles = this.reflector.getAllAndOverride<boolean>(
+      ALLOW_DEFERRED_ROLES_KEY,
+      [context.getHandler(), context.getClass()],
+    );
+
+    if (!allowDeferredRoles && this.moduleConfig && !this.moduleConfig.isRoleEnabled(userRole)) {
       throw new ForbiddenException(
         `Accès refusé : le rôle « ${userRole} » est désactivé ou reporté en version ultérieure dans la configuration de l'établissement.`,
       );

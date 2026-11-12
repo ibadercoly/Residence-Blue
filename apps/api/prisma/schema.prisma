@@ -184,6 +184,7 @@ model Guest {
   @@index([phone])
   @@index([email])
   @@index([fullName])
+  @@index([createdAt])
   @@map("guests")
 }
 
@@ -220,6 +221,8 @@ model Reservation {
   @@index([guestId])
   @@index([status])
   @@index([checkInDate, checkOutDate])
+  @@index([checkedInAt])
+  @@index([checkedOutAt])
   @@map("reservations")
 }
 

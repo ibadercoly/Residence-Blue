@@ -6,3 +6,6 @@ export const Public = () => SetMetadata(IS_PUBLIC_KEY, true);
 
 export const ROLES_KEY = 'roles';
 export const Roles = (...roles: (UserRole | string)[]) => SetMetadata(ROLES_KEY, roles);
+
+export const ALLOW_DEFERRED_ROLES_KEY = 'allowDeferredRoles';
+export const AllowDeferredRoles = () => SetMetadata(ALLOW_DEFERRED_ROLES_KEY, true);

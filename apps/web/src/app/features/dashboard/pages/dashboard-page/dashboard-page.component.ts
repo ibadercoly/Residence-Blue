@@ -7,11 +7,12 @@ import { RoomsService } from '../../../../core/services/rooms.service';
 import { PlanningMockService } from '../../../../core/services/planning-mock.service';
 import { FacturationService } from '../../../../facturation-v3/services/facturation.service';
 import { AuthService } from '../../../../core/services/auth.service';
+import { AccueilStatsDuJourComponent } from '../../components/accueil-stats-du-jour/accueil-stats-du-jour.component';
 
 @Component({
   selector: 'app-dashboard-page',
   standalone: true,
-  imports: [CommonModule, RouterLink],
+  imports: [CommonModule, RouterLink, AccueilStatsDuJourComponent],
   host: { class: 'block w-full' },
   template: `
     <div class="p-4 sm:p-6 max-w-7xl mx-auto font-['Manrope'] pb-16 space-y-6">
@@ -204,6 +205,9 @@ import { AuthService } from '../../../../core/services/auth.service';
           </a>
         </div>
       </div>
+
+      <!-- 4b. Statistiques du jour (composant dédié) -->
+      <app-accueil-stats-du-jour />
 
       <!-- 5. Dialogue de confirmation Modal / Action Simple -->
       <div

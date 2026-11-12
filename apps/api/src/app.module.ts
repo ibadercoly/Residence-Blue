@@ -11,6 +11,7 @@ import { SettingsModule } from './settings/settings.module';
 import { RestaurantModule } from './restaurant/restaurant.module';
 import { BillingModule } from './billing/billing.module';
 import { ExportsModule } from './exports/exports.module';
+import { AccueilModule } from './accueil/accueil.module';
 import { AuditModule } from './common/audit/audit.module';
 import { RolesGuard } from './common/guards/roles.guard';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
@@ -33,6 +34,7 @@ import { ServerModuleConfigService } from './common/services/server-module-confi
     RestaurantModule,
     BillingModule,
     ExportsModule,
+    AccueilModule,
   ],
   controllers: [SecurityTestController],
   providers: [
