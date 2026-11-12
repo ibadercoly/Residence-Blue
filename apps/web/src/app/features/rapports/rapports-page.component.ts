@@ -8,38 +8,21 @@ import {
 import { CommonModule } from '@angular/common';
 import { RapportsPeriodKey } from '@residence-blue/shared';
 import { RapportsService } from './rapports.service';
+import { RapportsChartsComponent } from './rapports-charts.component';
+import { RapportsDailyTableComponent } from './rapports-daily-table.component';
+import { formatRapportsDeltaPhrase, formatRapportsFcfa } from './rapports-formatting';
+
+export { formatRapportsDeltaPhrase, formatRapportsFcfa } from './rapports-formatting';
 
 interface PeriodOption {
   key: RapportsPeriodKey;
   label: string;
 }
 
-export function formatRapportsFcfa(amount: number | undefined | null): string {
-  const safe = Math.round(Number(amount) || 0);
-  const formatted = new Intl.NumberFormat('fr-FR', {
-    maximumFractionDigits: 0,
-  })
-    .format(safe)
-    .replace(/\u202f/g, ' ')
-    .replace(/\u00a0/g, ' ');
-  return `${formatted} FCFA`;
-}
-
-export function formatRapportsDeltaPhrase(deltaPercent: number): string {
-  const abs = Math.abs(Math.round(deltaPercent));
-  if (deltaPercent > 0) {
-    return `▲ ${abs} % de plus que la période précédente`;
-  }
-  if (deltaPercent < 0) {
-    return `▼ ${abs} % de moins que la période précédente`;
-  }
-  return 'Identique à la période précédente';
-}
-
 @Component({
   selector: 'app-rapports-page',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, RapportsChartsComponent, RapportsDailyTableComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: 'block w-full min-w-0' },
   styles: [
@@ -493,6 +476,17 @@ export function formatRapportsDeltaPhrase(deltaPercent: number): string {
                 </article>
               }
             </section>
+          }
+
+          <!-- Les 8 diagrammes conditionnels -->
+          <app-rapports-charts
+            [report]="rep"
+            [comparePrevious]="service.comparePrevious()"
+          />
+
+          <!-- Tableau Jour par jour -->
+          @if (rep.dailyTable; as table) {
+            <app-rapports-daily-table [table]="table" />
           }
         }
       }
