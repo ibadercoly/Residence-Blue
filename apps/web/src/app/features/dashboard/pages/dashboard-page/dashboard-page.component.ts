@@ -5,7 +5,7 @@ import { ReservationModalService } from '../../../../core/services/reservation-m
 import { ModuleConfigService } from '../../../../core/services/module-config.service';
 import { RoomsService } from '../../../../core/services/rooms.service';
 import { PlanningMockService } from '../../../../core/services/planning-mock.service';
-import { FacturationMockService } from '../../../../core/services/facturation-mock.service';
+import { FacturationService } from '../../../../facturation-v3/services/facturation.service';
 
 @Component({
   selector: 'app-dashboard-page',
@@ -248,7 +248,7 @@ import { FacturationMockService } from '../../../../core/services/facturation-mo
 export class DashboardPageComponent {
   readonly roomsService = inject(RoomsService, { optional: true });
   readonly planningService = inject(PlanningMockService, { optional: true });
-  readonly facturationService = inject(FacturationMockService, { optional: true });
+  readonly facturationService = inject(FacturationService, { optional: true });
 
   readonly roomsCount = computed(() => (this.roomsService ? this.roomsService.rooms().length : 0));
   readonly occupiedRoomsCount = computed(() =>
@@ -270,9 +270,7 @@ export class DashboardPageComponent {
       : 0
   );
   readonly todayRevenueFcfa = computed(() => {
-    if (!this.facturationService) return 0;
-    const paidFolios = this.facturationService.closedFolios().reduce((sum, f) => sum + f.amountFcfa, 0);
-    return paidFolios;
+    return this.facturationService?.counter()?.kpis?.collectedTodayFcfa ?? 0;
   });
   readonly formattedTodayRevenue = computed(() => this.todayRevenueFcfa().toLocaleString('fr-FR'));
   private readonly router = inject(Router);

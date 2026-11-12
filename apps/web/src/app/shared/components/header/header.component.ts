@@ -156,11 +156,9 @@ export interface DemoRoleItem {
     >
       <div class="h-16 px-gutter-sm flex items-center justify-between gap-space-sm">
         <div class="flex items-center gap-space-sm min-w-0">
-          <img
-            alt="Logo Résidence Blue"
-            class="h-8 w-auto object-contain flex-shrink-0"
-            src="/assets/images/logo-missing.png"
-          />
+          <div class="w-9 h-9 rounded-xl bg-primary flex items-center justify-center text-on-primary shadow-sm flex-shrink-0">
+            <span class="material-symbols-outlined text-[20px]" aria-hidden="true">hotel</span>
+          </div>
           <div class="flex flex-col min-w-0">
             <span class="font-title-md text-title-md text-primary tracking-tight truncate leading-tight">Résidence Blue</span>
             <span class="font-label-md text-label-md text-on-surface-variant truncate">Tableau De Bord</span>

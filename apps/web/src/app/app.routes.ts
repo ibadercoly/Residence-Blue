@@ -60,15 +60,15 @@ export const routes: Routes = [
   {
     path: 'facturation/:id',
     loadComponent: () =>
-      import('./features/facturation/facturation-page.component').then(
-        (m) => m.FacturationPageComponent
+      import('./facturation-v3/components/note-sejour-page.component').then(
+        (m) => m.NoteSejourPageComponent
       )
   },
   {
     path: 'facturation',
     loadComponent: () =>
-      import('./features/facturation/facturation-page.component').then(
-        (m) => m.FacturationPageComponent
+      import('./facturation-v3/components/comptoir-page.component').then(
+        (m) => m.ComptoirPageComponent
       )
   },
   {

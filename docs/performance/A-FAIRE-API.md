@@ -4,6 +4,18 @@ Ce document répertorie les spécifications API pour le backend NestJS / Postgre
 
 ---
 
+### Statut d'implémentation — Refonte Facturation V3 (`feature/facturation-refonte`)
+
+- ✅ `GET /api/invoices/counter?search=&limit=8&openOffset=&partialOffset=&paidOffset=` : compteurs serveur (KPIs + Caisse du jour 5 modes + 3 colonnes paginées lots de 8).
+- ✅ `GET /api/invoices/:id` : détail complet d'une note de séjour (lignes groupées, taux lus depuis `HotelSetting`, totaux entiers FCFA, paiements, avoirs liés, mot-à-mot français).
+- ✅ `POST /api/invoices/:id/lines` & `DELETE /api/invoices/:id/lines/:lineId` : ajout/suppression atomique avec recalcul serveur tant que la note n'est pas émise (`RESTAURANT` limité aux lignes `RESTAURANT` sans totaux généraux).
+- ✅ `POST /api/invoices/room/:roomNumber/restaurant-charge` : imputation automatique d'une commande restaurant sur la chambre active.
+- ✅ `PATCH /api/invoices/:id/discount` : remise plafonnée avec seuil `discountThresholdPercent` lu de `HotelSetting` (`DIRECTION` requis au-delà).
+- ✅ `POST /api/invoices/:id/payments` & `POST /api/invoices/:id/payments/:paymentId/reverse` : encaissement idempotent (`Idempotency-Key`), rejet PAN carte, écriture inverse `DIRECTION` avec motif obligatoire.
+- ✅ `POST /api/invoices/:id/checkout` : transaction atomique (attribution séquence `FA-AAAA-NNNN`, réservation `COMPLETED`, chambre `DIRTY`, forçage `DIRECTION` avec motif).
+- ✅ `POST /api/invoices/:id/credit-notes` : émission d'avoir `AV-AAAA-NNNN` (`DIRECTION`, `COMPTABLE`) avec motif obligatoire.
+- ✅ `GET /api/invoices/:id/pdf` & `GET /api/invoices/cash-closure/export?format=pdf|excel` : génération A4 `pdfkit` et export `exceljs` côté serveur.
+
 ### Statut d'implémentation — Refonte « Nouvelle réservation » (`feature/reservation-refonte`)
 
 - ✅ `GET /api/rooms/available?checkIn=YYYY-MM-DD&checkOut=YYYY-MM-DD&category=` : implémenté dans `RoomsController` / `RoomsService` (renvoie uniquement les chambres actives, hors `MAINTENANCE`, sans réservation chevauchante, + tarifs `rates` mis en cache client).

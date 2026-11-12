@@ -42,6 +42,11 @@ enum InvoiceStatus {
   CANCELLED
 }
 
+enum InvoiceDocumentType {
+  INVOICE
+  CREDIT_NOTE
+}
+
 enum PaymentMethod {
   CASH
   WAVE
@@ -207,38 +212,60 @@ model Reservation {
 }
 
 model Invoice {
-  id                 String        @id @default(uuid()) @db.Uuid
-  invoiceNumber      String        @unique @map("invoice_number")
-  reservationId      String?       @map("reservation_id") @db.Uuid
-  reservation        Reservation?  @relation(fields: [reservationId], references: [id], onDelete: Restrict)
-  guestId            String?       @map("guest_id") @db.Uuid
-  guest              Guest?        @relation(fields: [guestId], references: [id], onDelete: Restrict)
-  roomId             String?       @map("room_id") @db.Uuid
-  room               Room?         @relation(fields: [roomId], references: [id], onDelete: Restrict)
-  subtotalHtFcfa     Int           @default(0) @map("subtotal_ht_fcfa")
-  vatRatePercent     Int           @default(10) @map("vat_rate_percent")
-  vatAmountFcfa      Int           @default(0) @map("vat_amount_fcfa")
-  tourismTaxFcfa     Int           @default(0) @map("tourism_tax_fcfa")
-  totalFcfa          Int           @default(0) @map("total_fcfa")
-  depositFcfa        Int           @default(0) @map("deposit_fcfa")
-  paidAmountFcfa     Int           @default(0) @map("paid_amount_fcfa")
-  balanceFcfa        Int           @default(0) @map("balance_fcfa")
-  status             InvoiceStatus @default(OPEN)
-  billingCompanyName String?       @map("billing_company_name")
-  billingNinea       String?       @map("billing_ninea")
-  billingAddress     String?       @map("billing_address")
-  issuedAt           DateTime      @default(now()) @map("issued_at")
-  settledAt          DateTime?     @map("settled_at")
-  createdAt          DateTime      @default(now()) @map("created_at")
-  updatedAt          DateTime      @updatedAt @map("updated_at")
-  lines              InvoiceLine[]
-  payments           Payment[]
+  id                   String              @id @default(uuid()) @db.Uuid
+  invoiceNumber        String?             @unique @map("invoice_number")
+  documentType         InvoiceDocumentType @default(INVOICE) @map("document_type")
+  isIssued             Boolean             @default(false) @map("is_issued")
+  parentInvoiceId      String?             @map("parent_invoice_id") @db.Uuid
+  parentInvoice        Invoice?            @relation("InvoiceCreditNotes", fields: [parentInvoiceId], references: [id], onDelete: Restrict)
+  creditNotes          Invoice[]           @relation("InvoiceCreditNotes")
+  reason               String?             @db.Text
+  reservationId        String?             @map("reservation_id") @db.Uuid
+  reservation          Reservation?        @relation(fields: [reservationId], references: [id], onDelete: Restrict)
+  guestId              String?             @map("guest_id") @db.Uuid
+  guest                Guest?              @relation(fields: [guestId], references: [id], onDelete: Restrict)
+  roomId               String?             @map("room_id") @db.Uuid
+  room                 Room?               @relation(fields: [roomId], references: [id], onDelete: Restrict)
+  subtotalHtFcfa       Int                 @default(0) @map("subtotal_ht_fcfa")
+  discountFcfa         Int                 @default(0) @map("discount_fcfa")
+  serviceRatePercent   Int                 @default(0) @map("service_rate_percent")
+  serviceAmountFcfa    Int                 @default(0) @map("service_amount_fcfa")
+  vatRatePercent       Int                 @default(10) @map("vat_rate_percent")
+  vatAmountFcfa        Int                 @default(0) @map("vat_amount_fcfa")
+  tourismTaxFcfa       Int                 @default(0) @map("tourism_tax_fcfa")
+  totalFcfa            Int                 @default(0) @map("total_fcfa")
+  depositFcfa          Int                 @default(0) @map("deposit_fcfa")
+  paidAmountFcfa       Int                 @default(0) @map("paid_amount_fcfa")
+  balanceFcfa          Int                 @default(0) @map("balance_fcfa")
+  status               InvoiceStatus       @default(OPEN)
+  forcedCheckout       Boolean             @default(false) @map("forced_checkout")
+  forcedCheckoutReason String?             @map("forced_checkout_reason") @db.Text
+  billingCompanyName   String?             @map("billing_company_name")
+  billingNinea         String?             @map("billing_ninea")
+  billingAddress       String?             @map("billing_address")
+  issuedAt             DateTime            @default(now()) @map("issued_at")
+  settledAt            DateTime?           @map("settled_at")
+  createdAt            DateTime            @default(now()) @map("created_at")
+  updatedAt            DateTime            @updatedAt @map("updated_at")
+  lines                InvoiceLine[]
+  payments             Payment[]
 
   @@index([reservationId])
   @@index([guestId])
   @@index([roomId])
   @@index([status])
+  @@index([parentInvoiceId])
+  @@index([isIssued])
   @@map("invoices")
+}
+
+model InvoiceSequence {
+  id      String @id
+  docType String @map("doc_type")
+  year    Int
+  lastSeq Int    @default(0) @map("last_seq")
+
+  @@map("invoice_sequences")
 }
 
 model InvoiceLine {
@@ -248,32 +275,41 @@ model InvoiceLine {
   dateLabel      String   @default("") @map("date_label")
   description    String
   subDescription String?  @map("sub_description")
-  category       String   @default("ROOM")
+  category       String   @default("HEBERGEMENT")
   quantity       Int      @default(1)
   quantityLabel  String?  @map("quantity_label")
   unitPriceFcfa  Int      @map("unit_price_fcfa")
   totalPriceFcfa Int      @map("total_price_fcfa")
+  isSystem       Boolean  @default(false) @map("is_system")
+  sourceOrderId  String?  @map("source_order_id") @db.Uuid
   createdAt      DateTime @default(now()) @map("created_at")
 
   @@index([invoiceId])
+  @@index([sourceOrderId])
   @@map("invoice_lines")
 }
 
 model Payment {
-  id             String        @id @default(uuid()) @db.Uuid
-  invoiceId      String        @map("invoice_id") @db.Uuid
-  invoice        Invoice       @relation(fields: [invoiceId], references: [id], onDelete: Restrict)
-  method         PaymentMethod
-  amountFcfa     Int           @map("amount_fcfa")
-  transactionRef String?       @map("transaction_ref")
-  receivedById   String?       @map("received_by_id") @db.Uuid
-  receivedBy     User?         @relation("ReceivedPayments", fields: [receivedById], references: [id], onDelete: SetNull)
-  paidAt         DateTime      @default(now()) @map("paid_at")
-  createdAt      DateTime      @default(now()) @map("created_at")
+  id                String        @id @default(uuid()) @db.Uuid
+  invoiceId         String        @map("invoice_id") @db.Uuid
+  invoice           Invoice       @relation(fields: [invoiceId], references: [id], onDelete: Restrict)
+  method            PaymentMethod
+  amountFcfa        Int           @map("amount_fcfa")
+  transactionRef    String?       @map("transaction_ref")
+  receivedById      String?       @map("received_by_id") @db.Uuid
+  receivedBy        User?         @relation("ReceivedPayments", fields: [receivedById], references: [id], onDelete: SetNull)
+  receivedByName    String?       @map("received_by_name")
+  isReversal        Boolean       @default(false) @map("is_reversal")
+  reversedPaymentId String?       @map("reversed_payment_id") @db.Uuid
+  reversalReason    String?       @map("reversal_reason") @db.Text
+  idempotencyKey    String?       @unique @map("idempotency_key")
+  paidAt            DateTime      @default(now()) @map("paid_at")
+  createdAt         DateTime      @default(now()) @map("created_at")
 
   @@index([invoiceId])
   @@index([method])
   @@index([paidAt])
+  @@index([reversedPaymentId])
   @@map("payments")
 }
 
@@ -380,7 +416,10 @@ model HotelSetting {
   restaurantName              String   @default("La Teranga") @map("restaurant_name")
   currency                    String   @default("XOF")
   vatRatePercent              Int      @default(10) @map("vat_rate_percent")
+  serviceRatePercent          Int?     @map("service_rate_percent")
   tourismTaxPerNightPerPerson Int      @default(1000) @map("tourism_tax_per_night_per_person")
+  discountThresholdPercent    Int?     @map("discount_threshold_percent")
+  invoiceLogoPath             String?  @map("invoice_logo_path")
   exchangeRateEurToFcfa       Float    @default(655.957) @map("exchange_rate_eur_to_fcfa")
   updatedAt                   DateTime @updatedAt @map("updated_at")
 

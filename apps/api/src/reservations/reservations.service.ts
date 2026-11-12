@@ -378,20 +378,21 @@ export class ReservationsService {
             const balanceFcfa = Math.max(0, totalFcfa - depositFcfa);
             const invStatus =
               balanceFcfa === 0 ? InvoiceStatus.PAID : InvoiceStatus.PARTIAL;
-            const invoiceNumber = `FAC-${year}-${crypto.randomBytes(3).toString('hex').toUpperCase()}`;
 
             const invoice = await tx.invoice.create({
               data: {
-                invoiceNumber,
+                invoiceNumber: null,
+                isIssued: false,
                 reservationId: res.id,
                 guestId: resolvedGuestId,
                 roomId: room.id,
+                discountFcfa,
                 subtotalHtFcfa,
                 vatRatePercent,
                 vatAmountFcfa,
                 tourismTaxFcfa,
                 totalFcfa,
-                depositFcfa,
+                depositFcfa: 0,
                 paidAmountFcfa: depositFcfa,
                 balanceFcfa,
                 status: invStatus,
@@ -402,11 +403,12 @@ export class ReservationsService {
                       dateLabel: checkInStr,
                       description: `Séjour Chambre ${room.number} (${room.category})`,
                       subDescription: `${nights} nuit(s) × ${ratePerNight} FCFA`,
-                      category: 'ROOM',
+                      category: 'HEBERGEMENT',
                       quantity: nights,
                       quantityLabel: `${nights}n`,
                       unitPriceFcfa: ratePerNight,
-                      totalPriceFcfa: Math.max(0, accommodationTotal - discountFcfa),
+                      totalPriceFcfa: accommodationTotal,
+                      isSystem: true,
                     },
                     ...(tourismTaxFcfa > 0
                       ? [

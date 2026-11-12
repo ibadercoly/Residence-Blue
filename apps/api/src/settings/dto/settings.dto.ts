@@ -71,7 +71,25 @@ export class UpdateHotelSettingsDto {
   @Type(() => Number)
   @IsInt()
   @Min(0)
+  @Max(100)
+  serviceRatePercent?: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
   tourismTaxPerNightPerPerson?: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  @Max(100)
+  discountThresholdPercent?: number;
+
+  @IsOptional()
+  @IsString()
+  invoiceLogoPath?: string;
 
   @IsOptional()
   @Type(() => Number)

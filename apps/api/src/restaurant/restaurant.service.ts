@@ -247,6 +247,20 @@ export class RestaurantService {
       if (r) resolvedRoomId = r.id;
     }
 
+    let resolvedReservationId =
+      dto.reservationId && /^[0-9a-f-]{36}$/i.test(dto.reservationId) ? dto.reservationId : null;
+    if (!resolvedReservationId && resolvedRoomId && (dto.destinationType === 'ROOM' || resolvedRoomId)) {
+      const activeStay = await this.prisma.reservation.findFirst({
+        where: {
+          roomId: resolvedRoomId,
+          status: { in: ['CHECKED_IN', 'CONFIRMED'] },
+        },
+        orderBy: [{ status: 'asc' }, { checkIn: 'desc' }],
+        select: { id: true },
+      });
+      if (activeStay) resolvedReservationId = activeStay.id;
+    }
+
     const totalTtcFcfa = dto.items.reduce(
       (sum, it) => sum + (it.totalPriceFcfa !== undefined ? Math.round(it.totalPriceFcfa) : Math.round(it.unitPriceFcfa) * Math.round(it.quantity)),
       0,
@@ -263,7 +277,7 @@ export class RestaurantService {
           destinationType: dto.destinationType || (resolvedRoomId ? 'ROOM' : 'TABLE'),
           tableLabel: dto.tableLabel || 'T1',
           roomId: resolvedRoomId,
-          reservationId: dto.reservationId && /^[0-9a-f-]{36}$/i.test(dto.reservationId) ? dto.reservationId : null,
+          reservationId: resolvedReservationId,
           serverName: dto.serverName || 'Moussa Fall',
           status: dto.status || 'SENT_TO_KITCHEN',
           subtotalHtFcfa,

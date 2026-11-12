@@ -16,7 +16,10 @@ export interface HotelSettings {
   restaurantName: string;
   currency: string;
   vatRatePercent: number; // 10% taux réduit hôtellerie au Sénégal
+  serviceRatePercent?: number | null;
   tourismTaxPerNightPerPerson: number; // 1000 FCFA
+  discountThresholdPercent?: number | null;
+  invoiceLogoPath?: string | null;
 }
 
 @Injectable({
