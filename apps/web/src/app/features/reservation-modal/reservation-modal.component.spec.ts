@@ -80,4 +80,19 @@ describe('ReservationModalComponent', () => {
     expect(comp.canSubmit()).toBe(false);
     comp.ngOnDestroy();
   });
+
+  it('devrait pré-sélectionner un client quand ouvert avec guestId', () => {
+    service.open({
+      roomNumber: '101',
+      guestId: 'guest-uuid-1',
+      guestName: 'Moussa Kane',
+      guestPhone: '+221 77 444 55 66',
+    });
+    const comp = new ReservationModalComponent(service);
+    comp.ngOnInit();
+
+    expect(comp.selectedGuest()?.id).toBe('guest-uuid-1');
+    expect(comp.selectedGuest()?.fullName).toBe('Moussa Kane');
+    comp.ngOnDestroy();
+  });
 });

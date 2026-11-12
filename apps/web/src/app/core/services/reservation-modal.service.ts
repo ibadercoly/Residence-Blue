@@ -1,4 +1,4 @@
-import { Injectable, Type, inject, signal } from '@angular/core';
+import { Injectable, Injector, inject, signal } from '@angular/core';
 import {
   AvailableRoomItem,
   AvailableRoomsResponse,
@@ -8,10 +8,6 @@ import {
   HotelRatesConfig,
   ReservationModalParams,
 } from '../models/reservation-modal.model';
-import { PlanningMockService } from './planning-mock.service';
-import { RoomsService } from './rooms.service';
-import { ClientsService } from './clients.service';
-import { OutboxService } from '../offline/outbox.service';
 
 export interface SubmitReservationResult {
   ok: boolean;
@@ -23,9 +19,9 @@ export interface SubmitReservationResult {
 
 const RATES_CACHE_TTL_MS = 5 * 60 * 1000;
 
-function safeInject<T>(token: Type<T>): T | null {
+function safeInjectInjector(): Injector | null {
   try {
-    return inject(token, { optional: true });
+    return inject(Injector);
   } catch {
     return null;
   }
@@ -35,10 +31,7 @@ function safeInject<T>(token: Type<T>): T | null {
   providedIn: 'root',
 })
 export class ReservationModalService {
-  private readonly planningService = safeInject(PlanningMockService);
-  private readonly roomsService = safeInject(RoomsService);
-  private readonly clientsService = safeInject(ClientsService);
-  private readonly outboxService = safeInject(OutboxService);
+  private readonly injector = safeInjectInjector();
 
   readonly isOpen = signal<boolean>(false);
   readonly currentParams = signal<ReservationModalParams | null>(null);
@@ -159,7 +152,6 @@ export class ReservationModalService {
       if (err?.name === 'AbortError') {
         throw err;
       }
-      // Fallback hors ligne depuis le cache mémoire des services si réseau indisponible
       if (typeof navigator !== 'undefined' && !navigator.onLine) {
         return this.buildOfflineAvailableRooms(checkIn, checkOut, category);
       }
@@ -171,37 +163,50 @@ export class ReservationModalService {
     }
   }
 
-  private buildOfflineAvailableRooms(
+  private async buildOfflineAvailableRooms(
     checkIn: string,
     checkOut: string,
     category?: string,
-  ): AvailableRoomsResponse {
-    const rooms = this.roomsService?.activeRooms() ?? [];
-    const reservations = this.planningService?.allReservations() ?? [];
-    const items: AvailableRoomItem[] = rooms
-      .filter((r) => r.status !== 'MAINTENANCE')
-      .filter((r) => !category || category === 'ALL' || r.category === category)
-      .filter(
-        (r) =>
-          !reservations.some(
-            (res) =>
-              res.roomNumber === r.number &&
-              String(res.status) !== 'ANNULE' &&
-              checkIn < res.checkOutDate &&
-              res.checkInDate < checkOut,
-          ),
-      )
-      .map((r) => ({
-        id: r.id,
-        number: r.number,
-        category: r.category || r.type?.name || 'Standard',
-        floor: r.floor,
-        adultsCapacity: r.adultsCapacity ?? 2,
-        childrenCapacity: r.childrenCapacity ?? 0,
-        capacity: (r.adultsCapacity ?? 2) + (r.childrenCapacity ?? 0),
-        pricePerNight: r.type?.pricePerNight ?? 35000,
-        breakfastIncluded: r.breakfastIncluded ?? true,
-      }));
+  ): Promise<AvailableRoomsResponse> {
+    let items: AvailableRoomItem[] = [];
+    if (this.injector) {
+      try {
+        const [{ RoomsService }, { PlanningMockService }] = await Promise.all([
+          import('./rooms.service'),
+          import('./planning-mock.service'),
+        ]);
+        const roomsService = this.injector.get(RoomsService, null);
+        const planningService = this.injector.get(PlanningMockService, null);
+        const rooms = roomsService?.activeRooms() ?? [];
+        const reservations = planningService?.allReservations() ?? [];
+        items = rooms
+          .filter((r) => r.status !== 'MAINTENANCE')
+          .filter((r) => !category || category === 'ALL' || r.category === category)
+          .filter(
+            (r) =>
+              !reservations.some(
+                (res) =>
+                  res.roomNumber === r.number &&
+                  String(res.status) !== 'ANNULE' &&
+                  checkIn < res.checkOutDate &&
+                  res.checkInDate < checkOut,
+              ),
+          )
+          .map((r) => ({
+            id: r.id,
+            number: r.number,
+            category: r.category || r.type?.name || 'Standard',
+            floor: r.floor,
+            adultsCapacity: r.adultsCapacity ?? 2,
+            childrenCapacity: r.childrenCapacity ?? 0,
+            capacity: (r.adultsCapacity ?? 2) + (r.childrenCapacity ?? 0),
+            pricePerNight: r.type?.pricePerNight ?? 35000,
+            breakfastIncluded: r.breakfastIncluded ?? true,
+          }));
+      } catch {
+        items = [];
+      }
+    }
 
     const nights = Math.max(
       1,
@@ -307,32 +312,55 @@ export class ReservationModalService {
 
       const created: CreatedReservationResponse = body;
       this.lastCreatedReservation.set(created);
-
-      // Mise à jour immédiate du Planning, des Chambres et du Tableau de bord
-      this.planningService?.upsertReservationFromApi(created as any);
-      void this.roomsService?.fetchFromServer?.();
-      if (payload.newGuest && this.clientsService) {
-        void this.clientsService.loadDirectory?.(true);
-      }
+      void this.syncRelatedStores(created, Boolean(payload.newGuest));
 
       this.close();
       this.showFeedback('Réservation enregistrée');
       return { ok: true, reservation: created };
     } catch {
-      if (typeof navigator !== 'undefined' && !navigator.onLine && this.outboxService) {
-        await this.outboxService.enqueue('RESERVATION_CREATE', '/api/reservations', {
-          ...payload,
-          idempotencyKey,
-        });
-        this.close();
-        this.showFeedback('Réservation mise en attente de synchronisation');
-        return { ok: true, offlineQueued: true };
+      if (typeof navigator !== 'undefined' && !navigator.onLine && this.injector) {
+        try {
+          const { OutboxService } = await import('../offline/outbox.service');
+          const outboxService = this.injector.get(OutboxService, null);
+          if (outboxService) {
+            await outboxService.enqueue('RESERVATION_CREATE', '/api/reservations', {
+              ...payload,
+              idempotencyKey,
+            });
+            this.close();
+            this.showFeedback('Réservation mise en attente de synchronisation');
+            return { ok: true, offlineQueued: true };
+          }
+        } catch {
+          // fallback ci-dessous
+        }
       }
       const msg = 'Erreur réseau lors de l’enregistrement de la réservation.';
       this.errorMessage.set(msg);
       return { ok: false, message: msg };
     } finally {
       this.isSubmitting.set(false);
+    }
+  }
+
+  private async syncRelatedStores(
+    created: CreatedReservationResponse,
+    hasNewGuest: boolean,
+  ): Promise<void> {
+    if (!this.injector) return;
+    try {
+      const [{ PlanningMockService }, { RoomsService }] = await Promise.all([
+        import('./planning-mock.service'),
+        import('./rooms.service'),
+      ]);
+      this.injector.get(PlanningMockService, null)?.upsertReservationFromApi(created as any);
+      void this.injector.get(RoomsService, null)?.fetchFromServer?.();
+      if (hasNewGuest) {
+        const { ClientsService } = await import('./clients.service');
+        void this.injector.get(ClientsService, null)?.loadDirectory?.(true);
+      }
+    } catch {
+      // Silencieux si module non encore chargé
     }
   }
 }

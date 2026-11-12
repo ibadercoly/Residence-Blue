@@ -53,14 +53,14 @@ interface MobileNavItem {
       }
 
       <!-- Modal Nouvelle Réservation Réutilisable (chargée à la demande) -->
-      @defer (when modalService?.isOpen(); prefetch on idle) {
+      @defer (when modalService?.isOpen(); prefetch on immediate) {
         @if (modalService?.isOpen()) {
           <app-reservation-modal />
         }
       } @loading (minimum 0ms) {
         @if (modalService?.isOpen()) {
           <div
-            class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 md:p-4"
+            class="fixed inset-0 z-[60] flex items-center justify-center bg-slate-900/50 md:p-4"
             data-testid="reservation-modal-skeleton"
             role="status"
             aria-label="Chargement de la fenêtre de réservation"

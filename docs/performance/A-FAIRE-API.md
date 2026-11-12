@@ -4,6 +4,15 @@ Ce document répertorie les spécifications API pour le backend NestJS / Postgre
 
 ---
 
+### Statut d'implémentation — Refonte « Nouvelle réservation » (`feature/reservation-refonte`)
+
+- ✅ `GET /api/rooms/available?checkIn=YYYY-MM-DD&checkOut=YYYY-MM-DD&category=` : implémenté dans `RoomsController` / `RoomsService` (renvoie uniquement les chambres actives, hors `MAINTENANCE`, sans réservation chevauchante, + tarifs `rates` mis en cache client).
+- ✅ `GET /api/guests/search?q=...&limit=5` : implémenté dans `GuestsController` / `GuestsService` (recherche légère limitée à 5 résultats max : `id`, `fullName`, `phone`).
+- ✅ `POST /api/reservations` : implémenté en transaction Prisma `Serializable` + contrainte PostgreSQL `btree_gist` (`room_id`, `daterange` `[)`), création atomique client rapide + réservation + acompte/facture + `AuditLog`, rejet `409 Conflict` sur double réservation concurrente.
+- ⚠️ `GET /api/planning` (vue consolidée 7 jours temps réel) : reste partiellement alimenté par `GET /api/reservations` + état local `PlanningMockService` (aucune création de serveur supplémentaire effectuée).
+
+---
+
 ## 1. Module Planning (Vue Semaine 7 Jours)
 
 ### `GET /api/planning`

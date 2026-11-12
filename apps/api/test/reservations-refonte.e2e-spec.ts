@@ -341,5 +341,59 @@ describe('Réservations Refonte API (e2e)', () => {
     expect(loser.body.message).toContain(
       "Cette chambre vient d'être réservée, choisissez-en une autre",
     );
+  }, 15000);
+
+  it('Porte de sécurité : RBAC refusé par défaut, forbidNonWhitelisted (falsification tarif), rejet PAN bancaire et SQLi neutralisée', async () => {
+    // 1. RBAC : rôle SERVEUR ou CUISINE refusé (403)
+    await request(app.getHttpServer())
+      .get('/api/rooms/available')
+      .query({ checkIn: '2026-12-10', checkOut: '2026-12-12' })
+      .set('x-user-role', 'SERVEUR')
+      .expect(403);
+
+    await request(app.getHttpServer())
+      .get('/api/guests/search')
+      .query({ q: 'Diop' })
+      .set('x-user-role', 'CUISINE')
+      .expect(403);
+
+    // 2. Falsification de champs interdits (forbidNonWhitelisted) -> 400
+    await request(app.getHttpServer())
+      .post('/api/reservations')
+      .set('x-user-role', 'RECEPTION')
+      .send({
+        roomId: '00000000-0000-0000-0000-000000000001',
+        guestId: '00000000-0000-0000-0000-000000000002',
+        checkInDate: '2027-02-01',
+        checkOutDate: '2027-02-03',
+        adultsCount: 1,
+        totalFcfa: 100, // champ non autorisé dans le DTO
+      })
+      .expect(400);
+
+    // 3. Numéro de carte bancaire (PAN) interdit dans transactionRef -> 400
+    await request(app.getHttpServer())
+      .post('/api/reservations')
+      .set('x-user-role', 'RECEPTION')
+      .send({
+        roomId: '00000000-0000-0000-0000-000000000001',
+        guestId: '00000000-0000-0000-0000-000000000002',
+        checkInDate: '2027-02-01',
+        checkOutDate: '2027-02-03',
+        adultsCount: 1,
+        depositFcfa: 10000,
+        paymentMethod: 'CARD',
+        transactionRef: '4532 1111 2222 3333',
+      })
+      .expect(400);
+
+    // 4. Tentative d'injection SQL sur GET /api/guests/search -> neutralisée par Prisma
+    const sqliRes = await request(app.getHttpServer())
+      .get('/api/guests/search')
+      .query({ q: "' OR '1'='1; DROP TABLE users;--" })
+      .set('x-user-role', 'RECEPTION')
+      .expect(200);
+    expect(Array.isArray(sqliRes.body.items)).toBe(true);
+    expect(sqliRes.body.items.length).toBeLessThanOrEqual(5);
   });
 });

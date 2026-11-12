@@ -50,4 +50,22 @@
 
 ## ÉTAPE 5 — Mesures APRÈS refonte
 
-*(Section complétée après implémentation, tests et mesures de vérification.)*
+> **Date de mesure APRÈS :** 12 novembre 2026 (Chrome headless, `http://localhost:4200/tableau-de-bord` + API NestJS `:3000` + PostgreSQL 16).
+
+| Métrique | Mesure AVANT | Mesure APRÈS | Budget cible | Verdict APRÈS |
+| :--- | :---: | :---: | :---: | :---: |
+| **Temps clic → fenêtre utilisable** | **429 ms** | **110,2 ms** | < 150 ms (hors réseau) | ✅ Réussi (`-74 %`, `prefetch on immediate`) |
+| **Latence d'une frappe (jusqu'à rAF)** | **208,97 ms** moy. / **421,4 ms** max | **17,16 ms** moy. (1ère passe **8,56 ms**) | < 50 ms | ✅ Réussi (`12×` plus rapide) |
+| **Nœuds DOM dans la fenêtre** | **233 nœuds** (426 page) | **164 nœuds** (356 page) | ≤ 300 nœuds | ✅ Réussi (`-30 %`) |
+| **Requêtes API à l'ouverture** | 0 (100% mocks) | **1 requête** (`GET /api/rooms/available`, **2 447 octets**) | ≤ 2 requêtes, < 20 Ko | ✅ Réussi (`2,39 Ko`) |
+| **Détection de changements** | `Default` partout | **`OnPush` + signaux** | `OnPush` isolé | ✅ Réussi |
+| **Mémoire JS Heap (cycles successifs)** | 5,52 → 5,65 Mo (10 cycles, toujours montée) | **13,40 → 11,15 Mo** (20 cycles, démontée à la fermeture) | Stable sur 20 ouvertures | ✅ Aucune fuite |
+| **Poids du code de la fenêtre** | **Dans `main` (248,6 Ko)** — TS 62,8 Ko | **Chunk différé `chunk-CZVF6Pvy.js` : 39,29 Ko brut / 8,98 Ko gzip** (`main` : 55,65 Ko gzip) | Chargement différé (`@defer`) | ✅ Réussi (`-86 %` transfer) |
+| **Barre de défilement verticale** | 0 px visible (`offsetWidth == clientWidth`) | **15 px visible** (`958 > 943` desktop ; `360 > 345` mobile), `overflow-y: scroll` | Toujours visible (10–12 px + gutter) | ✅ Réussi |
+| **Effets visuels & scroll horizontal** | `backdrop-filter: blur(12px)` + grande ombre | **`backdrop-filter: none`**, 0 scroll horizontal à `360, 768, 1024, 1440 px` | Sans flou ni scroll H | ✅ Réussi |
+| **Côté barre configurable (`SCROLLBAR_SIDE`)** | Fixe droite | **`SCROLLBAR_SIDE = 'right'`** (`core/config/reservation-modal.config.ts`) | `'right' | 'left'` en 1 ligne | ✅ Réussi |
+
+### Vérifications fonctionnelles et transactionnelles complémentaires
+- Contrainte PostgreSQL d'exclusion `EXCLUDE USING gist ("room_id" WITH =, daterange("check_in_date", "check_out_date", '[)') WITH &&) WHERE ("status" NOT IN ('CANCELLED', 'NO_SHOW'))` déployée via `20261112000000_reservation_refonte`.
+- Transaction Prisma `Serializable` créant client rapide (validation format sénégalais), réservation (calcul autoritaire serveur) et paiement d'acompte éventuel + `AuditLog` (`RESERVATION_CREATE` et `PAYMENT_CREATE`).
+- Deux validations simultanées vérifiées en E2E API (`[201, 409]`), message `« Cette chambre vient d'être réservée, choisissez-en une autre »` et rafraîchissement automatique de la liste.

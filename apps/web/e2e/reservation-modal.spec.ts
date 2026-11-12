@@ -111,7 +111,9 @@ test.describe('Refonte Fenêtre Nouvelle Réservation - E2E & Budget Performance
     for (const vp of viewports) {
       await page.setViewportSize(vp);
       await page.goto('/tableau-de-bord', { waitUntil: 'networkidle' });
-      await page.locator('[data-testid="header-new-reservation-btn"]').click();
+      const triggerTestId =
+        vp.width < 768 ? 'header-new-reservation-mobile-btn' : 'header-new-reservation-btn';
+      await page.locator(`[data-testid="${triggerTestId}"]`).click();
 
       const dialog = page.locator('[data-testid="reservation-modal-dialog"]');
       const scrollBody = page.locator('[data-testid="reservation-modal-body"]');
@@ -125,7 +127,7 @@ test.describe('Refonte Fenêtre Nouvelle Réservation - E2E & Budget Performance
           docScrollW: doc.scrollWidth,
           docClientW: doc.clientWidth,
           bodyScrollW: body.scrollWidth,
-          bodyClientW: body.clientClientWidth ?? body.clientWidth,
+          bodyClientW: body.clientWidth,
           bodyOffsetW: body.offsetWidth,
           overflowY: getComputedStyle(body).overflowY,
         };
@@ -196,7 +198,22 @@ test.describe('Refonte Fenêtre Nouvelle Réservation - E2E & Budget Performance
     await expect(page.locator('body')).toContainText(uniqueName);
   });
 
-  test('Préremplissage depuis la fiche chambre', async ({ page }) => {
+  test('Préremplissage depuis une case vide du Planning et depuis la fiche chambre', async ({
+    page,
+  }) => {
+    // 1. Depuis une case vide du Planning (Chambre 106)
+    await page.goto('/planning', { waitUntil: 'networkidle' });
+    const emptySlot = page.locator('[data-testid="slot-106-2"]');
+    await emptySlot.click();
+
+    await expect(page.locator('[data-testid="reservation-modal-dialog"]')).toBeVisible();
+    await expect(page.locator('[data-testid="reservation-modal-subtitle"]')).toContainText(
+      'Chambre 106',
+    );
+    await page.locator('[data-testid="reservation-modal-close"]').click();
+    await expect(page.locator('[data-testid="reservation-modal-dialog"]')).toHaveCount(0);
+
+    // 2. Depuis la fiche chambre
     await page.goto('/chambres', { waitUntil: 'networkidle' });
     const cardBtn = page.locator('[data-testid^="room-card-"]').first();
     await cardBtn.click();
