@@ -539,7 +539,7 @@ test.describe('Fidélité Visuelle - Rendu Hors Ligne vs Référence', () => {
       const wrap = document.querySelector('[data-testid="facturation-comptoir"]') as HTMLElement | null;
       const bodyBg = getComputedStyle(document.body).backgroundColor;
       const hostBg = wrap ? getComputedStyle(wrap).backgroundColor : '';
-      const cols = Array.from(document.querySelectorAll('[data-testid^="column-"]'));
+      const cols = Array.from(document.querySelectorAll('[data-testid="comptoir-table-scroll"]'));
       const moreButtons = Array.from(document.querySelectorAll('button')).filter(
         (b) => b.textContent?.trim() === '⋯' || b.textContent?.trim() === '...',
       );
@@ -560,7 +560,7 @@ test.describe('Fidélité Visuelle - Rendu Hors Ligne vs Référence', () => {
     });
 
     expect(metrics.scrollWidth).toBeLessThanOrEqual(metrics.clientWidth);
-    expect(metrics.colCount).toBe(3);
+    expect(metrics.colCount).toBe(1);
     expect(metrics.moreButtons).toBe(0);
     expect(metrics.tabLists).toBe(0);
     expect(metrics.titleFont.toLowerCase()).toContain('newsreader');

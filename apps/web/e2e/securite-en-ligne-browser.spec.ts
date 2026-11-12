@@ -1,15 +1,9 @@
 import { test, expect } from '@playwright/test';
-import { execFileSync } from 'child_process';
-import * as path from 'path';
 import { deleteE2eUsers } from './auth-e2e.helper';
-
-const repoRoot = path.resolve(__dirname, '../../..');
+import { execE2eNodeScript } from './e2e-db.helper';
 
 function runPrismaSnippet(js: string) {
-  return execFileSync('node', ['--env-file=.env', '-e', js], {
-    cwd: repoRoot,
-    encoding: 'utf8',
-  }).trim();
+  return execE2eNodeScript(js);
 }
 
 test.describe('Sécurité En Ligne — Vérifications Navigateur E2E', () => {

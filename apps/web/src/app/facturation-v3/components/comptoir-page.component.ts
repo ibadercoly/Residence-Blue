@@ -10,12 +10,25 @@ import {
   signal,
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { RouterLink } from '@angular/router';
-import { BillingSummaryCard } from '@residence-blue/shared';
+import { Router, RouterLink } from '@angular/router';
+import {
+  BillingCounterFilter,
+  BillingSortField,
+  BillingSortOrder,
+  BillingSummaryCard,
+} from '@residence-blue/shared';
 import { FacturationService } from '../services/facturation.service';
-import { formatFcfaPlain } from '../models/facturation.model';
+import {
+  BILLING_SHARED_TABLE_STYLES,
+  billingStatusBadge,
+  formatFcfaPlain,
+  nextSortState,
+} from '../models/facturation.model';
 
-type ColumnKey = 'toPay' | 'partial' | 'paid';
+interface FilterPillOption {
+  key: BillingCounterFilter;
+  label: string;
+}
 
 @Component({
   selector: 'app-comptoir-page',
@@ -23,36 +36,8 @@ type ColumnKey = 'toPay' | 'partial' | 'paid';
   imports: [CommonModule, RouterLink],
   changeDetection: ChangeDetectionStrategy.OnPush,
   styles: [
+    BILLING_SHARED_TABLE_STYLES,
     `
-      :host {
-        display: block;
-        width: 100%;
-        min-width: 0;
-        background-color: #f3fafe;
-        color: #161d20;
-        font-family: 'Manrope', sans-serif;
-      }
-
-      .rb-wrap {
-        width: 100%;
-        max-width: 1380px;
-        margin: 0 auto;
-        padding: 16px;
-        box-sizing: border-box;
-      }
-
-      @media (min-width: 768px) {
-        .rb-wrap {
-          padding: 24px 28px;
-        }
-      }
-
-      .rb-title {
-        font-family: 'Newsreader', serif;
-        color: #161d20;
-        letter-spacing: -0.01em;
-      }
-
       .rb-grid-kpi {
         display: grid;
         grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -84,149 +69,64 @@ type ColumnKey = 'toPay' | 'partial' | 'paid';
           gap: 12px;
         }
       }
-
-      .rb-grid-cols {
-        display: grid;
-        grid-template-columns: minmax(0, 1fr);
-        gap: 20px;
-        align-items: start;
-      }
-
-      @media (min-width: 900px) {
-        .rb-grid-cols {
-          grid-template-columns: repeat(3, minmax(0, 1fr));
-          gap: 18px;
-        }
-      }
-
-      .rb-card {
-        background-color: #ffffff;
-        border: 1px solid #bdc9ca;
-        border-radius: 12px;
-        min-width: 0;
-        overflow-wrap: anywhere;
-      }
-
-      .rb-btn {
-        min-height: 42px;
-        padding: 8px 14px;
-        border-radius: 8px;
-        font-weight: 700;
-        font-size: 13px;
-        line-height: 1.2;
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        gap: 6px;
-        cursor: pointer;
-        text-decoration: none;
-        box-sizing: border-box;
-        transition: background-color 150ms ease, border-color 150ms ease;
-      }
-
-      .rb-btn-primary {
-        background-color: #00666f;
-        color: #ffffff;
-        border: 1px solid #00666f;
-      }
-
-      .rb-btn-primary:hover {
-        background-color: #005158;
-      }
-
-      .rb-btn-outline {
-        background-color: #ffffff;
-        color: #00666f;
-        border: 1px solid #00666f;
-      }
-
-      .rb-btn-outline:hover {
-        background-color: #e6f3f4;
-      }
-
-      .rb-skeleton {
-        background-color: #e2ecef;
-        border-radius: 8px;
-      }
-
-      @media (prefers-reduced-motion: reduce) {
-        * {
-          transition: none !important;
-          animation: none !important;
-        }
-      }
     `,
   ],
   template: `
     <div class="rb-wrap" data-testid="facturation-comptoir">
-      <!-- Bandeau : Titre + Recherche serveur (200 ms, autofocus, raccourci /) -->
-      <header class="mb-6 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+      <!-- En-tête -->
+      <header class="mb-5 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
         <div class="min-w-0">
           <h1 class="rb-title text-3xl font-bold leading-tight">Facturation</h1>
           <p class="mt-1 text-sm font-medium text-[#3d494a]">
-            Le Comptoir — Notes ouvertes, encaissements et factures émises
+            Le Comptoir — Notes ouvertes, encaissements et check-out rapide
           </p>
         </div>
 
-        <div class="w-full md:max-w-lg min-w-0">
-          <label for="comptoir-search" class="sr-only">
-            Rechercher par numéro de facture, nom du client ou numéro de chambre
-          </label>
-          <div class="relative flex items-center">
-            <span
-              class="material-symbols-outlined pointer-events-none absolute left-3 text-[#3d494a] text-[20px]"
-              aria-hidden="true"
-              >search</span
-            >
-            <input
-              #searchInput
-              id="comptoir-search"
-              data-testid="comptoir-search-input"
-              type="text"
-              role="searchbox"
-              autofocus
-              [value]="searchQuery()"
-              (input)="onSearchInput($event)"
-              placeholder="Rechercher : n° facture, nom du client, chambre..."
-              class="min-h-[46px] w-full rounded-xl border border-[#7c8c8e] bg-white pl-10 pr-24 py-2.5 text-sm font-medium text-[#161d20] placeholder-[#4a5759] focus:border-[#00666f] focus:outline-none focus:ring-2 focus:ring-[#00666f]/25"
-            />
-            @if (searchQuery()) {
-              <button
-                type="button"
-                (click)="clearSearch()"
-                class="absolute right-9 rounded-md px-2 py-1 text-xs font-bold text-[#00666f] hover:bg-[#e6f3f4]"
-                aria-label="Effacer la recherche"
-              >
-                Effacer
-              </button>
-            }
-            <kbd
-              class="pointer-events-none absolute right-3 hidden sm:inline-flex items-center rounded border border-[#bdc9ca] bg-[#f3fafe] px-1.5 py-0.5 text-[11px] font-bold text-[#3d494a]"
-              title="Raccourci clavier : /"
-              >/</kbd
-            >
-          </div>
-        </div>
+        <a
+          routerLink="/facturation/archives"
+          data-testid="link-all-invoices"
+          class="rb-btn rb-btn-outline self-start md:self-auto"
+        >
+          <span class="material-symbols-outlined text-[18px]" aria-hidden="true">inventory_2</span>
+          <span>Voir toutes les factures</span>
+        </a>
       </header>
 
       @if (service.errorMessage()) {
         <div
           role="alert"
-          class="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[#ba1a1a] bg-[#ffdad6] px-4 py-3 text-sm font-semibold text-[#410002]"
+          class="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[#ba1a1a] bg-[#ffdad6] px-4 py-3 text-sm font-semibold text-[#410002]"
         >
           <span>{{ service.errorMessage() }}</span>
           <button
             type="button"
             (click)="service.clearMessages()"
-            class="min-h-[40px] rounded-lg border border-[#ba1a1a] bg-white px-3 text-xs font-bold text-[#93000a]"
+            class="min-h-[36px] rounded-lg border border-[#ba1a1a] bg-white px-3 text-xs font-bold text-[#93000a]"
           >
             Fermer
           </button>
         </div>
       }
 
-      <!-- 4 grandes tuiles KPI -->
-      <section aria-label="Indicateurs de facturation" class="mb-5">
+      @if (service.successMessage()) {
+        <div
+          role="status"
+          data-testid="comptoir-success-banner"
+          class="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[#00666f] bg-[#d8f0f2] px-4 py-3 text-sm font-semibold text-[#004f56]"
+        >
+          <span>{{ service.successMessage() }}</span>
+          <button
+            type="button"
+            (click)="service.clearMessages()"
+            class="min-h-[36px] rounded-lg border border-[#00666f] bg-white px-3 text-xs font-bold text-[#00666f]"
+          >
+            Fermer
+          </button>
+        </div>
+      }
+
+      <!-- 4 tuiles KPI -->
+      <section aria-label="Indicateurs de facturation" class="mb-4">
         @if (showSkeleton()) {
           <div class="rb-grid-kpi" data-testid="comptoir-skeleton-kpi">
             @for (item of [1, 2, 3, 4]; track item) {
@@ -240,10 +140,7 @@ type ColumnKey = 'toPay' | 'partial' | 'paid';
           <div class="rb-grid-kpi" data-testid="comptoir-kpis">
             <article class="rb-card p-4">
               <p class="text-xs font-bold uppercase tracking-wider text-[#3d494a]">À encaisser</p>
-              <p
-                class="rb-title mt-2 text-2xl font-bold text-[#ba1a1a]"
-                data-testid="kpi-to-collect"
-              >
+              <p class="rb-title mt-2 text-2xl font-bold text-[#ba1a1a]" data-testid="kpi-to-collect">
                 {{ formatFcfa(kpis().toCollectFcfa) }}
               </p>
             </article>
@@ -252,18 +149,13 @@ type ColumnKey = 'toPay' | 'partial' | 'paid';
               <p class="text-xs font-bold uppercase tracking-wider text-[#3d494a]">
                 Encaissé aujourd'hui
               </p>
-              <p
-                class="rb-title mt-2 text-2xl font-bold text-[#00666f]"
-                data-testid="kpi-collected-today"
-              >
+              <p class="rb-title mt-2 text-2xl font-bold text-[#00666f]" data-testid="kpi-collected-today">
                 {{ formatFcfa(kpis().collectedTodayFcfa) }}
               </p>
             </article>
 
             <article class="rb-card p-4">
-              <p class="text-xs font-bold uppercase tracking-wider text-[#3d494a]">
-                Notes impayées
-              </p>
+              <p class="text-xs font-bold uppercase tracking-wider text-[#3d494a]">Notes impayées</p>
               <p class="rb-title mt-2 text-2xl font-bold text-[#161d20]" data-testid="kpi-unpaid">
                 {{ kpis().unpaidCount }} {{ kpis().unpaidCount > 1 ? 'notes' : 'note' }}
               </p>
@@ -273,10 +165,7 @@ type ColumnKey = 'toPay' | 'partial' | 'paid';
               <p class="text-xs font-bold uppercase tracking-wider text-[#3d494a]">
                 Départs à régler aujourd'hui
               </p>
-              <p
-                class="rb-title mt-2 text-2xl font-bold text-[#161d20]"
-                data-testid="kpi-departures"
-              >
+              <p class="rb-title mt-2 text-2xl font-bold text-[#161d20]" data-testid="kpi-departures">
                 {{ kpis().departuresTodayToSettleCount }}
                 {{ kpis().departuresTodayToSettleCount > 1 ? 'départs' : 'départ' }}
               </p>
@@ -286,7 +175,7 @@ type ColumnKey = 'toPay' | 'partial' | 'paid';
       </section>
 
       <!-- Bande Caisse du jour -->
-      <section aria-label="Caisse du jour" class="rb-card mb-6 p-4">
+      <section aria-label="Caisse du jour" class="rb-card mb-5 p-4">
         <div class="mb-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h2 class="text-sm font-extrabold uppercase tracking-wider text-[#161d20]">
@@ -359,162 +248,363 @@ type ColumnKey = 'toPay' | 'partial' | 'paid';
         </div>
       </section>
 
-      <!-- Trois colonnes égales : À régler | Partiellement payées | Soldées -->
-      @if (showSkeleton()) {
-        <section class="rb-grid-cols" data-testid="comptoir-skeleton-columns">
-          @for (col of [1, 2, 3]; track col) {
-            <div class="space-y-3">
-              <div class="rb-skeleton h-6 w-44"></div>
-              @for (card of [1, 2, 3]; track card) {
-                <div class="rb-card p-4 space-y-3">
-                  <div class="flex justify-between gap-2">
-                    <div class="rb-skeleton h-5 w-28"></div>
-                    <div class="rb-skeleton h-5 w-16"></div>
-                  </div>
-                  <div class="rb-skeleton h-5 w-40"></div>
+      <!-- Barre Recherche + Pastilles de filtre au-dessus du tableau -->
+      <section aria-label="Filtres et recherche du comptoir" class="rb-card p-3 md:p-4 mb-3">
+        <div class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+          <div class="flex flex-wrap items-center gap-2" role="group" aria-label="Filtres rapides">
+            @for (pill of filterPills; track pill.key) {
+              <button
+                type="button"
+                [attr.data-testid]="'filter-pill-' + pill.key"
+                (click)="setFilter(pill.key)"
+                class="rb-pill"
+                [class.rb-pill-active]="activeFilter() === pill.key"
+                [attr.aria-pressed]="activeFilter() === pill.key"
+              >
+                {{ pill.label }}
+              </button>
+            }
+          </div>
+
+          <div class="w-full lg:max-w-md min-w-0">
+            <label for="comptoir-search" class="sr-only">
+              Rechercher par client, chambre ou numéro de note
+            </label>
+            <div class="relative flex items-center">
+              <span
+                class="material-symbols-outlined pointer-events-none absolute left-3 text-[#3d494a] text-[20px]"
+                aria-hidden="true"
+                >search</span
+              >
+              <input
+                #searchInput
+                id="comptoir-search"
+                data-testid="comptoir-search-input"
+                type="text"
+                role="searchbox"
+                autofocus
+                [value]="searchQuery()"
+                (input)="onSearchInput($event)"
+                placeholder="Rechercher : client, chambre, n° note..."
+                class="min-h-[42px] w-full rounded-xl border border-[#7c8c8e] bg-white pl-10 pr-20 py-2 text-sm font-medium text-[#161d20] placeholder-[#4a5759] focus:border-[#00666f] focus:outline-none focus:ring-2 focus:ring-[#00666f]/25"
+              />
+              @if (searchQuery()) {
+                <button
+                  type="button"
+                  (click)="clearSearch()"
+                  class="absolute right-8 rounded-md px-2 py-1 text-xs font-bold text-[#00666f] hover:bg-[#e6f3f4]"
+                  aria-label="Effacer la recherche"
+                >
+                  Effacer
+                </button>
+              }
+              <kbd
+                class="pointer-events-none absolute right-2.5 hidden sm:inline-flex items-center rounded border border-[#bdc9ca] bg-[#f3fafe] px-1.5 py-0.5 text-[11px] font-bold text-[#3d494a]"
+                title="Raccourci clavier : /"
+                >/</kbd
+              >
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Tableau unique à défilement vertical interne -->
+      <section aria-label="Liste des notes du comptoir" class="rb-card overflow-hidden">
+        <!-- Tri rapide mobile (< 768 px) -->
+        <div class="flex md:hidden flex-wrap items-center justify-between gap-2 border-b border-[#d6e2e4] bg-[#eef6f8] px-3 py-2">
+          <span class="text-xs font-bold text-[#3d494a]">Trier par :</span>
+          <div class="flex flex-wrap gap-2">
+            <button type="button" (click)="toggleSort('guest')" class="rb-sort-btn">
+              Client {{ sortArrow('guest') }}
+            </button>
+            <button type="button" (click)="toggleSort('stay')" class="rb-sort-btn">
+              Séjour {{ sortArrow('stay') }}
+            </button>
+            <button type="button" (click)="toggleSort('balance')" class="rb-sort-btn">
+              Reste {{ sortArrow('balance') }}
+            </button>
+          </div>
+        </div>
+
+        <div
+          #tableScroll
+          class="rb-table-scroll"
+          data-testid="comptoir-table-scroll"
+          (scroll)="onTableScroll($event)"
+        >
+          <!-- En-tête collant desktop (>= 768 px) -->
+          <div
+            class="rb-table-head rb-table-grid hidden md:grid"
+            role="row"
+            data-testid="comptoir-table-header"
+          >
+            <div class="rb-cell" role="columnheader" [attr.aria-sort]="ariaSort('guest')">
+              <button
+                type="button"
+                data-testid="sort-guest"
+                (click)="toggleSort('guest')"
+                class="rb-sort-btn"
+              >
+                <span>Client</span>
+                <span aria-hidden="true">{{ sortArrow('guest') }}</span>
+              </button>
+            </div>
+            <div class="rb-cell text-xs font-extrabold uppercase tracking-wide text-[#161d20]" role="columnheader">
+              Chambre
+            </div>
+            <div class="rb-cell" role="columnheader" [attr.aria-sort]="ariaSort('stay')">
+              <button
+                type="button"
+                data-testid="sort-stay"
+                (click)="toggleSort('stay')"
+                class="rb-sort-btn"
+              >
+                <span>Séjour</span>
+                <span aria-hidden="true">{{ sortArrow('stay') }}</span>
+              </button>
+            </div>
+            <div class="rb-cell text-xs font-extrabold uppercase tracking-wide text-[#161d20]" role="columnheader">
+              Total
+            </div>
+            <div class="rb-cell" role="columnheader" [attr.aria-sort]="ariaSort('balance')">
+              <button
+                type="button"
+                data-testid="sort-balance"
+                (click)="toggleSort('balance')"
+                class="rb-sort-btn"
+              >
+                <span>Reste à payer</span>
+                <span aria-hidden="true">{{ sortArrow('balance') }}</span>
+              </button>
+            </div>
+            <div class="rb-cell text-xs font-extrabold uppercase tracking-wide text-[#161d20]" role="columnheader">
+              État
+            </div>
+            <div class="rb-cell text-right text-xs font-extrabold uppercase tracking-wide text-[#161d20]" role="columnheader">
+              Actions
+            </div>
+          </div>
+
+          @if (showSkeleton()) {
+            <div data-testid="comptoir-skeleton-rows">
+              @for (item of [1, 2, 3, 4, 5, 6]; track item) {
+                <div class="rb-table-row rb-table-grid">
                   <div class="rb-skeleton h-4 w-32"></div>
-                  <div class="rb-skeleton h-7 w-36"></div>
-                  <div class="rb-skeleton h-2 w-full"></div>
-                  <div class="grid grid-cols-2 gap-2 pt-1">
-                    <div class="rb-skeleton h-10 w-full"></div>
-                    <div class="rb-skeleton h-10 w-full"></div>
-                  </div>
+                  <div class="rb-skeleton h-4 w-12"></div>
+                  <div class="rb-skeleton h-4 w-28"></div>
+                  <div class="rb-skeleton h-4 w-20"></div>
+                  <div class="rb-skeleton h-4 w-20"></div>
+                  <div class="rb-skeleton h-6 w-24"></div>
+                  <div class="rb-skeleton h-8 w-36 ml-auto"></div>
                 </div>
               }
             </div>
-          }
-        </section>
-      } @else {
-        <section aria-label="Notes de séjour par statut" class="rb-grid-cols" data-testid="comptoir-columns">
-          @for (col of columnsMeta(); track col.key) {
-            <div class="min-w-0" [attr.data-testid]="'column-' + col.key">
-              <div class="mb-3 flex items-center justify-between gap-2 border-b-2 pb-2" [style.border-color]="col.accent">
-                <h2 class="rb-title text-lg font-bold text-[#161d20]">{{ col.title }}</h2>
-                <span
-                  class="inline-flex min-h-[26px] items-center rounded-full px-2.5 py-0.5 text-xs font-extrabold"
-                  [style.background-color]="col.badgeBg"
-                  [style.color]="col.badgeText"
-                >
-                  {{ col.data.total }}
-                </span>
-              </div>
-
-              @if (col.data.items.length === 0) {
+          } @else if (items().length === 0) {
+            <div
+              class="p-8 text-center text-sm font-medium text-[#3d494a]"
+              data-testid="comptoir-empty"
+            >
+              Aucune note pour ce filtre.
+            </div>
+          } @else {
+            <div role="rowgroup" data-testid="comptoir-rows">
+              @for (row of items(); track row.id) {
+                <!-- Ligne Desktop (>= 768 px) -->
                 <div
-                  class="rb-card p-6 text-center text-sm font-medium text-[#3d494a]"
-                  [attr.data-testid]="'empty-' + col.key"
+                  role="row"
+                  tabindex="0"
+                  (click)="openRow(row.id)"
+                  (keydown.enter)="openRow(row.id)"
+                  [attr.data-testid]="'note-row-' + row.id"
+                  class="hidden md:grid rb-table-row rb-table-grid"
                 >
-                  Aucune note dans « {{ col.title }} ».
-                </div>
-              } @else {
-                <div class="space-y-3">
-                  @for (note of col.data.items; track note.id) {
-                    <article class="rb-card p-4 shadow-sm" [attr.data-testid]="'note-card-' + note.id">
-                      <div class="flex flex-wrap items-center justify-between gap-2">
-                        <span
-                          class="inline-flex items-center rounded-md px-2.5 py-1 text-xs font-extrabold"
-                          [class.bg-[#e6f3f4]]="note.documentType !== 'CREDIT_NOTE'"
-                          [class.text-[#004f56]]="note.documentType !== 'CREDIT_NOTE'"
-                          [class.bg-[#ffdad6]]="note.documentType === 'CREDIT_NOTE'"
-                          [class.text-[#93000a]]="note.documentType === 'CREDIT_NOTE'"
-                        >
-                          {{ note.displayNumber }}
-                        </span>
-                        <span class="text-xs font-bold text-[#161d20]">
-                          Ch. {{ note.roomNumber }}
-                        </span>
-                      </div>
-
-                      <h3 class="mt-2.5 text-base font-extrabold text-[#161d20]">
-                        {{ note.guestName }}
-                      </h3>
-                      <p class="mt-0.5 text-xs font-medium text-[#3d494a]">
-                        {{ note.stayLabel }}
-                      </p>
-
-                      <div class="mt-3 flex flex-wrap items-baseline justify-between gap-2 border-t border-[#e3ecee] pt-3">
-                        <span class="text-xs font-semibold text-[#3d494a]">
-                          Total : {{ formatFcfa(note.totalFcfa) }}
-                        </span>
-                        <span
-                          class="rb-title text-lg font-bold"
-                          [class.text-[#ba1a1a]]="note.balanceFcfa > 0"
-                          [class.text-[#00666f]]="note.balanceFcfa <= 0"
-                        >
-                          Reste : {{ formatFcfa(note.balanceFcfa) }}
-                        </span>
-                      </div>
-
-                      <!-- Barre de progression du paiement -->
-                      <div class="mt-2.5">
-                        <div class="mb-1 flex items-center justify-between text-[11px] font-bold text-[#3d494a]">
-                          <span>Progression du règlement</span>
-                          <span>{{ note.progressPercent }}%</span>
-                        </div>
-                        <div
-                          class="h-2.5 w-full overflow-hidden rounded-full bg-[#e3ecee]"
-                          role="progressbar"
-                          [attr.aria-valuenow]="note.progressPercent"
-                          aria-valuemin="0"
-                          aria-valuemax="100"
-                        >
-                          <div
-                            class="h-full rounded-full"
-                            [style.width.%]="note.progressPercent"
-                            [style.background-color]="note.balanceFcfa <= 0 ? '#00666f' : '#1b7a83'"
-                          ></div>
-                        </div>
-                      </div>
-
-                      <!-- Deux boutons toujours visibles -->
-                      <div class="mt-3.5 grid grid-cols-2 gap-2">
-                        <a
-                          [routerLink]="['/facturation', note.id]"
-                          [attr.data-testid]="'open-note-' + note.id"
-                          class="rb-btn rb-btn-outline"
-                        >
-                          Ouvrir
-                        </a>
-                        <a
-                          [routerLink]="['/facturation', note.id]"
-                          fragment="encaissement"
-                          [attr.data-testid]="'pay-note-' + note.id"
-                          class="rb-btn rb-btn-primary"
-                        >
-                          Encaisser
-                        </a>
-                      </div>
-                    </article>
-                  }
-                </div>
-
-                @if (col.data.hasMore) {
-                  <div class="mt-3">
-                    <button
-                      type="button"
-                      [disabled]="service.busyAction()"
-                      (click)="loadMore(col.key)"
-                      [attr.data-testid]="'load-more-' + col.key"
-                      class="rb-btn rb-btn-outline w-full"
-                    >
-                      Voir plus (lot de 8) — {{ col.data.total - col.data.items.length }} restante(s)
-                    </button>
+                  <div class="rb-cell font-bold text-[13px] text-[#161d20] leading-tight">
+                    {{ row.guestName }}
                   </div>
-                }
+                  <div class="rb-cell text-[13px] font-semibold text-[#161d20]">
+                    Ch. {{ row.roomNumber }}
+                  </div>
+                  <div class="rb-cell text-xs font-medium text-[#3d494a] leading-tight">
+                    {{ row.stayLabel }}
+                  </div>
+                  <div class="rb-cell text-[13px] font-semibold text-[#3d494a]">
+                    {{ formatFcfa(row.totalFcfa) }}
+                  </div>
+                  <div
+                    class="rb-cell text-[13px] font-extrabold"
+                    [class.text-[#ba1a1a]]="row.balanceFcfa > 0"
+                    [class.text-[#00666f]]="row.balanceFcfa <= 0"
+                    [attr.data-testid]="'row-balance-' + row.id"
+                  >
+                    {{ formatFcfa(row.balanceFcfa) }}
+                  </div>
+                  <div class="rb-cell">
+                    <span
+                      class="inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-extrabold leading-tight"
+                      [style.background-color]="statusBadge(row).bg"
+                      [style.color]="statusBadge(row).text"
+                      [style.border-color]="statusBadge(row).border"
+                      [attr.data-testid]="'row-status-' + row.id"
+                    >
+                      {{ statusBadge(row).label }}
+                    </span>
+                  </div>
+                  <div
+                    class="rb-cell flex items-center justify-end gap-1.5"
+                    (click)="$event.stopPropagation()"
+                  >
+                    <a
+                      [routerLink]="['/facturation', row.id]"
+                      [attr.data-testid]="'open-note-' + row.id"
+                      class="rb-btn-sm rb-btn-outline"
+                    >
+                      Ouvrir
+                    </a>
+                    @if (isReadyForCheckout(row)) {
+                      <button
+                        type="button"
+                        [disabled]="busyRowId() === row.id"
+                        (click)="checkoutRow($event, row)"
+                        [attr.data-testid]="'checkout-note-' + row.id"
+                        class="rb-btn-sm rb-btn-primary"
+                      >
+                        {{ busyRowId() === row.id ? 'Clôture...' : 'Clôturer' }}
+                      </button>
+                    } @else {
+                      <a
+                        [routerLink]="['/facturation', row.id]"
+                        fragment="encaissement"
+                        [attr.data-testid]="'pay-note-' + row.id"
+                        class="rb-btn-sm rb-btn-primary"
+                      >
+                        Encaisser
+                      </a>
+                    }
+                  </div>
+                </div>
+
+                <!-- Carte compacte Mobile (< 768 px) -->
+                <article
+                  (click)="openRow(row.id)"
+                  [attr.data-testid]="'note-card-mobile-' + row.id"
+                  class="md:hidden border-b border-[#e3ecee] p-3 space-y-2 cursor-pointer hover:bg-[#f3fafe]"
+                >
+                  <div class="flex items-start justify-between gap-2">
+                    <div class="min-w-0">
+                      <div class="text-sm font-extrabold text-[#161d20] break-words">
+                        {{ row.guestName }}
+                      </div>
+                      <div class="text-xs font-medium text-[#3d494a]">
+                        Ch. {{ row.roomNumber }} • {{ row.stayLabel }}
+                      </div>
+                    </div>
+                    <span
+                      class="inline-flex shrink-0 items-center rounded-full border px-2 py-0.5 text-[11px] font-extrabold"
+                      [style.background-color]="statusBadge(row).bg"
+                      [style.color]="statusBadge(row).text"
+                      [style.border-color]="statusBadge(row).border"
+                    >
+                      {{ statusBadge(row).label }}
+                    </span>
+                  </div>
+
+                  <div class="flex items-baseline justify-between gap-2">
+                    <span class="text-xs font-medium text-[#3d494a]">
+                      Total : {{ formatFcfa(row.totalFcfa) }}
+                    </span>
+                    <span
+                      class="text-sm font-extrabold"
+                      [class.text-[#ba1a1a]]="row.balanceFcfa > 0"
+                      [class.text-[#00666f]]="row.balanceFcfa <= 0"
+                    >
+                      Reste : {{ formatFcfa(row.balanceFcfa) }}
+                    </span>
+                  </div>
+
+                  <div
+                    class="grid grid-cols-2 gap-2 pt-1"
+                    (click)="$event.stopPropagation()"
+                  >
+                    <a
+                      [routerLink]="['/facturation', row.id]"
+                      class="rb-btn-sm rb-btn-outline w-full"
+                    >
+                      Ouvrir
+                    </a>
+                    @if (isReadyForCheckout(row)) {
+                      <button
+                        type="button"
+                        [disabled]="busyRowId() === row.id"
+                        (click)="checkoutRow($event, row)"
+                        class="rb-btn-sm rb-btn-primary w-full"
+                      >
+                        {{ busyRowId() === row.id ? 'Clôture...' : 'Clôturer' }}
+                      </button>
+                    } @else {
+                      <a
+                        [routerLink]="['/facturation', row.id]"
+                        fragment="encaissement"
+                        class="rb-btn-sm rb-btn-primary w-full"
+                      >
+                        Encaisser
+                      </a>
+                    }
+                  </div>
+                </article>
               }
             </div>
           }
-        </section>
-      }
+
+          @if (service.loadingMoreCounter()) {
+            <div data-testid="comptoir-load-more-skeleton">
+              @for (sk of [1, 2, 3]; track sk) {
+                <div class="rb-table-row rb-table-grid">
+                  <div class="rb-skeleton h-4 w-28"></div>
+                  <div class="rb-skeleton h-4 w-10"></div>
+                  <div class="rb-skeleton h-4 w-24"></div>
+                  <div class="rb-skeleton h-4 w-20"></div>
+                  <div class="rb-skeleton h-4 w-20"></div>
+                  <div class="rb-skeleton h-5 w-20"></div>
+                  <div class="rb-skeleton h-7 w-32 ml-auto"></div>
+                </div>
+              }
+            </div>
+          }
+        </div>
+
+        <!-- Compteur visible sous le tableau -->
+        <footer class="flex flex-wrap items-center justify-between gap-2 border-t border-[#d6e2e4] bg-[#f8fbfc] px-4 py-2.5 text-xs font-bold text-[#3d494a]">
+          <span data-testid="comptoir-count">
+            {{ items().length }} sur {{ totalCount() }} {{ totalCount() > 1 ? 'notes' : 'note' }}
+          </span>
+          @if (hasMore()) {
+            <span>Faites défiler pour charger le lot suivant</span>
+          }
+        </footer>
+      </section>
     </div>
   `,
 })
 export class ComptoirPageComponent implements OnInit, OnDestroy {
   readonly service = inject(FacturationService);
+  private readonly router = inject(Router, { optional: true });
 
   @ViewChild('searchInput') searchInput?: ElementRef<HTMLInputElement>;
+  @ViewChild('tableScroll') tableScroll?: ElementRef<HTMLElement>;
 
   readonly searchQuery = signal<string>('');
+  readonly activeFilter = signal<BillingCounterFilter>('TO_PROCESS');
+  readonly sortBy = signal<BillingSortField>('updatedAt');
+  readonly sortOrder = signal<BillingSortOrder>('desc');
+  readonly busyRowId = signal<string | null>(null);
+
+  readonly filterPills: readonly FilterPillOption[] = [
+    { key: 'TO_PROCESS', label: 'À traiter' },
+    { key: 'DEPARTURES_TODAY', label: "Départs aujourd'hui" },
+    { key: 'OVERDUE_24H', label: 'Plus de 24 h' },
+    { key: 'PAID_TODAY', label: 'Soldées du jour' },
+  ];
+
   private searchTimer: ReturnType<typeof setTimeout> | null = null;
   private keyListener = (ev: KeyboardEvent) => this.handleGlobalKey(ev);
 
@@ -547,51 +637,12 @@ export class ComptoirPageComponent implements OnInit, OnDestroy {
       },
   );
 
-  readonly columnsMeta = computed<
-    Array<{
-      key: ColumnKey;
-      title: string;
-      accent: string;
-      badgeBg: string;
-      badgeText: string;
-      data: { items: BillingSummaryCard[]; total: number; hasMore: boolean };
-    }>
-  >(() => {
-    const cols = this.service.counter()?.columns ?? {
-      toPay: { items: [], total: 0, hasMore: false },
-      partial: { items: [], total: 0, hasMore: false },
-      paid: { items: [], total: 0, hasMore: false },
-    };
-    return [
-      {
-        key: 'toPay',
-        title: 'À régler',
-        accent: '#ba1a1a',
-        badgeBg: '#ffdad6',
-        badgeText: '#93000a',
-        data: cols.toPay,
-      },
-      {
-        key: 'partial',
-        title: 'Partiellement payées',
-        accent: '#92400e',
-        badgeBg: '#fef3c7',
-        badgeText: '#78350f',
-        data: cols.partial,
-      },
-      {
-        key: 'paid',
-        title: 'Soldées',
-        accent: '#00666f',
-        badgeBg: '#d8f0f2',
-        badgeText: '#004f56',
-        data: cols.paid,
-      },
-    ];
-  });
+  readonly items = computed<BillingSummaryCard[]>(() => this.service.counter()?.page?.items ?? []);
+  readonly totalCount = computed<number>(() => this.service.counter()?.page?.total ?? 0);
+  readonly hasMore = computed<boolean>(() => this.service.counter()?.page?.hasMore ?? false);
 
   ngOnInit(): void {
-    this.service.loadCounter({ search: '' });
+    this.reloadCounter();
     if (typeof window !== 'undefined') {
       window.addEventListener('keydown', this.keyListener);
     }
@@ -620,6 +671,23 @@ export class ComptoirPageComponent implements OnInit, OnDestroy {
     this.searchInput?.nativeElement?.focus();
   }
 
+  private currentQueryParams() {
+    return {
+      search: this.searchQuery(),
+      filter: this.activeFilter(),
+      sortBy: this.sortBy(),
+      sortOrder: this.sortOrder(),
+      limit: 50,
+    };
+  }
+
+  private reloadCounter(): void {
+    if (this.tableScroll?.nativeElement) {
+      this.tableScroll.nativeElement.scrollTop = 0;
+    }
+    void this.service.loadCounter(this.currentQueryParams());
+  }
+
   onSearchInput(event: Event): void {
     const val = (event.target as HTMLInputElement)?.value ?? '';
     this.searchQuery.set(val);
@@ -627,7 +695,7 @@ export class ComptoirPageComponent implements OnInit, OnDestroy {
       clearTimeout(this.searchTimer);
     }
     this.searchTimer = setTimeout(() => {
-      this.service.loadCounter({ search: val });
+      this.reloadCounter();
     }, 200);
   }
 
@@ -636,12 +704,64 @@ export class ComptoirPageComponent implements OnInit, OnDestroy {
     if (this.searchTimer) {
       clearTimeout(this.searchTimer);
     }
-    this.service.loadCounter({ search: '' });
+    this.reloadCounter();
     this.searchInput?.nativeElement?.focus();
   }
 
-  loadMore(column: ColumnKey): void {
-    this.service.loadMoreForColumn(column, this.searchQuery());
+  setFilter(filter: BillingCounterFilter): void {
+    this.activeFilter.set(filter);
+    this.reloadCounter();
+  }
+
+  toggleSort(field: BillingSortField): void {
+    const next = nextSortState(this.sortBy(), this.sortOrder(), field);
+    this.sortBy.set(next.sortBy);
+    this.sortOrder.set(next.sortOrder);
+    this.reloadCounter();
+  }
+
+  sortArrow(field: BillingSortField): string {
+    if (this.sortBy() !== field) return '↕';
+    return this.sortOrder() === 'asc' ? '↑' : '↓';
+  }
+
+  ariaSort(field: BillingSortField): string {
+    if (this.sortBy() !== field) return 'none';
+    return this.sortOrder() === 'asc' ? 'ascending' : 'descending';
+  }
+
+  onTableScroll(event: Event): void {
+    const el = event.target as HTMLElement | null;
+    if (!el || !this.hasMore() || this.service.loadingMoreCounter()) return;
+    if (el.scrollTop + el.clientHeight >= el.scrollHeight - 180) {
+      void this.service.loadMoreCounter(this.currentQueryParams());
+    }
+  }
+
+  statusBadge(row: BillingSummaryCard) {
+    return billingStatusBadge(row);
+  }
+
+  isReadyForCheckout(row: BillingSummaryCard): boolean {
+    return !row.isIssued && row.documentType === 'INVOICE' && row.balanceFcfa <= 0;
+  }
+
+  openRow(id: string): void {
+    void this.router?.navigate(['/facturation', id]);
+  }
+
+  async checkoutRow(event: Event, row: BillingSummaryCard): Promise<void> {
+    event.stopPropagation();
+    if (this.busyRowId()) return;
+    this.busyRowId.set(row.id);
+    try {
+      const ok = await this.service.checkout(row.id);
+      if (ok) {
+        await this.service.loadCounter(this.currentQueryParams());
+      }
+    } finally {
+      this.busyRowId.set(null);
+    }
   }
 
   formatFcfa(amount: number): string {

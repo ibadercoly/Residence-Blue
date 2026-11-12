@@ -4,6 +4,7 @@ import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 import { getApiAuthHeaders, loginViaUi } from './auth-e2e.helper';
+import { getE2eBaseUrl, getE2eEnv } from './e2e-db.helper';
 
 const repoRoot = path.resolve(__dirname, '../../..');
 
@@ -48,7 +49,7 @@ function cleanupEntities(opts: {
   const tmpScript = path.join(os.tmpdir(), `rb-cleanup-${Date.now()}-${Math.random().toString(36).slice(2)}.mjs`);
   fs.writeFileSync(tmpScript, script, 'utf8');
   try {
-    execFileSync(process.execPath, ['--env-file=.env', tmpScript], { cwd: repoRoot, stdio: 'inherit' });
+    execFileSync(process.execPath, [tmpScript], { cwd: repoRoot, env: getE2eEnv(), stdio: 'inherit' });
   } finally {
     fs.rmSync(tmpScript, { force: true });
   }
@@ -111,7 +112,7 @@ test.describe('Facturation V3 — Stabilité Service Worker (20 reloads) & Hors 
     });
     expect(cRes.ok()).toBeTruthy();
     const counter = await cRes.json();
-    invoiceId = counter.columns.toPay.items[0]?.id;
+    invoiceId = counter.page.items[0]?.id;
     expect(invoiceId).toBeTruthy();
   });
 
@@ -186,7 +187,7 @@ test.describe('Facturation V3 — Stabilité Service Worker (20 reloads) & Hors 
         headless: true,
         executablePath: 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
         serviceWorkers: 'allow',
-        baseURL: 'http://localhost:4200',
+        baseURL: getE2eBaseUrl(),
       });
 
       const page = ctx.pages()[0] || (await ctx.newPage());

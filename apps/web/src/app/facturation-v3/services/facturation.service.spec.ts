@@ -13,7 +13,7 @@ describe('FacturationService (V3)', () => {
     jest.restoreAllMocks();
   });
 
-  it('devrait charger les compteurs serveur avec recherche et pagination par lot de 8', async () => {
+  it('devrait charger le comptoir serveur avec recherche, filtre, tri et pagination par lot de 50', async () => {
     const mockResp: BillingCounterResponse = {
       kpis: {
         toCollectFcfa: 70000,
@@ -32,36 +32,34 @@ describe('FacturationService (V3)', () => {
           BANK_TRANSFER: 0,
         },
       },
-      columns: {
-        toPay: {
-          items: [
-            {
-              id: 'inv-1',
-              invoiceNumber: null,
-              displayNumber: 'Note ouverte',
-              documentType: 'INVOICE',
-              isIssued: false,
-              status: 'OPEN',
-              guestId: 'g-1',
-              guestName: 'Awa Sene',
-              roomNumber: '101',
-              stayStartDate: '2026-11-12',
-              stayEndDate: '2026-11-14',
-              stayLabel: '12/11 → 14/11',
-              totalFcfa: 70000,
-              paidTotalFcfa: 0,
-              balanceFcfa: 70000,
-              progressPercent: 0,
-              isDepartureToday: false,
-              parentInvoiceId: null,
-              updatedAt: '2026-11-12T10:00:00.000Z',
-            },
-          ],
-          total: 9,
-          hasMore: true,
-        },
-        partial: { items: [], total: 0, hasMore: false },
-        paid: { items: [], total: 0, hasMore: false },
+      page: {
+        items: [
+          {
+            id: 'inv-1',
+            invoiceNumber: null,
+            displayNumber: 'Note ouverte',
+            documentType: 'INVOICE',
+            isIssued: false,
+            status: 'OPEN',
+            guestId: 'g-1',
+            guestName: 'Awa Sene',
+            roomNumber: '101',
+            stayStartDate: '2026-11-12',
+            stayEndDate: '2026-11-14',
+            stayLabel: '12/11 → 14/11',
+            totalFcfa: 70000,
+            paidTotalFcfa: 0,
+            balanceFcfa: 70000,
+            progressPercent: 0,
+            isDepartureToday: false,
+            parentInvoiceId: null,
+            updatedAt: '2026-11-12T10:00:00.000Z',
+          },
+        ],
+        total: 51,
+        offset: 0,
+        limit: 50,
+        hasMore: true,
       },
     };
 
@@ -70,15 +68,23 @@ describe('FacturationService (V3)', () => {
       json: async () => mockResp,
     } as Response);
 
-    await service.loadCounter({ search: 'Awa' });
+    await service.loadCounter({
+      search: 'Awa',
+      filter: 'TO_PROCESS',
+      sortBy: 'balance',
+      sortOrder: 'desc',
+    });
 
     expect(fetchSpy).toHaveBeenCalledTimes(1);
     const [url] = fetchSpy.mock.calls[0];
     expect(String(url)).toContain('/api/invoices/counter?');
     expect(String(url)).toContain('search=Awa');
-    expect(String(url)).toContain('limit=8');
+    expect(String(url)).toContain('filter=TO_PROCESS');
+    expect(String(url)).toContain('sortBy=balance');
+    expect(String(url)).toContain('sortOrder=desc');
+    expect(String(url)).toContain('limit=50');
     expect(service.counter()?.kpis.toCollectFcfa).toBe(70000);
-    expect(service.counter()?.columns.toPay.hasMore).toBe(true);
+    expect(service.counter()?.page.hasMore).toBe(true);
   });
 
   it('devrait envoyer une Idempotency-Key UUID unique à chaque encaissement', async () => {

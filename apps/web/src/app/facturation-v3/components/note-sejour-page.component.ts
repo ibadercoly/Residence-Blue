@@ -1046,11 +1046,11 @@ export class NoteSejourPageComponent implements OnInit {
     });
   }
 
-  statusLabel(n: { status: string; documentType: string }): string {
+  statusLabel(n: { status: string; documentType: string; isIssued?: boolean }): string {
     if (n.documentType === 'CREDIT_NOTE') return 'Avoir';
     switch (n.status) {
       case 'PAID':
-        return 'Soldée';
+        return n.isIssued ? 'Soldée (émise)' : 'Soldée à clôturer';
       case 'PARTIAL':
         return 'Partielle';
       case 'CANCELLED':

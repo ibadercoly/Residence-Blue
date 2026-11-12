@@ -17,6 +17,7 @@ import { Request, Response } from 'express';
 import { BillingService, BillingActorContext } from './billing.service';
 import {
   CheckoutInvoiceDto,
+  ArchivesQueryDto,
   CounterQueryDto,
   CreateCreditNoteDto,
   CreateInvoiceDto,
@@ -66,6 +67,23 @@ export class BillingController {
   @Roles(Role.DIRECTION, Role.RECEPTION, Role.COMPTABLE)
   async getCounter(@Query() query: CounterQueryDto) {
     return this.billingService.getCounterSummary(query);
+  }
+
+  @Get('archives/export')
+  @Roles(Role.DIRECTION, Role.COMPTABLE)
+  async exportArchives(
+    @Query() query: ArchivesQueryDto,
+    @Req() req: Request,
+    @Res() res: Response,
+  ) {
+    const actor = this.extractActor(req);
+    await this.billingService.streamArchivesExport(query, actor, res);
+  }
+
+  @Get('archives')
+  @Roles(Role.DIRECTION, Role.RECEPTION, Role.COMPTABLE)
+  async getArchives(@Query() query: ArchivesQueryDto) {
+    return this.billingService.getArchives(query);
   }
 
   @Get('cash-closure/export')

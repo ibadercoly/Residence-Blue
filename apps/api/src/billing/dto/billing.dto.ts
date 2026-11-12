@@ -5,6 +5,7 @@ import {
   IsInt,
   IsOptional,
   IsString,
+  Matches,
   Max,
   Min,
   MinLength,
@@ -34,6 +35,25 @@ export const ALLOWED_PAYMENT_METHODS = [
   'CARTE_TPE',
   'BANK_TRANSFER',
   'VIREMENT',
+] as const;
+
+export const ALLOWED_COUNTER_FILTERS = [
+  'TO_PROCESS',
+  'DEPARTURES_TODAY',
+  'OVERDUE_24H',
+  'PAID_TODAY',
+] as const;
+
+export const ALLOWED_SORT_FIELDS = ['guest', 'stay', 'balance', 'updatedAt'] as const;
+export const ALLOWED_SORT_ORDERS = ['asc', 'desc'] as const;
+
+export const ALLOWED_ARCHIVE_STATUSES = [
+  'ALL',
+  'PAID',
+  'OPEN',
+  'PARTIAL',
+  'CREDIT_NOTE',
+  'CANCELLED',
 ] as const;
 
 export class CreateInvoiceLineDto {
@@ -186,22 +206,76 @@ export class CounterQueryDto {
   search?: string;
 
   @IsOptional()
-  @Type(() => Number)
-  @IsInt()
-  @Min(0)
-  openOffset?: number;
+  @IsString()
+  @IsIn(ALLOWED_COUNTER_FILTERS, { message: 'Filtre du comptoir invalide.' })
+  filter?: (typeof ALLOWED_COUNTER_FILTERS)[number];
+
+  @IsOptional()
+  @IsString()
+  @IsIn(ALLOWED_SORT_FIELDS, { message: 'Champ de tri invalide.' })
+  sortBy?: (typeof ALLOWED_SORT_FIELDS)[number];
+
+  @IsOptional()
+  @IsString()
+  @IsIn(ALLOWED_SORT_ORDERS, { message: 'Ordre de tri invalide.' })
+  sortOrder?: (typeof ALLOWED_SORT_ORDERS)[number];
 
   @IsOptional()
   @Type(() => Number)
   @IsInt()
   @Min(0)
-  partialOffset?: number;
+  offset?: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(50)
+  limit?: number;
+}
+
+export class ArchivesQueryDto {
+  @IsOptional()
+  @IsString()
+  search?: string;
+
+  @IsOptional()
+  @IsString()
+  @IsIn(ALLOWED_ARCHIVE_STATUSES, { message: 'Filtre de statut invalide.' })
+  status?: (typeof ALLOWED_ARCHIVE_STATUSES)[number];
+
+  @IsOptional()
+  @IsString()
+  @IsIn(['ALL', 'CASH', 'ORANGE_MONEY', 'WAVE', 'CARD', 'BANK_TRANSFER'], {
+    message: 'Mode de paiement invalide.',
+  })
+  paymentMethod?: string;
+
+  @IsOptional()
+  @IsString()
+  @Matches(/^\d{4}-\d{2}-\d{2}$/, { message: 'Format de date début invalide (AAAA-MM-JJ).' })
+  fromDate?: string;
+
+  @IsOptional()
+  @IsString()
+  @Matches(/^\d{4}-\d{2}-\d{2}$/, { message: 'Format de date fin invalide (AAAA-MM-JJ).' })
+  toDate?: string;
+
+  @IsOptional()
+  @IsString()
+  @IsIn(ALLOWED_SORT_FIELDS, { message: 'Champ de tri invalide.' })
+  sortBy?: (typeof ALLOWED_SORT_FIELDS)[number];
+
+  @IsOptional()
+  @IsString()
+  @IsIn(ALLOWED_SORT_ORDERS, { message: 'Ordre de tri invalide.' })
+  sortOrder?: (typeof ALLOWED_SORT_ORDERS)[number];
 
   @IsOptional()
   @Type(() => Number)
   @IsInt()
   @Min(0)
-  paidOffset?: number;
+  offset?: number;
 
   @IsOptional()
   @Type(() => Number)

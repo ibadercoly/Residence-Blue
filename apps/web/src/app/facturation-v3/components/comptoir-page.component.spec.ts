@@ -27,11 +27,7 @@ describe('ComptoirPageComponent (Facturation V3)', () => {
             BANK_TRANSFER: 0,
           },
         },
-        columns: {
-          toPay: { items: [], total: 0, hasMore: false },
-          partial: { items: [], total: 0, hasMore: false },
-          paid: { items: [], total: 0, hasMore: false },
-        },
+        page: { items: [], total: 0, offset: 0, limit: 50, hasMore: false },
       }),
     } as Response);
 
@@ -59,20 +55,39 @@ describe('ComptoirPageComponent (Facturation V3)', () => {
 
     jest.advanceTimersByTime(1);
     expect(spy).toHaveBeenCalledTimes(1);
-    expect(spy).toHaveBeenCalledWith({ search: 'Diop' });
+    expect(spy).toHaveBeenCalledWith({
+      search: 'Diop',
+      filter: 'TO_PROCESS',
+      sortBy: 'updatedAt',
+      sortOrder: 'desc',
+      limit: 50,
+    });
   });
 
-  it('devrait effacer la recherche et exposer les trois colonnes fixes', () => {
+  it('devrait effacer la recherche, exposer les 4 filtres et permettre le tri', () => {
     const spy = jest.spyOn(service, 'loadCounter').mockResolvedValue();
     component.searchQuery.set('101');
     component.clearSearch();
 
     expect(component.searchQuery()).toBe('');
-    expect(spy).toHaveBeenCalledWith({ search: '' });
-    expect(component.columnsMeta().map((c) => c.key)).toEqual([
-      'toPay',
-      'partial',
-      'paid',
+    expect(component.filterPills.map((f) => f.key)).toEqual([
+      'TO_PROCESS',
+      'DEPARTURES_TODAY',
+      'OVERDUE_24H',
+      'PAID_TODAY',
     ]);
+    expect(spy).toHaveBeenCalledWith({
+      search: '',
+      filter: 'TO_PROCESS',
+      sortBy: 'updatedAt',
+      sortOrder: 'desc',
+      limit: 50,
+    });
+
+    component.toggleSort('balance');
+    expect(component.sortBy()).toBe('balance');
+    expect(component.sortOrder()).toBe('desc');
+    component.toggleSort('balance');
+    expect(component.sortOrder()).toBe('asc');
   });
 });

@@ -1,8 +1,5 @@
-import { execFileSync } from 'child_process';
-import * as path from 'path';
 import { APIRequestContext, Page, expect } from '@playwright/test';
-
-const repoRoot = path.resolve(__dirname, '../../..');
+import { execE2eNodeScript } from './e2e-db.helper';
 
 /**
  * Authentifie un appel API Playwright avec un vrai JWT signé (sans x-user-role).
@@ -73,7 +70,7 @@ export function createE2eUser(
       await p.$disconnect();
     })();
   `;
-  execFileSync('node', ['--env-file=.env', '-e', script], { cwd: repoRoot, encoding: 'utf8' });
+  execE2eNodeScript(script);
   return { email, password };
 }
 
@@ -100,5 +97,5 @@ export function deleteE2eUsers(emails: string[]): void {
       await p.$disconnect();
     })();
   `;
-  execFileSync('node', ['--env-file=.env', '-e', script], { cwd: repoRoot, encoding: 'utf8' });
+  execE2eNodeScript(script);
 }

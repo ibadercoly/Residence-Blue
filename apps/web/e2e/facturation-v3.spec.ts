@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { execFileSync } from 'child_process';
+import { execE2eNodeScript } from './e2e-db.helper';
 import * as fs from 'fs';
 import * as path from 'path';
 import { createE2eUser, deleteE2eUsers, getApiAuthHeaders, loginViaUi } from './auth-e2e.helper';
@@ -119,7 +119,7 @@ test.describe('Facturation V3 — E2E complet, Responsive & Rupture', () => {
               ]
             },
             select: { id: true }
-          });
+          }); */
           const allIds = invs.map(i => i.id);
           if (allIds.length) {
             await p.payment.deleteMany({ where: { invoiceId: { in: allIds } } });
@@ -132,10 +132,10 @@ test.describe('Facturation V3 — E2E complet, Responsive & Rupture', () => {
           await p.$disconnect();
         })().catch((e) => { console.error(e); process.exit(1); });
       `;
-      execFileSync('node', ['--env-file=.env', '-e', cleanupScript], {
+      execE2eNodeScript(cleanupScript); /*
         cwd: repoRoot,
         stdio: 'inherit',
-      });
+      }); */
     }
     if (dirUser.email) {
       const cleanupHeaders = await getApiAuthHeaders(request, dirUser.email, dirUser.password).catch(() => null);
@@ -217,7 +217,7 @@ test.describe('Facturation V3 — E2E complet, Responsive & Rupture', () => {
         await page.screenshot({
           path: path.join(compDir, 'actual_facturation_comptoir_mobile.png'),
           fullPage: false,
-        });
+        }); */
       }
     }
 
@@ -251,7 +251,7 @@ test.describe('Facturation V3 — E2E complet, Responsive & Rupture', () => {
         await page.screenshot({
           path: path.join(compDir, 'actual_facturation_note_mobile.png'),
           fullPage: false,
-        });
+        }); */
       }
     }
 

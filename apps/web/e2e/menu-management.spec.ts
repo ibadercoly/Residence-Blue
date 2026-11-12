@@ -2,6 +2,7 @@ import { test, expect } from '@playwright/test';
 import { execFileSync } from 'child_process';
 import * as path from 'path';
 import { loginViaUi } from './auth-e2e.helper';
+import { execE2eNodeScript } from './e2e-db.helper';
 
 test.describe('Gestion du menu restaurant La Teranga', () => {
   test.afterAll(() => {
@@ -19,7 +20,7 @@ test.describe('Gestion du menu restaurant La Teranga', () => {
         await p.$disconnect();
       })();
     `;
-    execFileSync('node', ['--env-file=.env', '-e', script], { cwd: repoRoot, encoding: 'utf8' });
+    execE2eNodeScript(script);
   });
 
   test.beforeEach(async ({ page }) => {

@@ -35,8 +35,8 @@ Tous les points de terminaison sont protégés par les guards globaux :
 | **Restaurant** | `POST/PATCH/DELETE /api/restaurant/products*` | `@Roles(DIRECTION, RESTAURANT)` | `RECEPTION`, `SERVEUR`, `CUISINE`, `COMPTABLE` |
 | **Restaurant** | `POST /api/restaurant/orders` (`Idempotency-Key`) | `@Roles(DIRECTION, RECEPTION, RESTAURANT, SERVEUR)` | `CUISINE`, `COMPTABLE` |
 | **Restaurant** | `PATCH /api/restaurant/orders/:id` | `@Roles(DIRECTION, RECEPTION, RESTAURANT, SERVEUR, CUISINE)` | `COMPTABLE` |
-| **Facturation** | `GET /api/invoices/counter`, `GET /api/invoices`, `GET /api/invoices/:id`, `GET /api/invoices/:id/pdf` | `@Roles(DIRECTION, RECEPTION, COMPTABLE)` | `RESTAURANT`, `SERVEUR`, `CUISINE` |
-| **Facturation** | `GET /api/invoices/cash-closure/export`, `POST /api/invoices/:id/credit-notes` | `@Roles(DIRECTION, COMPTABLE)` | `RECEPTION`, `RESTAURANT`, `SERVEUR`, `CUISINE` |
+| **Facturation** | `GET /api/invoices/counter`, `GET /api/invoices/archives`, `GET /api/invoices`, `GET /api/invoices/:id`, `GET /api/invoices/:id/pdf` | `@Roles(DIRECTION, RECEPTION, COMPTABLE)` | `RESTAURANT`, `SERVEUR`, `CUISINE` |
+| **Facturation** | `GET /api/invoices/cash-closure/export`, `GET /api/invoices/archives/export`, `POST /api/invoices/:id/credit-notes` | `@Roles(DIRECTION, COMPTABLE)` | `RECEPTION`, `RESTAURANT`, `SERVEUR`, `CUISINE` |
 | **Facturation** | `POST /api/invoices`, `PATCH /api/invoices/:id/discount`, `POST /api/invoices/:id/payments` (`Idempotency-Key`), `POST checkout`, `POST issue`, `DELETE lines/:lineId` | `@Roles(DIRECTION, RECEPTION)` | `COMPTABLE`, `RESTAURANT`, `SERVEUR`, `CUISINE` |
 | **Facturation** | `POST /api/invoices/room/:roomNumber/restaurant-charge`, `POST /api/invoices/:id/lines` | `@Roles(DIRECTION, RECEPTION, RESTAURANT)` | `COMPTABLE`, `SERVEUR`, `CUISINE` |
 | **Facturation** | `POST /api/invoices/:id/payments/:paymentId/reverse`, `DELETE /api/invoices/:id` | `@Roles(DIRECTION)` | Tous les autres rôles |

@@ -13,6 +13,7 @@ import { Response } from 'express';
 import { PrismaService } from '../prisma/prisma.service';
 import { appendChainedAuditLog } from '../common/audit/audit.service';
 import {
+  ArchivesQueryDto,
   CheckoutInvoiceDto,
   CounterQueryDto,
   CreateCreditNoteDto,
@@ -32,6 +33,7 @@ import {
   RoomStatus,
 } from '@prisma/client';
 import {
+  BillingArchivesResponse,
   BillingCounterResponse,
   BillingLineCategory,
   BillingNoteDetail,
@@ -40,6 +42,14 @@ import {
   numberToFrenchWordsFcfa,
 } from '@residence-blue/shared';
 import { sanitizeSpreadsheetCell } from '../exports/exports.service';
+import {
+  buildArchivesWhere,
+  buildBillingOrderBy,
+  buildCounterWhere,
+  formatSummaryCardRow,
+  getUtcDayBounds,
+  resolveInvoiceDisplayNumber,
+} from './billing-queries.helper';
 
 export interface BillingActorContext {
   actorRole: string;
@@ -396,6 +406,7 @@ export class BillingService {
           paidAmountFcfa: 0,
           balanceFcfa: computed.balanceFcfa,
           status: computed.status,
+          settledAt: computed.status === InvoiceStatus.PAID ? new Date() : null,
           lines: { create: linesData },
         },
       });
@@ -482,53 +493,6 @@ export class BillingService {
     }
   }
 
-  private formatSummaryCard(inv: any, todayIso: string): BillingSummaryCard {
-    const startIso = inv.reservation?.checkInDate
-      ? new Date(inv.reservation.checkInDate).toISOString().slice(0, 10)
-      : null;
-    const endIso = inv.reservation?.checkOutDate
-      ? new Date(inv.reservation.checkOutDate).toISOString().slice(0, 10)
-      : null;
-
-    const stayLabel =
-      startIso && endIso
-        ? `${new Date(startIso).toLocaleDateString('fr-FR')} → ${new Date(endIso).toLocaleDateString('fr-FR')}`
-        : `Note du ${new Date(inv.issuedAt || inv.createdAt).toLocaleDateString('fr-FR')}`;
-
-    const totalFcfa = inv.totalFcfa;
-    const paidTotalFcfa = Math.max(0, (inv.depositFcfa || 0) + (inv.paidAmountFcfa || 0));
-    const progressPercent =
-      inv.documentType === InvoiceDocumentType.CREDIT_NOTE
-        ? 100
-        : totalFcfa > 0
-          ? Math.min(100, Math.round((paidTotalFcfa * 100) / totalFcfa))
-          : inv.status === InvoiceStatus.PAID
-            ? 100
-            : 0;
-
-    return {
-      id: inv.id,
-      invoiceNumber: inv.invoiceNumber,
-      displayNumber: inv.invoiceNumber || 'Note ouverte',
-      documentType: inv.documentType,
-      isIssued: inv.isIssued,
-      status: inv.status,
-      guestId: inv.guestId,
-      guestName: inv.guest?.fullName || inv.billingCompanyName || 'Client de passage',
-      roomNumber: inv.room?.number || '—',
-      stayStartDate: startIso,
-      stayEndDate: endIso,
-      stayLabel,
-      totalFcfa,
-      paidTotalFcfa,
-      balanceFcfa: inv.balanceFcfa,
-      progressPercent,
-      isDepartureToday: endIso === todayIso && inv.balanceFcfa > 0,
-      parentInvoiceId: inv.parentInvoiceId || null,
-      updatedAt: new Date(inv.updatedAt).toISOString(),
-    };
-  }
-
   private async formatDetail(inv: any): Promise<BillingNoteDetail> {
     const settings = await this.getHotelSettings();
     const reversedIds = new Set<string>(
@@ -551,7 +515,7 @@ export class BillingService {
     return {
       id: inv.id,
       invoiceNumber: inv.invoiceNumber,
-      displayNumber: inv.invoiceNumber || 'Note ouverte',
+      displayNumber: resolveInvoiceDisplayNumber(inv),
       documentType: inv.documentType,
       isIssued: inv.isIssued,
       status: inv.status,
@@ -629,91 +593,51 @@ export class BillingService {
     };
   }
 
+  private readonly listSelect = {
+    id: true,
+    invoiceNumber: true,
+    documentType: true,
+    isIssued: true,
+    status: true,
+    guestId: true,
+    billingCompanyName: true,
+    totalFcfa: true,
+    depositFcfa: true,
+    paidAmountFcfa: true,
+    balanceFcfa: true,
+    parentInvoiceId: true,
+    createdAt: true,
+    issuedAt: true,
+    updatedAt: true,
+    guest: { select: { id: true, fullName: true } },
+    room: { select: { number: true } },
+    reservation: { select: { checkInDate: true, checkOutDate: true } },
+  };
+
   async getCounterSummary(query: CounterQueryDto): Promise<BillingCounterResponse> {
-    await this.syncOpenStayNotesAndRoomOrders();
+    const limit = Math.min(50, Math.max(1, query.limit ?? 50));
+    const offset = Math.max(0, query.offset ?? 0);
+    if (offset === 0) {
+      await this.syncOpenStayNotesAndRoomOrders();
+    }
 
-    const search = (query.search || '').trim();
-    const limit = Math.min(50, Math.max(1, query.limit ?? 8));
-    const openOffset = Math.max(0, query.openOffset ?? 0);
-    const partialOffset = Math.max(0, query.partialOffset ?? 0);
-    const paidOffset = Math.max(0, query.paidOffset ?? 0);
+    const bounds = getUtcDayBounds();
+    const where = buildCounterWhere(query, bounds);
+    const orderBy = buildBillingOrderBy(query.sortBy, query.sortOrder);
 
-    const now = new Date();
-    const startOfDay = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 0, 0, 0, 0));
-    const endOfDay = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1, 0, 0, 0, 0));
-    const todayIso = startOfDay.toISOString().slice(0, 10);
-
-    const searchWhere: Prisma.InvoiceWhereInput = search
-      ? {
-          OR: [
-            { invoiceNumber: { contains: search, mode: 'insensitive' } },
-            { billingCompanyName: { contains: search, mode: 'insensitive' } },
-            { guest: { fullName: { contains: search, mode: 'insensitive' } } },
-            { room: { number: { contains: search, mode: 'insensitive' } } },
-          ],
-        }
-      : {};
-
-    const toPayWhere: Prisma.InvoiceWhereInput = {
-      ...searchWhere,
-      documentType: InvoiceDocumentType.INVOICE,
-      status: InvoiceStatus.OPEN,
-    };
-
-    const partialWhere: Prisma.InvoiceWhereInput = {
-      ...searchWhere,
-      documentType: InvoiceDocumentType.INVOICE,
-      status: InvoiceStatus.PARTIAL,
-    };
-
-    const paidWhere: Prisma.InvoiceWhereInput = {
-      ...searchWhere,
-      OR: [
-        { documentType: InvoiceDocumentType.INVOICE, status: InvoiceStatus.PAID },
-        { documentType: InvoiceDocumentType.CREDIT_NOTE },
-      ],
-    };
-
-    const listInclude = { guest: true, room: true, reservation: true };
-
-    const [
-      toPayItems,
-      toPayTotal,
-      partialItems,
-      partialTotal,
-      paidItems,
-      paidTotal,
-      unpaidAgg,
-      departuresTodayToSettleCount,
-      todayPayments,
-    ] = await Promise.all([
+    const [rows, total, unpaidAgg, departuresTodayToSettleCount, todayPayments] = await Promise.all([
       this.prisma.invoice.findMany({
-        where: toPayWhere,
-        include: listInclude,
-        orderBy: { updatedAt: 'desc' },
-        skip: openOffset,
+        where,
+        select: this.listSelect,
+        orderBy,
+        skip: offset,
         take: limit,
       }),
-      this.prisma.invoice.count({ where: toPayWhere }),
-      this.prisma.invoice.findMany({
-        where: partialWhere,
-        include: listInclude,
-        orderBy: { updatedAt: 'desc' },
-        skip: partialOffset,
-        take: limit,
-      }),
-      this.prisma.invoice.count({ where: partialWhere }),
-      this.prisma.invoice.findMany({
-        where: paidWhere,
-        include: listInclude,
-        orderBy: { updatedAt: 'desc' },
-        skip: paidOffset,
-        take: limit,
-      }),
-      this.prisma.invoice.count({ where: paidWhere }),
+      this.prisma.invoice.count({ where }),
       this.prisma.invoice.aggregate({
         where: {
           documentType: InvoiceDocumentType.INVOICE,
+          isIssued: false,
           status: { in: [InvoiceStatus.OPEN, InvoiceStatus.PARTIAL] },
           balanceFcfa: { gt: 0 },
         },
@@ -723,16 +647,17 @@ export class BillingService {
       this.prisma.invoice.count({
         where: {
           documentType: InvoiceDocumentType.INVOICE,
+          isIssued: false,
           status: { in: [InvoiceStatus.OPEN, InvoiceStatus.PARTIAL] },
           balanceFcfa: { gt: 0 },
           reservation: {
-            checkOutDate: { gte: startOfDay, lt: endOfDay },
+            checkOutDate: { gte: bounds.startOfDay, lt: bounds.endOfDay },
             status: { notIn: [ReservationStatus.CANCELLED, ReservationStatus.NO_SHOW] },
           },
         },
       }),
       this.prisma.payment.findMany({
-        where: { paidAt: { gte: startOfDay, lt: endOfDay } },
+        where: { paidAt: { gte: bounds.startOfDay, lt: bounds.endOfDay } },
         select: { method: true, amountFcfa: true },
       }),
     ]);
@@ -750,11 +675,9 @@ export class BillingService {
     }
 
     const totalTodayFcfa =
-      byMethod.CASH +
-      byMethod.ORANGE_MONEY +
-      byMethod.WAVE +
-      byMethod.CARD +
-      byMethod.BANK_TRANSFER;
+      byMethod.CASH + byMethod.ORANGE_MONEY + byMethod.WAVE + byMethod.CARD + byMethod.BANK_TRANSFER;
+
+    const items: BillingSummaryCard[] = rows.map((inv) => formatSummaryCardRow(inv, bounds));
 
     return {
       kpis: {
@@ -764,28 +687,144 @@ export class BillingService {
         departuresTodayToSettleCount,
       },
       dailyCash: {
-        dateIso: todayIso,
+        dateIso: bounds.todayIso,
         totalTodayFcfa,
         byMethod,
       },
-      columns: {
-        toPay: {
-          items: toPayItems.map((inv) => this.formatSummaryCard(inv, todayIso)),
-          total: toPayTotal,
-          hasMore: openOffset + toPayItems.length < toPayTotal,
-        },
-        partial: {
-          items: partialItems.map((inv) => this.formatSummaryCard(inv, todayIso)),
-          total: partialTotal,
-          hasMore: partialOffset + partialItems.length < partialTotal,
-        },
-        paid: {
-          items: paidItems.map((inv) => this.formatSummaryCard(inv, todayIso)),
-          total: paidTotal,
-          hasMore: paidOffset + paidItems.length < paidTotal,
-        },
+      page: {
+        items,
+        total,
+        offset,
+        limit,
+        hasMore: offset + items.length < total,
       },
     };
+  }
+
+  async getArchives(query: ArchivesQueryDto): Promise<BillingArchivesResponse> {
+    const limit = Math.min(50, Math.max(1, query.limit ?? 50));
+    const offset = Math.max(0, query.offset ?? 0);
+    const bounds = getUtcDayBounds();
+    const where = buildArchivesWhere(query);
+    const orderBy = buildBillingOrderBy(query.sortBy, query.sortOrder);
+
+    const [rows, total] = await Promise.all([
+      this.prisma.invoice.findMany({
+        where,
+        select: {
+          ...this.listSelect,
+          payments: {
+            where: { isReversal: false },
+            select: { method: true, isReversal: true },
+          },
+        },
+        orderBy,
+        skip: offset,
+        take: limit,
+      }),
+      this.prisma.invoice.count({ where }),
+    ]);
+
+    const items: BillingSummaryCard[] = rows.map((inv) => formatSummaryCardRow(inv, bounds));
+    return {
+      page: {
+        items,
+        total,
+        offset,
+        limit,
+        hasMore: offset + items.length < total,
+      },
+    };
+  }
+
+  async streamArchivesExport(
+    query: ArchivesQueryDto,
+    actor: BillingActorContext,
+    res: Response,
+  ): Promise<void> {
+    const bounds = getUtcDayBounds();
+    const where = buildArchivesWhere(query);
+    const orderBy = buildBillingOrderBy(query.sortBy, query.sortOrder);
+    const rows = await this.prisma.invoice.findMany({
+      where,
+      select: {
+        ...this.listSelect,
+        payments: {
+          where: { isReversal: false },
+          select: { method: true, isReversal: true },
+        },
+      },
+      orderBy,
+      take: 2000,
+    });
+
+    res.setHeader(
+      'Content-Type',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    );
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename="archives-facturation-${bounds.todayIso}.xlsx"`,
+    );
+
+    const ExcelJSClass: any = (ExcelJS as any).default || ExcelJS;
+    const workbook = new ExcelJSClass.stream.xlsx.WorkbookWriter({
+      stream: res,
+      useStyles: true,
+      useSharedStrings: true,
+    });
+    const sheet = workbook.addWorksheet('Archives');
+    sheet.columns = [
+      { header: 'Num?ro / ?tat', key: 'number', width: 20 },
+      { header: 'Client', key: 'guest', width: 28 },
+      { header: 'Chambre', key: 'room', width: 10 },
+      { header: 'S?jour', key: 'stay', width: 24 },
+      { header: 'Total FCFA', key: 'total', width: 14 },
+      { header: 'Reste FCFA', key: 'balance', width: 14 },
+      { header: 'Statut', key: 'status', width: 18 },
+      { header: 'Modes r?glement', key: 'methods', width: 24 },
+    ];
+
+    for (const inv of rows) {
+      const card = formatSummaryCardRow(inv, bounds);
+      const statusLabel =
+        card.documentType === 'CREDIT_NOTE'
+          ? 'Avoir'
+          : card.status === 'PAID'
+            ? card.isIssued ? '?mise' : 'Sold?e ? cl?turer'
+            : card.status === 'PARTIAL'
+              ? 'Partielle'
+              : card.status === 'CANCELLED'
+                ? 'Annul?e'
+                : '? r?gler';
+      const methodsLabel = (card.paymentMethods || [])
+        .map((m) => METHOD_LABELS[m as PaymentMethod] || m)
+        .join(', ');
+      sheet
+        .addRow({
+          number: sanitizeSpreadsheetCell(card.displayNumber),
+          guest: sanitizeSpreadsheetCell(card.guestName),
+          room: sanitizeSpreadsheetCell(card.roomNumber),
+          stay: sanitizeSpreadsheetCell(card.stayLabel),
+          total: card.totalFcfa,
+          balance: card.balanceFcfa,
+          status: sanitizeSpreadsheetCell(statusLabel),
+          methods: sanitizeSpreadsheetCell(methodsLabel || '?'),
+        })
+        .commit();
+    }
+
+    sheet.commit();
+    await workbook.commit();
+
+    await appendChainedAuditLog(this.prisma, {
+      userId: actor.actorId || null,
+      action: 'ARCHIVES_EXPORT',
+      entity: 'Invoice',
+      entityId: bounds.todayIso,
+      ip: actor.ip || null,
+      after: { count: rows.length, actorRole: actor.actorRole },
+    });
   }
 
   async findAll() {
@@ -881,6 +920,7 @@ export class BillingService {
           paidAmountFcfa: 0,
           balanceFcfa: computed.balanceFcfa,
           status: computed.status,
+          settledAt: computed.status === InvoiceStatus.PAID ? new Date() : null,
           billingCompanyName: dto.billingCompanyName?.trim() || null,
           billingNinea: dto.billingNinea?.trim() || null,
           billingAddress: dto.billingAddress?.trim() || null,

@@ -62,6 +62,14 @@ export const routes: Routes = [
       ),
   },
   {
+    path: 'facturation/archives',
+    canActivate: [authGuard],
+    loadComponent: () =>
+      import('./facturation-v3/components/archives-page.component').then(
+        (m) => m.ArchivesPageComponent,
+      ),
+  },
+  {
     path: 'facturation/:id',
     canActivate: [authGuard],
     loadComponent: () =>
