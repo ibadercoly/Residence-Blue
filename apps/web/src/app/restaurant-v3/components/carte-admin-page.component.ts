@@ -313,7 +313,7 @@ import { RestaurantV3Service } from '../services/restaurant-v3.service';
               class="rb-scroll-box max-h-[540px] rounded-xl border border-[#d6e2e4]"
             >
               <div
-                class="hidden md:grid rb-carte-grid sticky top-0 z-10 min-h-[48px] px-3 border-b border-[#d6e2e4] bg-[#f0f5f6] text-xs font-extrabold uppercase tracking-wider text-[#161d20]"
+                class="hidden lg:grid rb-carte-grid sticky top-0 z-10 min-h-[48px] px-3 border-b border-[#d6e2e4] bg-[#f0f5f6] text-xs font-extrabold uppercase tracking-wider text-[#161d20]"
                 role="row"
               >
                 <div>Photo</div>
@@ -334,7 +334,7 @@ import { RestaurantV3Service } from '../services/restaurant-v3.service';
                     <div
                       role="row"
                       [attr.data-testid]="'carte-row-' + prod.id"
-                      class="hidden md:grid rb-carte-grid min-h-[56px] px-3 py-2 border-b border-[#e6f0f2] text-sm hover:bg-[#f8fbfc]"
+                      class="hidden lg:grid rb-carte-grid min-h-[56px] px-3 py-2 border-b border-[#e6f0f2] text-sm hover:bg-[#f8fbfc]"
                     >
                       <div>
                         @if (prod.thumbnailUrl || prod.photoUrl) {
@@ -419,8 +419,8 @@ import { RestaurantV3Service } from '../services/restaurant-v3.service';
                       </div>
                     </div>
 
-                    <!-- Mobile card -->
-                    <div class="md:hidden border-b border-[#e6f0f2] p-3 space-y-2">
+                    <!-- Carte compacte mobile / tablette -->
+                    <div class="lg:hidden border-b border-[#e6f0f2] p-3 space-y-2">
                       <div class="flex items-center justify-between gap-2">
                         <div class="min-w-0">
                           <div class="text-sm font-bold text-[#161d20] break-words">{{ prod.name }}</div>
@@ -454,11 +454,28 @@ import { RestaurantV3Service } from '../services/restaurant-v3.service';
                             type="button"
                             [disabled]="!service.isOnline() || service.busyAction()"
                             (click)="deactivateProduct(prod)"
-                            class="rb-btn rb-btn-sm rb-btn-danger-outline"
+                            class="rb-btn rb-btn-sm rb-btn-outline"
                           >
                             Désactiver
                           </button>
+                        } @else {
+                          <button
+                            type="button"
+                            [disabled]="!service.isOnline() || service.busyAction()"
+                            (click)="reactivateProduct(prod)"
+                            class="rb-btn rb-btn-sm rb-btn-outline"
+                          >
+                            Réactiver
+                          </button>
                         }
+                        <button
+                          type="button"
+                          [disabled]="!service.isOnline() || service.busyAction()"
+                          (click)="tryDeleteProduct(prod)"
+                          class="rb-btn rb-btn-sm rb-btn-danger-outline"
+                        >
+                          Supprimer
+                        </button>
                       </div>
                     </div>
                   }
