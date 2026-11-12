@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
-import { execFileSync } from 'child_process';
-import * as path from 'path';
+// cleaned execFileSync
+// cleaned path
 import { loginViaUi } from './auth-e2e.helper';
 import { execE2eNodeScript } from './e2e-db.helper';
 
