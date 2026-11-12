@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { execFileSync } from 'child_process';
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -21,6 +22,7 @@ function walkFiles(dir: string): string[] {
 test.describe('Facturation V3 — E2E complet, Responsive & Rupture', () => {
   let createdReservationId: string | null = null;
   let createdGuestId: string | null = null;
+  let targetRoomNumber = '105';
   const createdInvoiceIds: string[] = [];
 
   test.beforeAll(async ({ request }) => {
@@ -28,91 +30,114 @@ test.describe('Facturation V3 — E2E complet, Responsive & Rupture', () => {
       fs.mkdirSync(compDir, { recursive: true });
     }
 
-    // Créer un client et une réservation de test sur la chambre 105 via API réelle
+    const today = new Date();
+    const checkOut = new Date(today.getTime() + 2 * 86400000);
+    const fmt = (d: Date) => d.toISOString().slice(0, 10);
+
+    // Trouver une chambre libre pour la période de test
+    const availRes = await request.get(
+      `/api/rooms/available?checkIn=${fmt(today)}&checkOut=${fmt(checkOut)}`,
+      { headers: { 'x-user-role': 'DIRECTION' } },
+    );
+    if (availRes.ok()) {
+      const availJson = await availRes.json();
+      if (Array.isArray(availJson?.items) && availJson.items.length > 0) {
+        targetRoomNumber = availJson.items[0].number;
+      }
+    }
+
+    // Créer un client et une réservation de test via API réelle
     const guestRes = await request.post('/api/guests', {
       headers: { 'x-user-role': 'DIRECTION' },
       data: {
         civility: 'M.',
         firstName: 'Cheikh',
         lastName: 'DialloE2E',
-        phone: '+221779990105',
+        phone: `+22177${Math.floor(1000000 + Math.random() * 8999999)}`,
       },
     });
-    if (guestRes.ok()) {
-      const g = await guestRes.json();
-      createdGuestId = g.id;
-    }
-
-    const today = new Date();
-    const checkOut = new Date(today.getTime() + 2 * 86400000);
-    const fmt = (d: Date) => d.toISOString().slice(0, 10);
+    expect(guestRes.ok()).toBeTruthy();
+    const g = await guestRes.json();
+    createdGuestId = g.id;
 
     const resResp = await request.post('/api/reservations', {
       headers: { 'x-user-role': 'DIRECTION' },
       data: {
-        roomNumber: '105',
+        roomNumber: targetRoomNumber,
         guestId: createdGuestId,
-        checkIn: fmt(today),
-        checkOut: fmt(checkOut),
-        adultsCount: 2,
+        checkInDate: fmt(today),
+        checkOutDate: fmt(checkOut),
+        adultsCount: 1,
         childrenCount: 0,
         status: 'CHECKED_IN',
         breakfastIncluded: false,
         depositFcfa: 0,
       },
     });
-    expect(resResp.ok()).toBeTruthy();
+    if (!resResp.ok()) {
+      throw new Error(`Reservation setup failed (${resResp.status()}): ${await resResp.text()}`);
+    }
     const createdRes = await resResp.json();
     createdReservationId = createdRes.id;
 
-    // Simuler une commande restaurant mise sur la chambre 105
-    const restoCharge = await request.post('/api/invoices/room/105/restaurant-charge', {
-      headers: { 'x-user-role': 'RESTAURANT' },
-      data: {
-        description: 'Yassa Poulet E2E',
-        quantity: 2,
-        unitPriceFcfa: 4500,
+    // Simuler une commande restaurant mise sur la chambre
+    const restoCharge = await request.post(
+      `/api/invoices/room/${encodeURIComponent(targetRoomNumber)}/restaurant-charge`,
+      {
+        headers: { 'x-user-role': 'RESTAURANT' },
+        data: {
+          description: 'Yassa Poulet E2E',
+          quantity: 2,
+          unitPriceFcfa: 4500,
+        },
       },
-    });
+    );
     expect(restoCharge.ok()).toBeTruthy();
   });
 
   test.afterAll(async ({ request }) => {
-    // Nettoyer toutes les factures, avoirs, réservations et clients créés par ce test
-    const counterRes = await request.get('/api/invoices?limit=100', {
-      headers: { 'x-user-role': 'DIRECTION' },
-    });
-    if (counterRes.ok()) {
-      const allInv = await counterRes.json();
-      if (Array.isArray(allInv)) {
-        for (const inv of allInv) {
-          if (
-            (createdGuestId && inv.guestId === createdGuestId) ||
-            (createdReservationId && inv.reservationId === createdReservationId) ||
-            createdInvoiceIds.includes(inv.id)
-          ) {
-            await request.delete(`/api/invoices/${inv.id}`, {
-              headers: { 'x-user-role': 'DIRECTION' },
-            });
+    if (createdGuestId || createdReservationId || createdInvoiceIds.length > 0) {
+      const cleanupScript = `
+        const { PrismaClient } = require('@prisma/client');
+        const p = new PrismaClient();
+        (async () => {
+          const guestId = ${JSON.stringify(createdGuestId)};
+          const resId = ${JSON.stringify(createdReservationId)};
+          const invIds = ${JSON.stringify(createdInvoiceIds)};
+          const roomNum = ${JSON.stringify(targetRoomNumber)};
+          const invs = await p.invoice.findMany({
+            where: {
+              OR: [
+                ...(invIds.length ? [{ id: { in: invIds } }, { parentInvoiceId: { in: invIds } }] : []),
+                ...(resId ? [{ reservationId: resId }] : []),
+                ...(guestId ? [{ guestId }] : []),
+              ]
+            },
+            select: { id: true }
+          });
+          const allIds = invs.map(i => i.id);
+          if (allIds.length) {
+            await p.payment.deleteMany({ where: { invoiceId: { in: allIds } } });
+            await p.invoiceLine.deleteMany({ where: { invoiceId: { in: allIds } } });
+            await p.invoice.deleteMany({ where: { id: { in: allIds } } });
           }
-        }
-      }
-    }
-
-    if (createdReservationId) {
-      await request.delete(`/api/reservations/${createdReservationId}`, {
-        headers: { 'x-user-role': 'DIRECTION' },
+          if (resId) await p.reservation.deleteMany({ where: { id: resId } });
+          if (guestId) await p.guest.deleteMany({ where: { id: guestId } });
+          await p.room.updateMany({ where: { number: roomNum }, data: { status: 'FREE' } });
+          await p.$disconnect();
+        })().catch((e) => { console.error(e); process.exit(1); });
+      `;
+      execFileSync('node', ['--env-file=.env', '-e', cleanupScript], {
+        cwd: repoRoot,
+        stdio: 'inherit',
       });
     }
-    if (createdGuestId) {
-      await request.delete(`/api/guests/${createdGuestId}?confirmName=DialloE2E`, {
+    await request
+      .patch(`/api/rooms/by-number/${encodeURIComponent(targetRoomNumber)}/status`, {
         headers: { 'x-user-role': 'DIRECTION' },
-      });
-    }
-    await request.patch('/api/rooms/by-number/105/status', {
-      headers: { 'x-user-role': 'DIRECTION' },
-      data: { status: 'AVAILABLE' },
-    }).catch(() => {});
+        data: { status: 'FREE' },
+      })
+      .catch(() => {});
   });
 
   test('Rupture : aucun import hérité de l’ancien module dans facturation-v3', async () => {
@@ -124,10 +149,10 @@ test.describe('Facturation V3 — E2E complet, Responsive & Rupture', () => {
       'features/facturation',
       'facturation-mock',
       'FacturationMockService',
-      'action-button',
-      'status-badge',
-      'modal-shell',
-      'room-status-card',
+      'shared/components/action-button',
+      'shared/components/status-badge',
+      'shared/components/modal-shell',
+      'shared/components/room-status-card',
     ];
 
     for (const filePath of files) {

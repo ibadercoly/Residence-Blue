@@ -1046,6 +1046,7 @@ export class BillingService {
     // RESTAURANT ne voit ni totaux généraux ni caisse
     if (actor.actorRole === 'RESTAURANT') {
       return {
+        restrictedView: true,
         lineAdded: true,
         invoiceId: updated.id,
         roomNumber: updated.room?.number || null,
@@ -1207,7 +1208,7 @@ export class BillingService {
 
           return inv;
         },
-        { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
+        { isolationLevel: Prisma.TransactionIsolationLevel.ReadCommitted, maxWait: 10000, timeout: 15000 },
       );
 
       return this.formatDetail(updated);
@@ -1290,7 +1291,7 @@ export class BillingService {
 
         return inv;
       },
-      { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
+      { isolationLevel: Prisma.TransactionIsolationLevel.ReadCommitted, maxWait: 10000, timeout: 15000 },
     );
 
     return this.formatDetail(updated);
@@ -1394,7 +1395,7 @@ export class BillingService {
 
         return tx.invoice.findUnique({ where: { id }, include: this.detailInclude });
       },
-      { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
+      { isolationLevel: Prisma.TransactionIsolationLevel.ReadCommitted, maxWait: 10000, timeout: 15000 },
     );
 
     return this.formatDetail(updated);
@@ -1516,7 +1517,7 @@ export class BillingService {
 
         return cn;
       },
-      { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
+      { isolationLevel: Prisma.TransactionIsolationLevel.ReadCommitted, maxWait: 10000, timeout: 15000 },
     );
 
     return this.formatDetail(creditNote);
