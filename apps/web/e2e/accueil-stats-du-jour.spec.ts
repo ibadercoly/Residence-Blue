@@ -258,33 +258,37 @@ test.describe('Accueil — Statistiques du jour, RBAC, Offline & Responsive', ()
     expect(blockText).not.toContain('FCFA');
   });
 
-  test('état vide restaurant : affiche 0 et « Aucune vente aujourd\'hui »', async ({ page }) => {
-    await page.setViewportSize({ width: 1280, height: 850 });
+  test.describe('État vide restaurant (sans Service Worker pour interception HTTP déterministe)', () => {
+    test.use({ serviceWorkers: 'block' });
 
-    await page.route('**/api/accueil/jour', async (route) => {
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({
-          dateDakarIso: '2026-11-12',
-          timezone: 'Africa/Dakar',
-          generatedAt: new Date().toISOString(),
-          visibleBlocks: ['RESTAURANT'],
-          restaurant: {
-            ordersCount: 0,
-            revenueFcfa: 0,
-            topDish: null,
-            topDishes: [],
-          },
-        }),
+    test('état vide restaurant : affiche 0 et « Aucune vente aujourd\'hui »', async ({ page }) => {
+      await page.setViewportSize({ width: 1280, height: 850 });
+
+      await page.route('**/api/accueil/jour', async (route) => {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({
+            dateDakarIso: '2026-11-12',
+            timezone: 'Africa/Dakar',
+            generatedAt: new Date().toISOString(),
+            visibleBlocks: ['RESTAURANT'],
+            restaurant: {
+              ordersCount: 0,
+              revenueFcfa: 0,
+              topDish: null,
+              topDishes: [],
+            },
+          }),
+        });
       });
-    });
 
-    await loginViaUi(page, restoUser.email, restoUser.password);
-    await expect(page.locator('[data-testid="stat-restaurant-orders"]')).toHaveText('0');
-    await expect(page.locator('[data-testid="stat-restaurant-revenue"]')).toHaveText('0 FCFA');
-    await expect(page.locator('[data-testid="accueil-restaurant-empty"]')).toContainText(
-      "Aucune vente aujourd'hui",
-    );
+      await loginViaUi(page, restoUser.email, restoUser.password);
+      await expect(page.locator('[data-testid="stat-restaurant-orders"]')).toHaveText('0');
+      await expect(page.locator('[data-testid="stat-restaurant-revenue"]')).toHaveText('0 FCFA');
+      await expect(page.locator('[data-testid="accueil-restaurant-empty"]')).toContainText(
+        "Aucune vente aujourd'hui",
+      );
+    });
   });
 });
