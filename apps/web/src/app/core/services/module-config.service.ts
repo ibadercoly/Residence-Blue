@@ -114,6 +114,16 @@ export class ModuleConfigService {
         description: 'Génération certifiée en streaming de documents légaux et comptables PDF et Excel.',
         config: { maxPeriodMonths: 12, maxRowsPerExport: 50000 }
       },
+      rapports: {
+        id: 'rapports',
+        name: 'Rapports',
+        route: '/rapports',
+        icon: 'analytics',
+        enabled: true,
+        version: 'v1',
+        dependencies: [],
+        description: 'Rapports synthétiques des ventes, encaissements, occupation et restaurant.'
+      },
       housekeeping: {
         id: 'housekeeping',
         name: 'Housekeeping détaillé',
@@ -308,7 +318,7 @@ export class ModuleConfigService {
     },
     roles: {
       DIRECTION: {
-        allowedModules: ['dashboard', 'planning', 'rooms', 'clients', 'facturation', 'restaurant', 'pool', 'exports'],
+        allowedModules: ['dashboard', 'planning', 'rooms', 'clients', 'facturation', 'rapports', 'restaurant', 'pool', 'exports'],
         enabled: true,
         version: 'v1',
         description: 'Direction générale de l’établissement : accès complet à tous les modules actifs.',
@@ -357,7 +367,7 @@ export class ModuleConfigService {
         canManageMenu: false
       },
       COMPTABLE: {
-        allowedModules: ['facturation', 'exports'],
+        allowedModules: ['facturation', 'rapports', 'exports'],
         enabled: true,
         version: 'v1',
         description: 'Comptabilité et contrôle facturation : consultation complète, avoirs et exports PDF/Excel.',
@@ -459,6 +469,7 @@ export class ModuleConfigService {
       { id: 'rooms', label: 'Chambres', route: '/chambres', icon: 'bed' },
       { id: 'clients', label: 'Clients', route: '/clients', icon: 'group' },
       { id: 'facturation', label: 'Facturation', route: '/facturation', icon: 'receipt_long' },
+      { id: 'rapports', label: 'Rapports', route: '/rapports', icon: 'analytics' },
       { id: 'restaurant', label: 'Restaurant & Bar', route: '/restaurant', icon: 'restaurant' },
       { id: 'exports', label: 'Exports', route: '/exports', icon: 'file_download' }
     ];

@@ -150,6 +150,18 @@
         ]
       }
     },
+    "rapports": {
+      "id": "rapports",
+      "name": "Rapports",
+      "route": "/rapports",
+      "apiPrefix": "/api/rapports",
+      "icon": "analytics",
+      "enabled": true,
+      "version": "v1",
+      "status": "active",
+      "dependencies": [],
+      "description": "Rapports synthétiques des ventes, encaissements, occupation et restaurant."
+    },
     "housekeeping": {
       "id": "housekeeping",
       "name": "Housekeeping détaillé",
@@ -432,6 +444,7 @@
         "rooms",
         "clients",
         "facturation",
+        "rapports",
         "restaurant",
         "pool",
         "exports"
@@ -503,6 +516,7 @@
     "COMPTABLE": {
       "allowedModules": [
         "facturation",
+        "rapports",
         "exports"
       ],
       "enabled": true,

@@ -223,6 +223,7 @@ model Reservation {
   @@index([checkInDate, checkOutDate])
   @@index([checkedInAt])
   @@index([checkedOutAt])
+  @@index([source])
   @@map("reservations")
 }
 
@@ -272,6 +273,7 @@ model Invoice {
   @@index([parentInvoiceId])
   @@index([isIssued])
   @@index([isIssued, documentType, status, updatedAt])
+  @@index([documentType, status, issuedAt])
   @@index([issuedAt])
   @@index([createdAt])
   @@index([balanceFcfa])
@@ -305,6 +307,7 @@ model InvoiceLine {
 
   @@index([invoiceId])
   @@index([sourceOrderId])
+  @@index([category])
   @@map("invoice_lines")
 }
 

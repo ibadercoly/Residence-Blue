@@ -94,6 +94,15 @@ export const routes: Routes = [
       ),
   },
   {
+    path: 'rapports',
+    canActivate: [authGuard],
+    canMatch: [moduleCanMatch('rapports')],
+    loadComponent: () =>
+      import('./features/rapports/rapports-page.component').then(
+        (m) => m.RapportsPageComponent,
+      ),
+  },
+  {
     path: 'exports',
     canActivate: [authGuard],
     loadComponent: () =>
