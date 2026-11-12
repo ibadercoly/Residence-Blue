@@ -11,6 +11,7 @@ export class OutboxService {
   private readonly authService = inject(AuthService, { optional: true });
   readonly pendingCount = signal<number>(0);
   readonly isSyncing = signal<boolean>(false);
+  private activeSyncPromise: Promise<void> | null = null;
 
   constructor(
     private readonly idbService: IdbService,
@@ -61,6 +62,19 @@ export class OutboxService {
    * Synchronise la file d'attente avec le serveur (source de vérité).
    */
   async syncOutbox(): Promise<void> {
+    if (!this.networkService.isOnline()) {
+      return;
+    }
+    if (this.activeSyncPromise) {
+      return this.activeSyncPromise;
+    }
+    this.activeSyncPromise = this.runSyncOutbox().finally(() => {
+      this.activeSyncPromise = null;
+    });
+    return this.activeSyncPromise;
+  }
+
+  private async runSyncOutbox(): Promise<void> {
     if (this.isSyncing() || !this.networkService.isOnline()) {
       return;
     }

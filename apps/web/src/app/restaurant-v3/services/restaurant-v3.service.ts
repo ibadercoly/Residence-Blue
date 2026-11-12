@@ -92,9 +92,60 @@ export class RestaurantV3Service {
   constructor() {
     if (typeof window !== 'undefined' && typeof window.addEventListener === 'function') {
       window.addEventListener('online', () => {
-        void this.syncOfflineOrders();
+        setTimeout(() => {
+          void this.syncOfflineOrders();
+        }, 50);
       });
     }
+  }
+
+  private async openRestaurantCacheDb(): Promise<IDBDatabase | null> {
+    if (typeof indexedDB === 'undefined') return null;
+    return new Promise((resolve) => {
+      try {
+        const req = indexedDB.open('residence_blue_restaurant_cache', 1);
+        req.onupgradeneeded = () => {
+          const db = req.result;
+          if (!db.objectStoreNames.contains('cache')) {
+            db.createObjectStore('cache', { keyPath: 'id' });
+          }
+        };
+        req.onsuccess = () => resolve(req.result);
+        req.onerror = () => resolve(null);
+      } catch {
+        resolve(null);
+      }
+    });
+  }
+
+  private async putCache<T extends { id: string }>(value: T): Promise<void> {
+    const db = await this.openRestaurantCacheDb();
+    if (!db) return;
+    await new Promise<void>((resolve) => {
+      try {
+        const tx = db.transaction('cache', 'readwrite');
+        tx.objectStore('cache').put(value);
+        tx.oncomplete = () => resolve();
+        tx.onerror = () => resolve();
+      } catch {
+        resolve();
+      }
+    });
+  }
+
+  private async getCache<T>(id: string): Promise<T | undefined> {
+    const db = await this.openRestaurantCacheDb();
+    if (!db) return undefined;
+    return new Promise<T | undefined>((resolve) => {
+      try {
+        const tx = db.transaction('cache', 'readonly');
+        const req = tx.objectStore('cache').get(id);
+        req.onsuccess = () => resolve(req.result as T | undefined);
+        req.onerror = () => resolve(undefined);
+      } catch {
+        resolve(undefined);
+      }
+    });
   }
 
   private authHeaders(extra?: Record<string, string>): Record<string, string> {
@@ -218,12 +269,10 @@ export class RestaurantV3Service {
       this.categories.set(data.categories || []);
       this.products.set(data.products || []);
       this.roomsInStay.set(data.roomsInStay || []);
-      this.idb?.put('restaurant', { id: 'catalog', ...data }).catch(() => {});
+      void this.putCache({ id: 'catalog', ...data });
     } catch (err: any) {
       if (err?.name === 'AbortError') return;
-      const cached = await this.idb
-        ?.get<RestaurantMenuCatalog & { id: string }>('restaurant', 'catalog')
-        .catch(() => undefined);
+      const cached = await this.getCache<RestaurantMenuCatalog & { id: string }>('catalog');
       if (cached) {
         this.categories.set(cached.categories || []);
         this.products.set(cached.products || []);
@@ -277,13 +326,11 @@ export class RestaurantV3Service {
       const data = (await res.json()) as RestaurantOrdersPage;
       this.ordersPage.set(data);
       if ((params.offset ?? 0) === 0 && !params.search && !params.status && !params.destinationType) {
-        this.idb?.put('restaurant', { id: 'orders-page', ...data }).catch(() => {});
+        void this.putCache({ id: 'orders-page', ...data });
       }
     } catch (err: any) {
       if (err?.name === 'AbortError') return;
-      const cached = await this.idb
-        ?.get<RestaurantOrdersPage & { id: string }>('restaurant', 'orders-page')
-        .catch(() => undefined);
+      const cached = await this.getCache<RestaurantOrdersPage & { id: string }>('orders-page');
       if (cached) {
         this.ordersPage.set(cached);
       }

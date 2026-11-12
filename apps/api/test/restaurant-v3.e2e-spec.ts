@@ -43,6 +43,32 @@ describe('Restaurant V3 — Règles métier, Atomicité, RBAC, Photos & Historiq
     await app.init();
     prisma = moduleFixture.get<PrismaService>(PrismaService);
 
+    // Nettoyer d'éventuels résidus d'un run interrompu pour éviter les collisions de dates
+    const staleRes = await prisma.reservation.findMany({
+      where: { reference: { startsWith: 'RES-RST-' } },
+      select: { id: true },
+    });
+    if (staleRes.length > 0) {
+      const staleResIds = staleRes.map((r) => r.id);
+      const staleInvs = await prisma.invoice.findMany({
+        where: { reservationId: { in: staleResIds } },
+        select: { id: true },
+      });
+      const staleInvIds = staleInvs.map((i) => i.id);
+      if (staleInvIds.length > 0) {
+        await prisma.restaurantOrderLine.deleteMany({
+          where: { order: { invoiceId: { in: staleInvIds } } },
+        });
+        await prisma.restaurantOrder.deleteMany({
+          where: { invoiceId: { in: staleInvIds } },
+        });
+        await prisma.payment.deleteMany({ where: { invoiceId: { in: staleInvIds } } });
+        await prisma.invoiceLine.deleteMany({ where: { invoiceId: { in: staleInvIds } } });
+        await prisma.invoice.deleteMany({ where: { id: { in: staleInvIds } } });
+      }
+      await prisma.reservation.deleteMany({ where: { id: { in: staleResIds } } });
+    }
+
     for (const r of [
       'DIRECTION',
       'RECEPTION',
@@ -73,6 +99,13 @@ describe('Restaurant V3 — Règles métier, Atomicité, RBAC, Photos & Historiq
         await prisma.restaurantOrder.deleteMany({
           where: { id: { in: createdOrderIds } },
         });
+      }
+      if (createdResIds.length > 0) {
+        const resInvs = await prisma.invoice.findMany({
+          where: { reservationId: { in: createdResIds } },
+          select: { id: true },
+        });
+        for (const ri of resInvs) createdInvoiceIds.push(ri.id);
       }
       const uniqueInvIds = Array.from(new Set(createdInvoiceIds));
       if (uniqueInvIds.length > 0) {
