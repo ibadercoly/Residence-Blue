@@ -11,6 +11,7 @@ import PDFDocument from 'pdfkit';
 import * as ExcelJS from 'exceljs';
 import { Response } from 'express';
 import { PrismaService } from '../prisma/prisma.service';
+import { appendChainedAuditLog } from '../common/audit/audit.service';
 import {
   CheckoutInvoiceDto,
   CounterQueryDto,
@@ -888,19 +889,17 @@ export class BillingService {
         include: this.detailInclude,
       });
 
-      await tx.auditLog.create({
-        data: {
-          userId: actor.actorId || null,
-          action: 'INVOICE_CREATE',
-          entity: 'Invoice',
-          entityId: inv.id,
-          ip: actor.ip || null,
-          after: {
-            id: inv.id,
-            totalFcfa: inv.totalFcfa,
-            discountFcfa: inv.discountFcfa,
-            actorRole: actor.actorRole,
-          },
+      await appendChainedAuditLog(tx, {
+        userId: actor.actorId || null,
+        action: 'INVOICE_CREATE',
+        entity: 'Invoice',
+        entityId: inv.id,
+        ip: actor.ip || null,
+        after: {
+          id: inv.id,
+          totalFcfa: inv.totalFcfa,
+          discountFcfa: inv.discountFcfa,
+          actorRole: actor.actorRole,
         },
       });
 
@@ -1021,22 +1020,20 @@ export class BillingService {
 
       const inv = await this.recalculateAndPersist(tx, id);
 
-      await tx.auditLog.create({
-        data: {
-          userId: actor.actorId || null,
-          action: 'INVOICE_LINE_ADD',
-          entity: 'InvoiceLine',
-          entityId: line.id,
-          ip: actor.ip || null,
-          after: {
-            invoiceId: id,
-            category: requestedCat,
-            description: line.description,
-            quantity: qty,
-            unitPriceFcfa: unit,
-            totalPriceFcfa: lineTotal,
-            actorRole: actor.actorRole,
-          },
+      await appendChainedAuditLog(tx, {
+        userId: actor.actorId || null,
+        action: 'INVOICE_LINE_ADD',
+        entity: 'InvoiceLine',
+        entityId: line.id,
+        ip: actor.ip || null,
+        after: {
+          invoiceId: id,
+          category: requestedCat,
+          description: line.description,
+          quantity: qty,
+          unitPriceFcfa: unit,
+          totalPriceFcfa: lineTotal,
+          actorRole: actor.actorRole,
         },
       });
 
@@ -1094,16 +1091,14 @@ export class BillingService {
 
     const updated = await this.prisma.$transaction(async (tx) => {
       const inv = await this.recalculateAndPersist(tx, id, discountFcfa);
-      await tx.auditLog.create({
-        data: {
-          userId: actor.actorId || null,
-          action: 'INVOICE_DISCOUNT_UPDATE',
-          entity: 'Invoice',
-          entityId: id,
-          ip: actor.ip || null,
-          before: { discountFcfa: existing.discountFcfa },
-          after: { discountFcfa, reason: dto.reason?.trim() || null, actorRole: actor.actorRole },
-        },
+      await appendChainedAuditLog(tx, {
+        userId: actor.actorId || null,
+        action: 'INVOICE_DISCOUNT_UPDATE',
+        entity: 'Invoice',
+        entityId: id,
+        ip: actor.ip || null,
+        before: { discountFcfa: existing.discountFcfa },
+        after: { discountFcfa, reason: dto.reason?.trim() || null, actorRole: actor.actorRole },
       });
       return inv;
     });
@@ -1188,21 +1183,19 @@ export class BillingService {
 
           const inv = await this.recalculateAndPersist(tx, id);
 
-          await tx.auditLog.create({
-            data: {
-              userId: actor.actorId || null,
-              action: 'PAYMENT_CREATE',
-              entity: 'Payment',
-              entityId: payment.id,
-              ip: actor.ip || null,
-              after: {
-                invoiceId: id,
-                method: payment.method,
-                amountFcfa: payment.amountFcfa,
-                transactionRef: payment.transactionRef,
-                receivedByName: actor.actorName,
-                remainingBalanceFcfa: inv.balanceFcfa,
-              },
+          await appendChainedAuditLog(tx, {
+            userId: actor.actorId || null,
+            action: 'PAYMENT_CREATE',
+            entity: 'Payment',
+            entityId: payment.id,
+            ip: actor.ip || null,
+            after: {
+              invoiceId: id,
+              method: payment.method,
+              amountFcfa: payment.amountFcfa,
+              transactionRef: payment.transactionRef,
+              receivedByName: actor.actorName,
+              remainingBalanceFcfa: inv.balanceFcfa,
             },
           });
 
@@ -1272,20 +1265,18 @@ export class BillingService {
 
         const inv = await this.recalculateAndPersist(tx, invoiceId);
 
-        await tx.auditLog.create({
-          data: {
-            userId: actor.actorId || null,
-            action: 'PAYMENT_REVERSE',
-            entity: 'Payment',
-            entityId: reversal.id,
-            ip: actor.ip || null,
-            before: { originalPaymentId: original.id, amountFcfa: original.amountFcfa },
-            after: {
-              invoiceId,
-              reversalAmountFcfa: reversal.amountFcfa,
-              reason: dto.reason.trim(),
-              balanceFcfa: inv.balanceFcfa,
-            },
+        await appendChainedAuditLog(tx, {
+          userId: actor.actorId || null,
+          action: 'PAYMENT_REVERSE',
+          entity: 'Payment',
+          entityId: reversal.id,
+          ip: actor.ip || null,
+          before: { originalPaymentId: original.id, amountFcfa: original.amountFcfa },
+          after: {
+            invoiceId,
+            reversalAmountFcfa: reversal.amountFcfa,
+            reason: dto.reason.trim(),
+            balanceFcfa: inv.balanceFcfa,
           },
         });
 
@@ -1374,22 +1365,20 @@ export class BillingService {
           });
         }
 
-        await tx.auditLog.create({
-          data: {
-            userId: actor.actorId || null,
-            action: hasBalance ? 'FORCED_CHECKOUT' : 'INVOICE_ISSUE',
-            entity: 'Invoice',
-            entityId: id,
-            ip: actor.ip || null,
-            after: {
-              invoiceNumber: assignedNumber,
-              reservationId: inv.reservationId,
-              roomId: inv.roomId,
-              balanceFcfa: inv.balanceFcfa,
-              forcedCheckout: !!hasBalance,
-              reason: dto.reason?.trim() || null,
-              actorRole: actor.actorRole,
-            },
+        await appendChainedAuditLog(tx, {
+          userId: actor.actorId || null,
+          action: hasBalance ? 'FORCED_CHECKOUT' : 'INVOICE_ISSUE',
+          entity: 'Invoice',
+          entityId: id,
+          ip: actor.ip || null,
+          after: {
+            invoiceNumber: assignedNumber,
+            reservationId: inv.reservationId,
+            roomId: inv.roomId,
+            balanceFcfa: inv.balanceFcfa,
+            forcedCheckout: !!hasBalance,
+            reason: dto.reason?.trim() || null,
+            actorRole: actor.actorRole,
           },
         });
 
@@ -1497,21 +1486,19 @@ export class BillingService {
           include: this.detailInclude,
         });
 
-        await tx.auditLog.create({
-          data: {
-            userId: actor.actorId || null,
-            action: 'CREDIT_NOTE_CREATE',
-            entity: 'Invoice',
-            entityId: cn.id,
-            ip: actor.ip || null,
-            after: {
-              creditNumber,
-              parentInvoiceId: parent.id,
-              parentInvoiceNumber: parent.invoiceNumber,
-              totalFcfa: cn.totalFcfa,
-              reason: dto.reason.trim(),
-              actorRole: actor.actorRole,
-            },
+        await appendChainedAuditLog(tx, {
+          userId: actor.actorId || null,
+          action: 'CREDIT_NOTE_CREATE',
+          entity: 'Invoice',
+          entityId: cn.id,
+          ip: actor.ip || null,
+          after: {
+            creditNumber,
+            parentInvoiceId: parent.id,
+            parentInvoiceNumber: parent.invoiceNumber,
+            totalFcfa: cn.totalFcfa,
+            reason: dto.reason.trim(),
+            actorRole: actor.actorRole,
           },
         });
 
@@ -1546,16 +1533,14 @@ export class BillingService {
       await tx.invoiceLine.delete({ where: { id: lineId } });
       const recalculated = await this.recalculateAndPersist(tx, id);
 
-      await tx.auditLog.create({
-        data: {
-          userId: actor.actorId || null,
-          action: 'INVOICE_LINE_DELETE',
-          entity: 'InvoiceLine',
-          entityId: lineId,
-          ip: actor.ip || null,
-          before: { invoiceId: id, description: line.description, totalPriceFcfa: line.totalPriceFcfa },
-          after: { invoiceId: id, newTotalFcfa: recalculated.totalFcfa },
-        },
+      await appendChainedAuditLog(tx, {
+        userId: actor.actorId || null,
+        action: 'INVOICE_LINE_DELETE',
+        entity: 'InvoiceLine',
+        entityId: lineId,
+        ip: actor.ip || null,
+        before: { invoiceId: id, description: line.description, totalPriceFcfa: line.totalPriceFcfa },
+        after: { invoiceId: id, newTotalFcfa: recalculated.totalFcfa },
       });
 
       return recalculated;
@@ -1587,15 +1572,13 @@ export class BillingService {
     }
 
     await this.prisma.$transaction(async (tx) => {
-      await tx.auditLog.create({
-        data: {
-          userId: actor.actorId || null,
-          action: 'INVOICE_DELETE',
-          entity: 'Invoice',
-          entityId: existing.id,
-          ip: actor.ip || null,
-          before: { id: existing.id, totalFcfa: existing.totalFcfa },
-        },
+      await appendChainedAuditLog(tx, {
+        userId: actor.actorId || null,
+        action: 'INVOICE_DELETE',
+        entity: 'Invoice',
+        entityId: existing.id,
+        ip: actor.ip || null,
+        before: { id: existing.id, totalFcfa: existing.totalFcfa },
       });
       await tx.invoice.delete({ where: { id } });
     });
@@ -1767,15 +1750,13 @@ export class BillingService {
 
     doc.end();
 
-    await this.prisma.auditLog.create({
-      data: {
-        userId: actor.actorId || null,
-        action: 'INVOICE_PDF_EXPORT',
-        entity: 'Invoice',
-        entityId: detail.id,
-        ip: actor.ip || null,
-        after: { invoiceNumber: detail.displayNumber, actorRole: actor.actorRole },
-      },
+    await appendChainedAuditLog(this.prisma, {
+      userId: actor.actorId || null,
+      action: 'INVOICE_PDF_EXPORT',
+      entity: 'Invoice',
+      entityId: detail.id,
+      ip: actor.ip || null,
+      after: { invoiceNumber: detail.displayNumber, actorRole: actor.actorRole },
     });
   }
 
@@ -1910,20 +1891,18 @@ export class BillingService {
       doc.end();
     }
 
-    await this.prisma.auditLog.create({
-      data: {
-        userId: actor.actorId || null,
-        action: 'CASH_CLOSURE_EXPORT',
-        entity: 'CashClosure',
-        entityId: dateIso,
-        ip: actor.ip || null,
-        after: {
-          format,
-          dateIso,
-          totalFcfa,
-          operationsCount: payments.length,
-          actorRole: actor.actorRole,
-        },
+    await appendChainedAuditLog(this.prisma, {
+      userId: actor.actorId || null,
+      action: 'CASH_CLOSURE_EXPORT',
+      entity: 'CashClosure',
+      entityId: dateIso,
+      ip: actor.ip || null,
+      after: {
+        format,
+        dateIso,
+        totalFcfa,
+        operationsCount: payments.length,
+        actorRole: actor.actorRole,
       },
     });
   }

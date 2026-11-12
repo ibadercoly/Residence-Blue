@@ -1,77 +1,69 @@
-import { CanActivate, ExecutionContext, ForbiddenException, Injectable, Optional } from '@nestjs/common';
+import {
+  CanActivate,
+  ExecutionContext,
+  ForbiddenException,
+  Injectable,
+  Optional,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { IS_PUBLIC_KEY, ROLES_KEY } from '../decorators/roles.decorator';
-import { UserRole } from '@residence-blue/shared';
 import { ServerModuleConfigService } from '../services/server-module-config.service';
 
 @Injectable()
 export class RolesGuard implements CanActivate {
   constructor(
-    private reflector: Reflector,
-    @Optional() private moduleConfig?: ServerModuleConfigService,
+    private readonly reflector: Reflector,
+    @Optional() private readonly moduleConfig?: ServerModuleConfigService,
   ) {}
 
+  private normalizeRole(role: string): string {
+    if (role === 'ADMIN' || role === 'MANAGER') return 'DIRECTION';
+    if (role === 'RECEPTIONIST') return 'RECEPTION';
+    if (role === 'RESTAURANT_STAFF') return 'RESTAURANT';
+    return role;
+  }
+
   canActivate(context: ExecutionContext): boolean {
-    // 1. Vérifier si la route est marquée explicitement comme @Public()
     const isPublic = this.reflector.getAllAndOverride<boolean>(IS_PUBLIC_KEY, [
       context.getHandler(),
       context.getClass(),
     ]);
-
     if (isPublic) {
       return true;
     }
 
-    // 2. Vérifier les rôles autorisés sur la route
-    const requiredRoles = this.reflector.getAllAndOverride<(UserRole | string)[]>(ROLES_KEY, [
+    const request = context.switchToHttp().getRequest();
+    const user = request?.user;
+
+    if (!user || !user.role) {
+      throw new UnauthorizedException('Authentification requise.');
+    }
+
+    // Accès refusé par défaut : toute route protégée doit déclarer @Roles(...)
+    const requiredRoles = this.reflector.getAllAndOverride<string[]>(ROLES_KEY, [
       context.getHandler(),
       context.getClass(),
     ]);
 
-    // RÈGLE SÉCURITÉ AGENTS.MD : « Accès refusé par défaut : chaque route déclare ses rôles autorisés »
-    // Si la route n'a ni @Public() ni @Roles(), l'accès est strictement refusé !
     if (!requiredRoles || requiredRoles.length === 0) {
       throw new ForbiddenException(
-        'Accès refusé par défaut : cette ressource ne déclare aucun rôle autorisé.',
+        'Accès refusé par défaut : cette route ne déclare aucun rôle autorisé.',
       );
     }
 
-    // 3. Récupérer l'utilisateur courant (injecté par l'authentification ou les headers de test)
-    const request = context.switchToHttp().getRequest();
-    const user =
-      request.user ||
-      (request.headers['x-user-role'] ? { role: request.headers['x-user-role'] } : null);
+    const userRole = this.normalizeRole(user.role);
 
-    if (!user || !user.role) {
+    if (this.moduleConfig && !this.moduleConfig.isRoleEnabled(userRole)) {
       throw new ForbiddenException(
-        'Authentification requise : aucun utilisateur ou rôle identifié.',
+        `Accès refusé : le rôle « ${userRole} » est désactivé ou reporté en version ultérieure dans la configuration de l'établissement.`,
       );
     }
 
-    // RÈGLE : Le rôle reporté (ex. HOUSEKEEPING, MAINTENANCE, COMPTABLE) ne peut pas être attribué ou utilisé si le module est inactif
-    if (this.moduleConfig && !this.moduleConfig.isRoleEnabled(user.role)) {
+    const normalizedRequired = requiredRoles.map((r) => this.normalizeRole(r));
+    if (!normalizedRequired.includes(userRole)) {
       throw new ForbiddenException(
-        `Le rôle ${user.role} est reporté en version ultérieure et ne peut pas être utilisé en V1.`,
-      );
-    }
-
-    const normalizedRole =
-      user.role === 'ADMIN' || user.role === 'MANAGER'
-        ? 'DIRECTION'
-        : user.role === 'RECEPTIONIST'
-          ? 'RECEPTION'
-          : user.role === 'RESTAURANT_STAFF'
-            ? 'RESTAURANT'
-            : user.role === 'GOUVERNANTE'
-              ? 'HOUSEKEEPING'
-              : user.role === 'TECHNIQUE'
-                ? 'MAINTENANCE'
-                : user.role;
-
-    const hasRole = requiredRoles.includes(user.role) || requiredRoles.includes(normalizedRole);
-    if (!hasRole) {
-      throw new ForbiddenException(
-        `Rôle non autorisé (${user.role}). Rôles autorisés : ${requiredRoles.join(', ')}.`,
+        `Accès refusé : le rôle « ${userRole} » n'est pas autorisé sur cette ressource.`,
       );
     }
 

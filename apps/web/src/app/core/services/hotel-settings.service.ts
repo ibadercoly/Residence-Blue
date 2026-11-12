@@ -1,4 +1,5 @@
-import { Injectable, signal } from '@angular/core';
+import { Injectable, inject, signal } from '@angular/core';
+import { AuthService } from './auth.service';
 
 export interface HotelSettings {
   hotelName: string;
@@ -26,6 +27,7 @@ export interface HotelSettings {
   providedIn: 'root'
 })
 export class HotelSettingsService {
+  private readonly authService = inject(AuthService, { optional: true });
   // Paramètres par défaut de la Résidence Blue à Grand Standing, Thiès
   // Source de vérité paramétrable (AGENTS.md & ADAPTATION-THIES.md)
   private readonly _settings = signal<HotelSettings>({
@@ -79,9 +81,10 @@ export class HotelSettingsService {
     if (typeof fetch !== 'undefined') {
       fetch('/api/hotel-settings', {
         method: 'PATCH',
+        credentials: 'include',
         headers: {
           'Content-Type': 'application/json',
-          'x-user-role': 'DIRECTION',
+          ...(this.authService ? this.authService.getAuthHeaders() : {}),
         },
         body: JSON.stringify(partial),
       })

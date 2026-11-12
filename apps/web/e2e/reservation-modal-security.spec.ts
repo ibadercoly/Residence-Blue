@@ -1,6 +1,10 @@
 import { test, expect } from '@playwright/test';
+import { loginViaUi } from './auth-e2e.helper';
 
 test.describe('Refonte Fenêtre Nouvelle Réservation - Sécurité & Mémoire', () => {
+  test.beforeEach(async ({ page }) => {
+    await loginViaUi(page, 'fatou.ndiaye@residenceblue.sn', 'ThiesTeranga2024!');
+  });
   test('Aucune fuite mémoire après 20 ouvertures/fermetures successives', async ({ page }) => {
     await page.goto('/tableau-de-bord', { waitUntil: 'networkidle' });
     const client = await page.context().newCDPSession(page);

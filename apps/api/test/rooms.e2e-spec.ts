@@ -9,6 +9,7 @@ import { seedRooms } from '../prisma/seed';
 import * as fs from 'fs';
 import * as path from 'path';
 import { getUploadsDir } from '../src/rooms/rooms-image.util';
+import { issueDbTestToken } from './auth-test.helper';
 
 const request: any = (supertest as any).default || supertest;
 
@@ -18,6 +19,7 @@ describe('API Chambres & Porte de Sécurité (E2E & Intégration)', () => {
   let testRoomId: string;
   let testRoomTypeId: string;
   let moduleConfigService: ServerModuleConfigService;
+  const roleTokens: Record<string, string> = {};
 
   beforeAll(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
@@ -42,6 +44,9 @@ describe('API Chambres & Porte de Sécurité (E2E & Intégration)', () => {
     // Les tests des modules désactivés continuent de s'exécuter avec l'interrupteur forcé à true dans les suites de test
     moduleConfigService.setModuleOverride('housekeeping', true);
     moduleConfigService.setModuleOverride('maintenance', true);
+    for (const r of [Role.DIRECTION, Role.RECEPTION, Role.HOUSEKEEPING, Role.MAINTENANCE, Role.RESTAURANT, Role.SERVEUR, Role.COMPTABLE]) {
+      roleTokens[r] = (await issueDbTestToken(prisma, r)).token;
+    }
 
     // Récupérer une chambre et une catégorie existante (ou semer si la base est vide)
     let existingRoom = await prisma.room.findFirst({
@@ -71,21 +76,21 @@ describe('API Chambres & Porte de Sécurité (E2E & Intégration)', () => {
   });
 
   describe('1. Accès et lecture des chambres (GET /api/rooms)', () => {
-    it('doit refuser l’accès si aucun rôle n’est fourni (403 Forbidden - Deny by default)', async () => {
-      await request(app.getHttpServer()).get('/api/rooms').expect(403);
+    it('doit refuser l’accès sans jeton Bearer (401 Unauthorized)', async () => {
+      await request(app.getHttpServer()).get('/api/rooms').expect(401);
     });
 
     it('doit refuser l’accès si le rôle n’est pas autorisé (403 Forbidden)', async () => {
       await request(app.getHttpServer())
         .get('/api/rooms')
-        .set('x-user-role', 'ANONYMOUS')
+        .set('Authorization', `Bearer ${roleTokens[Role.SERVEUR]}`)
         .expect(403);
     });
 
     it('doit retourner la liste des chambres pour un rôle autorisé (ex: RECEPTION)', async () => {
       const response = await request(app.getHttpServer())
         .get('/api/rooms')
-        .set('x-user-role', Role.RECEPTION)
+        .set('Authorization', `Bearer ${roleTokens[Role.RECEPTION]}`)
         .expect(200);
 
       expect(Array.isArray(response.body)).toBe(true);
@@ -98,7 +103,7 @@ describe('API Chambres & Porte de Sécurité (E2E & Intégration)', () => {
     it('doit retourner le détail d’une chambre existante (GET /api/rooms/:id)', async () => {
       const response = await request(app.getHttpServer())
         .get(`/api/rooms/${testRoomId}`)
-        .set('x-user-role', Role.HOUSEKEEPING)
+        .set('Authorization', `Bearer ${roleTokens[Role.HOUSEKEEPING]}`)
         .expect(200);
 
       expect(response.body.id).toBe(testRoomId);
@@ -109,7 +114,7 @@ describe('API Chambres & Porte de Sécurité (E2E & Intégration)', () => {
       const nonExistentId = '00000000-0000-0000-0000-000000000000';
       await request(app.getHttpServer())
         .get(`/api/rooms/${nonExistentId}`)
-        .set('x-user-role', Role.DIRECTION)
+        .set('Authorization', `Bearer ${roleTokens[Role.DIRECTION]}`)
         .expect(404);
     });
   });
@@ -126,7 +131,7 @@ describe('API Chambres & Porte de Sécurité (E2E & Intégration)', () => {
     it('doit autoriser le check-in (FREE -> OCCUPIED) pour RECEPTION et inscrire dans audit_log', async () => {
       const response = await request(app.getHttpServer())
         .patch(`/api/rooms/${testRoomId}/status`)
-        .set('x-user-role', Role.RECEPTION)
+        .set('Authorization', `Bearer ${roleTokens[Role.RECEPTION]}`)
         .send({ status: RoomStatus.OCCUPIED })
         .expect(200);
 
@@ -157,7 +162,7 @@ describe('API Chambres & Porte de Sécurité (E2E & Intégration)', () => {
       // Tenter le retour direct à FREE
       const response = await request(app.getHttpServer())
         .patch(`/api/rooms/${testRoomId}/status`)
-        .set('x-user-role', Role.DIRECTION)
+        .set('Authorization', `Bearer ${roleTokens[Role.DIRECTION]}`)
         .send({ status: RoomStatus.FREE })
         .expect(400);
 
@@ -172,7 +177,7 @@ describe('API Chambres & Porte de Sécurité (E2E & Intégration)', () => {
 
       const response = await request(app.getHttpServer())
         .patch(`/api/rooms/${testRoomId}/status`)
-        .set('x-user-role', Role.HOUSEKEEPING)
+        .set('Authorization', `Bearer ${roleTokens[Role.HOUSEKEEPING]}`)
         .send({ status: RoomStatus.FREE })
         .expect(200);
 
@@ -182,7 +187,7 @@ describe('API Chambres & Porte de Sécurité (E2E & Intégration)', () => {
     it('doit interdire à RESTAURANT de modifier le statut d’une chambre (403 Forbidden)', async () => {
       await request(app.getHttpServer())
         .patch(`/api/rooms/${testRoomId}/status`)
-        .set('x-user-role', Role.RESTAURANT)
+        .set('Authorization', `Bearer ${roleTokens[Role.RESTAURANT]}`)
         .send({ status: RoomStatus.CLEANING })
         .expect(403);
     });
@@ -190,7 +195,7 @@ describe('API Chambres & Porte de Sécurité (E2E & Intégration)', () => {
     it('doit rejeter un statut non valide (validation stricte du DTO)', async () => {
       await request(app.getHttpServer())
         .patch(`/api/rooms/${testRoomId}/status`)
-        .set('x-user-role', Role.DIRECTION)
+        .set('Authorization', `Bearer ${roleTokens[Role.DIRECTION]}`)
         .send({ status: 'INVALID_STATUS' })
         .expect(400);
     });
@@ -198,7 +203,7 @@ describe('API Chambres & Porte de Sécurité (E2E & Intégration)', () => {
     it('doit rejeter les propriétés supplémentaires (forbidNonWhitelisted)', async () => {
       await request(app.getHttpServer())
         .patch(`/api/rooms/${testRoomId}/status`)
-        .set('x-user-role', Role.DIRECTION)
+        .set('Authorization', `Bearer ${roleTokens[Role.DIRECTION]}`)
         .send({
           status: RoomStatus.MAINTENANCE,
           injectionAttempt: "DROP TABLE rooms;",
@@ -211,13 +216,13 @@ describe('API Chambres & Porte de Sécurité (E2E & Intégration)', () => {
     it('doit refuser la modification de tarifs aux rôles non-DIRECTION (RECEPTION, HOUSEKEEPING, RESTAURANT)', async () => {
       await request(app.getHttpServer())
         .patch(`/api/room-types/${testRoomTypeId}`)
-        .set('x-user-role', Role.RESTAURANT)
+        .set('Authorization', `Bearer ${roleTokens[Role.RESTAURANT]}`)
         .send({ pricePerNight: 50000 })
         .expect(403);
 
       await request(app.getHttpServer())
         .patch(`/api/room-types/${testRoomTypeId}`)
-        .set('x-user-role', Role.RECEPTION)
+        .set('Authorization', `Bearer ${roleTokens[Role.RECEPTION]}`)
         .send({ pricePerNight: 40000 })
         .expect(403);
     });
@@ -225,7 +230,7 @@ describe('API Chambres & Porte de Sécurité (E2E & Intégration)', () => {
     it('doit autoriser la modification de tarifs à DIRECTION', async () => {
       const response = await request(app.getHttpServer())
         .patch(`/api/room-types/${testRoomTypeId}`)
-        .set('x-user-role', Role.DIRECTION)
+        .set('Authorization', `Bearer ${roleTokens[Role.DIRECTION]}`)
         .send({ pricePerNight: 36000 })
         .expect(200);
 
@@ -234,7 +239,7 @@ describe('API Chambres & Porte de Sécurité (E2E & Intégration)', () => {
       // Rétablir le tarif d'origine
       await request(app.getHttpServer())
         .patch(`/api/room-types/${testRoomTypeId}`)
-        .set('x-user-role', Role.DIRECTION)
+        .set('Authorization', `Bearer ${roleTokens[Role.DIRECTION]}`)
         .send({ pricePerNight: 35000 })
         .expect(200);
     });
@@ -242,7 +247,7 @@ describe('API Chambres & Porte de Sécurité (E2E & Intégration)', () => {
     it('doit REJETER les montants non entiers (protection stricte des décimaux FCFA)', async () => {
       await request(app.getHttpServer())
         .patch(`/api/room-types/${testRoomTypeId}`)
-        .set('x-user-role', Role.DIRECTION)
+        .set('Authorization', `Bearer ${roleTokens[Role.DIRECTION]}`)
         .send({ pricePerNight: 35000.5 })
         .expect(400);
     });
@@ -250,7 +255,7 @@ describe('API Chambres & Porte de Sécurité (E2E & Intégration)', () => {
     it('doit REJETER les montants négatifs', async () => {
       await request(app.getHttpServer())
         .patch(`/api/room-types/${testRoomTypeId}`)
-        .set('x-user-role', Role.DIRECTION)
+        .set('Authorization', `Bearer ${roleTokens[Role.DIRECTION]}`)
         .send({ pricePerNight: -500 })
         .expect(400);
     });
@@ -263,7 +268,7 @@ describe('API Chambres & Porte de Sécurité (E2E & Intégration)', () => {
       // Première exécution : check-in (FREE -> OCCUPIED)
       const res1 = await request(app.getHttpServer())
         .patch(`/api/rooms/${testRoomId}/status`)
-        .set('x-user-role', Role.RECEPTION)
+        .set('Authorization', `Bearer ${roleTokens[Role.RECEPTION]}`)
         .set('Idempotency-Key', idempotencyKey)
         .send({ status: RoomStatus.OCCUPIED })
         .expect(200);
@@ -273,7 +278,7 @@ describe('API Chambres & Porte de Sécurité (E2E & Intégration)', () => {
       // Rejeu immédiat avec la même clé idempotente
       const res2 = await request(app.getHttpServer())
         .patch(`/api/rooms/${testRoomId}/status`)
-        .set('x-user-role', Role.RECEPTION)
+        .set('Authorization', `Bearer ${roleTokens[Role.RECEPTION]}`)
         .set('Idempotency-Key', idempotencyKey)
         .send({ status: RoomStatus.OCCUPIED })
         .expect(200);
@@ -313,7 +318,7 @@ describe('API Chambres & Porte de Sécurité (E2E & Intégration)', () => {
     it('doit uploader une première image et retourner un chemin avec UUID', async () => {
       const res = await request(app.getHttpServer())
         .patch(`/api/rooms/${imageTestRoomId}`)
-        .set('x-user-role', Role.DIRECTION)
+        .set('Authorization', `Bearer ${roleTokens[Role.DIRECTION]}`)
         .attach('image', png1, 'first.png')
         .expect(200);
 
@@ -336,7 +341,7 @@ describe('API Chambres & Porte de Sécurité (E2E & Intégration)', () => {
       // Upload de la seconde image
       const res = await request(app.getHttpServer())
         .patch(`/api/rooms/${imageTestRoomId}`)
-        .set('x-user-role', Role.DIRECTION)
+        .set('Authorization', `Bearer ${roleTokens[Role.DIRECTION]}`)
         .attach('image', png2, 'second.png')
         .expect(200);
 
@@ -357,7 +362,7 @@ describe('API Chambres & Porte de Sécurité (E2E & Intégration)', () => {
 
       const res = await request(app.getHttpServer())
         .patch(`/api/rooms/${imageTestRoomId}`)
-        .set('x-user-role', Role.DIRECTION)
+        .set('Authorization', `Bearer ${roleTokens[Role.DIRECTION]}`)
         .send({ floor: 9 })
         .expect(200);
 
@@ -376,7 +381,7 @@ describe('API Chambres & Porte de Sécurité (E2E & Intégration)', () => {
 
       const res = await request(app.getHttpServer())
         .patch(`/api/rooms/${imageTestRoomId}`)
-        .set('x-user-role', Role.DIRECTION)
+        .set('Authorization', `Bearer ${roleTokens[Role.DIRECTION]}`)
         .send({ removeImage: true })
         .expect(200);
 
@@ -412,7 +417,7 @@ describe('API Chambres & Porte de Sécurité (E2E & Intégration)', () => {
     it('doit REFUSER la suppression si le rôle n est pas DIRECTION (403 Forbidden)', async () => {
       await request(app.getHttpServer())
         .delete(`/api/rooms/${virginRoomId}`)
-        .set('x-user-role', Role.RECEPTION)
+        .set('Authorization', `Bearer ${roleTokens[Role.RECEPTION]}`)
         .expect(403);
 
       const stillExists = await prisma.room.findUnique({ where: { id: virginRoomId } });
@@ -423,7 +428,7 @@ describe('API Chambres & Porte de Sécurité (E2E & Intégration)', () => {
       // testRoomId est une chambre du seed (101, 102...), elle possède un historique
       const res = await request(app.getHttpServer())
         .delete(`/api/rooms/${testRoomId}`)
-        .set('x-user-role', Role.DIRECTION)
+        .set('Authorization', `Bearer ${roleTokens[Role.DIRECTION]}`)
         .expect(409);
 
       expect(res.body.message).toContain('réservation');
@@ -437,7 +442,7 @@ describe('API Chambres & Porte de Sécurité (E2E & Intégration)', () => {
       // On lui associe une image d'abord
       const patchRes = await request(app.getHttpServer())
         .patch(`/api/rooms/${virginRoomId}`)
-        .set('x-user-role', Role.DIRECTION)
+        .set('Authorization', `Bearer ${roleTokens[Role.DIRECTION]}`)
         .attach('image', png, 'virgin.png')
         .expect(200);
 
@@ -448,7 +453,7 @@ describe('API Chambres & Porte de Sécurité (E2E & Intégration)', () => {
       // Suppression
       const res = await request(app.getHttpServer())
         .delete(`/api/rooms/${virginRoomId}`)
-        .set('x-user-role', Role.DIRECTION)
+        .set('Authorization', `Bearer ${roleTokens[Role.DIRECTION]}`)
         .expect(200);
 
       expect(res.body.success).toBe(true);

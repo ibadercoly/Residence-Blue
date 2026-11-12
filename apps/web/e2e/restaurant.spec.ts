@@ -1,27 +1,9 @@
 import { test, expect } from '@playwright/test';
+import { loginViaUi } from './auth-e2e.helper';
 
 test.describe('Point de vente restaurant La Teranga', () => {
   test.beforeEach(async ({ page }) => {
-    // Connexion avec rôle RESTAURANT pour les tests
-    await page.addInitScript(() => {
-      const session = {
-        user: {
-          id: 'usr-002-resto',
-          email: 'teranga.resto@residenceblue.sn',
-          fullName: 'Ibrahima Diallo',
-          role: 'RESTAURANT',
-          jobTitle: "Maître d'Hôtel"
-        },
-        token: 'test-token-resto',
-        expiresAt: Date.now() + 8 * 60 * 60 * 1000,
-        stayConnected8h: true,
-        lastActivityAt: Date.now(),
-        isLocked: false
-      };
-      localStorage.setItem('residence_blue_auth_session', JSON.stringify(session));
-      localStorage.setItem('auth_token', 'fake-jwt-token');
-      localStorage.setItem('current_user', JSON.stringify(session.user));
-    });
+    await loginViaUi(page, 'teranga.resto@residenceblue.sn', 'ThiesTeranga2024!');
   });
 
   test('Affiche l\'écran restaurant avec catégories et plats', async ({ page }) => {

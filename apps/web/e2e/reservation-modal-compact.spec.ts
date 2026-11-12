@@ -1,6 +1,10 @@
 import { test, expect } from '@playwright/test';
+import { loginViaUi } from './auth-e2e.helper';
 
 test.describe('Refonte Fenêtre Nouvelle Réservation - Ergonomie, Brouillon & Clavier', () => {
+  test.beforeEach(async ({ page }) => {
+    await loginViaUi(page, 'fatou.ndiaye@residenceblue.sn', 'ThiesTeranga2024!');
+  });
   test('Pastilles durée, filtres catégorie, boutons >= 40px, aucun backdrop-filter', async ({
     page,
   }) => {

@@ -3,12 +3,15 @@ import {
   Controller,
   Delete,
   Get,
+  Headers,
   HttpCode,
   HttpStatus,
   Param,
   Patch,
   Post,
+  Req,
 } from '@nestjs/common';
+import { Request } from 'express';
 import { RestaurantService } from './restaurant.service';
 import {
   CreateRestaurantOrderDto,
@@ -62,8 +65,18 @@ export class RestaurantController {
 
   @Post('orders')
   @Roles(Role.DIRECTION, Role.RECEPTION, Role.RESTAURANT, Role.SERVEUR)
-  async createOrder(@Body() dto: CreateRestaurantOrderDto) {
-    return this.restaurantService.createOrder(dto);
+  async createOrder(
+    @Body() dto: CreateRestaurantOrderDto,
+    @Headers('idempotency-key') idempotencyKey?: string,
+    @Req() req?: Request,
+  ) {
+    const user = (req as any)?.user as { id?: string; fullName?: string } | undefined;
+    return this.restaurantService.createOrder(dto, {
+      idempotencyKey: idempotencyKey?.trim(),
+      userId: user?.id,
+      actorName: user?.fullName,
+      ip: req?.ip,
+    });
   }
 
   @Patch('orders/:id')

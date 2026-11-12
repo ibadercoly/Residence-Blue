@@ -4,6 +4,7 @@ import { RestaurantMockService } from '../src/app/core/services/restaurant-mock.
 import { HotelSettingsService } from '../src/app/core/services/hotel-settings.service';
 import { PhotoStorageService } from '../src/app/core/services/photo-storage.service';
 import { validateImageFile } from '../src/app/core/utils/image-processor.util';
+import { loginViaUi } from './auth-e2e.helper';
 
 function createService(): MenuManagementService {
   return new MenuManagementService(
@@ -14,51 +15,15 @@ function createService(): MenuManagementService {
 }
 
 test.describe('Sécurité de la gestion du menu restaurant (Porte de Sécurité)', () => {
-  test('RBAC : Les rôles non autorisés (MAINTENANCE, RECEPTION) ne voient pas le bouton Gérer le menu', async ({ page }) => {
-    // 1. Connexion en MAINTENANCE via residence_blue_auth_session
-    await page.addInitScript(() => {
-      const session = {
-        user: {
-          id: 'usr-003-maint',
-          email: 'technique@residenceblue.sn',
-          fullName: 'Moussa Ndiaye',
-          role: 'MAINTENANCE',
-          jobTitle: 'Chef Maintenance'
-        },
-        token: 'token-maintenance',
-        expiresAt: Date.now() + 8 * 60 * 60 * 1000,
-        stayConnected8h: true,
-        lastActivityAt: Date.now(),
-        isLocked: false
-      };
-      localStorage.setItem('residence_blue_auth_session', JSON.stringify(session));
-    });
-
+  test('RBAC : Les rôles non autorisés (SERVEUR, RECEPTION) ne voient pas le bouton Gérer le menu', async ({ page }) => {
+    await loginViaUi(page, 'moussa.fall@residenceblue.sn', 'ThiesTeranga2024!');
     await page.goto('/restaurant');
-    // Le bouton Gérer le menu doit être totalement absent
     await expect(page.locator('[data-testid="btn-manage-menu"]')).not.toBeVisible();
     await expect(page.getByText('Gérer le menu')).not.toBeVisible();
   });
 
-  test('RBAC : Le rôle DIRECTION a bien accès au bouton Gérer le menu', async ({ page }) => {
-    await page.addInitScript(() => {
-      const session = {
-        user: {
-          id: 'usr-001-ba',
-          email: 'aissatou.ba@residenceblue.sn',
-          fullName: 'Aïssatou Ba',
-          role: 'DIRECTION',
-          jobTitle: "Directrice d'Exploitation"
-        },
-        token: 'token-dir',
-        expiresAt: Date.now() + 8 * 60 * 60 * 1000,
-        stayConnected8h: true,
-        lastActivityAt: Date.now(),
-        isLocked: false
-      };
-      localStorage.setItem('residence_blue_auth_session', JSON.stringify(session));
-    });
-
+  test('RBAC : Le rôle RESTAURANT a bien accès au bouton Gérer le menu', async ({ page }) => {
+    await loginViaUi(page, 'teranga.resto@residenceblue.sn', 'ThiesTeranga2024!');
     await page.goto('/restaurant');
     await expect(page.locator('[data-testid="btn-manage-menu"]')).toBeVisible();
   });

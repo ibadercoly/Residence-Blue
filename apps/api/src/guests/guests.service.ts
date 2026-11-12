@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CryptoService } from '../common/security/crypto.service';
+import { appendChainedAuditLog } from '../common/audit/audit.service';
 import {
   CheckDuplicateQueryDto,
   CreateGuestDto,
@@ -115,15 +116,17 @@ export class GuestsService {
     action: string,
     targetId: string,
     details?: Record<string, unknown>,
+    userId?: string,
+    ip?: string,
   ): Promise<void> {
     try {
-      await this.prisma.auditLog.create({
-        data: {
-          action,
-          entity: 'GUEST',
-          entityId: targetId,
-          after: { actorRole: actorRole || 'RECEPTION', ...(details ?? {}) } as any,
-        },
+      await appendChainedAuditLog(this.prisma, {
+        userId: userId || null,
+        action,
+        entity: 'GUEST',
+        entityId: targetId,
+        after: { actorRole: actorRole || 'RECEPTION', ...(details ?? {}) },
+        ip: ip || null,
       });
     } catch {
       // Ne jamais bloquer une opération métier si le journal échoue,
@@ -354,7 +357,7 @@ export class GuestsService {
     };
   }
 
-  async create(dto: CreateGuestDto, actorRole = 'RECEPTION') {
+  async create(dto: CreateGuestDto, actorRole = 'RECEPTION', userId?: string, ip?: string) {
     let firstName = (dto.firstName || '').trim();
     let lastName = (dto.lastName || '').trim();
     let fullName = (dto.fullName || '').trim();
@@ -395,9 +398,14 @@ export class GuestsService {
       include: { reservations: { select: { status: true, checkInDate: true } } },
     });
 
-    await this.logAudit(actorRole, 'GUEST_CREATE', created.id, {
-      hasIdDocument: Boolean(idDocumentEncrypted),
-    });
+    await this.logAudit(
+      actorRole,
+      'GUEST_CREATE',
+      created.id,
+      { hasIdDocument: Boolean(idDocumentEncrypted) },
+      userId,
+      ip,
+    );
 
     return {
       ...this.formatDirectoryItem(created),
@@ -408,7 +416,7 @@ export class GuestsService {
     };
   }
 
-  async update(id: string, dto: UpdateGuestDto, actorRole = 'RECEPTION') {
+  async update(id: string, dto: UpdateGuestDto, actorRole = 'RECEPTION', userId?: string, ip?: string) {
     const existing = await this.prisma.guest.findUnique({ where: { id } });
     if (!existing) {
       throw new NotFoundException('Client introuvable.');
@@ -487,14 +495,19 @@ export class GuestsService {
       data,
     });
 
-    await this.logAudit(actorRole, 'GUEST_UPDATE', id, {
-      fields: changedFields,
-    });
+    await this.logAudit(
+      actorRole,
+      'GUEST_UPDATE',
+      id,
+      { fields: changedFields },
+      userId,
+      ip,
+    );
 
     return this.findOne(id);
   }
 
-  async revealDocument(id: string, actorRole = 'RECEPTION') {
+  async revealDocument(id: string, actorRole = 'RECEPTION', userId?: string, ip?: string) {
     const guest = await this.prisma.guest.findUnique({
       where: { id },
       select: { id: true, idDocumentEncrypted: true },
@@ -503,14 +516,14 @@ export class GuestsService {
       throw new NotFoundException('Client introuvable.');
     }
 
-    await this.logAudit(actorRole, 'GUEST_REVEAL_DOCUMENT', id);
+    await this.logAudit(actorRole, 'GUEST_REVEAL_DOCUMENT', id, undefined, userId, ip);
 
     return {
       idDocumentNumber: this.decryptDocument(guest.idDocumentEncrypted),
     };
   }
 
-  async remove(id: string, actorRole = 'DIRECTION') {
+  async remove(id: string, actorRole = 'DIRECTION', userId?: string, ip?: string) {
     const guest = await this.prisma.guest.findUnique({
       where: { id },
       include: {
@@ -534,9 +547,14 @@ export class GuestsService {
     }
 
     await this.prisma.guest.delete({ where: { id } });
-    await this.logAudit(actorRole, 'GUEST_DELETE', id, {
-      fullName: guest.fullName,
-    });
+    await this.logAudit(
+      actorRole,
+      'GUEST_DELETE',
+      id,
+      { fullName: guest.fullName },
+      userId,
+      ip,
+    );
 
     return { deleted: true, id };
   }

@@ -2,6 +2,7 @@ import { test, expect } from '@playwright/test';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as zlib from 'zlib';
+import { loginViaUi } from './auth-e2e.helper';
 
 test.describe('Budgets de Performance V1 Minimale', () => {
   test('le bundle JavaScript initial compressé (gzip) est inférieur à 250 Ko', () => {
@@ -50,6 +51,7 @@ test.describe('Budgets de Performance V1 Minimale', () => {
   });
 
   test('le menu latéral ne dépasse pas 7 entrées par rôle', async ({ page }) => {
+    await loginViaUi(page, 'fatou.ndiaye@residenceblue.sn', 'ThiesTeranga2024!');
     await page.goto('/');
     await page.waitForLoadState('networkidle');
 
@@ -60,6 +62,7 @@ test.describe('Budgets de Performance V1 Minimale', () => {
   });
 
   test('navigation fluide entre écrans : temps moyen de transition client inférieur à 300 ms', async ({ page }) => {
+    await loginViaUi(page, 'fatou.ndiaye@residenceblue.sn', 'ThiesTeranga2024!');
     await page.goto('/');
     await page.waitForLoadState('networkidle');
 
@@ -85,6 +88,7 @@ test.describe('Budgets de Performance V1 Minimale', () => {
   });
 
   test('endurance et fuites mémoire : JSHeapUsedSize reste sous 150 Mo après 20 transitions', async ({ page }) => {
+    await loginViaUi(page, 'fatou.ndiaye@residenceblue.sn', 'ThiesTeranga2024!');
     await page.goto('/');
     await page.waitForLoadState('networkidle');
 

@@ -1,7 +1,9 @@
 import { test, expect } from '@playwright/test';
+import { loginViaUi } from './auth-e2e.helper';
 
 test.describe('Écran Planning des Réservations (/planning)', () => {
   test.beforeEach(async ({ page }) => {
+    await loginViaUi(page, 'fatou.ndiaye@residenceblue.sn', 'ThiesTeranga2024!');
     await page.goto('/planning', { waitUntil: 'networkidle' });
   });
 

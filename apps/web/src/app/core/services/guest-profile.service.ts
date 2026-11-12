@@ -1,4 +1,5 @@
-import { Injectable, signal } from '@angular/core';
+import { Injectable, inject, signal } from '@angular/core';
+import { AuthService } from './auth.service';
 import { Observable, of } from 'rxjs';
 import { GuestProfile, GuestNoteItem } from '@residence-blue/shared';
 
@@ -6,6 +7,7 @@ import { GuestProfile, GuestNoteItem } from '@residence-blue/shared';
   providedIn: 'root'
 })
 export class GuestProfileService {
+  private readonly authService = inject(AuthService, { optional: true });
   /**
    * Taux de conversion fixe officiel EUR -> FCFA lu depuis les paramètres de l'hôtel
    * 1 EUR = 655.957 FCFA (Banque Centrale des États de l'Afrique de l'Ouest)
@@ -239,23 +241,13 @@ export class GuestProfileService {
     this.fetchFromServer();
   }
 
-  private getCurrentRole(): string {
-    try {
-      const raw = typeof localStorage !== 'undefined' ? localStorage.getItem('residence_blue_auth_session') : null;
-      if (raw) {
-        const parsed = JSON.parse(raw);
-        if (parsed?.user?.role) return parsed.user.role;
-      }
-    } catch {}
-    return 'DIRECTION';
-  }
-
   async fetchFromServer(): Promise<void> {
     if (typeof fetch === 'undefined') return;
+    if (this.authService && !this.authService.isAuthenticated()) return;
     try {
-      const res = await fetch('/api/guests', {
-        headers: { 'x-user-role': this.getCurrentRole() },
-      });
+      const res = this.authService
+        ? await this.authService.authenticatedFetch('/api/guests')
+        : await fetch('/api/guests', { credentials: 'include' });
       if (res.ok) {
         const data = await res.json();
         const list: GuestProfile[] = Array.isArray(data) ? data : (Array.isArray(data?.items) ? data.items : []);
@@ -320,9 +312,10 @@ export class GuestProfileService {
     if (typeof fetch !== 'undefined' && current.id && /^[0-9a-f-]{36}$/i.test(current.id)) {
       fetch(`/api/guests/${current.id}/notes`, {
         method: 'POST',
+        credentials: 'include',
         headers: {
           'Content-Type': 'application/json',
-          'x-user-role': this.getCurrentRole(),
+          ...(this.authService ? this.authService.getAuthHeaders() : {}),
         },
         body: JSON.stringify({ content: content.trim(), authorName, department }),
       })

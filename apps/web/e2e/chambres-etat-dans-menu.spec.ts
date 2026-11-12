@@ -1,6 +1,7 @@
 import { test, expect } from '@playwright/test';
 import * as fs from 'fs';
 import * as path from 'path';
+import { loginViaUi } from './auth-e2e.helper';
 
 test.describe('Chambres - État dans menu ⋯ et titre non tronqué', () => {
   const repoRoot = path.resolve(__dirname, '../../..');
@@ -13,6 +14,7 @@ test.describe('Chambres - État dans menu ⋯ et titre non tronqué', () => {
   });
 
   test.beforeEach(async ({ page }) => {
+    await loginViaUi(page, 'fatou.ndiaye@residenceblue.sn', 'ThiesTeranga2024!');
     page.on('console', (msg) => console.log('PAGE LOG:', msg.text()));
     page.on('pageerror', (err) => console.log('PAGE ERROR:', err.message));
 

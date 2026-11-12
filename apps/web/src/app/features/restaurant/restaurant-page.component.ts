@@ -3,7 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { DishItem, Role } from '@residence-blue/shared';
 import { RestaurantMockService } from '../../core/services/restaurant-mock.service';
-import { AuthMockService } from '../../core/services/auth-mock.service';
+import { AuthService } from '../../core/services/auth.service';
 import { RoomsService } from '../../core/services/rooms.service';
 import { MenuManagementModalComponent } from './menu-management-modal/menu-management-modal.component';
 
@@ -460,7 +460,7 @@ import { MenuManagementModalComponent } from './menu-management-modal/menu-manag
   `
 })
 export class RestaurantPageComponent {  readonly roomsService = inject(RoomsService, { optional: true });  readonly roomsCount = computed(() => (this.roomsService ? this.roomsService.rooms().length : 12));  readonly restaurantService = inject(RestaurantMockService);
-  readonly authService = inject(AuthMockService);
+  readonly authService = inject(AuthService);
 
   readonly toastMessage = signal<string | null>(null);
   readonly isMenuModalOpen = signal<boolean>(false);

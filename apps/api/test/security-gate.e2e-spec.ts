@@ -3,6 +3,7 @@ import { INestApplication, ValidationPipe } from '@nestjs/common';
 import supertest from 'supertest';
 import { AppModule } from '../src/app.module';
 import { PrismaService } from '../src/prisma/prisma.service';
+import { signMockTestToken } from './auth-test.helper';
 
 const request: any = (supertest as any).default || supertest;
 
@@ -40,31 +41,38 @@ describe('Porte de Sécurité API (Security Gate Tests)', () => {
   });
 
   describe('1. Accès refusé par défaut (Deny by default)', () => {
-    it('doit bloquer l’accès (403 Forbidden) sur une route ne déclarant aucun rôle', async () => {
+    it('doit bloquer l’accès (401 Unauthorized) sans jeton même sur une route non décorée', async () => {
+      await request(app.getHttpServer())
+        .get('/api/security-test/undecorated-route')
+        .expect(401);
+    });
+
+    it('doit bloquer l’accès (403 Forbidden) sur une route ne déclarant aucun rôle avec jeton valide', async () => {
       const response = await request(app.getHttpServer())
         .get('/api/security-test/undecorated-route')
+        .set('Authorization', `Bearer ${signMockTestToken('ADMIN')}`)
         .expect(403);
 
       expect(response.body.message).toMatch(/Accès refusé par défaut/);
     });
 
-    it('doit bloquer l’accès (403 Forbidden) sur une route ADMIN si aucun rôle n’est fourni', async () => {
+    it('doit bloquer l’accès (401 Unauthorized) sur une route ADMIN si aucun jeton n’est fourni', async () => {
       await request(app.getHttpServer())
         .get('/api/security-test/admin-only')
-        .expect(403);
+        .expect(401);
     });
 
     it('doit bloquer l’accès (403 Forbidden) sur une route ADMIN si un rôle non autorisé tente d’accéder', async () => {
       await request(app.getHttpServer())
         .get('/api/security-test/admin-only')
-        .set('x-user-role', 'RECEPTIONIST')
+        .set('Authorization', `Bearer ${signMockTestToken('RECEPTIONIST')}`)
         .expect(403);
     });
 
     it('doit autoriser l’accès (200 OK) sur une route ADMIN si le rôle ADMIN est présent', async () => {
       const response = await request(app.getHttpServer())
         .get('/api/security-test/admin-only')
-        .set('x-user-role', 'ADMIN')
+        .set('Authorization', `Bearer ${signMockTestToken('ADMIN')}`)
         .expect(200);
 
       expect(response.body.message).toBe('Accès autorisé pour ADMIN.');

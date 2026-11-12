@@ -9,7 +9,7 @@ import {
   SyncStatus,
 } from '@residence-blue/shared';
 import { RoomsService } from '../../core/services/rooms.service';
-import { AuthMockService } from '../../core/services/auth-mock.service';
+import { AuthService } from '../../core/services/auth.service';
 import { IdbService } from '../../core/offline/idb.service';
 import { NetworkService } from '../../core/offline/network.service';
 import { OutboxService } from '../../core/offline/outbox.service';
@@ -20,7 +20,7 @@ import { PlanningMockService } from '../../core/services/planning-mock.service';
 })
 export class FacturationService {
   private readonly roomsService = inject(RoomsService, { optional: true });
-  private readonly authService = inject(AuthMockService, { optional: true });
+  private readonly authService = inject(AuthService, { optional: true });
   private readonly planningService = inject(PlanningMockService, { optional: true });
   private readonly idb = inject(IdbService, { optional: true });
   private readonly network = inject(NetworkService, { optional: true });
@@ -48,15 +48,11 @@ export class FacturationService {
   readonly pendingOfflinePaymentKeys = signal<string[]>([]);
 
   readonly currentRole = computed<string>(() => {
-    return (
-      this.roomsService?.currentRole() ||
-      this.authService?.currentUser()?.role ||
-      Role.DIRECTION
-    );
+    return this.authService?.currentRole() || this.roomsService?.currentRole() || '';
   });
 
   readonly currentUserName = computed<string>(() => {
-    return this.authService?.currentUser()?.fullName || 'Aïssatou Ba';
+    return this.authService?.currentUser()?.fullName || '';
   });
 
   readonly canManageCreditsAndExport = computed<boolean>(() => {
@@ -66,16 +62,15 @@ export class FacturationService {
 
   readonly isDirection = computed<boolean>(() => this.currentRole() === Role.DIRECTION);
 
+  authHeaderMap(): Record<string, string> {
+    return this.authService ? this.authService.getAuthHeaders() : {};
+  }
+
   private buildHeaders(idempotencyKey?: string): Record<string, string> {
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
-      'x-user-role': this.currentRole(),
-      'x-user-name': this.currentUserName(),
+      ...(this.authService ? this.authService.getAuthHeaders() : {}),
     };
-    const token = this.authService?.currentSession()?.token;
-    if (token && !token.startsWith('mock-')) {
-      headers['Authorization'] = `Bearer ${token}`;
-    }
     if (idempotencyKey) {
       headers['Idempotency-Key'] = idempotencyKey;
     }

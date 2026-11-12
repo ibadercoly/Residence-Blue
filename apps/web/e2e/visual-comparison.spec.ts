@@ -3,15 +3,23 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { PNG } from 'pngjs';
 import pixelmatch from 'pixelmatch';
+import { createE2eUser, deleteE2eUsers, loginViaUi } from './auth-e2e.helper';
 
 test.describe('Fidélité Visuelle - Rendu Hors Ligne vs Référence', () => {
   const repoRoot = path.resolve(__dirname, '../../..');
   const compDir = path.join(repoRoot, 'docs/design/comparaisons');
 
+  let dirUser = { email: '', password: '' };
+
   test.beforeAll(() => {
     if (!fs.existsSync(compDir)) {
       fs.mkdirSync(compDir, { recursive: true });
     }
+    dirUser = createE2eUser('DIRECTION');
+  });
+
+  test.afterAll(() => {
+    if (dirUser.email) deleteE2eUsers([dirUser.email]);
   });
 
   test('Fidélité Tableau de Bord Bureau (1280x1600) vs design/reference/tableau_de_bord.html', async ({ page }) => {
@@ -148,6 +156,7 @@ test.describe('Fidélité Visuelle - Rendu Hors Ligne vs Référence', () => {
     await page.screenshot({ path: refMobilePath, animations: 'disabled', fullPage: false });
 
     // 2. Charger l'application Angular en vue mobile 390px
+    await loginViaUi(page, dirUser.email, dirUser.password);
     await page.goto('/tableau-de-bord', { waitUntil: 'networkidle' });
     await page.evaluate(() => document.fonts.ready);
     await page.waitForTimeout(300);
@@ -374,6 +383,7 @@ test.describe('Fidélité Visuelle - Rendu Hors Ligne vs Référence', () => {
     await page.screenshot({ path: refShotPath, animations: 'disabled', fullPage: false });
 
     // 2. Charger l'application Angular
+    await loginViaUi(page, dirUser.email, dirUser.password);
     await page.goto('/planning', { waitUntil: 'networkidle' });
     await page.evaluate(() => document.fonts.ready);
     await page.waitForTimeout(300);
@@ -433,7 +443,7 @@ test.describe('Fidélité Visuelle - Rendu Hors Ligne vs Référence', () => {
     const width = 1440;
     const height = 960;
     await page.setViewportSize({ width, height });
-
+    await loginViaUi(page, dirUser.email, dirUser.password);
     await page.goto('/tableau-de-bord', { waitUntil: 'networkidle' });
     await page.evaluate(() => document.fonts.ready);
     await page.waitForTimeout(200);
@@ -481,22 +491,7 @@ test.describe('Fidélité Visuelle - Rendu Hors Ligne vs Référence', () => {
     const width = 1440;
     const height = 900;
     await page.setViewportSize({ width, height });
-    await page.addInitScript(() => {
-      localStorage.setItem(
-        'residence_blue_auth_session',
-        JSON.stringify({
-          token: 'e2e-token',
-          expiresAt: Date.now() + 86400000,
-          user: {
-            id: 'dir-1',
-            email: 'direction@residenceblue.sn',
-            fullName: 'Aïssatou Ba',
-            role: 'DIRECTION',
-          },
-        }),
-      );
-    });
-
+    await loginViaUi(page, dirUser.email, dirUser.password);
     await page.goto('/clients', { waitUntil: 'networkidle' });
     await page.evaluate(() => (document as any).fonts.ready);
     await page.waitForTimeout(300);
@@ -533,6 +528,7 @@ test.describe('Fidélité Visuelle - Rendu Hors Ligne vs Référence', () => {
     const height = 900;
     await page.setViewportSize({ width, height });
 
+    await loginViaUi(page, dirUser.email, dirUser.password);
     await page.goto('/facturation', { waitUntil: 'networkidle' });
     await page.evaluate(() => (document as any).fonts.ready);
     await page.waitForTimeout(300);
@@ -608,6 +604,7 @@ test.describe('Fidélité Visuelle - Rendu Hors Ligne vs Référence', () => {
     await page.screenshot({ path: refShotPath, animations: 'disabled', fullPage: false });
 
     // 2. Charger l'application Angular
+    await loginViaUi(page, dirUser.email, dirUser.password);
     await page.goto('/restaurant', { waitUntil: 'networkidle' });
     await page.evaluate(() => (document as any).fonts.ready);
     await page.waitForTimeout(300);
@@ -671,6 +668,7 @@ test.describe('Fidélité Visuelle - Rendu Hors Ligne vs Référence', () => {
 
   test('Vérification du profil utilisateur et du thème clair unique (aucun mode sombre)', async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 900 });
+    await loginViaUi(page, dirUser.email, dirUser.password);
     await page.goto('/tableau-de-bord', { waitUntil: 'networkidle' });
 
     const userProfile = page.getByTestId('user-profile');

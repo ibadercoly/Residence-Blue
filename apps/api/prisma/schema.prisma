@@ -56,35 +56,47 @@ enum PaymentMethod {
 }
 
 model User {
-  id                  String          @id @default(uuid()) @db.Uuid
-  email               String          @unique
-  fullName            String          @default("") @map("full_name")
-  jobTitle            String?         @map("job_title")
-  passwordHash        String          @map("password_hash")
-  role                Role
-  isActive            Boolean         @default(true) @map("is_active")
-  failedLogins        Int             @default(0) @map("failed_logins")
-  lockedUntil         DateTime?       @map("locked_until")
-  createdAt           DateTime        @default(now()) @map("created_at")
-  updatedAt           DateTime        @updatedAt @map("updated_at")
-  refreshTokens       RefreshToken[]
-  auditLogs           AuditLog[]
-  syncOps             SyncOperation[]
-  createdReservations Reservation[]   @relation("CreatedReservations")
-  receivedPayments    Payment[]       @relation("ReceivedPayments")
+  id                         String          @id @default(uuid()) @db.Uuid
+  email                      String          @unique
+  fullName                   String          @default("") @map("full_name")
+  jobTitle                   String?         @map("job_title")
+  passwordHash               String          @map("password_hash")
+  role                       Role
+  isActive                   Boolean         @default(true) @map("is_active")
+  failedLogins               Int             @default(0) @map("failed_logins")
+  lockedUntil                DateTime?       @map("locked_until")
+  totpEnabled                Boolean         @default(false) @map("totp_enabled")
+  totpSecretEncrypted        String?         @map("totp_secret_encrypted")
+  totpPendingSecretEncrypted String?         @map("totp_pending_secret_encrypted")
+  totpBackupCodesJson        Json?           @map("totp_backup_codes_json") @db.JsonB
+  lastLoginAt                DateTime?       @map("last_login_at")
+  createdAt                  DateTime        @default(now()) @map("created_at")
+  updatedAt                  DateTime        @updatedAt @map("updated_at")
+  refreshTokens              RefreshToken[]
+  auditLogs                  AuditLog[]
+  syncOps                    SyncOperation[]
+  createdReservations        Reservation[]   @relation("CreatedReservations")
+  receivedPayments           Payment[]       @relation("ReceivedPayments")
 
   @@map("users")
 }
 
 model RefreshToken {
-  id        String    @id @default(uuid()) @db.Uuid
-  userId    String    @map("user_id") @db.Uuid
-  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  tokenHash String    @unique @map("token_hash")
-  familyId  String    @map("family_id") @db.Uuid
-  expiresAt DateTime  @map("expires_at")
-  revokedAt DateTime? @map("revoked_at")
-  createdAt DateTime  @default(now()) @map("created_at")
+  id                String    @id @default(uuid()) @db.Uuid
+  userId            String    @map("user_id") @db.Uuid
+  user              User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash         String    @unique @map("token_hash")
+  familyId          String    @map("family_id") @db.Uuid
+  deviceLabel       String?   @map("device_label")
+  userAgent         String?   @map("user_agent")
+  ipAddress         String?   @map("ip_address")
+  lastUsedAt        DateTime  @default(now()) @map("last_used_at")
+  usedAt            DateTime? @map("used_at")
+  replacedByTokenId String?   @map("replaced_by_token_id") @db.Uuid
+  expiresAt         DateTime  @map("expires_at")
+  revokedAt         DateTime? @map("revoked_at")
+  revokedReason     String?   @map("revoked_reason")
+  createdAt         DateTime  @default(now()) @map("created_at")
 
   @@index([userId])
   @@index([familyId])
@@ -356,6 +368,7 @@ model RestaurantProduct {
 model RestaurantOrder {
   id              String                @id @default(uuid()) @db.Uuid
   ticketNumber    String                @unique @map("ticket_number")
+  idempotencyKey  String?               @unique @map("idempotency_key")
   destinationType String                @default("TABLE") @map("destination_type")
   tableLabel      String?               @map("table_label")
   roomId          String?               @map("room_id") @db.Uuid
@@ -428,6 +441,7 @@ model HotelSetting {
 
 model AuditLog {
   id        String   @id @default(uuid()) @db.Uuid
+  seq       Int      @unique @default(autoincrement())
   userId    String?  @map("user_id") @db.Uuid
   user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
   action    String
@@ -436,10 +450,13 @@ model AuditLog {
   before    Json?    @db.JsonB
   after     Json?    @db.JsonB
   ip        String?
+  prevHash  String?  @map("prev_hash")
+  entryHash String?  @map("entry_hash")
   createdAt DateTime @default(now()) @map("created_at")
 
   @@index([userId])
   @@index([entity, entityId])
+  @@index([createdAt])
   @@map("audit_log")
 }
 

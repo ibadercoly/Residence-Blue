@@ -1,7 +1,9 @@
 import { test, expect } from '@playwright/test';
+import { loginViaUi } from './auth-e2e.helper';
 
 test.describe('Écran Fiche Profil Client (/clients/:id)', () => {
   test.beforeEach(async ({ page }) => {
+    await loginViaUi(page, 'fatou.ndiaye@residenceblue.sn', 'ThiesTeranga2024!');
     await page.goto('/clients/c1', { waitUntil: 'networkidle' });
   });
 

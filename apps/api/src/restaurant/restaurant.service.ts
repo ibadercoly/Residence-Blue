@@ -5,6 +5,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { appendChainedAuditLog } from '../common/audit/audit.service';
 import {
   CreateRestaurantOrderDto,
   CreateRestaurantProductDto,
@@ -138,13 +139,11 @@ export class RestaurantService {
         include: { category: true },
       });
 
-      await tx.auditLog.create({
-        data: {
-          action: 'PRODUCT_CREATE',
-          entity: 'RestaurantProduct',
-          entityId: p.id,
-          after: { id: p.id, name: p.name, priceFcfa: p.priceFcfa },
-        },
+      await appendChainedAuditLog(tx, {
+        action: 'PRODUCT_CREATE',
+        entity: 'RestaurantProduct',
+        entityId: p.id,
+        after: { id: p.id, name: p.name, priceFcfa: p.priceFcfa },
       });
 
       return p;
@@ -181,14 +180,12 @@ export class RestaurantService {
         include: { category: true },
       });
 
-      await tx.auditLog.create({
-        data: {
-          action: 'PRODUCT_UPDATE',
-          entity: 'RestaurantProduct',
-          entityId: p.id,
-          before: { name: existing.name, priceFcfa: existing.priceFcfa, status: existing.status },
-          after: { name: p.name, priceFcfa: p.priceFcfa, status: p.status },
-        },
+      await appendChainedAuditLog(tx, {
+        action: 'PRODUCT_UPDATE',
+        entity: 'RestaurantProduct',
+        entityId: p.id,
+        before: { name: existing.name, priceFcfa: existing.priceFcfa, status: existing.status },
+        after: { name: p.name, priceFcfa: p.priceFcfa, status: p.status },
       });
 
       return p;
@@ -214,13 +211,11 @@ export class RestaurantService {
     }
 
     await this.prisma.$transaction(async (tx) => {
-      await tx.auditLog.create({
-        data: {
-          action: 'PRODUCT_DELETE',
-          entity: 'RestaurantProduct',
-          entityId: existing.id,
-          before: { id: existing.id, name: existing.name, priceFcfa: existing.priceFcfa },
-        },
+      await appendChainedAuditLog(tx, {
+        action: 'PRODUCT_DELETE',
+        entity: 'RestaurantProduct',
+        entityId: existing.id,
+        before: { id: existing.id, name: existing.name, priceFcfa: existing.priceFcfa },
       });
       await tx.restaurantProduct.delete({ where: { id } });
     });
@@ -236,9 +231,29 @@ export class RestaurantService {
     return orders.map((o) => this.formatOrder(o));
   }
 
-  async createOrder(dto: CreateRestaurantOrderDto) {
+  async createOrder(
+    dto: CreateRestaurantOrderDto,
+    ctx?: { idempotencyKey?: string; userId?: string; actorName?: string; ip?: string },
+  ) {
     if (!dto.items || dto.items.length === 0) {
       throw new BadRequestException('La commande doit comporter au moins un article.');
+    }
+
+    const idempotencyKey = ctx?.idempotencyKey?.trim() || undefined;
+    if (idempotencyKey) {
+      const existingByKey = await this.prisma.restaurantOrder.findUnique({
+        where: { idempotencyKey },
+        include: { lines: true, room: true },
+      });
+      if (existingByKey) {
+        return this.formatOrder(existingByKey);
+      }
+      const existingSync = await this.prisma.syncOperation.findUnique({
+        where: { idempotencyKey },
+      });
+      if (existingSync) {
+        return existingSync.result;
+      }
     }
 
     let resolvedRoomId = dto.roomId && /^[0-9a-f-]{36}$/i.test(dto.roomId) ? dto.roomId : null;
@@ -270,62 +285,85 @@ export class RestaurantService {
     const ticketNumber =
       dto.ticketNumber?.trim() || `#CMD-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`;
 
-    const created = await this.prisma.$transaction(async (tx) => {
-      const order = await tx.restaurantOrder.create({
-        data: {
-          ticketNumber,
-          destinationType: dto.destinationType || (resolvedRoomId ? 'ROOM' : 'TABLE'),
-          tableLabel: dto.tableLabel || 'T1',
-          roomId: resolvedRoomId,
-          reservationId: resolvedReservationId,
-          serverName: dto.serverName || 'Moussa Fall',
-          status: dto.status || 'SENT_TO_KITCHEN',
-          subtotalHtFcfa,
-          vatAmountFcfa,
-          totalTtcFcfa,
-          paymentMethod: dto.paymentMethod || null,
-          lines: {
-            create: dto.items.map((it) => {
-              const prodId = (it.productId || it.dishId) && /^[0-9a-f-]{36}$/i.test((it.productId || it.dishId)!)
-                ? (it.productId || it.dishId)!
-                : null;
-              return {
-                productId: prodId,
-                name: it.name,
-                quantity: Math.round(it.quantity),
-                unitPriceFcfa: Math.round(it.unitPriceFcfa),
-                totalPriceFcfa:
-                  it.totalPriceFcfa !== undefined
-                    ? Math.round(it.totalPriceFcfa)
-                    : Math.round(it.unitPriceFcfa) * Math.round(it.quantity),
-                selectedOptions: it.selectedOptions || [],
-                notes: it.notes || null,
-                prepStation: it.prepStation || 'CUISINE',
-              };
-            }),
+    try {
+      const created = await this.prisma.$transaction(async (tx) => {
+        const order = await tx.restaurantOrder.create({
+          data: {
+            ticketNumber,
+            idempotencyKey: idempotencyKey || null,
+            destinationType: dto.destinationType || (resolvedRoomId ? 'ROOM' : 'TABLE'),
+            tableLabel: dto.tableLabel || 'T1',
+            roomId: resolvedRoomId,
+            reservationId: resolvedReservationId,
+            serverName: dto.serverName || ctx?.actorName || 'Service',
+            status: dto.status || 'SENT_TO_KITCHEN',
+            subtotalHtFcfa,
+            vatAmountFcfa,
+            totalTtcFcfa,
+            paymentMethod: dto.paymentMethod || null,
+            lines: {
+              create: dto.items.map((it) => {
+                const prodId = (it.productId || it.dishId) && /^[0-9a-f-]{36}$/i.test((it.productId || it.dishId)!)
+                  ? (it.productId || it.dishId)!
+                  : null;
+                return {
+                  productId: prodId,
+                  name: it.name,
+                  quantity: Math.round(it.quantity),
+                  unitPriceFcfa: Math.round(it.unitPriceFcfa),
+                  totalPriceFcfa:
+                    it.totalPriceFcfa !== undefined
+                      ? Math.round(it.totalPriceFcfa)
+                      : Math.round(it.unitPriceFcfa) * Math.round(it.quantity),
+                  selectedOptions: it.selectedOptions || [],
+                  notes: it.notes || null,
+                  prepStation: it.prepStation || 'CUISINE',
+                };
+              }),
+            },
           },
-        },
-        include: { lines: true, room: true },
-      });
+          include: { lines: true, room: true },
+        });
 
-      await tx.auditLog.create({
-        data: {
+        await appendChainedAuditLog(tx, {
+          userId: ctx?.userId || null,
           action: 'ORDER_CREATE',
           entity: 'RestaurantOrder',
           entityId: order.id,
+          ip: ctx?.ip || null,
           after: {
             id: order.id,
             ticketNumber: order.ticketNumber,
             totalTtcFcfa: order.totalTtcFcfa,
             roomId: order.roomId,
           },
-        },
+        });
+
+        const formatted = this.formatOrder(order);
+        if (idempotencyKey) {
+          await tx.syncOperation.create({
+            data: {
+              idempotencyKey,
+              userId: ctx?.userId || null,
+              result: formatted as any,
+            },
+          });
+        }
+
+        return formatted;
       });
 
-      return order;
-    });
-
-    return this.formatOrder(created);
+      return created;
+    } catch (err: any) {
+      if (idempotencyKey && err?.code === 'P2002') {
+        const retry = await this.prisma.restaurantOrder.findUnique({
+          where: { idempotencyKey },
+          include: { lines: true, room: true },
+        });
+        if (retry) return this.formatOrder(retry);
+      }
+      throw err;
+    }
   }
 
   async updateOrder(id: string, dto: UpdateRestaurantOrderDto) {

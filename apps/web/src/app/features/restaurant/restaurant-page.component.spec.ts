@@ -1,12 +1,12 @@
 import { RestaurantPageComponent } from './restaurant-page.component';
 import { RestaurantMockService } from '../../core/services/restaurant-mock.service';
-import { AuthMockService } from '../../core/services/auth-mock.service';
+import { AuthService } from '../../core/services/auth.service';
 import { Role } from '@residence-blue/shared';
 
 describe('RestaurantPageComponent', () => {
   let component: RestaurantPageComponent;
   let service: RestaurantMockService;
-  let authService: AuthMockService;
+  let authService: AuthService;
 
   beforeEach(() => {
     component = new RestaurantPageComponent();
@@ -59,7 +59,9 @@ describe('RestaurantPageComponent', () => {
       email: 'dir@residenceblue.sn',
       fullName: 'Aïssatou Ba',
       role: Role.DIRECTION,
-      jobTitle: 'Direction'
+      jobTitle: 'Direction',
+      totpEnabled: true,
+      totpRequired: true,
     });
     expect(component.canManageMenu()).toBe(true);
 
@@ -68,7 +70,9 @@ describe('RestaurantPageComponent', () => {
       email: 'resto@residenceblue.sn',
       fullName: 'Ibrahima Diallo',
       role: Role.RESTAURANT,
-      jobTitle: 'Restaurant'
+      jobTitle: 'Restaurant',
+      totpEnabled: false,
+      totpRequired: false,
     });
     expect(component.canManageMenu()).toBe(true);
     userSpy.mockRestore();
@@ -80,7 +84,9 @@ describe('RestaurantPageComponent', () => {
       email: 'maint@residenceblue.sn',
       fullName: 'Moussa Ndiaye',
       role: Role.MAINTENANCE,
-      jobTitle: 'Maintenance'
+      jobTitle: 'Maintenance',
+      totpEnabled: false,
+      totpRequired: false,
     });
 
     expect(component.canManageMenu()).toBe(false);

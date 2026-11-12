@@ -38,15 +38,14 @@ export class ReservationsController {
   async create(
     @Body() dto: CreateReservationDto,
     @Headers('idempotency-key') idempotencyKey?: string,
-    @Headers('x-user-role') actorRole = 'RECEPTION',
     @Req() req?: Request,
   ) {
-    const userId = (req as any)?.user?.id as string | undefined;
+    const user = (req as any)?.user as { id?: string; role?: string } | undefined;
     const ip = req?.ip || req?.socket?.remoteAddress || undefined;
     return this.reservationsService.create(dto, {
       idempotencyKey,
-      actorRole,
-      userId,
+      actorRole: user?.role || Role.RECEPTION,
+      userId: user?.id,
       ip,
     });
   }

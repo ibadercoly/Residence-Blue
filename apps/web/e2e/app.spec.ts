@@ -1,6 +1,11 @@
 import { test, expect } from '@playwright/test';
+import { loginViaUi } from './auth-e2e.helper';
 
 test.describe('Résidence Blue - Navigation, Accessibilité & Mode Hors Ligne du Shell', () => {
+  test.beforeEach(async ({ page }) => {
+    await loginViaUi(page, 'fatou.ndiaye@residenceblue.sn', 'ThiesTeranga2024!');
+  });
+
   test('doit afficher la barre latérale, l’en-tête et tous les liens de navigation sur bureau', async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 900 });
     await page.goto('/');
@@ -22,8 +27,8 @@ test.describe('Résidence Blue - Navigation, Accessibilité & Mode Hors Ligne du
 
     // Profil utilisateur dans l'en-tête
     const desktopHeader = page.locator('header').first();
-    await expect(desktopHeader).toContainText('Aïssatou Ba');
-    await expect(desktopHeader).toContainText('Directrice Générale');
+    await expect(desktopHeader).toContainText('Fatou Ndiaye');
+    await expect(desktopHeader).toContainText('Chef de Réception');
 
     // Champ de recherche présent avec label accessible
     const searchInput = page.locator('#global-search');

@@ -71,7 +71,7 @@ test.describe('Page de Connexion (/connexion)', () => {
   test('permet une connexion réussie et redirige vers le tableau de bord', async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 900 });
     await page.goto('/connexion');
-    await page.locator('#user-login').fill('aissatou.ba@residenceblue.sn');
+    await page.locator('#user-login').fill('fatou.ndiaye@residenceblue.sn');
     await page.locator('#user-password').fill('ThiesTeranga2024!');
 
     await page.locator('#login-btn').click();

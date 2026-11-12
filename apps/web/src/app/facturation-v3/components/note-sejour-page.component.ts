@@ -1109,8 +1109,7 @@ export class NoteSejourPageComponent implements OnInit {
     try {
       const headers: Record<string, string> = {
         'Content-Type': 'application/json',
-        'x-user-role': this.service.currentRole(),
-        'x-user-name': this.service.currentUserName(),
+        ...(this.service.authHeaderMap ? this.service.authHeaderMap() : {}),
       };
       const res = await fetch(
         `/api/invoices/${encodeURIComponent(n.id)}/lines/${encodeURIComponent(lineId)}`,

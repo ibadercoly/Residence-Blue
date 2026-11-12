@@ -1,6 +1,7 @@
 import { test, expect } from '@playwright/test';
 import * as fs from 'fs';
 import * as path from 'path';
+import { loginViaUi } from './auth-e2e.helper';
 
 test.describe('Résidence Blue - Écran Chambres, Nouvel En-tête & Gestion Dynamique', () => {
   const screenshotsDir = path.resolve(__dirname, '../../../docs/design/captures/chambres');
@@ -12,6 +13,7 @@ test.describe('Résidence Blue - Écran Chambres, Nouvel En-tête & Gestion Dyna
   });
 
   test.beforeEach(async ({ page }) => {
+    await loginViaUi(page, 'fatou.ndiaye@residenceblue.sn', 'ThiesTeranga2024!');
     // Interception de toutes les requêtes API chambres
     await page.route(/\/api\/rooms(\/.*)?$/, async (route) => {
       const method = route.request().method();

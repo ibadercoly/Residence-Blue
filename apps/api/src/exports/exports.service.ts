@@ -10,6 +10,7 @@ import {
 } from '@residence-blue/shared';
 import { ExportQueryDto } from './dto/export-query.dto';
 import { PrismaService } from '../prisma/prisma.service';
+import { appendChainedAuditLog } from '../common/audit/audit.service';
 
 export function sanitizeSpreadsheetCell(value: any): any {
   if (typeof value === 'string') {
@@ -42,16 +43,12 @@ export class ExportsService {
       this.auditLogs.pop();
     }
     if (this.prisma?.auditLog?.create) {
-      this.prisma.auditLog
-        .create({
-          data: {
-            action: 'EXPORT_GENERATE',
-            entity: 'Export',
-            entityId: entry.id,
-            after: entry as any,
-          },
-        })
-        .catch(() => {});
+      appendChainedAuditLog(this.prisma, {
+        action: 'EXPORT_GENERATE',
+        entity: 'Export',
+        entityId: entry.id,
+        after: entry,
+      }).catch(() => {});
     }
     return entry;
   }

@@ -8,7 +8,7 @@ import {
   RoomStatus,
 } from '@prisma/client';
 import { SEED_ROOM_TYPES, SEED_ROOMS, getRoomImageUrl } from '@residence-blue/shared';
-import { hashPassword, isValidPasswordHash } from '../src/auth/password-hash.util';
+import { hashPassword, isArgon2idHash, isValidPasswordHash } from '../src/auth/password-hash.util';
 import { CryptoService } from '../src/common/security/crypto.service';
 
 const prisma = new PrismaClient();
@@ -77,7 +77,7 @@ export async function seedAll(customPrisma: PrismaClient = prisma) {
     );
   }
 
-  const defaultPasswordHash = hashPassword('ThiesTeranga2024!');
+  const defaultPasswordHash = await hashPassword('ThiesTeranga2024!');
 
   await customPrisma.user.upsert({
     where: { email: 'aissatou.ba@residenceblue.sn' },
@@ -106,7 +106,7 @@ export async function seedAll(customPrisma: PrismaClient = prisma) {
   // Mettre à niveau tout compte existant dont le hash ne serait pas au format scrypt/bcrypt/argon2
   const existingUsers = await customPrisma.user.findMany();
   for (const u of existingUsers) {
-    if (!isValidPasswordHash(u.passwordHash)) {
+    if (!isArgon2idHash(u.passwordHash) || !isValidPasswordHash(u.passwordHash)) {
       await customPrisma.user.update({
         where: { id: u.id },
         data: { passwordHash: defaultPasswordHash },
@@ -139,6 +139,12 @@ export async function seedAll(customPrisma: PrismaClient = prisma) {
       fullName: 'Cheikh Sow',
       jobTitle: 'Chef de Cuisine',
       role: Role.CUISINE,
+    },
+    {
+      email: 'comptable@residenceblue.sn',
+      fullName: 'Ndeye Diouf',
+      jobTitle: 'Responsable Comptable',
+      role: Role.COMPTABLE,
     },
   ];
 

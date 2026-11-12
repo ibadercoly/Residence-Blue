@@ -1,23 +1,14 @@
 import { Component, inject, signal, computed, HostListener } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ReservationModalService } from '../../../core/services/reservation-modal.service';
-import { RoomsService } from '../../../core/services/rooms.service';
+import { AuthService, ConnectedSessionItem, TotpSetupPayload } from '../../../core/services/auth.service';
+import { ModalShellComponent } from '../modal-shell/modal-shell.component';
 import { Role } from '@residence-blue/shared';
-
-export interface DemoRoleItem {
-  role: Role;
-  label: string;
-  name: string;
-  title: string;
-  icon: string;
-  description: string;
-  testId: string;
-}
 
 @Component({
   selector: 'app-header',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, ModalShellComponent],
   host: { class: 'block' },
   template: `
     <!-- Desktop Header (tableau_de_bord) -->
@@ -41,39 +32,29 @@ export interface DemoRoleItem {
         </div>
       </div>
 
-      <!-- Action items & profile -->
+      <!-- Action items & authenticated profile -->
       <div class="flex items-center gap-gutter">
-        <!-- New reservation CTA -->
-        <button
-          type="button"
-          (click)="openNewReservation()"
-          class="inline-flex items-center gap-space-sm h-11 px-gutter bg-primary hover:bg-primary-container text-on-primary rounded-xl font-label-lg text-label-lg shadow-sm transition-all focus-visible:ring-2 focus-visible:ring-primary cursor-pointer"
-          aria-label="Créer une nouvelle réservation"
-          data-testid="header-new-reservation-btn"
-        >
-          <span class="material-symbols-outlined text-[18px]" aria-hidden="true">add</span>
-          <span>Nouvelle réservation</span>
-        </button>
+        @if (canCreateReservation()) {
+          <button
+            type="button"
+            (click)="openNewReservation()"
+            class="inline-flex items-center gap-space-sm h-11 px-gutter bg-primary hover:bg-primary-container text-on-primary rounded-xl font-label-lg text-label-lg shadow-sm transition-all focus-visible:ring-2 focus-visible:ring-primary cursor-pointer"
+            aria-label="Créer une nouvelle réservation"
+            data-testid="header-new-reservation-btn"
+          >
+            <span class="material-symbols-outlined text-[18px]" aria-hidden="true">add</span>
+            <span>Nouvelle réservation</span>
+          </button>
+        }
 
-        <!-- Notifications button -->
-        <button
-          type="button"
-          class="relative w-11 h-11 rounded-xl bg-surface-container-lowest flex items-center justify-center text-on-surface-variant hover:text-on-surface shadow-[0_2px_8px_rgba(10,37,64,0.04)] transition-colors focus-visible:ring-2 focus-visible:ring-primary"
-          aria-label="Notifications : 1 nouvelle notification"
-        >
-          <span class="material-symbols-outlined text-[22px]" aria-hidden="true">notifications</span>
-          <span class="absolute top-2.5 right-2.5 w-2 h-2 rounded-full bg-secondary ring-2 ring-surface-container-lowest"></span>
-        </button>
-
-        <!-- Separator -->
         <div class="h-8 w-px bg-surface-variant/60" aria-hidden="true"></div>
 
-        <!-- User Profile avec Sélecteur « Profil de démonstration » -->
+        <!-- Authenticated User Profile Menu -->
         <div class="relative" data-testid="user-profile">
           <button
             type="button"
             (click)="toggleMenu($event)"
-            data-testid="demo-profile-dropdown-btn"
+            data-testid="user-profile-dropdown-btn"
             class="flex items-center gap-space-md p-1.5 rounded-xl hover:bg-surface-container-low transition-colors cursor-pointer text-left focus-visible:ring-2 focus-visible:ring-primary"
             aria-haspopup="menu"
             [attr.aria-expanded]="isMenuOpen()"
@@ -84,12 +65,12 @@ export interface DemoRoleItem {
             <div class="hidden xl:flex flex-col text-left">
               <div class="flex items-center gap-space-xs">
                 <span class="font-label-lg text-label-lg text-on-surface leading-tight font-semibold" data-testid="header-user-name">
-                  {{ currentProfile().name }}
+                  {{ displayName() }}
                 </span>
                 <span class="w-1.5 h-1.5 rounded-full bg-primary" aria-hidden="true"></span>
               </div>
               <span class="font-label-md text-label-md text-on-surface-variant" data-testid="header-user-role">
-                {{ currentProfile().title }}
+                {{ displayRoleLabel() }}
               </span>
             </div>
             <span class="material-symbols-outlined text-[18px] text-on-surface-variant transition-transform" [class.rotate-180]="isMenuOpen()">
@@ -97,51 +78,63 @@ export interface DemoRoleItem {
             </span>
           </button>
 
-          <!-- Dropdown menu : Profil de démonstration -->
           @if (isMenuOpen()) {
             <div
               class="absolute right-0 mt-2 w-72 bg-surface-container-lowest rounded-2xl shadow-xl border border-outline-variant/60 py-2 z-50"
               role="menu"
-              data-testid="demo-profile-dropdown"
+              data-testid="user-profile-dropdown"
               (click)="$event.stopPropagation()"
             >
               <div class="px-4 py-2 border-b border-outline-variant/40">
-                <span class="text-[11px] font-bold uppercase tracking-wider text-on-surface-variant block">
-                  Profil de démonstration
-                </span>
-                <span class="text-xs text-outline block mt-0.5">
-                  Basculez de rôle pour tester les droits applicatifs
-                </span>
+                <span class="text-xs font-bold text-on-surface block">{{ displayName() }}</span>
+                <span class="text-[11px] text-outline block">{{ currentUser()?.email }}</span>
               </div>
 
               <div class="py-1">
-                @for (item of demoRoles; track item.role) {
-                  <button
-                    type="button"
-                    (click)="selectRole(item.role)"
-                    [attr.data-testid]="item.testId"
-                    role="menuitem"
-                    class="w-full text-left px-4 py-2.5 flex items-center justify-between hover:bg-surface-container-low transition-colors cursor-pointer"
-                    [class.bg-surface-container-high]="roomsService.currentRole() === item.role"
-                  >
-                    <div class="flex items-center gap-3">
-                      <span class="material-symbols-outlined text-[20px]" [class.text-primary]="roomsService.currentRole() === item.role" [class.text-on-surface-variant]="roomsService.currentRole() !== item.role">
-                        {{ item.icon }}
-                      </span>
-                      <div>
-                        <div class="font-medium text-sm text-on-surface leading-tight" [class.font-bold]="roomsService.currentRole() === item.role">
-                          {{ item.label }}
-                        </div>
-                        <div class="text-[11px] text-on-surface-variant">
-                          {{ item.description }}
-                        </div>
-                      </div>
+                <button
+                  type="button"
+                  (click)="openSecurityModal()"
+                  data-testid="menu-security-2fa-btn"
+                  role="menuitem"
+                  class="w-full text-left px-4 py-2.5 flex items-center gap-3 hover:bg-surface-container-low transition-colors cursor-pointer"
+                >
+                  <span class="material-symbols-outlined text-[20px] text-primary">verified_user</span>
+                  <div>
+                    <div class="font-medium text-sm text-on-surface">Double authentification (2FA)</div>
+                    <div class="text-[11px] text-outline">
+                      {{ currentUser()?.totpEnabled ? 'Activée sur ce compte' : 'Configurer TOTP' }}
                     </div>
-                    @if (roomsService.currentRole() === item.role) {
-                      <span class="material-symbols-outlined text-[18px] text-primary">check</span>
-                    }
-                  </button>
-                }
+                  </div>
+                </button>
+
+                <button
+                  type="button"
+                  (click)="openSessionsModal()"
+                  data-testid="menu-sessions-btn"
+                  role="menuitem"
+                  class="w-full text-left px-4 py-2.5 flex items-center gap-3 hover:bg-surface-container-low transition-colors cursor-pointer"
+                >
+                  <span class="material-symbols-outlined text-[20px] text-primary">devices</span>
+                  <div>
+                    <div class="font-medium text-sm text-on-surface">Appareils connectés</div>
+                    <div class="text-[11px] text-outline">
+                      {{ isDirection() ? 'Supervision & révocation Direction' : 'Vos sessions actives' }}
+                    </div>
+                  </div>
+                </button>
+
+                <div class="my-1 border-t border-outline-variant/40"></div>
+
+                <button
+                  type="button"
+                  (click)="logout()"
+                  data-testid="menu-logout-btn"
+                  role="menuitem"
+                  class="w-full text-left px-4 py-2.5 flex items-center gap-3 hover:bg-error-container/20 text-error transition-colors cursor-pointer"
+                >
+                  <span class="material-symbols-outlined text-[20px]">logout</span>
+                  <span class="font-medium text-sm">Se déconnecter</span>
+                </button>
               </div>
             </div>
           }
@@ -161,79 +154,68 @@ export interface DemoRoleItem {
           </div>
           <div class="flex flex-col min-w-0">
             <span class="font-title-md text-title-md text-primary tracking-tight truncate leading-tight">Résidence Blue</span>
-            <span class="font-label-md text-label-md text-on-surface-variant truncate">Tableau De Bord</span>
+            <span class="font-label-md text-label-md text-on-surface-variant truncate">{{ displayRoleLabel() }}</span>
           </div>
         </div>
         <div class="flex items-center gap-space-xs flex-shrink-0">
-          <button
-            aria-label="Nouvelle réservation"
-            type="button"
-            (click)="openNewReservation()"
-            data-testid="header-new-reservation-mobile-btn"
-            class="w-10 h-10 rounded-xl bg-primary text-on-primary flex items-center justify-center shadow-sm cursor-pointer min-h-[44px] min-w-[44px]"
-          >
-            <span class="material-symbols-outlined text-[20px]" aria-hidden="true">add</span>
-          </button>
-          <button
-            aria-label="Notifications"
-            type="button"
-            class="w-11 h-11 flex items-center justify-center text-on-surface-variant hover:text-primary transition-colors relative"
-          >
-            <span class="material-symbols-outlined text-[22px]" aria-hidden="true">notifications</span>
-            <span class="absolute top-2.5 right-2.5 w-2 h-2 rounded-full bg-secondary"></span>
-          </button>
+          @if (canCreateReservation()) {
+            <button
+              aria-label="Nouvelle réservation"
+              type="button"
+              (click)="openNewReservation()"
+              data-testid="header-new-reservation-mobile-btn"
+              class="w-10 h-10 rounded-xl bg-primary text-on-primary flex items-center justify-center shadow-sm cursor-pointer min-h-[44px] min-w-[44px]"
+            >
+              <span class="material-symbols-outlined text-[20px]" aria-hidden="true">add</span>
+            </button>
+          }
           <div class="relative" data-testid="user-profile-mobile">
             <button
               type="button"
               (click)="toggleMenu($event)"
-              data-testid="demo-profile-dropdown-mobile-btn"
-              class="flex items-center p-0.5 rounded-full cursor-pointer focus:ring-2 focus:ring-primary"
-              aria-label="Menu profil de démonstration"
+              data-testid="user-profile-dropdown-mobile-btn"
+              class="w-10 h-10 rounded-full bg-primary text-on-primary flex items-center justify-center cursor-pointer"
+              aria-label="Menu utilisateur"
             >
-              <img
-                alt="Profil utilisateur"
-                class="w-8 h-8 rounded-full object-cover shadow-[0_2px_6px_rgba(0,0,0,0.08)]"
-                src="assets/images/avatar-aissatou-ba.jpg"
-              />
+              <span class="material-symbols-outlined text-[20px]">person</span>
             </button>
 
-            <!-- Menu mobile -->
             @if (isMenuOpen()) {
               <div
                 class="absolute right-0 top-12 w-64 bg-surface-container-lowest rounded-2xl shadow-2xl border border-outline-variant/60 py-2 z-50"
                 role="menu"
-                data-testid="demo-profile-dropdown-mobile"
+                data-testid="user-profile-dropdown-mobile"
                 (click)="$event.stopPropagation()"
               >
                 <div class="px-3 py-1.5 border-b border-outline-variant/40">
-                  <span class="text-[11px] font-bold uppercase tracking-wider text-on-surface-variant block">
-                    Profil de démonstration
-                  </span>
+                  <span class="text-xs font-bold text-on-surface block truncate">{{ displayName() }}</span>
+                  <span class="text-[11px] text-outline block truncate">{{ displayRoleLabel() }}</span>
                 </div>
                 <div class="py-1">
-                  @for (item of demoRoles; track item.role) {
-                    <button
-                      type="button"
-                      (click)="selectRole(item.role)"
-                      [attr.data-testid]="item.testId"
-                      class="w-full text-left px-3 py-2 flex items-center justify-between hover:bg-surface-container-low transition-colors"
-                      [class.bg-surface-container-high]="roomsService.currentRole() === item.role"
-                    >
-                      <div class="flex items-center gap-2">
-                        <span class="material-symbols-outlined text-[18px]" [class.text-primary]="roomsService.currentRole() === item.role">
-                          {{ item.icon }}
-                        </span>
-                        <div>
-                          <div class="font-medium text-xs text-on-surface">
-                            {{ item.label }}
-                          </div>
-                        </div>
-                      </div>
-                      @if (roomsService.currentRole() === item.role) {
-                        <span class="material-symbols-outlined text-[16px] text-primary">check</span>
-                      }
-                    </button>
-                  }
+                  <button
+                    type="button"
+                    (click)="openSecurityModal()"
+                    class="w-full text-left px-3 py-2 flex items-center gap-2 hover:bg-surface-container-low text-sm text-on-surface"
+                  >
+                    <span class="material-symbols-outlined text-[18px] text-primary">verified_user</span>
+                    <span>Sécurité 2FA</span>
+                  </button>
+                  <button
+                    type="button"
+                    (click)="openSessionsModal()"
+                    class="w-full text-left px-3 py-2 flex items-center gap-2 hover:bg-surface-container-low text-sm text-on-surface"
+                  >
+                    <span class="material-symbols-outlined text-[18px] text-primary">devices</span>
+                    <span>Appareils connectés</span>
+                  </button>
+                  <button
+                    type="button"
+                    (click)="logout()"
+                    class="w-full text-left px-3 py-2 flex items-center gap-2 hover:bg-error-container/20 text-sm text-error"
+                  >
+                    <span class="material-symbols-outlined text-[18px]">logout</span>
+                    <span>Déconnexion</span>
+                  </button>
                 </div>
               </div>
             }
@@ -242,75 +224,164 @@ export interface DemoRoleItem {
       </div>
     </header>
 
-    <!-- Backdrop transparent pour fermer le menu lors d'un clic en dehors -->
     @if (isMenuOpen()) {
-      <div
-        class="fixed inset-0 z-30"
-        (click)="closeMenu()"
-        aria-hidden="true"
-      ></div>
+      <div class="fixed inset-0 z-30" (click)="closeMenu()" aria-hidden="true"></div>
     }
-  `
+
+    <!-- Modal Appareils connectés & Révocation (ModalShellComponent) -->
+    <app-modal-shell
+      [isOpen]="isSessionsModalOpen()"
+      title="Appareils connectés"
+      [subtitle]="isDirection() ? 'Supervision et révocation des sessions actives' : 'Vos sessions ouvertes'"
+      icon="devices"
+      testId="sessions-modal"
+      (closed)="closeSessionsModal()"
+    >
+      <div class="flex flex-col gap-3">
+        @if (sessionsLoading()) {
+          <p class="text-sm text-outline py-4 text-center">Chargement des sessions actives...</p>
+        } @else if (sessions().length === 0) {
+          <p class="text-sm text-outline py-4 text-center">Aucune session active détectée.</p>
+        } @else {
+          @for (s of sessions(); track s.familyId) {
+            <div class="p-3 rounded-xl bg-surface-container-low border border-outline-variant/30 flex flex-wrap items-center justify-between gap-3">
+              <div class="min-w-0">
+                <div class="flex items-center gap-2">
+                  <span class="font-semibold text-sm text-on-surface">{{ s.deviceLabel }}</span>
+                  @if (s.isCurrentSession) {
+                    <span class="px-2 py-0.5 rounded-full text-[11px] bg-primary/10 text-primary font-semibold">
+                      Session actuelle
+                    </span>
+                  }
+                </div>
+                <div class="text-xs text-on-surface-variant">
+                  {{ s.userName }} ({{ s.userRole }}) • IP : {{ s.ipAddress || 'Locale' }}
+                </div>
+                <div class="text-[11px] text-outline">
+                  Dernière activité : {{ s.lastUsedAt | date:'short' }}
+                </div>
+              </div>
+              <button
+                type="button"
+                (click)="revokeSession(s.familyId)"
+                [attr.data-testid]="'revoke-session-' + s.familyId"
+                class="px-3 py-1.5 rounded-lg bg-error-container/30 text-error hover:bg-error-container/50 text-xs font-semibold cursor-pointer"
+              >
+                Révoquer
+              </button>
+            </div>
+          }
+        }
+      </div>
+      <div modal-footer class="flex justify-end">
+        <button
+          type="button"
+          (click)="closeSessionsModal()"
+          class="px-4 py-2 rounded-xl bg-primary text-on-primary text-sm font-semibold cursor-pointer"
+        >
+          Fermer
+        </button>
+      </div>
+    </app-modal-shell>
+
+    <!-- Modal Sécurité 2FA (ModalShellComponent) -->
+    <app-modal-shell
+      [isOpen]="isSecurityModalOpen()"
+      title="Double authentification (TOTP)"
+      subtitle="Protection renforcée de votre accès Résidence Blue"
+      icon="verified_user"
+      testId="security-2fa-modal"
+      (closed)="closeSecurityModal()"
+    >
+      <div class="flex flex-col gap-4">
+        @if (securityError()) {
+          <div class="p-3 rounded-xl bg-error-container/30 text-error text-xs">{{ securityError() }}</div>
+        }
+        @if (securityBackupCodes().length > 0) {
+          <div class="p-3 rounded-xl bg-amber-50 border border-amber-300 text-xs text-amber-900">
+            Codes de secours à conserver précieusement (usage unique) :
+          </div>
+          <div class="grid grid-cols-2 gap-2">
+            @for (c of securityBackupCodes(); track c) {
+              <code class="p-2 rounded bg-surface-container text-center font-mono text-sm font-bold">{{ c }}</code>
+            }
+          </div>
+        } @else if (currentUser()?.totpEnabled) {
+          <div class="p-3 rounded-xl bg-emerald-50 text-emerald-900 text-sm font-medium">
+            La double authentification TOTP est active sur votre compte.
+          </div>
+          @if (!currentUser()?.totpRequired) {
+            <div class="flex flex-col gap-2">
+              <label class="text-xs font-semibold text-on-surface" for="disable-totp-pwd">Mot de passe actuel</label>
+              <input id="disable-totp-pwd" type="password" [value]="disablePwd()" (input)="disablePwd.set($any($event.target).value)" class="h-10 px-3 rounded-lg border border-outline-variant" />
+              <label class="text-xs font-semibold text-on-surface" for="disable-totp-code">Code TOTP actuel</label>
+              <input id="disable-totp-code" type="text" [value]="totpInputCode()" (input)="totpInputCode.set($any($event.target).value)" class="h-10 px-3 rounded-lg border border-outline-variant font-mono" />
+              <button type="button" (click)="confirmDisableTotp()" class="h-10 px-4 rounded-xl bg-error text-on-error text-sm font-semibold cursor-pointer">
+                Désactiver la 2FA
+              </button>
+            </div>
+          }
+        } @else {
+          @if (!optionalTotpSetup()) {
+            <p class="text-sm text-on-surface-variant">
+              Activez la double authentification pour protéger votre compte contre le vol de mot de passe.
+            </p>
+            <button type="button" (click)="startOptionalTotpSetup()" class="h-10 px-4 rounded-xl bg-primary text-on-primary text-sm font-semibold cursor-pointer">
+              Générer une clé TOTP
+            </button>
+          } @else {
+            <div class="p-3 rounded-xl bg-surface-container">
+              <div class="text-xs text-outline mb-1">Clé secrète Base32 :</div>
+              <code class="text-sm font-mono font-bold text-primary break-all">{{ optionalTotpSetup()!.secret }}</code>
+            </div>
+            <input type="text" placeholder="Code à 6 chiffres" [value]="totpInputCode()" (input)="totpInputCode.set($any($event.target).value)" class="h-10 px-3 rounded-lg border border-outline-variant font-mono" />
+            <button type="button" (click)="confirmEnableOptionalTotp()" class="h-10 px-4 rounded-xl bg-primary text-on-primary text-sm font-semibold cursor-pointer">
+              Confirmer et activer
+            </button>
+          }
+        }
+      </div>
+      <div modal-footer class="flex justify-end">
+        <button
+          type="button"
+          (click)="closeSecurityModal()"
+          class="px-4 py-2 rounded-xl bg-surface-container-high text-on-surface text-sm font-semibold cursor-pointer"
+        >
+          Fermer
+        </button>
+      </div>
+    </app-modal-shell>
+  `,
 })
 export class HeaderComponent {
   readonly modalService = inject(ReservationModalService);
-  readonly roomsService = inject(RoomsService);
+  readonly authService = inject(AuthService);
 
   readonly isMenuOpen = signal<boolean>(false);
+  readonly currentUser = this.authService.currentUser;
 
-  readonly demoRoles: DemoRoleItem[] = [
-    {
-      role: Role.DIRECTION,
-      label: 'Direction',
-      name: 'Aïssatou Ba',
-      title: 'Directrice Générale',
-      icon: 'admin_panel_settings',
-      description: 'Accès complet (ajout, modif, prix)',
-      testId: 'demo-role-direction',
-    },
-    {
-      role: Role.RECEPTION,
-      label: 'Réception',
-      name: 'Fatou Sow',
-      title: 'Chef de Réception',
-      icon: 'desk',
-      description: 'Planning, check-in, réservations',
-      testId: 'demo-role-reception',
-    },
-    {
-      role: Role.HOUSEKEEPING,
-      label: 'Gouvernance',
-      name: 'Mariama Diallo',
-      title: 'Gouvernante Générale',
-      icon: 'cleaning_services',
-      description: 'Statuts de ménage et chambres',
-      testId: 'demo-role-housekeeping',
-    },
-    {
-      role: Role.MAINTENANCE,
-      label: 'Technique',
-      name: 'Moussa Ndiaye',
-      title: 'Responsable Technique',
-      icon: 'handyman',
-      description: 'Maintenance et réparations',
-      testId: 'demo-role-maintenance',
-    },
-  ];
+  readonly isSessionsModalOpen = signal<boolean>(false);
+  readonly sessionsLoading = signal<boolean>(false);
+  readonly sessions = signal<ConnectedSessionItem[]>([]);
 
-  readonly currentProfile = computed(() => {
-    const role = this.roomsService.currentRole();
-    const matched = this.demoRoles.find((r) => r.role === role);
-    return (
-      matched || {
-        role: Role.DIRECTION,
-        label: 'Direction',
-        name: 'Aïssatou Ba',
-        title: 'Directrice Générale',
-        icon: 'admin_panel_settings',
-        description: 'Accès complet',
-        testId: 'demo-role-direction',
-      }
-    );
+  readonly isSecurityModalOpen = signal<boolean>(false);
+  readonly optionalTotpSetup = signal<TotpSetupPayload | null>(null);
+  readonly totpInputCode = signal<string>('');
+  readonly disablePwd = signal<string>('');
+  readonly securityError = signal<string | null>(null);
+  readonly securityBackupCodes = signal<string[]>([]);
+
+  readonly displayName = computed(() => this.currentUser()?.fullName || 'Collaborateur');
+  readonly displayRoleLabel = computed(() => {
+    const u = this.currentUser();
+    if (!u) return '';
+    return u.jobTitle || u.role;
+  });
+
+  readonly isDirection = computed(() => this.currentUser()?.role === Role.DIRECTION);
+  readonly canCreateReservation = computed(() => {
+    const r = this.currentUser()?.role;
+    return r === Role.DIRECTION || r === Role.RECEPTION;
   });
 
   @HostListener('window:keydown.escape')
@@ -321,9 +392,7 @@ export class HeaderComponent {
   }
 
   toggleMenu(event?: MouseEvent): void {
-    if (event) {
-      event.stopPropagation();
-    }
+    if (event) event.stopPropagation();
     this.isMenuOpen.update((v) => !v);
   }
 
@@ -331,12 +400,77 @@ export class HeaderComponent {
     this.isMenuOpen.set(false);
   }
 
-  selectRole(role: Role): void {
-    this.roomsService.setRole(role);
-    this.closeMenu();
-  }
-
   openNewReservation(): void {
     this.modalService.open();
+  }
+
+  async openSessionsModal(): Promise<void> {
+    this.closeMenu();
+    this.isSessionsModalOpen.set(true);
+    this.sessionsLoading.set(true);
+    try {
+      this.sessions.set(await this.authService.listConnectedSessions());
+    } finally {
+      this.sessionsLoading.set(false);
+    }
+  }
+
+  closeSessionsModal(): void {
+    this.isSessionsModalOpen.set(false);
+  }
+
+  async revokeSession(familyId: string): Promise<void> {
+    const ok = await this.authService.revokeConnectedSession(familyId);
+    if (ok) {
+      this.sessions.set(await this.authService.listConnectedSessions());
+    }
+  }
+
+  openSecurityModal(): void {
+    this.closeMenu();
+    this.securityError.set(null);
+    this.securityBackupCodes.set([]);
+    this.optionalTotpSetup.set(null);
+    this.totpInputCode.set('');
+    this.disablePwd.set('');
+    this.isSecurityModalOpen.set(true);
+  }
+
+  closeSecurityModal(): void {
+    this.isSecurityModalOpen.set(false);
+  }
+
+  async startOptionalTotpSetup(): Promise<void> {
+    this.securityError.set(null);
+    try {
+      this.optionalTotpSetup.set(await this.authService.setupOptionalTotp());
+    } catch (e) {
+      this.securityError.set(e instanceof Error ? e.message : 'Erreur.');
+    }
+  }
+
+  async confirmEnableOptionalTotp(): Promise<void> {
+    this.securityError.set(null);
+    try {
+      const res = await this.authService.enableOptionalTotp(this.totpInputCode());
+      this.securityBackupCodes.set(res.backupCodes);
+    } catch (e) {
+      this.securityError.set(e instanceof Error ? e.message : 'Code invalide.');
+    }
+  }
+
+  async confirmDisableTotp(): Promise<void> {
+    this.securityError.set(null);
+    try {
+      await this.authService.disableOptionalTotp(this.disablePwd(), this.totpInputCode());
+      this.closeSecurityModal();
+    } catch (e) {
+      this.securityError.set(e instanceof Error ? e.message : 'Désactivation impossible.');
+    }
+  }
+
+  async logout(): Promise<void> {
+    this.closeMenu();
+    await this.authService.logout('manual');
   }
 }

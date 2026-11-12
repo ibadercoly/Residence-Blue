@@ -1,6 +1,7 @@
 import { test, expect } from '@playwright/test';
 import * as fs from 'fs';
 import * as path from 'path';
+import { loginViaUi } from './auth-e2e.helper';
 
 test.describe('Refonte Écran Planning - Zero Scroll Horizontal & Ergonomie', () => {
   const screenshotsDir = path.resolve(process.cwd(), 'docs/design/comparaisons');
@@ -13,6 +14,7 @@ test.describe('Refonte Écran Planning - Zero Scroll Horizontal & Ergonomie', ()
 
   test.beforeEach(async ({ page }) => {
     page.on('dialog', dialog => dialog.accept());
+    await loginViaUi(page, 'fatou.ndiaye@residenceblue.sn', 'ThiesTeranga2024!');
   });
 
   const viewports = [

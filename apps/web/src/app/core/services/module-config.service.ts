@@ -1,6 +1,6 @@
 import { Injectable, computed, inject, signal } from '@angular/core';
 import { AppModulesManifest, Role, isRoleAssignable } from '@residence-blue/shared';
-import { AuthMockService } from './auth-mock.service';
+import { AuthService } from './auth.service';
 
 export interface NavMenuItem {
   id: string;
@@ -13,7 +13,7 @@ export interface NavMenuItem {
   providedIn: 'root'
 })
 export class ModuleConfigService {
-  private readonly authService = inject(AuthMockService);
+  private readonly authService = inject(AuthService);
 
   // Configuration déclarative issue de config/modules.json (garantit le fonctionnement hors-ligne immédiat)
   private readonly _manifest = signal<AppModulesManifest>({

@@ -34,10 +34,10 @@ export class BillingController {
   constructor(private readonly billingService: BillingService) {}
 
   private extractActor(req: Request, idempotencyKey?: string): BillingActorContext {
-    const rawRole =
-      ((req as any).user?.role as string) ||
-      (req.headers['x-user-role'] as string) ||
-      'RECEPTION';
+    const user = (req as any).user as
+      | { id?: string; role?: string; fullName?: string }
+      | undefined;
+    const rawRole = user?.role || '';
     const actorRole =
       rawRole === 'ADMIN' || rawRole === 'MANAGER'
         ? 'DIRECTION'
@@ -46,11 +46,8 @@ export class BillingController {
           : rawRole === 'RESTAURANT_STAFF'
             ? 'RESTAURANT'
             : rawRole;
-    const actorName =
-      ((req as any).user?.fullName as string) ||
-      (req.headers['x-user-name'] as string) ||
-      `Opérateur (${actorRole})`;
-    const actorId = ((req as any).user?.id as string) || undefined;
+    const actorName = user?.fullName || `Opérateur (${actorRole || 'Inconnu'})`;
+    const actorId = user?.id || undefined;
     const ip =
       (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() ||
       req.ip ||

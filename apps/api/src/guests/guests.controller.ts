@@ -3,14 +3,15 @@ import {
   Controller,
   Delete,
   Get,
-  Headers,
   HttpCode,
   HttpStatus,
   Param,
   Patch,
   Post,
   Query,
+  Req,
 } from '@nestjs/common';
+import { Request } from 'express';
 import { Role } from '@residence-blue/shared';
 import { Roles } from '../common/decorators/roles.decorator';
 import {
@@ -62,40 +63,31 @@ export class GuestsController {
 
   @Post()
   @Roles(Role.DIRECTION, Role.RECEPTION)
-  async create(
-    @Body() dto: CreateGuestDto,
-    @Headers('x-user-role') role = 'RECEPTION',
-  ) {
-    return this.guestsService.create(dto, role);
+  async create(@Body() dto: CreateGuestDto, @Req() req: Request) {
+    const user = (req as any).user as { id?: string; role: string };
+    return this.guestsService.create(dto, user.role, user.id, req.ip);
   }
 
   @Patch(':id')
   @Roles(Role.DIRECTION, Role.RECEPTION)
-  async update(
-    @Param('id') id: string,
-    @Body() dto: UpdateGuestDto,
-    @Headers('x-user-role') role = 'RECEPTION',
-  ) {
-    return this.guestsService.update(id, dto, role);
+  async update(@Param('id') id: string, @Body() dto: UpdateGuestDto, @Req() req: Request) {
+    const user = (req as any).user as { id?: string; role: string };
+    return this.guestsService.update(id, dto, user.role, user.id, req.ip);
   }
 
   @Post(':id/reveal-document')
   @Roles(Role.DIRECTION, Role.RECEPTION)
   @HttpCode(HttpStatus.OK)
-  async revealDocument(
-    @Param('id') id: string,
-    @Headers('x-user-role') role = 'RECEPTION',
-  ) {
-    return this.guestsService.revealDocument(id, role);
+  async revealDocument(@Param('id') id: string, @Req() req: Request) {
+    const user = (req as any).user as { id?: string; role: string };
+    return this.guestsService.revealDocument(id, user.role, user.id, req.ip);
   }
 
   @Delete(':id')
   @Roles(Role.DIRECTION)
   @HttpCode(HttpStatus.OK)
-  async remove(
-    @Param('id') id: string,
-    @Headers('x-user-role') role = 'DIRECTION',
-  ) {
-    return this.guestsService.remove(id, role);
+  async remove(@Param('id') id: string, @Req() req: Request) {
+    const user = (req as any).user as { id?: string; role: string };
+    return this.guestsService.remove(id, user.role, user.id, req.ip);
   }
 }

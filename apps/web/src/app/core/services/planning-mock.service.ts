@@ -1,5 +1,6 @@
 import { Injectable, signal, computed, inject, Injector } from '@angular/core';
 import { RoomsService } from './rooms.service';
+import { AuthService } from './auth.service';
 import { Observable, of } from 'rxjs';
 import {
   PlanningData,
@@ -218,22 +219,24 @@ export class PlanningMockService {
     this.fetchFromServer();
   }
 
-  private getCurrentRole(): string {
-    try {
-      const raw = typeof localStorage !== 'undefined' ? localStorage.getItem('residence_blue_auth_session') : null;
-      if (raw) {
-        const parsed = JSON.parse(raw);
-        if (parsed?.user?.role) return parsed.user.role;
-      }
-    } catch {}
-    return 'DIRECTION';
+  private get authService(): AuthService | null {
+    return this.injector.get(AuthService, null);
+  }
+
+  private getAuthHeaders(extra?: Record<string, string>): Record<string, string> {
+    return {
+      ...(this.authService ? this.authService.getAuthHeaders() : {}),
+      ...(extra || {}),
+    };
   }
 
   async fetchFromServer(): Promise<void> {
     if (typeof fetch === 'undefined') return;
+    if (this.authService && !this.authService.isAuthenticated()) return;
     try {
       const res = await fetch('/api/reservations', {
-        headers: { 'x-user-role': this.getCurrentRole() },
+        credentials: 'include',
+        headers: this.getAuthHeaders(),
       });
       if (res.ok) {
         const list: PlanningReservation[] = await res.json();
@@ -577,7 +580,8 @@ export class PlanningMockService {
       const actionPath = nextStatus === 'EN_SEJOUR' ? 'check-in' : 'check-out';
       fetch(`/api/reservations/${id}/${actionPath}`, {
         method: 'POST',
-        headers: { 'x-user-role': this.getCurrentRole() },
+        credentials: 'include',
+        headers: this.getAuthHeaders(),
       })
         .then(async (response) => {
           if (response.ok) {
@@ -605,7 +609,8 @@ export class PlanningMockService {
     if (typeof fetch !== 'undefined' && /^[0-9a-f-]{36}$/i.test(id)) {
       fetch(`/api/reservations/${id}/cancel`, {
         method: 'POST',
-        headers: { 'x-user-role': this.getCurrentRole() },
+        credentials: 'include',
+        headers: this.getAuthHeaders(),
       }).catch(() => {});
     }
 
@@ -668,10 +673,10 @@ export class PlanningMockService {
     if (typeof fetch !== 'undefined') {
       fetch('/api/reservations', {
         method: 'POST',
-        headers: {
+        credentials: 'include',
+        headers: this.getAuthHeaders({
           'Content-Type': 'application/json',
-          'x-user-role': this.getCurrentRole(),
-        },
+        }),
         body: JSON.stringify({
           guestName: payload.guestName,
           roomNumber: payload.roomNumber,

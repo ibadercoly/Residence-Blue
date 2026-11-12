@@ -5,43 +5,46 @@ import {
   OrderTicketItem
 } from '@residence-blue/shared';
 import { HotelSettingsService } from './hotel-settings.service';
+import { AuthService } from './auth.service';
 
 @Injectable({
   providedIn: 'root'
 })
 export class RestaurantMockService {
   private readonly hotelSettingsService: HotelSettingsService;
+  private readonly authService: AuthService | null;
 
-  constructor(hotelSettingsService?: HotelSettingsService) {
+  constructor(hotelSettingsService?: HotelSettingsService, authService?: AuthService) {
     let injected: HotelSettingsService | null = null;
+    let injectedAuth: AuthService | null = null;
     try {
       if (typeof inject === 'function') {
         injected = inject(HotelSettingsService, { optional: true });
+        injectedAuth = inject(AuthService, { optional: true });
       }
     } catch {
       // Ignorer si hors contexte d'injection
     }
     this.hotelSettingsService = hotelSettingsService ?? injected ?? new HotelSettingsService();
+    this.authService = authService ?? injectedAuth ?? null;
     this.fetchFromServer();
   }
 
-  private getCurrentRole(): string {
-    try {
-      const raw = typeof localStorage !== 'undefined' ? localStorage.getItem('residence_blue_auth_session') : null;
-      if (raw) {
-        const parsed = JSON.parse(raw);
-        if (parsed?.user?.role) return parsed.user.role;
-      }
-    } catch {}
-    return 'DIRECTION';
+  private getAuthHeaders(extra?: Record<string, string>): Record<string, string> {
+    return {
+      ...(this.authService ? this.authService.getAuthHeaders() : {}),
+      ...(extra || {}),
+    };
   }
 
   async fetchFromServer(): Promise<void> {
     if (typeof fetch === 'undefined') return;
+    if (this.authService && !this.authService.isAuthenticated()) return;
     try {
+      const headers = this.getAuthHeaders();
       const [catRes, prodRes] = await Promise.all([
-        fetch('/api/restaurant/categories', { headers: { 'x-user-role': this.getCurrentRole() } }),
-        fetch('/api/restaurant/products', { headers: { 'x-user-role': this.getCurrentRole() } }),
+        fetch('/api/restaurant/categories', { credentials: 'include', headers }),
+        fetch('/api/restaurant/products', { credentials: 'include', headers }),
       ]);
       if (catRes.ok && prodRes.ok) {
         const cats: DishCategory[] = await catRes.json();
@@ -433,10 +436,10 @@ export class RestaurantMockService {
     if (typeof fetch !== 'undefined' && /^[0-9a-f-]{36}$/i.test(dishId)) {
       fetch(`/api/restaurant/products/${dishId}`, {
         method: 'PATCH',
-        headers: {
+        credentials: 'include',
+        headers: this.getAuthHeaders({
           'Content-Type': 'application/json',
-          'x-user-role': this.getCurrentRole(),
-        },
+        }),
         body: JSON.stringify({ status }),
       }).catch(() => {});
     }
@@ -447,10 +450,10 @@ export class RestaurantMockService {
     if (typeof fetch !== 'undefined') {
       fetch('/api/restaurant/products', {
         method: 'POST',
-        headers: {
+        credentials: 'include',
+        headers: this.getAuthHeaders({
           'Content-Type': 'application/json',
-          'x-user-role': this.getCurrentRole(),
-        },
+        }),
         body: JSON.stringify({
           name: dish.name,
           description: dish.description,
@@ -482,10 +485,10 @@ export class RestaurantMockService {
     if (typeof fetch !== 'undefined' && /^[0-9a-f-]{36}$/i.test(dish.id)) {
       fetch(`/api/restaurant/products/${dish.id}`, {
         method: 'PATCH',
-        headers: {
+        credentials: 'include',
+        headers: this.getAuthHeaders({
           'Content-Type': 'application/json',
-          'x-user-role': this.getCurrentRole(),
-        },
+        }),
         body: JSON.stringify({
           name: dish.name,
           description: dish.description,

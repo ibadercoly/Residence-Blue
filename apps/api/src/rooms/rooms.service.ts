@@ -5,11 +5,12 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { appendChainedAuditLog } from '../common/audit/audit.service';
 import {
   isRoomStatusTransitionAllowed,
   RoomStatus as SharedRoomStatus,
 } from '@residence-blue/shared';
-import { Prisma, ReservationStatus, RoomStatus } from '@prisma/client';
+import { ReservationStatus, RoomStatus } from '@prisma/client';
 import { UpdateRoomStatusDto } from './dto/update-room-status.dto';
 import { AvailableRoomsQueryDto } from './dto/available-rooms-query.dto';
 import { CreateRoomDto } from './dto/create-room.dto';
@@ -266,23 +267,21 @@ export class RoomsService {
           },
         });
 
-        await tx.auditLog.create({
-          data: {
-            userId: resolvedUserId,
-            action: 'ROOM_CREATE',
-            entity: 'Room',
-            entityId: room.id,
-            before: Prisma.JsonNull,
-            after: {
-              number: room.number,
-              floor: room.floor,
-              status: room.status,
-              typeId: room.typeId,
-              imageUrl: room.imageUrl,
-              isActive: room.isActive,
-            },
-            ip: ip || null,
+        await appendChainedAuditLog(tx, {
+          userId: resolvedUserId,
+          action: 'ROOM_CREATE',
+          entity: 'Room',
+          entityId: room.id,
+          before: null,
+          after: {
+            number: room.number,
+            floor: room.floor,
+            status: room.status,
+            typeId: room.typeId,
+            imageUrl: room.imageUrl,
+            isActive: room.isActive,
           },
+          ip: ip || null,
         });
 
         return room;
@@ -412,30 +411,28 @@ export class RoomsService {
           },
         });
 
-        await tx.auditLog.create({
-          data: {
-            userId: resolvedUserId,
-            action: 'ROOM_UPDATE',
-            entity: 'Room',
-            entityId: room.id,
-            before: {
-              number: current.number,
-              floor: current.floor,
-              status: current.status,
-              typeId: current.typeId,
-              imageUrl: current.imageUrl,
-              isActive: current.isActive,
-            },
-            after: {
-              number: room.number,
-              floor: room.floor,
-              status: room.status,
-              typeId: room.typeId,
-              imageUrl: room.imageUrl,
-              isActive: room.isActive,
-            },
-            ip: ip || null,
+        await appendChainedAuditLog(tx, {
+          userId: resolvedUserId,
+          action: 'ROOM_UPDATE',
+          entity: 'Room',
+          entityId: room.id,
+          before: {
+            number: current.number,
+            floor: current.floor,
+            status: current.status,
+            typeId: current.typeId,
+            imageUrl: current.imageUrl,
+            isActive: current.isActive,
           },
+          after: {
+            number: room.number,
+            floor: room.floor,
+            status: room.status,
+            typeId: room.typeId,
+            imageUrl: room.imageUrl,
+            isActive: room.isActive,
+          },
+          ip: ip || null,
         });
 
         return room;
@@ -492,25 +489,23 @@ export class RoomsService {
 
     // Suppression atomique
     await this.prisma.$transaction(async (tx) => {
-      await tx.auditLog.create({
-        data: {
-          userId: resolvedUserId,
-          action: 'ROOM_DELETE',
-          entity: 'Room',
-          entityId: room.id,
-          before: {
-            id: room.id,
-            number: room.number,
-            floor: room.floor,
-            status: room.status,
-            typeId: room.typeId,
-            imageUrl: room.imageUrl,
-            isActive: room.isActive,
-            amenities: room.amenities,
-          },
-          after: Prisma.JsonNull,
-          ip: ip || null,
+      await appendChainedAuditLog(tx, {
+        userId: resolvedUserId,
+        action: 'ROOM_DELETE',
+        entity: 'Room',
+        entityId: room.id,
+        before: {
+          id: room.id,
+          number: room.number,
+          floor: room.floor,
+          status: room.status,
+          typeId: room.typeId,
+          imageUrl: room.imageUrl,
+          isActive: room.isActive,
+          amenities: room.amenities,
         },
+        after: null,
+        ip: ip || null,
       });
 
       await tx.room.delete({
@@ -584,23 +579,21 @@ export class RoomsService {
         },
       });
 
-      await tx.auditLog.create({
-        data: {
-          userId: resolvedUserId,
-          action: 'ROOM_STATUS_CHANGE',
-          entity: 'Room',
-          entityId: room.id,
-          before: {
-            status: currentStatus,
-            roomNumber: room.number,
-          },
-          after: {
-            status: targetStatus,
-            reason: dto.reason || null,
-            roomNumber: room.number,
-          },
-          ip: ip || null,
+      await appendChainedAuditLog(tx, {
+        userId: resolvedUserId,
+        action: 'ROOM_STATUS_CHANGE',
+        entity: 'Room',
+        entityId: room.id,
+        before: {
+          status: currentStatus,
+          roomNumber: room.number,
         },
+        after: {
+          status: targetStatus,
+          reason: dto.reason || null,
+          roomNumber: room.number,
+        },
+        ip: ip || null,
       });
 
       return updated;
@@ -629,16 +622,14 @@ export class RoomsService {
         },
       });
 
-      await tx.auditLog.create({
-        data: {
-          userId: resolvedUserId,
-          action: 'ROOM_TYPE_CREATE',
-          entity: 'RoomType',
-          entityId: type.id,
-          before: Prisma.JsonNull,
-          after: { name: type.name, pricePerNight: type.pricePerNight },
-          ip: ip || null,
-        },
+      await appendChainedAuditLog(tx, {
+        userId: resolvedUserId,
+        action: 'ROOM_TYPE_CREATE',
+        entity: 'RoomType',
+        entityId: type.id,
+        before: null,
+        after: { name: type.name, pricePerNight: type.pricePerNight },
+        ip: ip || null,
       });
 
       return type;
@@ -682,16 +673,14 @@ export class RoomsService {
         },
       });
 
-      await tx.auditLog.create({
-        data: {
-          userId: resolvedUserId,
-          action: 'ROOM_TYPE_UPDATE',
-          entity: 'RoomType',
-          entityId: type.id,
-          before: { name: current.name, pricePerNight: current.pricePerNight },
-          after: { name: type.name, pricePerNight: type.pricePerNight },
-          ip: ip || null,
-        },
+      await appendChainedAuditLog(tx, {
+        userId: resolvedUserId,
+        action: 'ROOM_TYPE_UPDATE',
+        entity: 'RoomType',
+        entityId: type.id,
+        before: { name: current.name, pricePerNight: current.pricePerNight },
+        after: { name: type.name, pricePerNight: type.pricePerNight },
+        ip: ip || null,
       });
 
       return type;

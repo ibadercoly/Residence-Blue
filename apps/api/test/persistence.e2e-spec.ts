@@ -8,10 +8,12 @@ import { PrismaService } from '../src/prisma/prisma.service';
 import { seedAll } from '../prisma/seed';
 import { getUploadsDir as getRoomsUploadDir } from '../src/rooms/rooms-image.util';
 import { isValidPasswordHash } from '../src/auth/password-hash.util';
+import { issueDbTestToken } from './auth-test.helper';
 
 describe('Persistance Complète de Bout en Bout (chore/audit-persistance)', () => {
   let app: INestApplication;
   let prisma: PrismaService;
+  const roleTokens: Record<string, string> = {};
 
   const samplePngBuffer = Buffer.from(
     'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==',
@@ -42,7 +44,10 @@ describe('Persistance Complète de Bout en Bout (chore/audit-persistance)', () =
     app = booted.app;
     prisma = booted.prisma;
     await seedAll(prisma);
-  });
+    for (const r of ['DIRECTION', 'RECEPTION', 'SERVEUR']) {
+      roleTokens[r] = (await issueDbTestToken(prisma, r)).token;
+    }
+  }, 90000);
 
   afterAll(async () => {
     // Restaurer l'état propre du seed à la fin de la suite
@@ -52,7 +57,7 @@ describe('Persistance Complète de Bout en Bout (chore/audit-persistance)', () =
     if (app) {
       await app.close();
     }
-  });
+  }, 90000);
 
   describe('1. Utilisateur & Connexion : création, hachage, redémarrage API, lecture Prisma, modification, suppression', () => {
     let createdUserId: string;
@@ -62,7 +67,7 @@ describe('Persistance Complète de Bout en Bout (chore/audit-persistance)', () =
       // 1. Création
       const createRes = await request(app.getHttpServer())
         .post('/api/users')
-        .set('x-user-role', 'DIRECTION')
+        .set('Authorization', `Bearer ${roleTokens['DIRECTION']}`)
         .send({
           email: testEmail,
           fullName: 'Ousmane Kane',
@@ -92,7 +97,7 @@ describe('Persistance Complète de Bout en Bout (chore/audit-persistance)', () =
 
       const getRes = await request(app.getHttpServer())
         .get(`/api/users/${createdUserId}`)
-        .set('x-user-role', 'DIRECTION')
+        .set('Authorization', `Bearer ${roleTokens['DIRECTION']}`)
         .expect(200);
       expect(getRes.body.fullName).toBe('Ousmane Kane');
 
@@ -105,19 +110,19 @@ describe('Persistance Complète de Bout en Bout (chore/audit-persistance)', () =
         })
         .expect(200);
       expect(loginRes.body.user.id).toBe(createdUserId);
-      expect(loginRes.body.token).toBeDefined();
+      expect(loginRes.body.accessToken).toBeDefined();
 
       // 5. Modification puis suppression (désactivation car l'utilisateur a un historique de connexion)
       const patchRes = await request(app.getHttpServer())
         .patch(`/api/users/${createdUserId}`)
-        .set('x-user-role', 'DIRECTION')
+        .set('Authorization', `Bearer ${roleTokens['DIRECTION']}`)
         .send({ fullName: 'Ousmane Kane Senior' })
         .expect(200);
       expect(patchRes.body.fullName).toBe('Ousmane Kane Senior');
 
       await request(app.getHttpServer())
         .delete(`/api/users/${createdUserId}`)
-        .set('x-user-role', 'DIRECTION')
+        .set('Authorization', `Bearer ${roleTokens['DIRECTION']}`)
         .expect(200);
 
       const afterDeactivate = await prisma.user.findUnique({ where: { id: createdUserId } });
@@ -128,7 +133,7 @@ describe('Persistance Complète de Bout en Bout (chore/audit-persistance)', () =
       const freshEmail = `persistance.fresh.${Date.now()}@residenceblue.sn`;
       const freshCreate = await request(app.getHttpServer())
         .post('/api/users')
-        .set('x-user-role', 'DIRECTION')
+        .set('Authorization', `Bearer ${roleTokens['DIRECTION']}`)
         .send({
           email: freshEmail,
           fullName: 'Utilisateur Vierge',
@@ -139,7 +144,7 @@ describe('Persistance Complète de Bout en Bout (chore/audit-persistance)', () =
 
       await request(app.getHttpServer())
         .delete(`/api/users/${freshCreate.body.id}`)
-        .set('x-user-role', 'DIRECTION')
+        .set('Authorization', `Bearer ${roleTokens['DIRECTION']}`)
         .expect(200);
 
       const afterHardDelete = await prisma.user.findUnique({ where: { id: freshCreate.body.id } });
@@ -155,7 +160,7 @@ describe('Persistance Complète de Bout en Bout (chore/audit-persistance)', () =
       // 1. Création avec première photo
       const createRes = await request(app.getHttpServer())
         .post('/api/rooms')
-        .set('x-user-role', 'DIRECTION')
+        .set('Authorization', `Bearer ${roleTokens['DIRECTION']}`)
         .field('number', roomNum)
         .field('floor', '4')
         .field('category', 'Deluxe')
@@ -184,7 +189,7 @@ describe('Persistance Complète de Bout en Bout (chore/audit-persistance)', () =
       // 3. Remplacement de la photo
       const patchRes = await request(app.getHttpServer())
         .patch(`/api/rooms/${roomId}`)
-        .set('x-user-role', 'DIRECTION')
+        .set('Authorization', `Bearer ${roleTokens['DIRECTION']}`)
         .field('surfaceM2', '42')
         .attach('image', samplePngBuffer, { filename: 'photo2.png', contentType: 'image/png' })
         .expect(200);
@@ -198,7 +203,7 @@ describe('Persistance Complète de Bout en Bout (chore/audit-persistance)', () =
       // 4. Suppression de la chambre vierge
       await request(app.getHttpServer())
         .delete(`/api/rooms/${roomId}`)
-        .set('x-user-role', 'DIRECTION')
+        .set('Authorization', `Bearer ${roleTokens['DIRECTION']}`)
         .expect(200);
 
       expect(fs.existsSync(secondDiskPath)).toBe(false);
@@ -211,7 +216,7 @@ describe('Persistance Complète de Bout en Bout (chore/audit-persistance)', () =
       // 1. Création d'un client avec numéro de passeport
       const guestRes = await request(app.getHttpServer())
         .post('/api/guests')
-        .set('x-user-role', 'RECEPTION')
+        .set('Authorization', `Bearer ${roleTokens['RECEPTION']}`)
         .send({
           civility: 'Mme',
           firstName: 'Aminata',
@@ -223,7 +228,8 @@ describe('Persistance Complète de Bout en Bout (chore/audit-persistance)', () =
         .expect(201);
 
       const guestId = guestRes.body.id;
-      expect(guestRes.body.passportNumber).toBe('SN-SECRET-7741');
+      expect(guestRes.body.passportNumber).toBeUndefined();
+      expect(guestRes.body.idDocumentMasked).toBe('****7741');
 
       // Vérifier en base Prisma que la pièce d'identité est chiffrée (AES-256-GCM) et non en clair
       const dbGuest = await prisma.guest.findUnique({ where: { id: guestId } });
@@ -234,7 +240,7 @@ describe('Persistance Complète de Bout en Bout (chore/audit-persistance)', () =
       // 2. Création d'une réservation sur la chambre 106
       const resCreate = await request(app.getHttpServer())
         .post('/api/reservations')
-        .set('x-user-role', 'RECEPTION')
+        .set('Authorization', `Bearer ${roleTokens['RECEPTION']}`)
         .send({
           guestId,
           roomNumber: '106',
@@ -252,7 +258,7 @@ describe('Persistance Complète de Bout en Bout (chore/audit-persistance)', () =
       // 3. Tentative de réservation qui se chevauche sur la même chambre 106 (doit être refusée 409)
       await request(app.getHttpServer())
         .post('/api/reservations')
-        .set('x-user-role', 'RECEPTION')
+        .set('Authorization', `Bearer ${roleTokens['RECEPTION']}`)
         .send({
           guestId,
           roomNumber: '106',
@@ -266,7 +272,7 @@ describe('Persistance Complète de Bout en Bout (chore/audit-persistance)', () =
       // 4. Check-in de la réservation -> passe en CHECKED_IN et chambre OCCUPIED en base
       const checkInRes = await request(app.getHttpServer())
         .post(`/api/reservations/${reservationId}/check-in`)
-        .set('x-user-role', 'RECEPTION')
+        .set('Authorization', `Bearer ${roleTokens['RECEPTION']}`)
         .expect(200);
       expect(checkInRes.body.dbStatus).toBe('CHECKED_IN');
 
@@ -276,18 +282,18 @@ describe('Persistance Complète de Bout en Bout (chore/audit-persistance)', () =
       // 5. Check-out -> passe en CHECKED_OUT et chambre CLEANING
       await request(app.getHttpServer())
         .post(`/api/reservations/${reservationId}/check-out`)
-        .set('x-user-role', 'RECEPTION')
+        .set('Authorization', `Bearer ${roleTokens['RECEPTION']}`)
         .expect(200);
 
       // Remettre la chambre 106 en FREE et nettoyer la réservation et le client de test
       await prisma.room.update({ where: { number: '106' }, data: { status: 'FREE' } });
       await request(app.getHttpServer())
         .delete(`/api/reservations/${reservationId}`)
-        .set('x-user-role', 'DIRECTION')
+        .set('Authorization', `Bearer ${roleTokens['DIRECTION']}`)
         .expect(200);
       await request(app.getHttpServer())
         .delete(`/api/guests/${guestId}`)
-        .set('x-user-role', 'DIRECTION')
+        .set('Authorization', `Bearer ${roleTokens['DIRECTION']}`)
         .expect(200);
     });
   });
@@ -304,7 +310,7 @@ describe('Persistance Complète de Bout en Bout (chore/audit-persistance)', () =
       // 1. Produit du restaurant
       const prodRes = await request(app.getHttpServer())
         .post('/api/restaurant/products')
-        .set('x-user-role', 'DIRECTION')
+        .set('Authorization', `Bearer ${roleTokens['DIRECTION']}`)
         .send({
           name: 'Pastels au Thon de Thiès',
           description: 'Beignets dorés farcis au poisson et sauce tomate relevée.',
@@ -321,14 +327,14 @@ describe('Persistance Complète de Bout en Bout (chore/audit-persistance)', () =
       // Modification du produit
       await request(app.getHttpServer())
         .patch(`/api/restaurant/products/${productId}`)
-        .set('x-user-role', 'DIRECTION')
+        .set('Authorization', `Bearer ${roleTokens['DIRECTION']}`)
         .send({ priceFcfa: 3500 })
         .expect(200);
 
       // 2. Commande du restaurant
       const orderRes = await request(app.getHttpServer())
         .post('/api/restaurant/orders')
-        .set('x-user-role', 'SERVEUR')
+        .set('Authorization', `Bearer ${roleTokens['SERVEUR']}`)
         .send({
           destinationType: 'TABLE',
           tableLabel: 'T2 (Patio)',
@@ -357,7 +363,7 @@ describe('Persistance Complète de Bout en Bout (chore/audit-persistance)', () =
       // 3. Facture et Paiement
       const invRes = await request(app.getHttpServer())
         .post('/api/invoices')
-        .set('x-user-role', 'RECEPTION')
+        .set('Authorization', `Bearer ${roleTokens['RECEPTION']}`)
         .send({
           roomNumber: '101',
           depositFcfa: 10000,
@@ -379,7 +385,7 @@ describe('Persistance Complète de Bout en Bout (chore/audit-persistance)', () =
       // Enregistrement du paiement soldant la facture
       const payRes = await request(app.getHttpServer())
         .post(`/api/invoices/${invoiceId}/payments`)
-        .set('x-user-role', 'RECEPTION')
+        .set('Authorization', `Bearer ${roleTokens['RECEPTION']}`)
         .send({
           method: 'WAVE',
           amountFcfa: 25000,
@@ -401,7 +407,7 @@ describe('Persistance Complète de Bout en Bout (chore/audit-persistance)', () =
       // 4. Modification d'un paramètre de l'hôtel
       const settingsPatch = await request(app.getHttpServer())
         .patch('/api/hotel-settings')
-        .set('x-user-role', 'DIRECTION')
+        .set('Authorization', `Bearer ${roleTokens['DIRECTION']}`)
         .send({ supportPhone: '+221 33 951 99 99' })
         .expect(200);
       expect(settingsPatch.body.supportPhone).toBe('+221 33 951 99 99');
@@ -412,7 +418,7 @@ describe('Persistance Complète de Bout en Bout (chore/audit-persistance)', () =
       // Remettre le téléphone initial et nettoyer les entités créées par le test
       await request(app.getHttpServer())
         .patch('/api/hotel-settings')
-        .set('x-user-role', 'DIRECTION')
+        .set('Authorization', `Bearer ${roleTokens['DIRECTION']}`)
         .send({ supportPhone: '+221 33 957 00 00' })
         .expect(200);
 
@@ -421,7 +427,7 @@ describe('Persistance Complète de Bout en Bout (chore/audit-persistance)', () =
       await prisma.restaurantOrder.delete({ where: { id: orderId } });
       await request(app.getHttpServer())
         .delete(`/api/restaurant/products/${productId}`)
-        .set('x-user-role', 'DIRECTION')
+        .set('Authorization', `Bearer ${roleTokens['DIRECTION']}`)
         .expect(200);
     });
   });
