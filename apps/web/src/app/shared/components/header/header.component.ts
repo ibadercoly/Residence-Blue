@@ -47,6 +47,15 @@ import { Role } from '@residence-blue/shared';
           </button>
         }
 
+        <!-- Notifications button -->
+        <button
+          type="button"
+          class="relative w-11 h-11 rounded-xl bg-surface-container-lowest flex items-center justify-center text-on-surface-variant hover:text-on-surface shadow-[0_2px_8px_rgba(10,37,64,0.04)] transition-colors focus-visible:ring-2 focus-visible:ring-primary"
+          aria-label="Notifications"
+        >
+          <span class="material-symbols-outlined text-[22px]" aria-hidden="true">notifications</span>
+        </button>
+
         <div class="h-8 w-px bg-surface-variant/60" aria-hidden="true"></div>
 
         <!-- Authenticated User Profile Menu -->

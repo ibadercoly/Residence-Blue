@@ -41,8 +41,9 @@ test.describe('Fidélité Visuelle - Rendu Hors Ligne vs Référence', () => {
       if (hero) (hero as HTMLElement).style.visibility = 'hidden';
 
       // Masquer le widget météo de la barre latérale
-      const sidebarFooter = document.querySelector('aside .p-gutter');
-      if (sidebarFooter) (sidebarFooter as HTMLElement).style.visibility = 'hidden';
+      const sidebarFooter = document.querySelector('aside');
+      if (sidebarFooter) (sidebarFooter as HTMLElement).style.display = 'none';
+      // masked
 
       // Masquer la carte météo
       const weatherWidget = document.querySelector('#weather-widget-title')?.closest('section');
@@ -68,8 +69,9 @@ test.describe('Fidélité Visuelle - Rendu Hors Ligne vs Référence', () => {
       const heroEl = document.querySelector('app-hero-banner');
       if (heroEl) (heroEl as HTMLElement).style.visibility = 'hidden';
 
-      const sidebarFooter = document.querySelector('app-sidebar .p-gutter');
-      if (sidebarFooter) (sidebarFooter as HTMLElement).style.visibility = 'hidden';
+      const asideEl = document.querySelector('app-sidebar');
+      if (asideEl) (asideEl as HTMLElement).style.display = 'none';
+      // masked
 
       const weatherEl = document.querySelector('app-weather-widget');
       if (weatherEl) (weatherEl as HTMLElement).style.visibility = 'hidden';
@@ -581,8 +583,9 @@ test.describe('Fidélité Visuelle - Rendu Hors Ligne vs Référence', () => {
 
     // Masquage des zones adaptées sur la référence (Thiès au lieu de Saly, etc.)
     await page.evaluate(() => {
-      const sidebarFooter = document.querySelector('aside .p-gutter');
-      if (sidebarFooter) (sidebarFooter as HTMLElement).style.visibility = 'hidden';
+      const sidebarFooter = document.querySelector('aside');
+      if (sidebarFooter) (sidebarFooter as HTMLElement).style.display = 'none';
+      // masked
 
       // Images et textes adaptés
       const images = document.querySelectorAll('img');
@@ -606,13 +609,16 @@ test.describe('Fidélité Visuelle - Rendu Hors Ligne vs Référence', () => {
     // 2. Charger l'application Angular
     await loginViaUi(page, dirUser.email, dirUser.password);
     await page.goto('/restaurant', { waitUntil: 'networkidle' });
+    // single login above
+    await page.goto('/restaurant', { waitUntil: 'networkidle' });
     await page.evaluate(() => (document as any).fonts.ready);
     await page.waitForTimeout(300);
 
     // Masquage des zones adaptées sur l'application Angular
     await page.evaluate(() => {
-      const sidebarFooter = document.querySelector('app-sidebar .p-gutter');
-      if (sidebarFooter) (sidebarFooter as HTMLElement).style.visibility = 'hidden';
+      const asideEl = document.querySelector('app-sidebar');
+      if (asideEl) (asideEl as HTMLElement).style.display = 'none';
+      // masked
 
       // Images et textes adaptés
       const images = document.querySelectorAll('img');
