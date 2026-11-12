@@ -15,7 +15,6 @@ import {
   RestaurantDestinationType,
   RestaurantOrderV3,
 } from '@residence-blue/shared';
-import { LayoutComponent } from '../../shared/components/layout/layout.component';
 import {
   RESTAURANT_PAYMENT_METHODS,
   RESTAURANT_SCROLL_STYLES,
@@ -35,11 +34,10 @@ import {
 @Component({
   selector: 'app-restaurant-pos-page',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink, LayoutComponent],
+  imports: [CommonModule, FormsModule, RouterLink],
   changeDetection: ChangeDetectionStrategy.OnPush,
   styles: [RESTAURANT_SCROLL_STYLES],
   template: `
-    <app-layout>
       <div class="mx-auto max-w-[1440px] px-3 py-4 sm:px-6 sm:py-6 space-y-5" data-testid="restaurant-pos-page">
         <!-- En-tête simple sans menu caché -->
         <header class="flex flex-wrap items-center justify-between gap-3">
@@ -736,7 +734,6 @@ import {
           Voir le ticket ({{ totalItemsCount() }})
         </button>
       </div>
-    </app-layout>
   `,
 })
 export class RestaurantPosPageComponent implements OnInit {

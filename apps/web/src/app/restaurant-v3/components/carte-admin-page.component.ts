@@ -11,18 +11,16 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { DishItem } from '@residence-blue/shared';
-import { LayoutComponent } from '../../shared/components/layout/layout.component';
 import { RESTAURANT_SCROLL_STYLES, formatFcfa } from '../models/restaurant-v3.model';
 import { RestaurantV3Service } from '../services/restaurant-v3.service';
 
 @Component({
   selector: 'app-carte-admin-page',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink, LayoutComponent],
+  imports: [CommonModule, FormsModule, RouterLink],
   changeDetection: ChangeDetectionStrategy.OnPush,
   styles: [RESTAURANT_SCROLL_STYLES],
   template: `
-    <app-layout>
       <div class="mx-auto max-w-[1440px] px-3 py-4 sm:px-6 sm:py-6 space-y-5" data-testid="carte-admin-page">
         <header class="flex flex-wrap items-center justify-between gap-3">
           <div>
@@ -485,7 +483,6 @@ import { RestaurantV3Service } from '../services/restaurant-v3.service';
           </section>
         }
       </div>
-    </app-layout>
   `,
 })
 export class CarteAdminPageComponent implements OnInit {

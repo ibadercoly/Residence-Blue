@@ -10,7 +10,6 @@ import {
 import { CommonModule } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import { RestaurantOrderV3 } from '@residence-blue/shared';
-import { LayoutComponent } from '../../shared/components/layout/layout.component';
 import {
   RESTAURANT_SCROLL_STYLES,
   elapsedMinutesSince,
@@ -21,7 +20,7 @@ import { RestaurantV3Service } from '../services/restaurant-v3.service';
 @Component({
   selector: 'app-kitchen-board-page',
   standalone: true,
-  imports: [CommonModule, RouterLink, LayoutComponent],
+  imports: [CommonModule, RouterLink],
   changeDetection: ChangeDetectionStrategy.OnPush,
   styles: [
     RESTAURANT_SCROLL_STYLES,
@@ -43,7 +42,6 @@ import { RestaurantV3Service } from '../services/restaurant-v3.service';
     `,
   ],
   template: `
-    <app-layout>
       <div class="mx-auto max-w-[1440px] px-3 py-4 sm:px-6 sm:py-6 space-y-5" data-testid="kitchen-board-page">
         <header class="flex flex-wrap items-center justify-between gap-3">
           <div>
@@ -324,7 +322,6 @@ import { RestaurantV3Service } from '../services/restaurant-v3.service';
           </section>
         </div>
       </div>
-    </app-layout>
   `,
 })
 export class KitchenBoardPageComponent implements OnInit, OnDestroy {

@@ -203,23 +203,38 @@ export const RESTAURANT_SCROLL_STYLES = `
     max-height: 528px; /* En-tête 48 px + 10 lignes de 48 px */
   }
 
-  .rb-orders-grid {
-    display: grid;
-    grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr) minmax(0, 1.15fr) minmax(0, 0.9fr) minmax(0, 1fr) minmax(0, 0.6fr) minmax(0, 1.45fr);
-    align-items: center;
-    gap: 8px;
+  .rb-orders-grid,
+  .rb-carte-grid {
+    display: none;
+  }
+
+  @media (min-width: 1024px) {
+    .rb-orders-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.95fr) minmax(0, 1.1fr) minmax(0, 0.85fr) minmax(0, 0.95fr) minmax(0, 0.55fr) minmax(0, 1.45fr);
+      align-items: center;
+      gap: 8px;
+      min-width: 0;
+    }
+
+    .rb-carte-grid {
+      display: grid;
+      grid-template-columns: 56px minmax(0, 1.5fr) minmax(0, 1.1fr) minmax(0, 0.8fr) minmax(0, 2.3fr);
+      align-items: center;
+      gap: 10px;
+      min-width: 0;
+    }
+
+    .rb-orders-grid > div,
+    .rb-carte-grid > div {
+      min-width: 0;
+      overflow-wrap: anywhere;
+    }
   }
 
   .rb-orders-row {
     min-height: 48px;
     padding: 6px 12px;
-  }
-
-  .rb-carte-grid {
-    display: grid;
-    grid-template-columns: 56px minmax(0, 1.6fr) minmax(0, 1.2fr) minmax(0, 0.85fr) minmax(0, 2.2fr);
-    align-items: center;
-    gap: 10px;
   }
 
   @media (max-width: 767px) {
