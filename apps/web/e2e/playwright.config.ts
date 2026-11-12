@@ -33,7 +33,7 @@ export default defineConfig({
         E2E_API_PORT: '3001',
         E2E_WEB_PORT: '4201',
       },
-      timeout: 60000,
+      timeout: 120000,
     },
     {
       command: 'node scripts/serve-dist.mjs',
