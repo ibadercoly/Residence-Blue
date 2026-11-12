@@ -54,8 +54,10 @@ function seed60Products(withImageId: string, uploadedThumbUrl: string) {
     const { PrismaClient } = require('@prisma/client');
     const p = new PrismaClient();
     (async () => {
-      const cat = await p.restaurantCategory.create({
-        data: { name: '${PREFIX}Carte 60', displayOrder: 99, isArchived: false },
+      const cat = await p.restaurantCategory.upsert({
+        where: { name: '${PREFIX}Carte 60' },
+        update: { isArchived: false },
+        create: { name: '${PREFIX}Carte 60', displayOrder: 99, isArchived: false },
       });
       const batch = [];
       for (let i = 1; i <= 56; i++) {
@@ -63,8 +65,7 @@ function seed60Products(withImageId: string, uploadedThumbUrl: string) {
           categoryId: cat.id,
           name: '${PREFIX}Plat Perf ' + String(i).padStart(2, '0'),
           priceFcfa: 2500 + i * 100,
-          isAvailable: true,
-          isArchived: false,
+          status: 'AVAILABLE',
           prepStation: 'CUISINE',
           displayOrder: 100 + i,
           thumbnailUrl: i <= 10 ? ${JSON.stringify(uploadedThumbUrl)} : null,
@@ -97,7 +98,7 @@ test.describe('Restaurant V3 — Cartes images 4/3, SVG défaut, Épuisé, 60 pr
         name: `${PREFIX}01 Thieb Photo`,
         categoryName: `${PREFIX}Plats`,
         priceFcfa: 4500,
-        isAvailable: true,
+        status: 'AVAILABLE',
       },
     });
     expect(p1.status()).toBe(201);
@@ -125,7 +126,7 @@ test.describe('Restaurant V3 — Cartes images 4/3, SVG défaut, Épuisé, 60 pr
         name: `${PREFIX}02 Yassa Sans Photo`,
         categoryName: `${PREFIX}Plats`,
         priceFcfa: 4000,
-        isAvailable: true,
+        status: 'AVAILABLE',
       },
     });
     expect(p2.status()).toBe(201);
@@ -138,7 +139,7 @@ test.describe('Restaurant V3 — Cartes images 4/3, SVG défaut, Épuisé, 60 pr
         name: `${PREFIX}03 Mafé URL Cassée`,
         categoryName: `${PREFIX}Plats`,
         priceFcfa: 3800,
-        isAvailable: true,
+        status: 'AVAILABLE',
       },
     });
     expect(p3.status()).toBe(201);
@@ -163,7 +164,7 @@ test.describe('Restaurant V3 — Cartes images 4/3, SVG défaut, Épuisé, 60 pr
         name: `${PREFIX}04 Plateau Fruits de Mer Grillés de Thiès Grand Standing`,
         categoryName: `${PREFIX}Plats`,
         priceFcfa: 9500,
-        isAvailable: false,
+        status: 'SOLD_OUT',
       },
     });
     expect(p4.status()).toBe(201);
