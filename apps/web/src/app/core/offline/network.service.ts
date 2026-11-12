@@ -4,7 +4,11 @@ import { Injectable, signal } from '@angular/core';
   providedIn: 'root',
 })
 export class NetworkService {
-  readonly isOnline = signal<boolean>(typeof navigator !== 'undefined' ? navigator.onLine : true);
+  readonly isOnline = signal<boolean>(
+    typeof navigator !== 'undefined' && typeof navigator.onLine === 'boolean'
+      ? navigator.onLine
+      : true,
+  );
 
   constructor() {
     if (typeof window !== 'undefined') {

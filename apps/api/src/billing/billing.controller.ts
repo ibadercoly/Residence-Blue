@@ -206,6 +206,18 @@ export class BillingController {
     return this.billingService.createCreditNote(id, dto, actor);
   }
 
+  @Delete(':id/lines/:lineId')
+  @Roles(Role.DIRECTION, Role.RECEPTION)
+  @HttpCode(HttpStatus.OK)
+  async removeLine(
+    @Param('id') id: string,
+    @Param('lineId') lineId: string,
+    @Req() req: Request,
+  ) {
+    const actor = this.extractActor(req);
+    return this.billingService.removeLine(id, lineId, actor);
+  }
+
   @Delete(':id')
   @Roles(Role.DIRECTION)
   @HttpCode(HttpStatus.OK)

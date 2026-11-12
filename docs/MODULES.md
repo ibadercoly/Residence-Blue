@@ -12,7 +12,7 @@ Ce document détaille la cartographie complète des modules de l'application Ré
 | **Planning des Séjours** | `planning` | **V1** | **Actif** | `rooms` | `design/maquettes/planning_des_r_servations/` (modal refonte légère `reservation-modal`) | `planning-page.component.spec.ts`, `planning-mock.service.spec.ts`, `reservation-modal.service.spec.ts`, `reservation-modal.component.spec.ts`, `e2e/reservation-modal*.spec.ts`, `test/reservations-refonte.e2e-spec.ts` | 8,98 Ko gzip (`@defer`), < 150 ms |
 | **Chambres** | `rooms` | **V1** | **Actif** | *Aucune* | `design/maquettes/saly_coastal_boutique_hospitality/` | `rooms.service.spec.ts`, `room-status-card.component.spec.ts`, `status-badge.component.spec.ts`, `action-button.component.spec.ts`, `e2e/rooms.spec.ts`, `e2e/chambres-boutons-pastilles.spec.ts`, `e2e/chambres-etat-dans-menu.spec.ts`, `e2e/chambres-suppression-et-image.spec.ts`, `test/rooms.e2e-spec.ts` | < 20 Ko gzip, parc dynamique |
 | **Répertoire Clients** | `clients` | **V1** | **Actif** | *Aucune* | `design/maquettes/fiche_profil_client_m._mamadou_diop/` (annuaire 2 volets V2 fluide) | `clients-page.component.spec.ts`, `clients-v2.e2e-spec.ts`, `e2e/clients-v2.spec.ts` | < 25 Ko gzip, curseur lots de 40 |
-| **Facturation & Caisse** | `facturation` | **V1** | **Actif** | `clients` | `design/maquettes/facturation_folio_client_encaissement/` | `facturation-page.component.spec.ts`, `facturation-mock.service.spec.ts` | < 30 Ko gzip, calcul direct |
+| **Facturation & Caisse** | `facturation` | **V1** | **Actif** | `clients` | *Rupture V3 (`docs/facturation/DESIGN.md`)* | `facturation.service.spec.ts`, `comptoir-page.component.spec.ts`, `note-sejour-page.component.spec.ts`, `e2e/facturation-v3.spec.ts`, `test/facturation-v3.e2e-spec.ts` | Comptoir 4,78 Ko gzip + Note 8,73 Ko gzip, pagination par lot de 8 |
 | **Restaurant & Bar** | `restaurant` | **V1** | **Actif** | *Aucune* | `design/maquettes/point_de_vente_restaurant_la_teranga/` | `restaurant-page.component.spec.ts`, `restaurant-mock.service.spec.ts`, `kitchen-screen.component.spec.ts` | < 35 Ko gzip, tactile réactif |
 | **Accès Piscine** | `pool` | **V1** | **Actif** | `facturation` | *Sous-produit POS Restaurant* | `restaurant-mock.service.spec.ts` (PASS-PISCINE) | 0 Ko (intégré au catalogue) |
 | **Exports & Rapports** | `exports` | **V1** | **Actif** | *Aucune* | `design/maquettes/rapports_statistiques_financi_res/` | `exports-page.component.spec.ts`, `exports.controller.ts`, `exports-security.e2e-spec.ts` | < 20 Ko gzip, streaming |
@@ -62,7 +62,7 @@ Ce document détaille la cartographie complète des modules de l'application Ré
 | **CUISINE** | V1 | **Actif** | `restaurant` (écran `/cuisine`) | Chefs de cuisine et pâtissiers : consultation de l'écran des commandes. |
 | **HOUSEKEEPING**| V2 | **Désactivé** | `housekeeping` | Reporté en V2. Non assignable à un utilisateur en V1. |
 | **MAINTENANCE** | V2 | **Désactivé** | `maintenance` | Reporté en V2. Non assignable à un utilisateur en V1. |
-| **COMPTABLE** | V3 | **Désactivé** | `accounting`, `facturation`, `exports` | Reporté en V3. Non assignable à un utilisateur en V1. |
+| **COMPTABLE** | V1/V3 | **Actif (Facturation & Exports V1)** | `facturation`, `exports` (`accounting` V3 reporté) | Contrôle financier, avoirs, clôture de caisse et exports PDF/Excel (lecture + avoirs/exports sans encaissement guichet). |
 
 ---
 

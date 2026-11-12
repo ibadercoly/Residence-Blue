@@ -327,13 +327,12 @@ export class FacturationService {
 
     try {
       if (this.network && !this.network.isOnline() && this.outbox) {
-        await this.outbox.enqueue(
+        const queued = await this.outbox.enqueue(
           'CREATE_INVOICE_PAYMENT',
           `/api/invoices/${invoiceId}/payments`,
           body,
-          idempotencyKey,
         );
-        this.pendingOfflinePaymentKeys.update((arr) => [...arr, idempotencyKey]);
+        this.pendingOfflinePaymentKeys.update((arr) => [...arr, queued.idempotencyKey]);
         this.successMessage.set('Paiement enregistré hors ligne — en attente de synchronisation.');
         return true;
       }

@@ -1522,6 +1522,47 @@ export class BillingService {
     return this.formatDetail(creditNote);
   }
 
+  async removeLine(id: string, lineId: string, actor: BillingActorContext): Promise<BillingNoteDetail> {
+    if (!this.isUuid(id) || !this.isUuid(lineId)) {
+      throw new NotFoundException('Note ou ligne introuvable.');
+    }
+
+    const updated = await this.prisma.$transaction(async (tx) => {
+      const inv = await tx.invoice.findUnique({ where: { id } });
+      if (!inv) throw new NotFoundException(`Facture "${id}" introuvable.`);
+      if (inv.isIssued || inv.documentType === InvoiceDocumentType.CREDIT_NOTE) {
+        throw new BadRequestException(
+          'Une facture émise ou un avoir est immuable : impossible de supprimer une ligne.',
+        );
+      }
+
+      const line = await tx.invoiceLine.findFirst({ where: { id: lineId, invoiceId: id } });
+      if (!line) throw new NotFoundException(`Ligne "${lineId}" introuvable.`);
+      if (line.isSystem || (line.category || '').toUpperCase() === 'TAX') {
+        throw new BadRequestException('Les lignes système (nuitées, taxes, restaurant auto) ne peuvent pas être supprimées.');
+      }
+
+      await tx.invoiceLine.delete({ where: { id: lineId } });
+      const recalculated = await this.recalculateAndPersist(tx, id);
+
+      await tx.auditLog.create({
+        data: {
+          userId: actor.actorId || null,
+          action: 'INVOICE_LINE_DELETE',
+          entity: 'InvoiceLine',
+          entityId: lineId,
+          ip: actor.ip || null,
+          before: { invoiceId: id, description: line.description, totalPriceFcfa: line.totalPriceFcfa },
+          after: { invoiceId: id, newTotalFcfa: recalculated.totalFcfa },
+        },
+      });
+
+      return recalculated;
+    });
+
+    return this.formatDetail(updated);
+  }
+
   async removeOrBlockIssued(id: string, actor: BillingActorContext) {
     if (!this.isUuid(id)) {
       throw new NotFoundException(`Facture "${id}" introuvable.`);

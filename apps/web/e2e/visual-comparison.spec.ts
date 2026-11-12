@@ -528,117 +528,48 @@ test.describe('Fidélité Visuelle - Rendu Hors Ligne vs Référence', () => {
     expect(fs.existsSync(actualShotPath)).toBe(true);
   });
 
-  test('Fidélité Facturation & Folio Client (1280x1600) vs design/reference/facturation_folio_client_encaissement.html', async ({ page }) => {
+  test('Facturation V3 Le Comptoir (1280x900) — structure visible, palette et 0 overflow', async ({ page }) => {
     const width = 1280;
-    const height = 1600;
+    const height = 900;
     await page.setViewportSize({ width, height });
 
-    // 1. Charger la référence hors ligne
-    const refFileUrl = 'file:///' + path.resolve(repoRoot, 'design/reference/facturation_folio_client_encaissement.html').replace(/\\/g, '/');
-    await page.goto(refFileUrl, { waitUntil: 'load' });
-    await page.evaluate(() => (document as any).fonts.ready);
-    await page.waitForTimeout(300);
-
-    // Masquage des zones adaptées sur la référence
-    await page.evaluate(() => {
-      const sidebarFooter = document.querySelector('aside .p-gutter');
-      if (sidebarFooter) (sidebarFooter as HTMLElement).style.visibility = 'hidden';
-
-      const headerDateBlock = document.querySelectorAll('.text-on-surface-variant.text-label-md');
-      headerDateBlock.forEach(el => {
-        if (el.textContent?.includes('Heure locale')) {
-          (el as HTMLElement).style.visibility = 'hidden';
-        }
-      });
-
-      const rows = document.querySelectorAll('table tbody tr');
-      rows.forEach(r => {
-        const text = r.textContent || '';
-        if (text.includes('Saly') || text.includes('Pêche') || text.includes('Océan') || text.includes('Langoustes')) {
-          (r as HTMLElement).style.visibility = 'hidden';
-        }
-      });
-      const roomTitle = document.querySelector('h1');
-      if (roomTitle) (roomTitle as HTMLElement).style.visibility = 'hidden';
-
-      const brandSubtitle = document.querySelectorAll('.font-body-sm.text-body-sm.text-on-surface-variant');
-      brandSubtitle.forEach(el => {
-        if (el.textContent?.includes('Océanique') || el.textContent?.includes('Thiès')) {
-          (el as HTMLElement).style.visibility = 'hidden';
-        }
-      });
-    });
-    await page.waitForTimeout(200);
-
-    const refShotPath = path.join(compDir, 'ref_facturation_folio.png');
-    await page.screenshot({ path: refShotPath, animations: 'disabled', fullPage: false });
-
-    // 2. Charger l'application Angular
     await page.goto('/facturation', { waitUntil: 'networkidle' });
     await page.evaluate(() => (document as any).fonts.ready);
     await page.waitForTimeout(300);
 
-    // Masquage des zones adaptées sur l'application Angular
-    await page.evaluate(() => {
-      const sidebarFooter = document.querySelector('app-sidebar .p-gutter');
-      if (sidebarFooter) (sidebarFooter as HTMLElement).style.visibility = 'hidden';
+    const metrics = await page.evaluate(() => {
+      const wrap = document.querySelector('[data-testid="facturation-comptoir"]') as HTMLElement | null;
+      const bodyBg = getComputedStyle(document.body).backgroundColor;
+      const hostBg = wrap ? getComputedStyle(wrap).backgroundColor : '';
+      const cols = Array.from(document.querySelectorAll('[data-testid^="column-"]'));
+      const moreButtons = Array.from(document.querySelectorAll('button')).filter(
+        (b) => b.textContent?.trim() === '⋯' || b.textContent?.trim() === '...',
+      );
+      const tabLists = document.querySelectorAll('[role="tablist"]');
+      const titleEl = document.querySelector('h1');
+      const titleFont = titleEl ? getComputedStyle(titleEl).fontFamily : '';
 
-      const headerDateBlock = document.querySelectorAll('.text-on-surface-variant.text-label-md');
-      headerDateBlock.forEach(el => {
-        if (el.textContent?.includes('Heure locale')) {
-          (el as HTMLElement).style.visibility = 'hidden';
-        }
-      });
-
-      const rows = document.querySelectorAll('table tbody tr');
-      rows.forEach(r => {
-        const text = r.textContent || '';
-        if (text.includes('Thiéboudienne') || text.includes('Bandia') || text.includes('Panoramique') || text.includes('jardin arboré')) {
-          (r as HTMLElement).style.visibility = 'hidden';
-        }
-      });
-      const roomTitle = document.querySelector('h1');
-      if (roomTitle) (roomTitle as HTMLElement).style.visibility = 'hidden';
-
-      const brandSubtitle = document.querySelectorAll('.font-body-sm.text-body-sm.text-on-surface-variant');
-      brandSubtitle.forEach(el => {
-        if (el.textContent?.includes('Océanique') || el.textContent?.includes('Thiès')) {
-          (el as HTMLElement).style.visibility = 'hidden';
-        }
-      });
+      return {
+        scrollWidth: document.documentElement.scrollWidth,
+        clientWidth: document.documentElement.clientWidth,
+        colCount: cols.length,
+        moreButtons: moreButtons.length,
+        tabLists: tabLists.length,
+        bodyBg,
+        hostBg,
+        titleFont,
+      };
     });
-    await page.waitForTimeout(200);
 
-    const actualShotPath = path.join(compDir, 'actual_facturation_folio.png');
+    expect(metrics.scrollWidth).toBeLessThanOrEqual(metrics.clientWidth);
+    expect(metrics.colCount).toBe(3);
+    expect(metrics.moreButtons).toBe(0);
+    expect(metrics.tabLists).toBe(0);
+    expect(metrics.titleFont.toLowerCase()).toContain('newsreader');
+
+    const actualShotPath = path.join(compDir, 'actual_facturation_comptoir.png');
     await page.screenshot({ path: actualShotPath, animations: 'disabled', fullPage: false });
-
-    // 3. Comparaison pixelmatch
-    const refImg = PNG.sync.read(fs.readFileSync(refShotPath));
-    const actualImg = PNG.sync.read(fs.readFileSync(actualShotPath));
-
-    expect(actualImg.width).toBe(refImg.width);
-    expect(actualImg.height).toBe(refImg.height);
-
-    const diff = new PNG({ width, height });
-    const diffPixels = pixelmatch(
-      refImg.data,
-      actualImg.data,
-      diff.data,
-      width,
-      height,
-      { threshold: 0.2 }
-    );
-
-    const totalPixels = width * height;
-    const diffPercent = (diffPixels / totalPixels) * 100;
-
-    const diffPath = path.join(compDir, 'diff_facturation_folio.png');
-    fs.writeFileSync(diffPath, PNG.sync.write(diff));
-
-    console.log(
-      `Fidélité Facturation (1280x1600) - Diff: ${diffPixels} / ${totalPixels} (${diffPercent.toFixed(2)}%)`
-    );
-    expect(diffPercent).toBeLessThanOrEqual(2.0);
+    expect(fs.existsSync(actualShotPath)).toBe(true);
   });
 
   test('Fidélité Point de Vente Restaurant (1280x900) vs design/reference/point_de_vente_restaurant_la_teranga.html', async ({ page }) => {
