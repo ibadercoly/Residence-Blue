@@ -294,6 +294,32 @@ test.describe('Écran Rapports (/rapports) — Diagrammes, Tableau, Responsive &
 
     await page.screenshot({ path: path.join(capturesDir, 'rapports-desktop-1440.png'), fullPage: true });
 
+    // Exports PDF & Excel réels par téléchargement blob
+    const [pdfDownload] = await Promise.all([
+      page.waitForEvent('download'),
+      page.getByTestId('export-pdf-btn').click(),
+    ]);
+    expect(pdfDownload.suggestedFilename()).toMatch(/^rapport-\d{4}-\d{2}-\d{2}\.pdf$/);
+    expect(await pdfDownload.failure()).toBeNull();
+    const tmpPdf = path.join(capturesDir, 'tmp-e2e-export.pdf');
+    await pdfDownload.saveAs(tmpPdf);
+    const pdfHead = fs.readFileSync(tmpPdf, 'latin1');
+    fs.unlinkSync(tmpPdf);
+    expect(pdfHead.slice(0, 5)).toBe('%PDF-');
+    expect(pdfHead.trimEnd().endsWith('%%EOF')).toBe(true);
+
+    const [excelDownload] = await Promise.all([
+      page.waitForEvent('download'),
+      page.getByTestId('export-excel-btn').click(),
+    ]);
+    expect(excelDownload.suggestedFilename()).toMatch(/^rapport-\d{4}-\d{2}-\d{2}\.xlsx$/);
+    expect(await excelDownload.failure()).toBeNull();
+    const tmpXlsx = path.join(capturesDir, 'tmp-e2e-export.xlsx');
+    await excelDownload.saveAs(tmpXlsx);
+    const xlBuf = fs.readFileSync(tmpXlsx);
+    fs.unlinkSync(tmpXlsx);
+    expect(xlBuf.slice(0, 2).toString('latin1')).toBe('PK');
+
     // Vérifier scrollWidth <= clientWidth aux 4 largeurs obligatoires
     for (const width of [1440, 1024, 768, 360]) {
       await page.setViewportSize({ width, height: 900 });

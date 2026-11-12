@@ -1,6 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import request from 'supertest';
+import * as ExcelJS from 'exceljs';
 import {
   InvoiceDocumentType,
   InvoiceStatus,
@@ -524,5 +525,76 @@ describe('Rapports — GET /api/rapports (e2e sur base de test séparée)', () =
     const dishNames = (body.topDishes || []).map((d: any) => d.name);
     expect(dishNames).toContain('Thiéboudienne Royal');
     expect(dishNames).not.toContain('Plat Annulé Fantôme');
+  });
+
+  it('exports PDF et Excel : binaires valides, formules Excel, journal d’actions et 403 pour autres rôles', async () => {
+    const binaryParser = (res: any, callback: any) => {
+      res.setEncoding('binary');
+      let data = '';
+      res.on('data', (chunk: string) => {
+        data += chunk;
+      });
+      res.on('end', () => callback(null, Buffer.from(data, 'binary')));
+    };
+
+    const pdfForbidden = await request(app.getHttpServer())
+      .get('/api/rapports/export/pdf?periode=30j')
+      .set('Authorization', `Bearer ${roleTokens[Role.RECEPTION]}`);
+    expect(pdfForbidden.status).toBe(403);
+
+    const pdfRes = await request(app.getHttpServer())
+      .get('/api/rapports/export/pdf?periode=30j&comparer=true')
+      .set('Authorization', `Bearer ${roleTokens[Role.DIRECTION]}`)
+      .buffer(true)
+      .parse(binaryParser);
+
+    expect(pdfRes.status).toBe(200);
+    expect(pdfRes.headers['content-type']).toContain('application/pdf');
+    expect(pdfRes.headers['content-disposition']).toMatch(/attachment; filename="rapport-\d{4}-\d{2}-\d{2}\.pdf"/);
+    expect(Number(pdfRes.headers['content-length'])).toBe(pdfRes.body.length);
+
+    const pdfText = (pdfRes.body as Buffer).toString('latin1');
+    const pdfDecoded = `${pdfText}\n${Array.from(pdfText.matchAll(/<([0-9a-fA-F]{2,})>/g))
+      .filter((m) => m[1].length % 2 === 0)
+      .map((m) => Buffer.from(m[1], 'hex').toString('latin1'))
+      .join('')}`;
+    expect(pdfText.startsWith('%PDF-')).toBe(true);
+    expect(pdfText.trimEnd().endsWith('%%EOF')).toBe(true);
+    expect(pdfDecoded).toContain('Résidence Blue');
+    expect(pdfDecoded).toContain('Page 1 /');
+
+    const excelRes = await request(app.getHttpServer())
+      .get('/api/rapports/export/excel?periode=30j')
+      .set('Authorization', `Bearer ${roleTokens[Role.COMPTABLE]}`)
+      .buffer(true)
+      .parse(binaryParser);
+
+    expect(excelRes.status).toBe(200);
+    expect(excelRes.headers['content-type']).toContain(
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    );
+    expect(excelRes.headers['content-disposition']).toMatch(/attachment; filename="rapport-\d{4}-\d{2}-\d{2}\.xlsx"/);
+    expect(Number(excelRes.headers['content-length'])).toBe(excelRes.body.length);
+
+    const ExcelJSClass: any = (ExcelJS as any).default || ExcelJS;
+    const wb = new ExcelJSClass.Workbook();
+    await wb.xlsx.load(excelRes.body);
+    expect(wb.worksheets.map((s: any) => s.name)).toEqual([
+      'Résumé',
+      'Jour par jour',
+      'Par type et paiement',
+      'Restaurant',
+    ]);
+
+    const pdfAudit = await prisma.auditLog.findFirst({
+      where: { action: 'RAPPORT_EXPORT_PDF' },
+      orderBy: { createdAt: 'desc' },
+    });
+    const xlAudit = await prisma.auditLog.findFirst({
+      where: { action: 'RAPPORT_EXPORT_EXCEL' },
+      orderBy: { createdAt: 'desc' },
+    });
+    expect(pdfAudit).not.toBeNull();
+    expect(xlAudit).not.toBeNull();
   });
 });

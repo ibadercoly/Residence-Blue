@@ -159,22 +159,34 @@ interface PeriodOption {
               type="button"
               data-testid="export-pdf-btn"
               class="rb-action-btn rb-action-btn--outline"
-              [disabled]="!canExport()"
+              [disabled]="!canExport() || service.exportingFormat() !== null"
+              (click)="service.downloadExport('pdf')"
             >
               <span class="material-symbols-outlined text-[18px]" aria-hidden="true">picture_as_pdf</span>
-              <span>Exporter en PDF</span>
+              <span>{{ service.exportingFormat() === 'pdf' ? 'Export PDF...' : 'Exporter en PDF' }}</span>
             </button>
             <button
               type="button"
               data-testid="export-excel-btn"
               class="rb-action-btn rb-action-btn--primary"
-              [disabled]="!canExport()"
+              [disabled]="!canExport() || service.exportingFormat() !== null"
+              (click)="service.downloadExport('excel')"
             >
               <span class="material-symbols-outlined text-[18px]" aria-hidden="true">table_chart</span>
-              <span>Exporter en Excel</span>
+              <span>{{ service.exportingFormat() === 'excel' ? 'Export Excel...' : 'Exporter en Excel' }}</span>
             </button>
           </div>
         </div>
+
+        @if (service.exportError(); as expErr) {
+          <div
+            role="alert"
+            data-testid="rapports-export-error"
+            class="rounded-xl border border-[#ba1a1a] bg-[#ffdad6] px-4 py-2.5 text-xs font-bold text-[#410002]"
+          >
+            {{ expErr }}
+          </div>
+        }
 
         <!-- Périodes et case de comparaison -->
         <div class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
