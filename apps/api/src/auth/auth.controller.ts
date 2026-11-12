@@ -69,6 +69,7 @@ export class AuthController {
       accessToken: issued.accessToken,
       expiresInSeconds: issued.expiresInSeconds,
       user: issued.user,
+      ...(issued.backupCodes ? { backupCodes: issued.backupCodes } : {}),
     };
   }
 

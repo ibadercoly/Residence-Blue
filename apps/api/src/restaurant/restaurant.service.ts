@@ -351,7 +351,7 @@ export class RestaurantService {
         }
 
         return formatted;
-      });
+      }, { timeout: 15000 });
 
       return created;
     } catch (err: any) {

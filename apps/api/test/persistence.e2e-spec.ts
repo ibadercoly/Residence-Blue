@@ -285,8 +285,15 @@ describe('Persistance Complète de Bout en Bout (chore/audit-persistance)', () =
         .set('Authorization', `Bearer ${roleTokens['RECEPTION']}`)
         .expect(200);
 
-      // Remettre la chambre 106 en FREE et nettoyer la réservation et le client de test
+      // Remettre la chambre 106 en FREE et nettoyer la facture auto-créée, la réservation et le client de test
       await prisma.room.update({ where: { number: '106' }, data: { status: 'FREE' } });
+      const linkedInvs = await prisma.invoice.findMany({ where: { reservationId }, select: { id: true } });
+      if (linkedInvs.length) {
+        const invIds = linkedInvs.map((i) => i.id);
+        await prisma.payment.deleteMany({ where: { invoiceId: { in: invIds } } });
+        await prisma.invoiceLine.deleteMany({ where: { invoiceId: { in: invIds } } });
+        await prisma.invoice.deleteMany({ where: { id: { in: invIds } } });
+      }
       await request(app.getHttpServer())
         .delete(`/api/reservations/${reservationId}`)
         .set('Authorization', `Bearer ${roleTokens['DIRECTION']}`)

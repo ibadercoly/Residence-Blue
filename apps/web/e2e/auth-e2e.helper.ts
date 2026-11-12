@@ -166,8 +166,22 @@ export function deleteE2eUsers(emails: string[]): void {
   const script = `
     const { PrismaClient } = require('@prisma/client');
     const p = new PrismaClient();
-    p.user.deleteMany({ where: { email: { in: ${JSON.stringify(valid)} } } })
-      .then(() => p.$disconnect());
+    (async () => {
+      const users = await p.user.findMany({ where: { email: { in: ${JSON.stringify(valid)} } }, select: { id: true } });
+      const ids = users.map((u) => u.id);
+      if (ids.length > 0) {
+        await p.refreshToken.deleteMany({ where: { userId: { in: ids } } });
+        for (const id of ids) {
+          const auditCount = await p.auditLog.count({ where: { userId: id } });
+          if (auditCount === 0) {
+            await p.user.delete({ where: { id } }).catch(() => {});
+          } else {
+            await p.user.update({ where: { id }, data: { isActive: false } });
+          }
+        }
+      }
+      await p.$disconnect();
+    })();
   `;
   execFileSync('node', ['--env-file=.env', '-e', script], { cwd: repoRoot, encoding: 'utf8' });
 }

@@ -1,3 +1,4 @@
+import '@angular/compiler';
 import { test, expect } from '@playwright/test';
 import { MenuManagementService } from '../src/app/core/services/menu-management.service';
 import { RestaurantMockService } from '../src/app/core/services/restaurant-mock.service';

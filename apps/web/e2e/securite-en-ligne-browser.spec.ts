@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { execFileSync } from 'child_process';
 import * as path from 'path';
-import { generateTotpCode } from './auth-e2e.helper';
+import { deleteE2eUsers, generateTotpCode } from './auth-e2e.helper';
 
 const repoRoot = path.resolve(__dirname, '../../..');
 
@@ -17,12 +17,7 @@ test.describe('Sécurité En Ligne — Vérifications Navigateur E2E', () => {
 
   test.afterAll(() => {
     if (createdEmails.length > 0) {
-      runPrismaSnippet(`
-        const { PrismaClient } = require('@prisma/client');
-        const p = new PrismaClient();
-        p.user.deleteMany({ where: { email: { in: ${JSON.stringify(createdEmails)} } } })
-          .then(() => p.$disconnect());
-      `);
+      deleteE2eUsers(createdEmails);
     }
   });
 
