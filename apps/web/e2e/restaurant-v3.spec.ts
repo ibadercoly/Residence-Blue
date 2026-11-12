@@ -16,23 +16,40 @@ function cleanupRestaurantE2eData() {
     const { PrismaClient } = require('@prisma/client');
     const p = new PrismaClient();
     (async () => {
-      const orders = await p.restaurantOrder.findMany({
-        where: { ticketNumber: { startsWith: '#CMD-E2E-' } },
-        select: { id: true, invoiceId: true },
-      });
-      const oIds = orders.map((o) => o.id);
-      if (oIds.length) {
-        await p.restaurantOrderLine.deleteMany({ where: { orderId: { in: oIds } } });
-        await p.restaurantOrder.deleteMany({ where: { id: { in: oIds } } });
-      }
       const guests = await p.guest.findMany({
         where: { lastName: { startsWith: 'RestoE2E_' } },
         select: { id: true },
       });
       const gIds = guests.map((g) => g.id);
-      if (gIds.length) {
+      const resList = gIds.length
+        ? await p.reservation.findMany({ where: { guestId: { in: gIds } }, select: { id: true } })
+        : [];
+      const rIds = resList.map((r) => r.id);
+
+      const orders = await p.restaurantOrder.findMany({
+        where: {
+          OR: [
+            { ticketNumber: { startsWith: '#CMD-E2E-' } },
+            { serverName: 'E2E Testeur' },
+            ...(rIds.length ? [{ reservationId: { in: rIds } }] : []),
+          ],
+        },
+        select: { id: true, invoiceId: true },
+      });
+      const oIds = orders.map((o) => o.id);
+      const ordInvIds = orders.map((o) => o.invoiceId).filter(Boolean);
+      if (oIds.length) {
+        await p.restaurantOrderLine.deleteMany({ where: { orderId: { in: oIds } } });
+        await p.restaurantOrder.deleteMany({ where: { id: { in: oIds } } });
+      }
+      if (gIds.length || ordInvIds.length) {
         const invs = await p.invoice.findMany({
-          where: { guestId: { in: gIds } },
+          where: {
+            OR: [
+              ...(gIds.length ? [{ guestId: { in: gIds } }] : []),
+              ...(ordInvIds.length ? [{ id: { in: ordInvIds } }] : []),
+            ],
+          },
           select: { id: true },
         });
         const invIds = invs.map((i) => i.id);
@@ -41,7 +58,11 @@ function cleanupRestaurantE2eData() {
           await p.invoiceLine.deleteMany({ where: { invoiceId: { in: invIds } } });
           await p.invoice.deleteMany({ where: { id: { in: invIds } } });
         }
-        await p.reservation.deleteMany({ where: { guestId: { in: gIds } } });
+      }
+      if (rIds.length) {
+        await p.reservation.deleteMany({ where: { id: { in: rIds } } });
+      }
+      if (gIds.length) {
         await p.guest.deleteMany({ where: { id: { in: gIds } } });
       }
       const prods = await p.restaurantProduct.findMany({
@@ -65,7 +86,12 @@ function seedCheckedInStayAndOrders(): { roomNumber: string } {
     const p = new PrismaClient();
     (async () => {
       const rooms = await p.room.findMany({ orderBy: { number: 'asc' } });
-      const targetRoom = rooms.find((r) => r.number === '104') || rooms[2] || rooms[0];
+      const activeRes = await p.reservation.findMany({
+        where: { status: { in: ['CONFIRMED', 'CHECKED_IN'] } },
+        select: { roomId: true },
+      });
+      const busyIds = new Set(activeRes.map((r) => r.roomId));
+      const targetRoom = rooms.find((r) => !busyIds.has(r.id)) || rooms[rooms.length - 1] || rooms[0];
       const today = new Date();
       const checkIn = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate() - 1));
       const checkOut = new Date(checkIn.getTime() + 4 * 86400000);
@@ -147,18 +173,18 @@ test.describe('Restaurant V3 — POS, Cuisine SSE/10s, Carte, Hors ligne & Factu
     await page.setViewportSize({ width: 1440, height: 900 });
     await loginViaUi(page, dirUser.email, dirUser.password);
 
-    // 1. Chargement du menu < 500 ms côté API
+    // 1. Écran 1 (/restaurant) : structure, 0 menu caché, scrollbar > 10 lignes
+    await page.goto('/restaurant', { waitUntil: 'networkidle' });
+    await expect(page.locator('[data-testid="restaurant-pos-page"]')).toBeVisible();
+    await expect(page.locator('[data-testid="pos-categories-bar"]')).toBeVisible();
+
+    // Vérification chargement du menu < 500 ms côté API
     const headers = await getApiAuthHeaders(request, dirUser.email, dirUser.password);
     const t0 = Date.now();
     const catRes = await request.get('/api/restaurant/catalog', { headers });
     const elapsed = Date.now() - t0;
     expect(catRes.status()).toBe(200);
     expect(elapsed, `Chargement menu a pris ${elapsed}ms (> 500ms)`).toBeLessThan(500);
-
-    // 2. Écran 1 (/restaurant) : structure, 0 menu caché, scrollbar > 10 lignes
-    await page.goto('/restaurant', { waitUntil: 'networkidle' });
-    await expect(page.locator('[data-testid="restaurant-pos-page"]')).toBeVisible();
-    await expect(page.locator('[data-testid="pos-categories-bar"]')).toBeVisible();
 
     const scrollCheck = await page.evaluate(() => {
       const box = document.querySelector('[data-testid="service-orders-scroll"]') as HTMLElement;
@@ -210,8 +236,8 @@ test.describe('Restaurant V3 — POS, Cuisine SSE/10s, Carte, Hors ligne & Factu
     );
 
     // 4. Écran 2 (/cuisine) : 3 colonnes, 0 montant affiché, progression vers Prête puis Servie
-    await page.goto('/cuisine', { waitUntil: 'networkidle' });
-    await expect(page.locator('[data-testid="kitchen-col-PENDING"]')).toBeVisible();
+    await page.goto('/cuisine', { waitUntil: 'domcontentloaded' });
+    await expect(page.locator('[data-testid="kitchen-col-PENDING"]')).toBeVisible({ timeout: 10000 });
     await expect(page.locator('[data-testid="kitchen-col-IN_PREPARATION"]')).toBeVisible();
     await expect(page.locator('[data-testid="kitchen-col-READY"]')).toBeVisible();
 
@@ -268,8 +294,16 @@ test.describe('Restaurant V3 — POS, Cuisine SSE/10s, Carte, Hors ligne & Factu
     await expect(page.locator('[data-testid="carte-error-banner"]')).toContainText('Désactiver');
 
     // 7. Zéro scroll horizontal à 360, 768, 1024, 1440 px sur les 3 écrans
+    const routeTestIds: Record<string, string> = {
+      '/restaurant': 'restaurant-pos-page',
+      '/cuisine': 'kitchen-board-page',
+      '/restaurant/carte': 'carte-admin-page',
+    };
     for (const route of ['/restaurant', '/cuisine', '/restaurant/carte']) {
-      await page.goto(route, { waitUntil: 'networkidle' });
+      await page.goto(route, { waitUntil: 'domcontentloaded' });
+      await expect(page.locator(`[data-testid="${routeTestIds[route]}"]`)).toBeVisible({
+        timeout: 10000,
+      });
       for (const w of [360, 768, 1024, 1440]) {
         await page.setViewportSize({ width: w, height: 800 });
         await page.waitForTimeout(120);

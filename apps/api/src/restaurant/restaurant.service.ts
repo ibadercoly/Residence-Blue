@@ -192,11 +192,11 @@ export class RestaurantService {
     }));
   }
 
-  async findAllProducts() {
+  async findAllProducts(includeOrderCounts = true) {
     const products = await this.prisma.restaurantProduct.findMany({
       include: {
         category: true,
-        _count: { select: { orderLines: true } },
+        ...(includeOrderCounts ? { _count: { select: { orderLines: true } } } : {}),
       },
       orderBy: [{ displayOrder: 'asc' }, { name: 'asc' }],
     });
@@ -227,7 +227,7 @@ export class RestaurantService {
   async getCatalog(actorRole?: string) {
     const [categories, products, roomsInStay] = await Promise.all([
       this.findAllCategories(),
-      this.findAllProducts(),
+      this.findAllProducts(false),
       actorRole === 'CUISINE' ? Promise.resolve([]) : this.findRoomsInStay(),
     ]);
     return { categories, products, roomsInStay };

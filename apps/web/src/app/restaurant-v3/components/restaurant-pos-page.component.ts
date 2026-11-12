@@ -163,7 +163,7 @@ import {
           <!-- ZONE GAUCHE (8/12) : Grille produits sans photo, scroll vertical interne -->
           <section
             aria-label="Produits de la carte"
-            class="lg:col-span-8 rounded-2xl border border-[#d6e2e4] bg-white p-3 sm:p-4"
+            class="lg:col-span-8 min-w-0 rounded-2xl border border-[#d6e2e4] bg-white p-3 sm:p-4"
           >
             <div class="flex items-center justify-between gap-2 mb-3">
               <h2 class="rb-serif text-lg font-bold text-[#161d20]">
@@ -235,7 +235,7 @@ import {
             id="ticket-section"
             data-testid="pos-ticket-panel"
             aria-label="Ticket en cours"
-            class="lg:col-span-4 lg:sticky lg:top-24 rounded-2xl border border-[#d6e2e4] bg-white p-4 space-y-4"
+            class="lg:col-span-4 min-w-0 lg:sticky lg:top-24 rounded-2xl border border-[#d6e2e4] bg-white p-4 space-y-4"
           >
             <div class="flex items-center justify-between gap-2">
               <h2 class="rb-serif text-xl font-bold text-[#161d20]">Ticket en cours</h2>
@@ -576,7 +576,7 @@ import {
           >
             <!-- En-tête collant desktop -->
             <div
-              class="hidden md:grid rb-orders-grid sticky top-0 z-10 min-h-[48px] px-3 border-b border-[#d6e2e4] bg-[#f0f5f6] text-xs font-extrabold uppercase tracking-wider text-[#161d20]"
+              class="hidden lg:grid rb-orders-grid sticky top-0 z-10 min-h-[48px] px-3 border-b border-[#d6e2e4] bg-[#f0f5f6] text-xs font-extrabold uppercase tracking-wider text-[#161d20]"
               role="row"
             >
               <div>N°</div>
@@ -599,7 +599,7 @@ import {
                   <div
                     role="row"
                     [attr.data-testid]="'service-order-row-' + ord.id"
-                    class="hidden md:grid rb-orders-grid rb-orders-row border-b border-[#e6f0f2] text-sm hover:bg-[#f8fbfc]"
+                    class="hidden lg:grid rb-orders-grid rb-orders-row border-b border-[#e6f0f2] text-sm hover:bg-[#f8fbfc]"
                   >
                     <div class="font-bold text-[#161d20] break-words">
                       {{ ord.ticketNumber }}
@@ -658,9 +658,9 @@ import {
                     </div>
                   </div>
 
-                  <!-- Carte compacte mobile (< 768 px) dans la même zone défilante -->
+                  <!-- Carte compacte mobile / tablette (< 1024 px) dans la même zone défilante -->
                   <div
-                    class="md:hidden border-b border-[#e6f0f2] p-3 space-y-2"
+                    class="lg:hidden border-b border-[#e6f0f2] p-3 space-y-2"
                     [attr.data-testid]="'service-order-mobile-' + ord.id"
                   >
                     <div class="flex items-start justify-between gap-2">
