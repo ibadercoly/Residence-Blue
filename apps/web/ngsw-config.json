@@ -11,40 +11,21 @@
           "/index.html",
           "/manifest.webmanifest",
           "/*.css",
-          "/*.js"
+          "/*.js",
+          "/media/*.woff2",
+          "/media/*.woff"
         ]
       }
     },
     {
-      "name": "room-photos",
-      "installMode": "prefetch",
-      "updateMode": "prefetch",
-      "resources": {
-        "files": [
-          "/assets/images/chambres/**"
-        ]
-      }
-    },
-    {
-      "name": "assets",
+      "name": "assets-on-demand",
       "installMode": "lazy",
+      "updateMode": "lazy",
       "resources": {
         "files": [
           "/assets/**",
-          "/media/*.(svg|cur|jpg|jpeg|png|apng|webp|avif|gif|otf|ttf|woff|woff2)"
+          "/media/*.(svg|cur|jpg|jpeg|png|apng|webp|avif|gif|otf|ttf)"
         ]
-      }
-    }
-  ],
-  "dataGroups": [
-    {
-      "name": "api-freshness",
-      "urls": ["/api/**"],
-      "cacheConfig": {
-        "maxSize": 100,
-        "maxAge": "1h",
-        "timeout": "5s",
-        "strategy": "freshness"
       }
     }
   ]

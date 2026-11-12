@@ -51,7 +51,7 @@ interface GroupedCategoryLines {
         width: 100%;
         max-width: 1380px;
         margin: 0 auto;
-        padding: 16px 16px 96px;
+        padding: 16px 16px 152px;
         box-sizing: border-box;
       }
 
@@ -924,9 +924,9 @@ interface GroupedCategoryLines {
           </aside>
         </div>
 
-        <!-- Barre fixe en bas mobile (< 1024 px) -->
+        <!-- Barre fixe en bas mobile (< 1024 px), au-dessus de la barre de navigation mobile (< 768 px) -->
         <div
-          class="no-print lg:hidden fixed bottom-0 left-0 right-0 z-30 border-t border-[#bdc9ca] bg-white px-4 py-2.5 shadow-lg"
+          class="no-print lg:hidden fixed bottom-[64px] md:bottom-0 left-0 right-0 z-20 border-t border-[#bdc9ca] bg-white px-4 py-2.5 shadow-lg"
           data-testid="mobile-sticky-encaissement"
         >
           <div class="flex items-center justify-between gap-3">

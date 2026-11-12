@@ -4,7 +4,9 @@ import {
   BillingNoteDetail,
   BillingPaymentMethod,
   BillingLineCategory,
+  OutboxItem,
   Role,
+  SyncStatus,
 } from '@residence-blue/shared';
 import { RoomsService } from '../../core/services/rooms.service';
 import { AuthMockService } from '../../core/services/auth-mock.service';
@@ -26,6 +28,15 @@ export class FacturationService {
 
   private counterAbort: AbortController | null = null;
   private noteAbort: AbortController | null = null;
+  private syncingOffline = false;
+
+  constructor() {
+    if (typeof window !== 'undefined' && typeof window.addEventListener === 'function') {
+      window.addEventListener('online', () => {
+        void this.syncOfflinePayments();
+      });
+    }
+  }
 
   readonly counter = signal<BillingCounterResponse | null>(null);
   readonly currentNote = signal<BillingNoteDetail | null>(null);
@@ -353,10 +364,83 @@ export class FacturationService {
       this.successMessage.set('Encaissement enregistré.');
       return true;
     } catch {
+      if (this.outbox && this.network && !this.network.isOnline()) {
+        const queued = await this.outbox.enqueue(
+          'CREATE_INVOICE_PAYMENT',
+          `/api/invoices/${invoiceId}/payments`,
+          body,
+        );
+        this.pendingOfflinePaymentKeys.update((arr) => [...arr, queued.idempotencyKey]);
+        this.successMessage.set('Paiement enregistré hors ligne — en attente de synchronisation.');
+        return true;
+      }
       this.errorMessage.set("Erreur réseau lors de l'encaissement.");
       return false;
     } finally {
       this.busyAction.set(false);
+    }
+  }
+
+  /**
+   * Rejoue les paiements facturation en attente dans l'outbox avec les en-têtes
+   * d'authentification et la clé d'idempotence d'origine (sans modifier OutboxService).
+   */
+  async syncOfflinePayments(): Promise<number> {
+    if (this.syncingOffline || !this.idb || (this.network && !this.network.isOnline())) {
+      return 0;
+    }
+
+    this.syncingOffline = true;
+    let syncedCount = 0;
+    try {
+      // Laisser OutboxService terminer son cycle éventuel sans accès concurrent sur IndexedDB
+      for (let wait = 0; wait < 20 && this.outbox?.isSyncing?.(); wait += 1) {
+        await new Promise((r) => setTimeout(r, 100));
+      }
+
+      const all = await this.idb.getAll<OutboxItem>('outbox');
+      const paymentItems = all.filter(
+        (item) =>
+          item.type === 'CREATE_INVOICE_PAYMENT' &&
+          (item.status === SyncStatus.PENDING || item.status === SyncStatus.FAILED),
+      );
+
+      for (const item of paymentItems) {
+        try {
+          const res = await fetch(item.endpoint, {
+            method: 'POST',
+            headers: this.buildHeaders(item.idempotencyKey),
+            body: JSON.stringify(item.payload),
+          });
+          if (res.ok || res.status === 409) {
+            await this.idb.delete('outbox', item.id);
+            this.pendingOfflinePaymentKeys.update((arr) =>
+              arr.filter((k) => k !== item.idempotencyKey),
+            );
+            syncedCount += 1;
+            const currentId = this.currentNote()?.id;
+            if (currentId && item.endpoint.includes(currentId)) {
+              const updated = (await res.json().catch(() => null)) as BillingNoteDetail | null;
+              if (updated?.id) {
+                this.currentNote.set(updated);
+              }
+            }
+          }
+        } catch {
+          break;
+        }
+      }
+
+      if (syncedCount > 0) {
+        await this.outbox?.refreshPendingCount?.();
+        const activeId = this.currentNote()?.id;
+        if (activeId) {
+          await this.loadNote(activeId);
+        }
+      }
+      return syncedCount;
+    } finally {
+      this.syncingOffline = false;
     }
   }
 

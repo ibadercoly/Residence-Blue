@@ -115,4 +115,49 @@ describe('FacturationService (V3)', () => {
     expect(hasPotentialCardPan('WAV-2026-0042')).toBe(false);
     expect(hasPotentialCardPan('TERMINAL-42')).toBe(false);
   });
+
+  it('devrait rejouer les paiements CREATE_INVOICE_PAYMENT en attente avec leur Idempotency-Key', async () => {
+    const fakeIdb = {
+      getAll: jest.fn().mockResolvedValue([
+        {
+          id: 'item-1',
+          idempotencyKey: '11111111-1111-4111-8111-111111111111',
+          type: 'CREATE_INVOICE_PAYMENT',
+          endpoint: '/api/invoices/inv-1/payments',
+          payload: { method: 'CASH', amountFcfa: 5000 },
+          createdAt: Date.now(),
+          status: 'PENDING',
+          retryCount: 0,
+        },
+      ]),
+      delete: jest.fn().mockResolvedValue(undefined),
+    };
+    const fakeOutbox = {
+      isSyncing: () => false,
+      refreshPendingCount: jest.fn().mockResolvedValue(0),
+    };
+    (service as any).idb = fakeIdb;
+    (service as any).outbox = fakeOutbox;
+    (service as any).network = { isOnline: () => true };
+
+    const fetchSpy = jest.spyOn(globalThis, 'fetch').mockResolvedValue({
+      ok: true,
+      status: 201,
+      json: async () => ({ id: 'inv-1' }),
+    } as Response);
+
+    const synced = await service.syncOfflinePayments();
+    expect(synced).toBe(1);
+    expect(fetchSpy).toHaveBeenCalledWith(
+      '/api/invoices/inv-1/payments',
+      expect.objectContaining({
+        method: 'POST',
+        headers: expect.objectContaining({
+          'Idempotency-Key': '11111111-1111-4111-8111-111111111111',
+        }),
+      }),
+    );
+    expect(fakeIdb.delete).toHaveBeenCalledWith('outbox', 'item-1');
+    expect(fakeOutbox.refreshPendingCount).toHaveBeenCalled();
+  });
 });

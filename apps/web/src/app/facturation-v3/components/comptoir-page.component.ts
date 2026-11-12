@@ -182,18 +182,19 @@ type ColumnKey = 'toPay' | 'partial' | 'paid';
               #searchInput
               id="comptoir-search"
               data-testid="comptoir-search-input"
-              type="search"
+              type="text"
+              role="searchbox"
               autofocus
               [value]="searchQuery()"
               (input)="onSearchInput($event)"
               placeholder="Rechercher : n° facture, nom du client, chambre..."
-              class="min-h-[46px] w-full rounded-xl border border-[#7c8c8e] bg-white pl-10 pr-20 py-2.5 text-sm font-medium text-[#161d20] placeholder-[#4a5759] focus:border-[#00666f] focus:outline-none focus:ring-2 focus:ring-[#00666f]/25"
+              class="min-h-[46px] w-full rounded-xl border border-[#7c8c8e] bg-white pl-10 pr-24 py-2.5 text-sm font-medium text-[#161d20] placeholder-[#4a5759] focus:border-[#00666f] focus:outline-none focus:ring-2 focus:ring-[#00666f]/25"
             />
             @if (searchQuery()) {
               <button
                 type="button"
                 (click)="clearSearch()"
-                class="absolute right-10 rounded-md px-2 py-1 text-xs font-bold text-[#00666f] hover:bg-[#e6f3f4]"
+                class="absolute right-9 rounded-md px-2 py-1 text-xs font-bold text-[#00666f] hover:bg-[#e6f3f4]"
                 aria-label="Effacer la recherche"
               >
                 Effacer

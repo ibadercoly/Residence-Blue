@@ -1345,7 +1345,7 @@ export class BillingService {
           issuedNow = true;
         }
 
-        const updatedInv = await tx.invoice.update({
+        await tx.invoice.update({
           where: { id },
           data: {
             invoiceNumber: assignedNumber,

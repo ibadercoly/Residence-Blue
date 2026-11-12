@@ -48,24 +48,43 @@ const server = http.createServer((req, res) => {
   const urlPath = req.url.split('?')[0];
   let filePath = path.join(BROWSER_DIR, urlPath === '/' ? 'index.html' : urlPath);
 
+  const staticExt = path.extname(urlPath).toLowerCase();
+  const isStaticAsset = Boolean(staticExt && staticExt !== '.html');
+
   if (!fs.existsSync(filePath) || fs.statSync(filePath).isDirectory()) {
+    if (isStaticAsset) {
+      res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' });
+      res.end('Not Found');
+      return;
+    }
     filePath = path.join(BROWSER_DIR, 'index.html');
   }
 
+  const baseName = path.basename(filePath);
   const ext = path.extname(filePath).toLowerCase();
   const contentType = mimeTypes[ext] || 'application/octet-stream';
+  const isEntryOrSw =
+    ext === '.html' ||
+    baseName === 'ngsw.json' ||
+    baseName === 'ngsw-worker.js' ||
+    baseName === 'safety-worker.js' ||
+    baseName === 'manifest.webmanifest';
 
   try {
-    let data = fileCache.get(filePath);
+    let data = isEntryOrSw ? null : fileCache.get(filePath);
     if (!data) {
       data = fs.readFileSync(filePath);
-      fileCache.set(filePath, data);
+      if (!isEntryOrSw) {
+        fileCache.set(filePath, data);
+      }
     }
 
     res.writeHead(200, {
       'Content-Type': contentType,
       'Access-Control-Allow-Origin': '*',
-      'Cache-Control': ext === '.html' ? 'no-cache' : 'public, max-age=31536000, immutable',
+      'Cache-Control': isEntryOrSw
+        ? 'no-store, no-cache, must-revalidate'
+        : 'public, max-age=31536000, immutable',
     });
     res.end(data);
   } catch (e) {
