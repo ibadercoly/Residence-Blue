@@ -23,7 +23,7 @@ import { HotelSettingsService } from '../../core/services/hotel-settings.service
             <div class="absolute inset-0 bg-gradient-to-r from-primary-container/20 to-transparent mix-blend-overlay"></div>
 
             <!-- Top Elements -->
-            <div class="relative z-10 flex flex-wrap items-center justify-between gap-3">
+            <div class="relative z-10 flex flex-wrap items-center justify-between gap-3" data-adapted-zone="true">
               <div class="flex items-center gap-2">
                 <div class="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-surface-container-lowest/15 backdrop-blur-md">
                   <span class="w-2 h-2 rounded-full bg-secondary-fixed-dim animate-pulse"></span>
@@ -95,7 +95,7 @@ import { HotelSettingsService } from '../../core/services/hotel-settings.service
               <!-- Brand Mark -->
               <div class="flex items-center gap-3 mb-6">
                 <div class="w-11 h-11 rounded-xl bg-primary flex items-center justify-center text-on-primary shadow-md">
-                  <span class="material-symbols-outlined text-[24px]">hotel</span>
+                  <span class="material-symbols-outlined text-[24px]">apartment</span>
                 </div>
                 <div>
                   <h1 class="font-headline-sm text-headline-sm font-bold text-primary tracking-tight">Résidence Blue</h1>

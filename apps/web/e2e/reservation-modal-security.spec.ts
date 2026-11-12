@@ -64,7 +64,7 @@ test.describe('Refonte Fenêtre Nouvelle Réservation - Sécurité & Mémoire', 
     await page.locator('[data-testid="quick-guest-phone"]').fill('+221 77 333 44 55');
 
     // Simuler une course perdue côté serveur (409 Conflict)
-    await page.route('**/api/reservations', async (route) => {
+    await page.context().route('**/api/reservations', async (route) => {
       if (route.request().method() === 'POST') {
         await route.fulfill({
           status: 409,

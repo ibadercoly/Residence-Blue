@@ -81,7 +81,7 @@ import { MenuManagementModalComponent } from './menu-management-modal/menu-manag
           @if (canManageMenu()) {
             <button
               type="button"
-              class="h-11 px-4 rounded-xl bg-primary hover:bg-primary-container text-on-primary flex items-center gap-2 font-label-lg text-label-lg transition-all shadow-sm cursor-pointer"
+              class="h-11 px-4 rounded-xl bg-primary hover:bg-primary-container text-on-primary flex items-center gap-2 font-label-lg text-label-lg transition-all shadow-sm cursor-pointer whitespace-nowrap shrink-0"
               data-testid="btn-manage-menu"
               (click)="openMenuManagement()"
             >

@@ -243,7 +243,7 @@ test.describe('Fidélité Visuelle - Rendu Hors Ligne vs Référence', () => {
 
       // Masquer les profils de démonstration
       const demoBox = document.querySelector('.mb-6.p-3.rounded-xl.bg-surface-container-low');
-      if (demoBox) (demoBox as HTMLElement).style.visibility = 'hidden';
+      if (demoBox) (demoBox as HTMLElement).style.display = 'none';
 
       // Masquer le badge de sécurité et footer support
       const secBadge = document.querySelector('.mt-6.flex.items-center.justify-center');
@@ -288,7 +288,7 @@ test.describe('Fidélité Visuelle - Rendu Hors Ligne vs Référence', () => {
       if (topUtils) (topUtils as HTMLElement).style.visibility = 'hidden';
 
       const demoBox = document.querySelector('.mb-6.p-3.rounded-xl.bg-surface-container-low');
-      if (demoBox) (demoBox as HTMLElement).style.visibility = 'hidden';
+      if (demoBox) (demoBox as HTMLElement).style.display = 'none';
 
       const secBadge = document.querySelector('.mt-6.flex.items-center.justify-center');
       if (secBadge) (secBadge as HTMLElement).style.visibility = 'hidden';
@@ -621,8 +621,8 @@ test.describe('Fidélité Visuelle - Rendu Hors Ligne vs Référence', () => {
       });
 
       // Le bouton "Gérer le menu" qui est spécifique à la gestion
-      const manageBtn = document.querySelector('[data-testid="manage-menu-btn"]');
-      if (manageBtn) (manageBtn as HTMLElement).style.visibility = 'hidden';
+      const manageBtn = document.querySelector('[data-testid="btn-manage-menu"], [data-testid="manage-menu-btn"]');
+      if (manageBtn) (manageBtn as HTMLElement).style.display = 'none';
 
       const headings = document.querySelectorAll('h1, h2, h3, p, span');
       headings.forEach(h => {
