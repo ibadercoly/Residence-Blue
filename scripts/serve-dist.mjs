@@ -28,17 +28,22 @@ const server = http.createServer((req, res) => {
       port: API_PORT,
       path: req.url,
       method: req.method,
+      agent: false,
       headers: {
         ...req.headers,
         host: `127.0.0.1:${API_PORT}`,
+        connection: 'close',
       },
     }, (proxyRes) => {
       res.writeHead(proxyRes.statusCode, proxyRes.headers);
       proxyRes.pipe(res);
     });
 
+    req.on('aborted', () => proxyReq.destroy());
+    res.on('close', () => { if (!res.writableEnded) proxyReq.destroy(); });
     proxyReq.on('error', (err) => {
-      res.writeHead(502, { 'Content-Type': 'application/json' });
+      if (req.aborted || res.writableEnded) return;
+      if (!res.headersSent) res.writeHead(502, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ error: `API indisponible sur 127.0.0.1:${API_PORT}`, details: err.message }));
     });
 
