@@ -78,6 +78,24 @@ export function destinationLabel(type: RestaurantDestinationType | string): stri
   }
 }
 
+export const RESTAURANT_DEFAULT_PLATE_SVG_URI =
+  "data:image/svg+xml;charset=UTF-8," +
+  encodeURIComponent(
+    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 150" width="200" height="150">' +
+      '<rect width="200" height="150" fill="#eef4f5"/>' +
+      '<circle cx="100" cy="75" r="46" fill="#ffffff" stroke="#c2d2d4" stroke-width="2"/>' +
+      '<circle cx="100" cy="75" r="35" fill="#f7fafb" stroke="#00666f" stroke-width="2.5"/>' +
+      '<circle cx="100" cy="75" r="22" fill="none" stroke="#9ec4c9" stroke-width="1.5" stroke-dasharray="4 3"/>' +
+      '<g stroke="#0a2540" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" fill="none">' +
+      '<line x1="36" y1="42" x2="36" y2="108"/>' +
+      '<path d="M30 42v18c0 5 12 5 12 0V42"/>' +
+      '<line x1="36" y1="42" x2="36" y2="60"/>' +
+      '<line x1="164" y1="42" x2="164" y2="108"/>' +
+      '<path d="M164 42c6 6 6 24 0 32"/>' +
+      '</g>' +
+      '</svg>',
+  );
+
 export function hasPotentialCardPan(raw: string): boolean {
   const cleaned = (raw || '').replace(/[\s-]/g, '');
   return /\d{13,19}/.test(cleaned);
@@ -164,10 +182,22 @@ export const RESTAURANT_SCROLL_STYLES = `
     background-color: #fde8e8;
   }
 
+  .rb-btn-muted {
+    background-color: #e2e8ea;
+    color: #3d494a;
+    border: 1px solid #c2d2d4;
+  }
+
   .rb-btn-sm {
     min-height: 40px;
     padding: 0 12px;
     font-size: 12px;
+  }
+
+  .rb-pos-products-grid {
+    display: grid;
+    gap: 12px;
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 200px), 1fr));
   }
 
   .rb-scroll-box {
