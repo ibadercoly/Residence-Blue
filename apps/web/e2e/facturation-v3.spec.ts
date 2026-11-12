@@ -119,7 +119,7 @@ test.describe('Facturation V3 — E2E complet, Responsive & Rupture', () => {
               ]
             },
             select: { id: true }
-          }); */
+          });
           const allIds = invs.map(i => i.id);
           if (allIds.length) {
             await p.payment.deleteMany({ where: { invoiceId: { in: allIds } } });
@@ -132,10 +132,11 @@ test.describe('Facturation V3 — E2E complet, Responsive & Rupture', () => {
           await p.$disconnect();
         })().catch((e) => { console.error(e); process.exit(1); });
       `;
-      execE2eNodeScript(cleanupScript); /*
-        cwd: repoRoot,
-        stdio: 'inherit',
-      }); */
+      execE2eNodeScript(cleanupScript);
+      // cleaned old execFileSync
+        // cleaned
+        // cleaned
+      // end */ -> clean
     }
     if (dirUser.email) {
       const cleanupHeaders = await getApiAuthHeaders(request, dirUser.email, dirUser.password).catch(() => null);
@@ -217,7 +218,7 @@ test.describe('Facturation V3 — E2E complet, Responsive & Rupture', () => {
         await page.screenshot({
           path: path.join(compDir, 'actual_facturation_comptoir_mobile.png'),
           fullPage: false,
-        }); */
+        });
       }
     }
 
@@ -251,7 +252,7 @@ test.describe('Facturation V3 — E2E complet, Responsive & Rupture', () => {
         await page.screenshot({
           path: path.join(compDir, 'actual_facturation_note_mobile.png'),
           fullPage: false,
-        }); */
+        });
       }
     }
 

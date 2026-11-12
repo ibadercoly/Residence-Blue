@@ -494,5 +494,31 @@ describe('Facturation V3 — Règles métier, Atomicité, Sécurité & PDF (e2e)
     expect(creditRes.body.invoiceNumber).toMatch(/^AV-\d{4}-\d{4}$/);
     expect(creditRes.body.totalFcfa).toBe(-coA.body.totalFcfa);
     expect(creditRes.body.parentInvoiceId).toBe(stayA.invoice.id);
+
+    const counterRes = await request(app.getHttpServer())
+      .get('/api/invoices/counter?filter=TO_PROCESS&sortBy=balance&sortOrder=desc&offset=0&limit=50')
+      .set('Authorization', `Bearer ${roleTokens['RECEPTION']}`)
+      .expect(200);
+    expect(counterRes.body.page).toBeDefined();
+    expect(Array.isArray(counterRes.body.page.items)).toBe(true);
+    expect(counterRes.body.page.limit).toBe(50);
+
+    const archRes = await request(app.getHttpServer())
+      .get('/api/invoices/archives?status=CREDIT_NOTE&offset=0&limit=50')
+      .set('Authorization', `Bearer ${roleTokens['COMPTABLE']}`)
+      .expect(200);
+    expect(archRes.body.page.items.some((i: any) => i.id === creditRes.body.id)).toBe(true);
+
+    await request(app.getHttpServer())
+      .get('/api/invoices/archives/export')
+      .set('Authorization', `Bearer ${roleTokens['RECEPTION']}`)
+      .expect(403);
+    const exportRes = await request(app.getHttpServer())
+      .get('/api/invoices/archives/export?status=ALL')
+      .set('Authorization', `Bearer ${roleTokens['COMPTABLE']}`)
+      .expect(200);
+    expect(exportRes.headers['content-type']).toContain(
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    );
   }, 30000);
 });

@@ -1,14 +1,29 @@
 import { execFileSync } from 'child_process';
 import * as fs from 'fs';
-import * as os from 'os';
 import * as path from 'path';
-import dotenv from 'dotenv';
 
 const repoRoot = path.resolve(__dirname, '../../..');
 const rootEnv = path.join(repoRoot, '.env');
-if (fs.existsSync(rootEnv)) {
-  dotenv.config({ path: rootEnv, quiet: true });
+
+function loadEnvMap(): Record<string, string> {
+  const out: Record<string, string> = {};
+  if (!fs.existsSync(rootEnv)) return out;
+  for (const rawLine of fs.readFileSync(rootEnv, 'utf8').split(/\r?\n/)) {
+    const line = rawLine.trim();
+    if (!line || line.startsWith('#')) continue;
+    const eq = line.indexOf('=');
+    if (eq <= 0) continue;
+    const key = line.slice(0, eq).trim();
+    let val = line.slice(eq + 1).trim();
+    if ((val.startsWith('"') && val.endsWith('"')) || (val.startsWith("'") && val.endsWith("'"))) {
+      val = val.slice(1, -1);
+    }
+    out[key] = val;
+  }
+  return out;
 }
+
+const dotEnv = loadEnvMap();
 
 export function getE2eBaseUrl(): string {
   return process.env.E2E_BASE_URL || 'http://localhost:4201';
@@ -18,9 +33,9 @@ export function getE2eDatabaseUrl(): string {
   if (process.env.E2E_DATABASE_URL) {
     return process.env.E2E_DATABASE_URL;
   }
-  const devUrl = process.env.DATABASE_URL;
+  const devUrl = process.env.DATABASE_URL || dotEnv.DATABASE_URL;
   if (!devUrl) {
-    throw new Error('DATABASE_URL manquant dans .env pour résoudre la base E2E.');
+    throw new Error('DATABASE_URL manquant pour résoudre la base E2E.');
   }
   const parsed = new URL(devUrl);
   const devDb = parsed.pathname.replace(/^\//, '');
@@ -35,25 +50,23 @@ export function getE2eDatabaseUrl(): string {
 }
 
 export function getE2eEnv(): NodeJS.ProcessEnv {
+  const nodePaths = [
+    path.join(repoRoot, 'node_modules'),
+    path.join(repoRoot, 'apps/api/node_modules'),
+    path.join(repoRoot, 'apps/web/node_modules'),
+  ].join(path.delimiter);
   return {
+    ...dotEnv,
     ...process.env,
     DATABASE_URL: getE2eDatabaseUrl(),
+    NODE_PATH: nodePaths,
   };
 }
 
 export function execE2eNodeScript(script: string): string {
-  const tmpFile = path.join(
-    os.tmpdir(),
-    `rb-e2e-${Date.now()}-${Math.random().toString(36).slice(2)}.cjs`,
-  );
-  fs.writeFileSync(tmpFile, script, 'utf8');
-  try {
-    return execFileSync(process.execPath, [tmpFile], {
-      cwd: repoRoot,
-      env: getE2eEnv(),
-      encoding: 'utf8',
-    }).trim();
-  } finally {
-    fs.rmSync(tmpFile, { force: true });
-  }
+  return execFileSync(process.execPath, ['-e', script], {
+    cwd: repoRoot,
+    env: getE2eEnv(),
+    encoding: 'utf8',
+  }).trim();
 }
