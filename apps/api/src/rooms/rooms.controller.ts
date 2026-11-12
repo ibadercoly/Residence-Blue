@@ -8,6 +8,7 @@ import {
   Patch,
   Post,
   Put,
+  Query,
   Req,
   Res,
   UploadedFile,
@@ -18,6 +19,7 @@ import { Request, Response } from 'express';
 import * as fs from 'fs';
 import * as path from 'path';
 import { RoomsService } from './rooms.service';
+import { AvailableRoomsQueryDto } from './dto/available-rooms-query.dto';
 import { UpdateRoomStatusDto } from './dto/update-room-status.dto';
 import { CreateRoomDto } from './dto/create-room.dto';
 import { UpdateRoomDto } from './dto/update-room.dto';
@@ -45,6 +47,16 @@ export class RoomsController {
   @Get()
   async findAll() {
     return this.roomsService.findAll();
+  }
+
+  /**
+   * Retourne uniquement les chambres disponibles (actives, hors Maintenance, sans chevauchement)
+   * sur une période [checkIn, checkOut[.
+   */
+  @Roles(Role.DIRECTION, Role.RECEPTION)
+  @Get('available')
+  async findAvailable(@Query() query: AvailableRoomsQueryDto) {
+    return this.roomsService.findAvailable(query);
   }
 
   /**

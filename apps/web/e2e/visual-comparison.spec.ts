@@ -429,77 +429,52 @@ test.describe('Fidélité Visuelle - Rendu Hors Ligne vs Référence', () => {
     expect(diffPercent).toBeLessThanOrEqual(2.0);
   });
 
-  test('Fidélité Composants Internes Modal Nouvelle Réservation (Écart voulu dimensions ECARTS.md)', async ({ page }) => {
+  test('Fidélité Composants Internes Modal Nouvelle Réservation (Refonte légère)', async ({ page }) => {
     const width = 1440;
     const height = 960;
     await page.setViewportSize({ width, height });
 
-    // 1. Charger la référence hors ligne pour valider les tokens et le style des composants internes
-    const refFileUrl = 'file:///' + path.resolve(repoRoot, 'design/reference/modal_nouvelle_r_servation.html').replace(/\\/g, '/');
-    await page.goto(refFileUrl, { waitUntil: 'load' });
-    await page.evaluate(() => document.fonts.ready);
-    await page.waitForTimeout(300);
-
-    const refModal = page.locator('.max-w-6xl');
-    await expect(refModal).toBeVisible();
-
-    // 2. Charger l'application Angular
     await page.goto('/tableau-de-bord', { waitUntil: 'networkidle' });
     await page.evaluate(() => document.fonts.ready);
-    await page.waitForTimeout(300);
+    await page.waitForTimeout(200);
 
     // Ouvrir le modal depuis l'en-tête
     const openBtn = page.locator('[data-testid="header-new-reservation-btn"]');
     await openBtn.click();
 
-    const actualModal = page.locator('[data-testid="modal-nouvelle-reservation"] .modal-shell-window');
+    const actualModal = page.locator('[data-testid="reservation-modal-dialog"]');
     await expect(actualModal).toBeVisible();
 
-    // Style de l'en-tête fixe (composant interne)
+    // Zone 1 : En-tête fixe
     const actualHeader = actualModal.locator('header');
     await expect(actualHeader).toBeVisible();
-    const headerTitle = actualHeader.locator('h2');
-    await expect(headerTitle).toContainText('Nouvelle réservation');
-    const headerBadge = actualHeader.locator('span');
-    await expect(headerBadge.first()).toBeVisible();
+    await expect(actualHeader.locator('h2')).toContainText('Nouvelle réservation');
 
-    // Style des cartes de sélection de catégorie (composants internes)
-    const standardCard = actualModal.locator('[data-testid="category-card-Standard"]');
-    const deluxeCard = actualModal.locator('[data-testid="category-card-Deluxe"]');
-    const suiteCard = actualModal.locator('[data-testid="category-card-Suite"]');
-    await expect(standardCard).toBeVisible();
-    await expect(deluxeCard).toBeVisible();
-    await expect(suiteCard).toBeVisible();
+    // Zone 2 : Corps défilant avec 3 sections numérotées et barre visible
+    const scrollBody = actualModal.locator('[data-testid="reservation-modal-body"]');
+    await expect(scrollBody).toBeVisible();
+    await expect(actualModal).toContainText('1. Séjour');
+    await expect(actualModal).toContainText('2. Client');
+    await expect(actualModal).toContainText('3. Paiement et notes');
 
-    // Vérifier badges et tarifs
-    await expect(standardCard).toContainText('85 000');
-    await expect(deluxeCard).toContainText('130 000');
-    await expect(deluxeCard).toContainText('Recommandé');
-    await expect(suiteCard).toContainText('210 000');
+    // Mode de paiement sans numéro de carte
+    const paymentSelect = actualModal.locator('[data-testid="res-payment-method"]');
+    await expect(paymentSelect).toContainText('Espèces');
+    await expect(paymentSelect).toContainText('Orange Money');
+    await expect(paymentSelect).toContainText('Wave');
 
-    // Style des canaux d'encaissement (Wave, Orange Money, Carte TPE, Espèces)
-    const paymentSection = actualModal.locator('[data-testid="section-paiement"]');
-    await expect(paymentSection).toBeVisible();
-    await expect(paymentSection).toContainText('Wave');
-    await expect(paymentSection).toContainText('Orange Money');
-    await expect(paymentSection).toContainText('Carte TPE');
-    await expect(paymentSection).toContainText('Espèces');
-
-    // Style du pied fixe toujours visible (boutons d'action et Total TTC)
-    const submitBtn = actualModal.locator('[data-testid="btn-submit-reservation"]');
+    // Zone 3 : Pied fixe toujours visible
+    const submitBtn = actualModal.locator('[data-testid="reservation-confirm-btn"]');
     await expect(submitBtn).toBeVisible();
     await expect(submitBtn).toContainText('Confirmer la réservation');
 
-    const totalTtc = actualModal.locator('[data-testid="total-ttc-amount"]');
-    await expect(totalTtc).toBeVisible();
-    await expect(totalTtc).toContainText('456');
+    const totalEl = actualModal.locator('[data-testid="summary-total"]');
+    await expect(totalEl).toBeVisible();
+    await expect(totalEl).toContainText('FCFA');
 
-    // Capture d'écran comparative de la modale compacte
     const actualShotPath = path.join(compDir, 'actual_modal_nouvelle_reservation.png');
     await actualModal.screenshot({ path: actualShotPath, animations: 'disabled' });
     expect(fs.existsSync(actualShotPath)).toBe(true);
-
-    console.log('Fidélité composants internes Modal Nouvelle Réservation validée avec succès.');
   });
 
   test('Fidélité Annuaire Clients V2 Fluide (1440x900) : identité visuelle et zéro débordement', async ({ page }) => {

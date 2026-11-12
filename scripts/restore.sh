@@ -34,13 +34,19 @@ run_psql() {
   fi
 }
 
+filter_extension_ddl() {
+  # L'extension btree_gist appartient au superutilisateur PostgreSQL :
+  # app_owner ne peut ni la supprimer ni la recréer pendant une restauration.
+  sed -E '/^(DROP|CREATE|COMMENT ON) EXTENSION /d'
+}
+
 case "$BACKUP_FILE" in
   *.age)
     if [ -z "${BACKUP_AGE_KEY_FILE:-}" ]; then
       echo "[RESTORE][ERREUR] BACKUP_AGE_KEY_FILE requis pour déchiffrer un fichier .age" >&2
       exit 1
     fi
-    age --decrypt -i "$BACKUP_AGE_KEY_FILE" "$BACKUP_FILE" | run_psql
+    age --decrypt -i "$BACKUP_AGE_KEY_FILE" "$BACKUP_FILE" | filter_extension_ddl | run_psql
     ;;
   *.gpg)
     if [ -z "${BACKUP_ENCRYPTION_KEY:-}" ]; then
@@ -48,7 +54,7 @@ case "$BACKUP_FILE" in
       exit 1
     fi
     gpg --batch --yes --pinentry-mode loopback --decrypt \
-      --passphrase "$BACKUP_ENCRYPTION_KEY" "$BACKUP_FILE" | run_psql
+      --passphrase "$BACKUP_ENCRYPTION_KEY" "$BACKUP_FILE" | filter_extension_ddl | run_psql
     ;;
   *)
     echo "[RESTORE][ERREUR] Format de sauvegarde non supporté (attendu .age ou .gpg) : $BACKUP_FILE" >&2

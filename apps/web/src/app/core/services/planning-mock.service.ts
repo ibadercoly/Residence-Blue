@@ -243,6 +243,19 @@ export class PlanningMockService {
     } catch {}
   }
 
+  upsertReservationFromApi(saved: PlanningReservation): void {
+    this.allReservations.update((list) => {
+      const idx = list.findIndex((r) => r.id === saved.id);
+      if (idx >= 0) {
+        const copy = list.slice();
+        copy[idx] = saved;
+        return copy;
+      }
+      return [...list, saved];
+    });
+    this.serverSynced.set(true);
+  }
+
   /** Définition des chambres de l'hôtel (depuis RoomsService ou vide si base vide) */
   get catalogRooms(): Omit<PlanningRoom, 'reservations'>[] {
     if (this.testCatalogRooms().length > 0) {

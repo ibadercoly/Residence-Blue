@@ -1,7 +1,9 @@
-import { Component, HostListener, signal, computed } from '@angular/core';
+import { Component, HostListener, inject, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RoomsService, RoomUiItem } from '../../core/services/rooms.service';
+import { ReservationModalService } from '../../core/services/reservation-modal.service';
+import { RoomCategoryType } from '../../core/models/reservation-modal.model';
 import { NetworkService } from '../../core/offline/network.service';
 import { OutboxService } from '../../core/offline/outbox.service';
 import { RoomStatus, Role, CreateRoomDto, UpdateRoomDto } from '@residence-blue/shared';
@@ -783,7 +785,19 @@ import { ModalShellComponent } from '../../shared/components/modal-shell/modal-s
           </div>
 
           <!-- Pied fixe du tiroir avec boutons d'action -->
-          <div class="drawer-footer p-4 border-t border-outline-variant/40 flex items-center justify-end gap-3 flex-shrink-0 bg-surface">
+          <div class="drawer-footer p-4 border-t border-outline-variant/40 flex flex-wrap items-center justify-end gap-3 flex-shrink-0 bg-surface">
+            @if (roomsService.editingRoom(); as room) {
+              @if (room.isActive !== false && room.status !== RoomStatus.MAINTENANCE) {
+                <button
+                  type="button"
+                  (click)="reserveEditingRoom()"
+                  data-testid="btn-reserve-room"
+                  class="h-10 px-4 rounded-xl border border-primary/40 bg-primary/10 hover:bg-primary/20 text-primary text-xs font-semibold transition-colors cursor-pointer mr-auto"
+                >
+                  Réserver cette chambre
+                </button>
+              }
+            }
             <button
               type="button"
               (click)="closeDrawer()"
@@ -992,11 +1006,31 @@ export class RoomsComponent {
     return editing ? `Modifier la chambre ${editing.number}` : 'Ajouter une chambre';
   });
 
+  private readonly reservationModal: ReservationModalService | null = (() => {
+    try {
+      return inject(ReservationModalService, { optional: true });
+    } catch {
+      return null;
+    }
+  })();
+
   constructor(
     public readonly roomsService: RoomsService,
     public readonly network: NetworkService,
     public readonly outbox: OutboxService,
   ) {}
+
+  reserveEditingRoom(): void {
+    const room = this.roomsService.editingRoom();
+    if (!room || room.status === RoomStatus.MAINTENANCE || room.isActive === false) return;
+    const category = room.category as RoomCategoryType;
+    this.closeDrawer();
+    this.reservationModal?.open({
+      roomId: room.id,
+      roomNumber: room.number,
+      category: category === 'Standard' || category === 'Deluxe' || category === 'Suite' ? category : undefined,
+    });
+  }
 
   @HostListener('window:keydown.escape')
   onEscape(): void {

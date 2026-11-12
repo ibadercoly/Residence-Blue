@@ -3,12 +3,15 @@ import {
   Controller,
   Delete,
   Get,
+  Headers,
   HttpCode,
   HttpStatus,
   Param,
   Patch,
   Post,
+  Req,
 } from '@nestjs/common';
+import { Request } from 'express';
 import { ReservationsService } from './reservations.service';
 import { CreateReservationDto, UpdateReservationDto } from './dto/reservation.dto';
 import { Roles } from '../common/decorators/roles.decorator';
@@ -32,8 +35,20 @@ export class ReservationsController {
 
   @Post()
   @Roles(Role.DIRECTION, Role.RECEPTION)
-  async create(@Body() dto: CreateReservationDto) {
-    return this.reservationsService.create(dto);
+  async create(
+    @Body() dto: CreateReservationDto,
+    @Headers('idempotency-key') idempotencyKey?: string,
+    @Headers('x-user-role') actorRole = 'RECEPTION',
+    @Req() req?: Request,
+  ) {
+    const userId = (req as any)?.user?.id as string | undefined;
+    const ip = req?.ip || req?.socket?.remoteAddress || undefined;
+    return this.reservationsService.create(dto, {
+      idempotencyKey,
+      actorRole,
+      userId,
+      ip,
+    });
   }
 
   @Patch(':id')

@@ -1,5 +1,5 @@
 import { ReservationModalService } from './reservation-modal.service';
-import { ReservationSubmitPayload } from '../models/reservation-modal.model';
+import { CreateReservationPayload } from '../models/reservation-modal.model';
 
 describe('ReservationModalService', () => {
   let service: ReservationModalService;
@@ -8,130 +8,161 @@ describe('ReservationModalService', () => {
     service = new ReservationModalService();
   });
 
-  it('devrait être initialisé avec modal fermée', () => {
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  it('devrait être initialisé avec la fenêtre fermée', () => {
     expect(service).toBeTruthy();
     expect(service.isOpen()).toBe(false);
     expect(service.currentParams()).toBeNull();
   });
 
-  it('devrait ouvrir la modal avec ou sans paramètres', () => {
-    service.open();
+  it('devrait ouvrir et fermer avec paramètres préremplis', () => {
+    service.open({ roomNumber: '101', category: 'Standard', guestId: 'g-1' });
     expect(service.isOpen()).toBe(true);
-    expect(service.currentParams()).toBeNull();
+    expect(service.currentParams()?.roomNumber).toBe('101');
+    expect(service.currentParams()?.guestId).toBe('g-1');
 
     service.close();
     expect(service.isOpen()).toBe(false);
-
-    service.open({ roomNumber: '106', category: 'Standard' });
-    expect(service.isOpen()).toBe(true);
-    expect(service.currentParams()?.roomNumber).toBe('106');
-    expect(service.currentParams()?.category).toBe('Standard');
+    expect(service.currentParams()).toBeNull();
   });
 
-  it('devrait filtrer les chambres par catégorie', () => {
-    const standards = service.getRoomsForCategory('Standard');
-    expect(standards.length).toBe(6);
-    expect(standards.every((r) => r.category === 'Standard')).toBe(true);
+  it('devrait mettre en cache les tarifs chargés lors de fetchAvailableRooms', async () => {
+    const fetchSpy = jest.spyOn(globalThis, 'fetch').mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        checkIn: '2026-11-12',
+        checkOut: '2026-11-14',
+        nights: 2,
+        total: 1,
+        rates: { tourismTaxPerNightPerPerson: 1500, vatRatePercent: 10 },
+        items: [
+          {
+            id: 'r-1',
+            number: '101',
+            category: 'Standard',
+            floor: 1,
+            adultsCapacity: 2,
+            childrenCapacity: 0,
+            capacity: 2,
+            pricePerNight: 35000,
+            breakfastIncluded: true,
+          },
+        ],
+      }),
+    } as Response);
 
-    const deluxes = service.getRoomsForCategory('Deluxe');
-    expect(deluxes.length).toBe(4);
-    expect(deluxes.every((r) => r.category === 'Deluxe')).toBe(true);
-
-    const suites = service.getRoomsForCategory('Suite');
-    expect(suites.length).toBe(2);
-    expect(suites.every((r) => r.category === 'Suite')).toBe(true);
+    expect(service.hasValidRatesCache()).toBe(false);
+    const data = await service.fetchAvailableRooms('2026-11-12', '2026-11-14');
+    expect(data.items).toHaveLength(1);
+    expect(service.hasValidRatesCache()).toBe(true);
+    expect(service.getCachedRates().tourismTaxPerNightPerPerson).toBe(1500);
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
   });
 
-  it('devrait retrouver une chambre spécifique par numéro', () => {
-    const ch201 = service.getRoomByNumber('201');
-    expect(ch201).toBeDefined();
-    expect(ch201?.label).toContain('201');
-    expect(ch201?.category).toBe('Deluxe');
+  it('devrait limiter searchGuests à 5 résultats maximum', async () => {
+    jest.spyOn(globalThis, 'fetch').mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        items: Array.from({ length: 8 }, (_, idx) => ({
+          id: `g-${idx}`,
+          fullName: `Client ${idx}`,
+          phone: `+221 77 000 00 0${idx}`,
+        })),
+      }),
+    } as Response);
 
-    const unknown = service.getRoomByNumber('999');
-    expect(unknown).toBeUndefined();
+    const results = await service.searchGuests('Client');
+    expect(results).toHaveLength(5);
   });
 
-  it('devrait confirmer une réservation et fermer la modal', async () => {
-    service.open();
-    const payload: ReservationSubmitPayload = {
-      guestMode: 'REGULAR',
-      regularGuestId: 'guest-ndiaye',
-      checkInDate: '2024-05-30',
-      checkOutDate: '2024-06-02',
-      nights: 3,
-      adultsCount: 2,
-      childrenCount: 1,
-      category: 'Deluxe',
-      roomNumber: '201',
-      depositAmountFcfa: 150000,
-      paymentStatus: 'PERCU',
-      paymentChannel: 'WAVE',
-      airportShuttleIncluded: true,
-      specialRequests: 'Arrivée tardive',
-      breakdown: {
-        nights: 3,
-        ratePerNightFcfa: 130000,
-        accommodationTotalFcfa: 390000,
-        breakfastIncluded: true,
-        extraChildBedFcfa: 25000,
-        airportShuttleFcfa: 35000,
-        cityTaxFcfa: 6000,
-        totalStayTtcFcfa: 456000,
-        depositAmountFcfa: 150000,
-        depositPercentage: 33,
-        remainingBalanceFcfa: 306000
-      }
+  it('devrait envoyer Idempotency-Key et retourner le conflit 409', async () => {
+    const fetchMock = jest
+      .spyOn(globalThis, 'fetch')
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 409,
+        json: async () => ({
+          message: "Cette chambre vient d'être réservée, choisissez-en une autre",
+        }),
+      } as Response);
+
+    const payload: CreateReservationPayload = {
+      roomId: 'r-1',
+      guestId: 'g-1',
+      checkInDate: '2026-11-12',
+      checkOutDate: '2026-11-14',
+      adultsCount: 1,
+      childrenCount: 0,
+      depositFcfa: 0,
+      breakfastIncluded: true,
+      source: 'RECEPTION',
     };
 
     const res = await service.confirmReservation(payload);
-    expect(res).toBe(true);
-    expect(service.isOpen()).toBe(false);
-    expect(service.lastSubmittedReservation()).toBe(payload);
-    expect(service.feedbackMessage()).toContain('M. Ibrahima Ndiaye');
-    expect(service.feedbackMessage()).toContain('201');
+    expect(res.ok).toBe(false);
+    expect(res.conflict).toBe(true);
+    expect(res.message).toContain("vient d'être réservée");
+
+    const init = fetchMock.mock.calls[0]?.[1] as RequestInit;
+    const headers = init.headers as Record<string, string>;
+    expect(headers['Idempotency-Key']).toBeTruthy();
   });
 
-  it('devrait enregistrer une option temporaire 48h', async () => {
+  it('devrait confirmer et afficher « Réservation enregistrée » après création API', async () => {
     service.open();
-    const payload: ReservationSubmitPayload = {
-      guestMode: 'NEW',
-      newGuest: {
-        fullName: 'Abdoulaye Wade',
-        phone: '+221 77 000 11 22',
-        email: 'awade@gmail.com',
-        city: 'Thiès'
-      },
-      checkInDate: '2024-06-05',
-      checkOutDate: '2024-06-07',
-      nights: 2,
+    jest.spyOn(globalThis, 'fetch').mockResolvedValueOnce({
+      ok: true,
+      status: 201,
+      json: async () => ({
+        id: 'res-1',
+        reference: 'RB-2026-1001',
+        guestId: 'g-1',
+        guestName: 'Aminata Diallo',
+        roomId: 'r-1',
+        roomNumber: '101',
+        roomCategory: 'Standard',
+        ratePerNightFcfa: 35000,
+        startDayIndex: 0,
+        durationDays: 2,
+        checkInDate: '2026-11-12',
+        checkOutDate: '2026-11-14',
+        dbStatus: 'CONFIRMED',
+        status: 'CONFIRME',
+        statusLabel: 'Confirmée',
+        adultsCount: 1,
+        childrenCount: 0,
+        nights: 2,
+        source: 'RECEPTION',
+        breakfastIncluded: true,
+        subtotalFcfa: 70000,
+        tourismTaxFcfa: 2000,
+        discountFcfa: 0,
+        totalFcfa: 72000,
+        depositFcfa: 20000,
+        paidFcfa: 20000,
+        remainingFcfa: 52000,
+      }),
+    } as Response);
+
+    const result = await service.confirmReservation({
+      roomId: 'r-1',
+      guestId: 'g-1',
+      checkInDate: '2026-11-12',
+      checkOutDate: '2026-11-14',
       adultsCount: 1,
       childrenCount: 0,
-      category: 'Standard',
-      roomNumber: '101',
-      depositAmountFcfa: 0,
-      paymentStatus: 'EN_ATTENTE',
-      paymentChannel: 'ESPECES',
-      airportShuttleIncluded: false,
-      specialRequests: '',
-      breakdown: {
-        nights: 2,
-        ratePerNightFcfa: 85000,
-        accommodationTotalFcfa: 170000,
-        breakfastIncluded: true,
-        extraChildBedFcfa: 0,
-        airportShuttleFcfa: 0,
-        cityTaxFcfa: 2000,
-        totalStayTtcFcfa: 172000,
-        depositAmountFcfa: 0,
-        depositPercentage: 0,
-        remainingBalanceFcfa: 172000
-      }
-    };
+      depositFcfa: 20000,
+      paymentMethod: 'WAVE',
+      breakfastIncluded: true,
+      source: 'RECEPTION',
+    });
 
-    const res = await service.saveDraftOption(payload);
-    expect(res).toBe(true);
+    expect(result.ok).toBe(true);
     expect(service.isOpen()).toBe(false);
-    expect(service.feedbackMessage()).toContain('Option temporaire 48h');
+    expect(service.feedbackMessage()).toBe('Réservation enregistrée');
+    service.clearFeedback();
   });
 });

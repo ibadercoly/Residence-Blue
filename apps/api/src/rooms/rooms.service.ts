@@ -9,8 +9,9 @@ import {
   isRoomStatusTransitionAllowed,
   RoomStatus as SharedRoomStatus,
 } from '@residence-blue/shared';
-import { Prisma, RoomStatus } from '@prisma/client';
+import { Prisma, ReservationStatus, RoomStatus } from '@prisma/client';
 import { UpdateRoomStatusDto } from './dto/update-room-status.dto';
+import { AvailableRoomsQueryDto } from './dto/available-rooms-query.dto';
 import { CreateRoomDto } from './dto/create-room.dto';
 import { UpdateRoomDto } from './dto/update-room.dto';
 import { CreateRoomTypeDto, UpdateRoomTypeDto } from './dto/create-room-type.dto';
@@ -34,6 +35,91 @@ export class RoomsService {
       },
       orderBy: [{ floor: 'asc' }, { number: 'asc' }],
     });
+  }
+
+  /**
+   * Retourne uniquement les chambres libres sur la période [checkIn, checkOut[
+   * (exclut chambres inactives, en MAINTENANCE et chambres réservées).
+   */
+  async findAvailable(query: AvailableRoomsQueryDto) {
+    const checkInDate = new Date(`${query.checkIn}T00:00:00.000Z`);
+    const checkOutDate = new Date(`${query.checkOut}T00:00:00.000Z`);
+    if (
+      isNaN(checkInDate.getTime()) ||
+      isNaN(checkOutDate.getTime()) ||
+      checkOutDate <= checkInDate
+    ) {
+      throw new BadRequestException(
+        'La date de départ doit être strictement postérieure à la date d’arrivée.',
+      );
+    }
+
+    const nights = Math.max(
+      1,
+      Math.round((checkOutDate.getTime() - checkInDate.getTime()) / 86400000),
+    );
+    const category = query.category?.trim();
+
+    const [rooms, settings] = await Promise.all([
+      this.prisma.room.findMany({
+        where: {
+          isActive: true,
+          status: { not: RoomStatus.MAINTENANCE },
+          ...(category
+            ? { category: { equals: category, mode: 'insensitive' } }
+            : {}),
+          reservations: {
+            none: {
+              status: {
+                notIn: [ReservationStatus.CANCELLED, ReservationStatus.NO_SHOW],
+              },
+              checkInDate: { lt: checkOutDate },
+              checkOutDate: { gt: checkInDate },
+            },
+          },
+        },
+        select: {
+          id: true,
+          number: true,
+          category: true,
+          floor: true,
+          adultsCapacity: true,
+          childrenCapacity: true,
+          pricePerNight: true,
+          breakfastIncluded: true,
+        },
+        orderBy: [{ pricePerNight: 'asc' }, { number: 'asc' }],
+      }),
+      this.prisma.hotelSetting.findUnique({
+        where: { id: 'default' },
+        select: {
+          tourismTaxPerNightPerPerson: true,
+          vatRatePercent: true,
+        },
+      }),
+    ]);
+
+    return {
+      checkIn: query.checkIn,
+      checkOut: query.checkOut,
+      nights,
+      total: rooms.length,
+      rates: {
+        tourismTaxPerNightPerPerson: settings?.tourismTaxPerNightPerPerson ?? 1000,
+        vatRatePercent: settings?.vatRatePercent ?? 10,
+      },
+      items: rooms.map((r) => ({
+        id: r.id,
+        number: r.number,
+        category: r.category,
+        floor: r.floor,
+        adultsCapacity: r.adultsCapacity,
+        childrenCapacity: r.childrenCapacity,
+        capacity: r.adultsCapacity + r.childrenCapacity,
+        pricePerNight: r.pricePerNight,
+        breakfastIncluded: r.breakfastIncluded,
+      })),
+    };
   }
 
   /**
