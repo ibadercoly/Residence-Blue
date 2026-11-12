@@ -2,6 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import request from 'supertest';
 import * as fs from 'fs';
+import * as path from 'path';
 import { AppModule } from '../src/app.module';
 import { PrismaService } from '../src/prisma/prisma.service';
 import { ReservationStatus } from '@prisma/client';
@@ -389,8 +390,9 @@ describe('Restaurant V3 — Règles métier, Atomicité, RBAC, Photos & Historiq
 
     const oldMainName = up1.body.photoUrl.split('/').pop()!;
     const oldThumbName = up1.body.thumbnailUrl.split('/').pop()!;
-    const uploadDir = fs.realpathSync(
-      process.env.RESTAURANT_MEDIA_DIR || 'uploads/restaurant',
+    const uploadDir = path.resolve(
+      process.env.RESTAURANT_MEDIA_DIR ||
+        path.resolve(process.env.MEDIA_DIR || 'uploads/rooms', '..', 'restaurant'),
     );
     expect(fs.existsSync(`${uploadDir}/${oldMainName}`)).toBe(true);
     expect(fs.existsSync(`${uploadDir}/${oldThumbName}`)).toBe(true);
