@@ -60,7 +60,7 @@ export class ServerModuleConfigService {
         CUISINE: { allowedModules: ['restaurant'] },
         HOUSEKEEPING: { allowedModules: ['housekeeping'], enabled: false },
         MAINTENANCE: { allowedModules: ['maintenance'], enabled: false },
-        COMPTABLE: { allowedModules: ['accounting', 'facturation', 'exports'], enabled: false },
+        COMPTABLE: { allowedModules: ['facturation', 'exports'], enabled: true },
       },
     };
   }

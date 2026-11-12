@@ -8,7 +8,6 @@ import {
 } from '@residence-blue/shared';
 import { AuthMockService } from './auth-mock.service';
 import { RoomsService } from './rooms.service';
-import { FacturationMockService } from './facturation-mock.service';
 import { GuestProfileService } from './guest-profile.service';
 
 export interface ExportProgress {
@@ -26,7 +25,6 @@ export interface ExportProgress {
 export class ExportService {
   private readonly authService = inject(AuthMockService);
   private readonly roomsService = inject(RoomsService);
-  private readonly facturationService = inject(FacturationMockService);
   private readonly guestService = inject(GuestProfileService);
 
   readonly definitions = EXPORT_DEFINITIONS;

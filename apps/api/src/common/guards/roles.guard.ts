@@ -62,7 +62,11 @@ export class RolesGuard implements CanActivate {
           ? 'RECEPTION'
           : user.role === 'RESTAURANT_STAFF'
             ? 'RESTAURANT'
-            : user.role;
+            : user.role === 'GOUVERNANTE'
+              ? 'HOUSEKEEPING'
+              : user.role === 'TECHNIQUE'
+                ? 'MAINTENANCE'
+                : user.role;
 
     const hasRole = requiredRoles.includes(user.role) || requiredRoles.includes(normalizedRole);
     if (!hasRole) {

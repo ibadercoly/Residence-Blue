@@ -80,6 +80,14 @@ export function Output(bindingPropertyName?: string) {
   return (target: unknown, propertyKey?: string) => {};
 }
 
+export function ViewChild(selector?: unknown, opts?: unknown) {
+  return (target: unknown, propertyKey?: string) => {};
+}
+
+export class ElementRef<T = unknown> {
+  constructor(public nativeElement?: T) {}
+}
+
 export function HostListener(eventName?: string, args?: unknown[]) {
   return (target: unknown, propertyKey?: string, descriptor?: PropertyDescriptor) => descriptor;
 }

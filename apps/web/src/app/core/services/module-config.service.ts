@@ -357,10 +357,10 @@ export class ModuleConfigService {
         canManageMenu: false
       },
       COMPTABLE: {
-        allowedModules: ['accounting', 'facturation', 'exports'],
-        enabled: false,
-        version: 'v3',
-        description: 'Comptabilité analytique et fiscale : reporté en Version 3. Non assignable en V1.',
+        allowedModules: ['facturation', 'exports'],
+        enabled: true,
+        version: 'v1',
+        description: 'Comptabilité et contrôle facturation : consultation complète, avoirs et exports PDF/Excel.',
         canExportClients: true,
         canManageMenu: false
       }

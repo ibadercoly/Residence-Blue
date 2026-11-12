@@ -1,4 +1,4 @@
-import { assertFcfaInteger, formatFcfa, parseFcfa } from '../currency';
+import { assertFcfaInteger, formatFcfa, numberToFrenchWordsFcfa, parseFcfa } from '../currency';
 
 describe('Devise FCFA - Règle Entiers Stricts', () => {
   it('doit accepter les montants entiers positifs', () => {
@@ -31,5 +31,13 @@ describe('Devise FCFA - Règle Entiers Stricts', () => {
     expect(parseFcfa('45 000 FCFA')).toBe(45000);
     expect(parseFcfa('110000')).toBe(110000);
     expect(() => parseFcfa('45 000.50 FCFA')).toThrow();
+  });
+
+  it('doit convertir un montant entier FCFA en toutes lettres en français', () => {
+    expect(numberToFrenchWordsFcfa(0)).toBe('Zéro franc CFA');
+    expect(numberToFrenchWordsFcfa(1)).toBe('Un franc CFA');
+    expect(numberToFrenchWordsFcfa(75000)).toBe('Soixante-quinze mille francs CFA');
+    expect(numberToFrenchWordsFcfa(185280)).toBe('Cent quatre-vingt-cinq mille deux cent quatre-vingts francs CFA');
+    expect(numberToFrenchWordsFcfa(-35000)).toBe('Moins trente-cinq mille francs CFA');
   });
 });

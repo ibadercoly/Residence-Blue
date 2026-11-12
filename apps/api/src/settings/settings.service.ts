@@ -38,9 +38,14 @@ export class SettingsService {
           ...(dto.restaurantName !== undefined ? { restaurantName: dto.restaurantName.trim() } : {}),
           ...(dto.currency !== undefined ? { currency: dto.currency.trim() } : {}),
           ...(dto.vatRatePercent !== undefined ? { vatRatePercent: Math.round(dto.vatRatePercent) } : {}),
+          ...(dto.serviceRatePercent !== undefined ? { serviceRatePercent: Math.round(dto.serviceRatePercent) } : {}),
           ...(dto.tourismTaxPerNightPerPerson !== undefined
             ? { tourismTaxPerNightPerPerson: Math.round(dto.tourismTaxPerNightPerPerson) }
             : {}),
+          ...(dto.discountThresholdPercent !== undefined
+            ? { discountThresholdPercent: Math.round(dto.discountThresholdPercent) }
+            : {}),
+          ...(dto.invoiceLogoPath !== undefined ? { invoiceLogoPath: dto.invoiceLogoPath.trim() } : {}),
           ...(dto.exchangeRateEurToFcfa !== undefined ? { exchangeRateEurToFcfa: dto.exchangeRateEurToFcfa } : {}),
         },
         update: {
@@ -59,9 +64,14 @@ export class SettingsService {
           ...(dto.restaurantName !== undefined ? { restaurantName: dto.restaurantName.trim() } : {}),
           ...(dto.currency !== undefined ? { currency: dto.currency.trim() } : {}),
           ...(dto.vatRatePercent !== undefined ? { vatRatePercent: Math.round(dto.vatRatePercent) } : {}),
+          ...(dto.serviceRatePercent !== undefined ? { serviceRatePercent: Math.round(dto.serviceRatePercent) } : {}),
           ...(dto.tourismTaxPerNightPerPerson !== undefined
             ? { tourismTaxPerNightPerPerson: Math.round(dto.tourismTaxPerNightPerPerson) }
             : {}),
+          ...(dto.discountThresholdPercent !== undefined
+            ? { discountThresholdPercent: Math.round(dto.discountThresholdPercent) }
+            : {}),
+          ...(dto.invoiceLogoPath !== undefined ? { invoiceLogoPath: dto.invoiceLogoPath.trim() } : {}),
           ...(dto.exchangeRateEurToFcfa !== undefined ? { exchangeRateEurToFcfa: dto.exchangeRateEurToFcfa } : {}),
         },
       });
