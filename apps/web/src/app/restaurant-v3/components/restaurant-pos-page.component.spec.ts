@@ -1,5 +1,6 @@
 import { RestaurantPosPageComponent } from './restaurant-pos-page.component';
 import { RestaurantV3Service } from '../services/restaurant-v3.service';
+import { RESTAURANT_DEFAULT_PLATE_SVG_URI } from '../models/restaurant-v3.model';
 
 describe('RestaurantPosPageComponent', () => {
   let component: RestaurantPosPageComponent;
@@ -96,5 +97,34 @@ describe('RestaurantPosPageComponent', () => {
         action: 'ROOM_CHARGE',
       }),
     );
+  });
+
+  it('utilise la miniature 200 px si présente et bascule sur le SVG par défaut sans image ou après erreur', () => {
+    const withThumb = {
+      ...service.products()[0],
+      photoUrl: '/api/restaurant/products/images/abc-full.webp',
+      thumbnailUrl: '/api/restaurant/products/images/abc-200.webp',
+    };
+    const withoutThumb = {
+      ...service.products()[0],
+      id: 'prod-no-img',
+      photoUrl: '/api/restaurant/products/images/big-only.webp',
+      thumbnailUrl: null,
+    };
+
+    expect(component.resolveProductImageSrc(withThumb)).toBe(
+      '/api/restaurant/products/images/abc-200.webp',
+    );
+    expect(component.isDefaultProductImage(withThumb)).toBe(false);
+
+    // Ne doit jamais charger l'image grand format dans la grille si la miniature est absente
+    expect(component.resolveProductImageSrc(withoutThumb)).toBe(RESTAURANT_DEFAULT_PLATE_SVG_URI);
+    expect(component.isDefaultProductImage(withoutThumb)).toBe(true);
+
+    // Bascule immédiate vers le SVG en cas d'erreur de chargement réseau
+    component.onProductImageError(withThumb.id);
+    expect(component.resolveProductImageSrc(withThumb)).toBe(RESTAURANT_DEFAULT_PLATE_SVG_URI);
+    expect(component.isDefaultProductImage(withThumb)).toBe(true);
+    expect(component.isProductDisabled(service.products()[1])).toBe(true);
   });
 });

@@ -16,6 +16,7 @@ import {
   RestaurantOrderV3,
 } from '@residence-blue/shared';
 import {
+  RESTAURANT_DEFAULT_PLATE_SVG_URI,
   RESTAURANT_PAYMENT_METHODS,
   RESTAURANT_SCROLL_STYLES,
   TicketDraftLine,
@@ -158,7 +159,7 @@ import {
 
         <!-- Disposition principale : Zone gauche (8/12) + Zone droite (4/12 fixe) -->
         <div class="grid grid-cols-1 gap-5 lg:grid-cols-12 items-start">
-          <!-- ZONE GAUCHE (8/12) : Grille produits sans photo, scroll vertical interne -->
+          <!-- ZONE GAUCHE (8/12) : Grille de cartes produits avec miniatures 200 px, scroll vertical interne -->
           <section
             aria-label="Produits de la carte"
             class="lg:col-span-8 min-w-0 rounded-2xl border border-[#d6e2e4] bg-white p-3 sm:p-4"
@@ -174,12 +175,12 @@ import {
 
             <div
               data-testid="pos-products-scroll"
-              class="rb-scroll-box max-h-[460px] pr-1"
+              class="rb-scroll-box max-h-[540px] pr-1"
             >
               @if (service.loadingCatalog() && filteredProducts().length === 0) {
-                <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                <div class="rb-pos-products-grid">
                   @for (s of [1, 2, 3, 4, 5, 6]; track s) {
-                    <div class="h-28 animate-pulse rounded-xl border border-[#d6e2e4] bg-[#f0f5f6]"></div>
+                    <div class="h-64 animate-pulse rounded-xl border border-[#d6e2e4] bg-[#f0f5f6]"></div>
                   }
                 </div>
               } @else if (filteredProducts().length === 0) {
@@ -187,41 +188,72 @@ import {
                   Aucun produit disponible ne correspond à cette sélection.
                 </div>
               } @else {
-                <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                <div class="rb-pos-products-grid" data-testid="pos-products-grid">
                   @for (prod of filteredProducts(); track prod.id) {
-                    <button
-                      type="button"
+                    <article
                       [attr.data-testid]="'product-tile-' + prod.id"
                       [attr.data-product-name]="prod.name"
-                      [disabled]="prod.status === 'SOLD_OUT' || service.canReadOnly()"
+                      [attr.aria-label]="'Ajouter ' + prod.name"
+                      [attr.aria-disabled]="isProductDisabled(prod) ? 'true' : null"
+                      [attr.tabindex]="isProductDisabled(prod) ? -1 : 0"
                       (click)="addProductToTicket(prod)"
+                      (keydown.enter)="onProductCardKeydown($event, prod)"
+                      (keydown.space)="onProductCardKeydown($event, prod)"
                       [class]="prod.status === 'SOLD_OUT'
-                        ? 'flex flex-col justify-between gap-2 rounded-xl border border-[#d6e2e4] bg-[#f1f5f6] p-3.5 text-left text-[#4f6264] opacity-75 cursor-not-allowed min-h-[104px]'
-                        : 'flex flex-col justify-between gap-2 rounded-xl border border-[#c2d2d4] bg-white p-3.5 text-left hover:border-[#006875] hover:bg-[#f2f8f9] transition-colors min-h-[104px] cursor-pointer'"
+                        ? 'flex flex-col overflow-hidden rounded-xl border border-[#d6e2e4] bg-[#f1f5f6] text-left text-[#4f6264] cursor-not-allowed min-w-0'
+                        : 'flex flex-col overflow-hidden rounded-xl border border-[#c2d2d4] bg-white text-left hover:border-[#006875] hover:bg-[#f2f8f9] transition-colors cursor-pointer min-w-0'"
                     >
-                      <div class="space-y-1">
-                        <span class="text-[11px] font-bold uppercase tracking-wide text-[#3d494a] block">
-                          {{ prod.categoryName }}
-                        </span>
-                        <span class="block text-sm font-extrabold text-[#161d20] leading-snug break-words">
-                          {{ prod.name }}
-                        </span>
-                      </div>
-                      <div class="flex flex-wrap items-center justify-between gap-2 pt-1">
-                        <span class="text-sm font-extrabold text-[#00545f]">
-                          {{ formatFcfa(prod.priceFcfa) }}
-                        </span>
+                      <div class="relative w-full aspect-[4/3] overflow-hidden rounded-t-xl bg-[#eef4f5] shrink-0">
+                        <img
+                          [src]="resolveProductImageSrc(prod)"
+                          [alt]="prod.name"
+                          loading="lazy"
+                          width="200"
+                          height="150"
+                          (error)="onProductImageError(prod.id)"
+                          [attr.data-default-image]="isDefaultProductImage(prod) ? 'true' : 'false'"
+                          class="h-full w-full object-cover"
+                          [class.grayscale]="prod.status === 'SOLD_OUT'"
+                          [class.opacity-75]="prod.status === 'SOLD_OUT'"
+                        />
                         @if (prod.status === 'SOLD_OUT') {
-                          <span class="rounded-full bg-[#e2e8ea] px-2.5 py-0.5 text-[11px] font-extrabold text-[#3d494a]">
+                          <span
+                            data-testid="product-sold-out-badge"
+                            class="absolute top-2 right-2 rounded-full bg-[#161d20]/90 px-2.5 py-1 text-[11px] font-extrabold text-white shadow-sm"
+                          >
                             Épuisé
-                          </span>
-                        } @else {
-                          <span class="rounded-full bg-[#e6f0f2] px-2.5 py-0.5 text-[11px] font-bold text-[#00545f]">
-                            + Ajouter
                           </span>
                         }
                       </div>
-                    </button>
+
+                      <div class="flex flex-1 flex-col justify-between gap-2.5 p-3 min-w-0">
+                        <div class="space-y-1 min-w-0">
+                          <span class="block text-[11px] font-bold uppercase tracking-wide text-[#3d494a] break-words">
+                            {{ prod.categoryName }}
+                          </span>
+                          <h3 class="text-sm font-extrabold text-[#161d20] leading-snug whitespace-normal break-words">
+                            {{ prod.name }}
+                          </h3>
+                        </div>
+
+                        <div class="mt-auto flex flex-wrap items-center justify-between gap-2 pt-1">
+                          <span class="text-sm font-extrabold text-[#00545f] whitespace-nowrap">
+                            {{ formatFcfa(prod.priceFcfa) }}
+                          </span>
+                          <button
+                            type="button"
+                            [attr.data-testid]="'btn-add-product-' + prod.id"
+                            [disabled]="isProductDisabled(prod)"
+                            (click)="$event.stopPropagation(); addProductToTicket(prod)"
+                            class="rb-btn rb-btn-sm shrink-0"
+                            [class.rb-btn-outline]="prod.status !== 'SOLD_OUT'"
+                            [class.rb-btn-muted]="prod.status === 'SOLD_OUT'"
+                          >
+                            + Ajouter
+                          </button>
+                        </div>
+                      </div>
+                    </article>
                   }
                 </div>
               }
@@ -750,6 +782,7 @@ export class RestaurantPosPageComponent implements OnInit {
   readonly ordersSearch = signal<string>('');
   readonly cancellingOrder = signal<RestaurantOrderV3 | null>(null);
   readonly cancelReason = signal<string>('');
+  readonly failedImageIds = signal<Set<string>>(new Set());
 
   readonly paymentMethods = RESTAURANT_PAYMENT_METHODS;
   private searchTimer: ReturnType<typeof setTimeout> | null = null;
@@ -862,6 +895,40 @@ export class RestaurantPosPageComponent implements OnInit {
       const first = this.service.roomsInStay()[0];
       if (first) this.selectedReservationId.set(first.reservationId);
     }
+  }
+
+  isProductDisabled(prod: DishItem): boolean {
+    return prod.status === 'SOLD_OUT' || this.service.canReadOnly();
+  }
+
+  isDefaultProductImage(prod: DishItem): boolean {
+    return !prod.thumbnailUrl?.trim() || this.failedImageIds().has(prod.id);
+  }
+
+  resolveProductImageSrc(prod: DishItem): string {
+    if (this.failedImageIds().has(prod.id)) {
+      return RESTAURANT_DEFAULT_PLATE_SVG_URI;
+    }
+    const thumb = prod.thumbnailUrl?.trim();
+    return thumb || RESTAURANT_DEFAULT_PLATE_SVG_URI;
+  }
+
+  onProductImageError(productId: string): void {
+    if (this.failedImageIds().has(productId)) return;
+    this.failedImageIds.update((prev) => {
+      const next = new Set(prev);
+      next.add(productId);
+      return next;
+    });
+  }
+
+  onProductCardKeydown(event: Event, prod: DishItem): void {
+    const target = event.target as HTMLElement | null;
+    if (target?.closest('button')) {
+      return;
+    }
+    event.preventDefault();
+    this.addProductToTicket(prod);
   }
 
   addProductToTicket(prod: DishItem): void {
