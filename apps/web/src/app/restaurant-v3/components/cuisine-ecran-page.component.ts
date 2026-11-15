@@ -512,7 +512,7 @@ const UNAVAILABLE_REASONS = ['Plus de stock', 'Cuisson impossible', 'Autre'] as 
                           [disabled]="restaurant.busyAction()"
                           (click)="startPreparation(order.id, m)"
                           [attr.data-testid]="'cuisine-prep-' + m"
-                          class="h-[72px] rounded-2xl bg-primary text-on-primary font-bold text-[26px] disabled:opacity-50 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-primary/50"
+                          class="h-[72px] px-2 rounded-2xl bg-primary text-on-primary font-bold text-[17px] whitespace-nowrap disabled:opacity-50 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-primary/50"
                         >
                           {{ m }} min
                         </button>
@@ -521,7 +521,7 @@ const UNAVAILABLE_REASONS = ['Plus de stock', 'Cuisson impossible', 'Autre'] as 
                         type="button"
                         (click)="openKeypad()"
                         data-testid="cuisine-prep-other"
-                        class="h-[72px] rounded-2xl border-2 border-primary text-primary bg-surface-container-lowest font-bold text-[26px] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-primary/50"
+                        class="h-[72px] px-2 rounded-2xl border-2 border-primary text-primary bg-surface-container-lowest font-bold text-[17px] whitespace-nowrap focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-primary/50"
                       >
                         Autre
                       </button>
@@ -561,7 +561,7 @@ const UNAVAILABLE_REASONS = ['Plus de stock', 'Cuisson impossible', 'Autre'] as 
                           type="button"
                           (click)="clearKeypad()"
                           data-testid="cuisine-key-clear"
-                          class="min-h-[64px] rounded-xl bg-surface-container text-xl font-bold text-on-surface-variant"
+                          class="min-h-[64px] px-2 rounded-xl bg-surface-container text-base xl:text-lg font-bold text-on-surface-variant whitespace-nowrap"
                         >
                           Effacer
                         </button>
@@ -570,7 +570,7 @@ const UNAVAILABLE_REASONS = ['Plus de stock', 'Cuisson impossible', 'Autre'] as 
                           [disabled]="keypadMinutes() < 1 || restaurant.busyAction()"
                           (click)="startPreparation(order.id, keypadMinutes())"
                           data-testid="cuisine-key-confirm"
-                          class="min-h-[64px] rounded-xl bg-primary text-on-primary text-xl font-bold disabled:opacity-45"
+                          class="min-h-[64px] px-2 rounded-xl bg-primary text-on-primary text-base xl:text-lg font-bold whitespace-nowrap disabled:opacity-45"
                         >
                           Valider
                         </button>

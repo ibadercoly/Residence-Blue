@@ -180,8 +180,17 @@ test.describe('Cuisine — Nouveau design tablette sans défilement', () => {
       fullPage: false,
     });
 
-    // Toucher "Oui, tout est là" -> "15 min" -> En préparation
+    // Toucher "Oui, tout est là" -> vérifier boutons de durée sans débordement -> "15 min" -> En préparation
     await page.locator('[data-testid="cuisine-btn-all-available"]').click();
+    const prepOverflow = await page.evaluate(() => {
+      const btns = Array.from(document.querySelectorAll('[data-testid^="cuisine-prep-"]'));
+      return btns.every((b) => b.scrollWidth <= b.clientWidth + 1);
+    });
+    expect(prepOverflow).toBe(true);
+    await page.screenshot({
+      path: path.join(COMP_DIR, 'actual_cuisine_durees.png'),
+      fullPage: false,
+    });
     await page.locator('[data-testid="cuisine-prep-15"]').click();
     await expect(page.locator('[data-testid="cuisine-countdown-box"]')).toBeVisible({ timeout: 8000 });
     await page.screenshot({
