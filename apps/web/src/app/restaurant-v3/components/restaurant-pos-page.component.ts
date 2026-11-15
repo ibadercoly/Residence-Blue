@@ -84,14 +84,6 @@ import {
             </button>
             @if (service.isDirection()) {
               <a
-                routerLink="/cuisine"
-                data-testid="link-kitchen"
-                class="rb-btn rb-btn-outline"
-              >
-                <span class="material-symbols-outlined text-[18px]" aria-hidden="true">soup_kitchen</span>
-                <span>Cuisine</span>
-              </a>
-              <a
                 routerLink="/restaurant/carte"
                 data-testid="link-carte"
                 class="rb-btn rb-btn-secondary"

@@ -21,6 +21,7 @@ test.describe('Restaurant POS — sans carte d information de suivi', () => {
     await page.goto('/restaurant', { waitUntil: 'domcontentloaded' });
 
     await expect(page.locator('[data-testid="restaurant-pos-page"]')).toBeVisible({ timeout: 15000 });
+    await expect(page.locator('[data-testid="link-kitchen"]')).toHaveCount(0);
     await expect(page.locator('[data-testid="pos-tracking-cards-section"]')).toHaveCount(0);
     await expect(page.locator('[data-testid^="pos-order-card-"]')).toHaveCount(0);
     await expect(page.locator('[data-testid="pos-categories-bar"]')).toBeVisible();
