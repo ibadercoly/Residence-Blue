@@ -266,6 +266,13 @@ export class RestaurantService {
         normalizedStatus === 'IN_PREPARATION') &&
       Date.now() - createdAtDate.getTime() > TWELVE_HOURS_MS;
     const hasUnavailableItems = (o.lines || []).some((l: any) => Boolean(l.isUnavailable));
+    const readyLines = (o.lines || []).filter((l: any) => !l.isUnavailable);
+    const linesForReadyMsg = readyLines.length > 0 ? readyLines : o.lines || [];
+    const totalReadyQty = linesForReadyMsg.reduce((sum: number, l: any) => sum + (l.quantity || 1), 0);
+    const readyDishesStr = linesForReadyMsg.map((l: any) => `${l.quantity} ${l.name}`).join(', ');
+    const readyVerb = totalReadyQty > 1 ? 'prêts à servir' : 'prêt à servir';
+    const fullDest = this.resolveDestinationLabel(o, true);
+    const assistantReadyDetail = `Prête : ${readyDishesStr} ${readyVerb} à ${guestName}, ${fullDest}`;
 
     return {
       id: o.id,
@@ -341,7 +348,7 @@ export class RestaurantService {
         id: ev.id,
         orderId: ev.orderId,
         type: ev.type,
-        detail: hideAmounts && guestName ? String(ev.detail || '').replace(guestName, '').replace(/,\s*$/, '') : ev.detail,
+        detail: !hideAmounts && ev.type === 'PRETE' ? assistantReadyDetail : ev.detail,
         userId: ev.userId || null,
         userName: ev.userName || null,
         addedMinutes: ev.addedMinutes ?? null,
@@ -350,6 +357,33 @@ export class RestaurantService {
         createdAt: new Date(ev.createdAt).toISOString(),
       })),
     };
+  }
+
+  redactFormattedOrder(rawOrder: any) {
+    if (!rawOrder || typeof rawOrder !== 'object') return rawOrder;
+    const redacted: Record<string, any> = { ...rawOrder };
+    for (const key of [
+      'reservationId',
+      'invoiceId',
+      'guestName',
+      'guestPhone',
+      'paymentMethod',
+      'subtotalHtFcfa',
+      'vatRatePercent',
+      'vatAmountFcfa',
+      'totalTtcFcfa',
+    ]) {
+      delete redacted[key];
+    }
+    redacted['items'] = Array.isArray(rawOrder.items)
+      ? rawOrder.items.map((it: any) => {
+          const cleanItem = { ...it };
+          delete cleanItem.unitPriceFcfa;
+          delete cleanItem.totalPriceFcfa;
+          return cleanItem;
+        })
+      : [];
+    return redacted;
   }
 
   async findAllCategories() {
@@ -403,7 +437,7 @@ export class RestaurantService {
     const [categories, products, roomsInStay] = await Promise.all([
       this.findAllCategories(),
       this.findAllProducts(false),
-      actorRole === 'CUISINE' ? Promise.resolve([]) : this.findRoomsInStay(),
+      this.isKitchenRole(actorRole) ? Promise.resolve([]) : this.findRoomsInStay(),
     ]);
     return { categories, products, roomsInStay };
   }
@@ -805,7 +839,7 @@ export class RestaurantService {
     if (q) {
       where.OR = [
         { ticketNumber: { contains: q, mode: 'insensitive' } },
-        { guestName: { contains: q, mode: 'insensitive' } },
+        ...(hideAmounts ? [] : [{ guestName: { contains: q, mode: 'insensitive' as const } }]),
         { tableLabel: { contains: q, mode: 'insensitive' } },
         { room: { number: { contains: q, mode: 'insensitive' } } },
       ];
@@ -838,24 +872,30 @@ export class RestaurantService {
 
     this.assertNoCardPan(dto.paymentRef);
 
+    const hideAmounts = this.isKitchenRole(ctx?.actorRole);
     const idempotencyKey = ctx?.idempotencyKey?.trim() || undefined;
     if (idempotencyKey) {
       const existingByKey = await this.prisma.restaurantOrder.findUnique({
         where: { idempotencyKey },
-        include: {
-          lines: true,
-          room: true,
-          reservation: { include: { guest: { select: { fullName: true } } } },
-        },
+        include: this.standardOrderInclude,
       });
       if (existingByKey) {
-        return this.formatOrder(existingByKey);
+        return this.formatOrder(existingByKey, hideAmounts);
       }
       const existingSync = await this.prisma.syncOperation.findUnique({
         where: { idempotencyKey },
       });
       if (existingSync) {
-        return existingSync.result;
+        if (!hideAmounts) return existingSync.result;
+        const storedId = (existingSync.result as any)?.id;
+        if (storedId) {
+          const ord = await this.prisma.restaurantOrder.findUnique({
+            where: { id: storedId },
+            include: this.standardOrderInclude,
+          });
+          if (ord) return this.formatOrder(ord, true);
+        }
+        return this.redactFormattedOrder(existingSync.result);
       }
     }
 
@@ -1194,18 +1234,14 @@ export class RestaurantService {
       );
 
       this.emitOrderEvent('ORDER_CREATED', formatted.id, full);
-      return formatted;
+      return hideAmounts ? this.formatOrder(full, true) : formatted;
     } catch (err: any) {
       if (idempotencyKey && err?.code === 'P2002') {
         const retry = await this.prisma.restaurantOrder.findUnique({
           where: { idempotencyKey },
-          include: {
-            lines: true,
-            room: true,
-            reservation: { include: { guest: { select: { fullName: true } } } },
-          },
+          include: this.standardOrderInclude,
         });
-        if (retry) return this.formatOrder(retry);
+        if (retry) return this.formatOrder(retry, hideAmounts);
       }
       throw err;
     }
@@ -1372,6 +1408,9 @@ export class RestaurantService {
 
     if (existing.status === 'CANCELLED' || currentStatus === 'CANCELLED') {
       throw new ConflictException('Une commande annulée ne peut plus changer d’état.');
+    }
+    if (currentStatus === 'SERVED' && requestedStatus === 'SERVED') {
+      throw new ConflictException('Cette commande est déjà servie.');
     }
 
     const now = new Date();
@@ -1601,17 +1640,13 @@ export class RestaurantService {
         const totalQty = linesForMsg.reduce((s, l) => s + (l.quantity || 1), 0);
         const dishesStr = linesForMsg.map((l) => `${l.quantity} ${l.name}`).join(', ');
         const destFull = this.resolveDestinationLabel(existing, true);
-        const guestLabel =
-          existing.guestName ||
-          existing.reservation?.guest?.fullName ||
-          (existing.destinationType === 'ROOM' ? 'Client séjour' : 'Client de passage');
         const readyVerb = totalQty > 1 ? 'prêts à servir' : 'prêt à servir';
 
         await tx.restaurantOrderEvent.create({
           data: {
             orderId: id,
             type: 'PRETE',
-            detail: `Prête : ${dishesStr} ${readyVerb} à ${guestLabel}, ${destFull}`,
+            detail: `Prête : ${dishesStr} ${readyVerb}, ${destFull}`,
             userId: actor?.userId || null,
             userName: actor?.actorName || 'Cuisinier',
             createdAt: now,
@@ -1886,20 +1921,6 @@ export class RestaurantService {
     });
     if (!existing) throw new NotFoundException(`Commande "${id}" introuvable.`);
 
-    const isDirOrRec =
-      actor?.actorRole === 'DIRECTION' || actor?.actorRole === 'RECEPTION' || !actor?.actorRole;
-    const hasUnavailable = (existing.lines || []).some((l) => Boolean(l.isUnavailable));
-    if (!isDirOrRec && !hasUnavailable) {
-      throw new ForbiddenException(
-        "L'annulation d'une commande est réservée aux rôles DIRECTION et RECEPTION.",
-      );
-    }
-
-    const reason = dto.reason?.trim();
-    if (!reason || reason.length < 3) {
-      throw new BadRequestException("Un motif d'annulation d'au moins 3 caractères est obligatoire.");
-    }
-
     const currentStatus = this.normalizeOrderStatus(existing.status);
     if (currentStatus === 'CANCELLED') {
       throw new ConflictException('Cette commande est déjà annulée.');
@@ -1912,6 +1933,20 @@ export class RestaurantService {
       throw new ConflictException(
         'Seules les commandes à l’état Envoyée, Confirmée ou En préparation peuvent être annulées.',
       );
+    }
+
+    const isDirOrRec =
+      actor?.actorRole === 'DIRECTION' || actor?.actorRole === 'RECEPTION' || !actor?.actorRole;
+    const hasUnavailable = (existing.lines || []).some((l) => Boolean(l.isUnavailable));
+    if (!isDirOrRec && currentStatus !== 'PENDING' && !hasUnavailable) {
+      throw new ForbiddenException(
+        'Cette commande est déjà en préparation, demandez à la réception de l’annuler.',
+      );
+    }
+
+    const reason = dto.reason?.trim();
+    if (!reason || reason.length < 3) {
+      throw new BadRequestException("Un motif d'annulation d'au moins 3 caractères est obligatoire.");
     }
 
     const now = new Date();

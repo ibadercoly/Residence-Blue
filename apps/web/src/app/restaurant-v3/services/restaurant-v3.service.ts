@@ -93,15 +93,31 @@ export class RestaurantV3Service {
   readonly currentRole = computed<string>(() => this.authService?.currentRole() || '');
   readonly isDirection = computed<boolean>(() => this.currentRole() === Role.DIRECTION);
   readonly isKitchenOnly = computed<boolean>(() => isKitchenOnlyRole(this.currentRole()));
-  readonly canCancelOrder = computed<boolean>(() => {
+  canCancelOrder(order?: RestaurantOrderV3): boolean {
     const role = this.currentRole();
-    return (
-      role === Role.DIRECTION ||
-      role === Role.RECEPTION ||
-      role === Role.RESTAURANT ||
-      role === Role.SERVEUR
-    );
-  });
+    const isDirOrRec = role === Role.DIRECTION || role === Role.RECEPTION;
+    if (!order) {
+      return isDirOrRec;
+    }
+    if (order.syncPending) return false;
+    const st = order.status;
+    const isPending = st === 'PENDING' || st === 'SENT_TO_KITCHEN' || st === 'ENVOYEE';
+    const isAccepted =
+      st === 'CONFIRMED' ||
+      st === 'CONFIRMEE' ||
+      st === 'IN_PREPARATION' ||
+      st === 'EN_PREPARATION';
+    if (isPending) {
+      return isDirOrRec || role === Role.RESTAURANT || role === Role.SERVEUR;
+    }
+    if (isAccepted) {
+      return (
+        isDirOrRec ||
+        ((role === Role.RESTAURANT || role === Role.SERVEUR) && Boolean(order.hasUnavailableItems))
+      );
+    }
+    return false;
+  }
   readonly canReadOnly = computed<boolean>(() => this.currentRole() === Role.COMPTABLE);
   readonly canTakeOrders = computed<boolean>(() => {
     const role = this.currentRole();

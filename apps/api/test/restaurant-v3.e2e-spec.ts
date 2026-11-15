@@ -4,6 +4,8 @@ import request from 'supertest';
 import * as fs from 'fs';
 import * as path from 'path';
 import { AppModule } from '../src/app.module';
+import { RestaurantService } from '../src/restaurant/restaurant.service';
+import { firstValueFrom, take, toArray } from 'rxjs';
 import { PrismaService } from '../src/prisma/prisma.service';
 import { ReservationStatus } from '@prisma/client';
 import { issueDbTestToken } from './auth-test.helper';
@@ -371,12 +373,14 @@ describe('Restaurant V3 — Règles métier, Atomicité, RBAC, Photos & Historiq
       .send({ status: 'IN_PREPARATION' })
       .expect(200);
 
-    // Annulation réservée à DIRECTION / RECEPTION et motif obligatoire
-    await request(app.getHttpServer())
+    // Après acceptation cuisine, RESTAURANT reçoit 403 avec un message clair (sans plat indisponible)
+    const cancelDeniedAfterPrep = await request(app.getHttpServer())
       .post(`/api/restaurant/orders/${paidOrder.body.id}/cancel`)
       .set('Authorization', `Bearer ${roleTokens['RESTAURANT']}`)
       .send({ reason: 'Erreur serveur' })
       .expect(403);
+    expect(String(cancelDeniedAfterPrep.body.message)).toContain('en préparation');
+    expect(String(cancelDeniedAfterPrep.body.message)).toContain('réception');
 
     await request(app.getHttpServer())
       .post(`/api/restaurant/orders/${paidOrder.body.id}/cancel`)
@@ -690,5 +694,270 @@ describe('Restaurant V3 — Règles métier, Atomicité, RBAC, Photos & Historiq
       .expect(200);
     expect(closedStale.body.status).toBe('CANCELLED');
     expect(closedStale.body.statut).toBe('ANNULEE');
+  });
+
+  it('règles annulation, service direct Prête->Servie, double service 409 et zéro fuite CUISINIER (SSE, idempotence, orders/page)', async () => {
+    const prod = await request(app.getHttpServer())
+      .post('/api/restaurant/products')
+      .set('Authorization', `Bearer ${roleTokens['DIRECTION']}`)
+      .send({
+        name: `Thieb Special ${Date.now()}`,
+        categoryName: 'Plats sénégalais & Mer',
+        priceFcfa: 5000,
+        prepStation: 'CUISINE',
+      })
+      .expect(201);
+    createdProductIds.push(prod.body.id);
+
+    const specialGuestName = "M. O'Connor $1 & <Vip>";
+    const secretPhone = '+221779998877';
+    const room = await prisma.room.findFirstOrThrow({ orderBy: { number: 'asc' } });
+    const guest = await prisma.guest.create({
+      data: {
+        civility: 'M.',
+        firstName: "O'Connor",
+        lastName: `Spec_${Date.now()}`,
+        fullName: specialGuestName,
+        phone: secretPhone,
+      },
+    });
+    createdGuestIds.push(guest.id);
+
+    const stay = await prisma.reservation.create({
+      data: {
+        reference: `RES-RST-SEC-${Date.now()}`,
+        guestId: guest.id,
+        roomId: room.id,
+        checkInDate: new Date(Date.now() + 120 * 86400000),
+        checkOutDate: new Date(Date.now() + 122 * 86400000),
+        nights: 2,
+        status: ReservationStatus.CHECKED_IN,
+        totalFcfa: 70000,
+      },
+    });
+    createdResIds.push(stay.id);
+
+    // 1. RESTAURANT annule une commande encore Envoyée (OK) + trace audit
+    const pendingOrd = await request(app.getHttpServer())
+      .post('/api/restaurant/orders')
+      .set('Authorization', `Bearer ${roleTokens['RESTAURANT']}`)
+      .send({
+        destinationType: 'TABLE',
+        tableLabel: 'Table 7',
+        items: [{ productId: prod.body.id, quantity: 1 }],
+      })
+      .expect(201);
+    createdOrderIds.push(pendingOrd.body.id);
+
+    const cancelledPending = await request(app.getHttpServer())
+      .post(`/api/restaurant/orders/${pendingOrd.body.id}/cancel`)
+      .set('Authorization', `Bearer ${roleTokens['RESTAURANT']}`)
+      .send({ reason: 'Faute de frappe serveur' })
+      .expect(200);
+    expect(cancelledPending.body.status).toBe('CANCELLED');
+
+    const auditCancel = await prisma.auditLog.findFirst({
+      where: { entity: 'RestaurantOrder', entityId: pendingOrd.body.id, action: 'ORDER_CANCEL' },
+    });
+    expect(auditCancel).toBeTruthy();
+
+    // 2. Commande acceptée (CONFIRMED) : RESTAURANT refusé 403, puis autorisé après plat indisponible ; DIRECTION annule en préparation
+    const acceptedOrd = await request(app.getHttpServer())
+      .post('/api/restaurant/orders')
+      .set('Authorization', `Bearer ${roleTokens['RESTAURANT']}`)
+      .send({
+        destinationType: 'TABLE',
+        tableLabel: 'Table 8',
+        items: [{ productId: prod.body.id, quantity: 2 }],
+      })
+      .expect(201);
+    createdOrderIds.push(acceptedOrd.body.id);
+
+    await request(app.getHttpServer())
+      .patch(`/api/restaurant/orders/${acceptedOrd.body.id}/status`)
+      .set('Authorization', `Bearer ${roleTokens['CUISINIER']}`)
+      .send({ status: 'CONFIRMED' })
+      .expect(200);
+
+    const deniedOnConfirmed = await request(app.getHttpServer())
+      .post(`/api/restaurant/orders/${acceptedOrd.body.id}/cancel`)
+      .set('Authorization', `Bearer ${roleTokens['RESTAURANT']}`)
+      .send({ reason: 'Erreur tardive' })
+      .expect(403);
+    expect(String(deniedOnConfirmed.body.message)).toContain('en préparation');
+
+    await request(app.getHttpServer())
+      .patch(`/api/restaurant/orders/${acceptedOrd.body.id}/status`)
+      .set('Authorization', `Bearer ${roleTokens['CUISINIER']}`)
+      .send({
+        unavailableLineIds: [acceptedOrd.body.items[0].id],
+        unavailableReason: 'Rupture stock',
+      })
+      .expect(200);
+
+    await request(app.getHttpServer())
+      .post(`/api/restaurant/orders/${acceptedOrd.body.id}/cancel`)
+      .set('Authorization', `Bearer ${roleTokens['RESTAURANT']}`)
+      .send({ reason: 'Client ne veut pas attendre' })
+      .expect(200);
+
+    const dirCancelTarget = await request(app.getHttpServer())
+      .post('/api/restaurant/orders')
+      .set('Authorization', `Bearer ${roleTokens['RESTAURANT']}`)
+      .send({
+        destinationType: 'TABLE',
+        tableLabel: 'Table 10',
+        items: [{ productId: prod.body.id, quantity: 1 }],
+      })
+      .expect(201);
+    createdOrderIds.push(dirCancelTarget.body.id);
+    await request(app.getHttpServer())
+      .patch(`/api/restaurant/orders/${dirCancelTarget.body.id}/status`)
+      .set('Authorization', `Bearer ${roleTokens['CUISINIER']}`)
+      .send({ status: 'IN_PREPARATION', prepTimeMinutes: 10 })
+      .expect(200);
+    await request(app.getHttpServer())
+      .post(`/api/restaurant/orders/${dirCancelTarget.body.id}/cancel`)
+      .set('Authorization', `Bearer ${roleTokens['DIRECTION']}`)
+      .send({ reason: 'Annulation direction' })
+      .expect(200);
+
+    // 3. Service direct Prête -> Servie (RESTAURANT et RECEPTION) + double service refusé en 409
+    for (const serverRole of ['RESTAURANT', 'RECEPTION']) {
+      const ordRes = await request(app.getHttpServer())
+        .post('/api/restaurant/orders')
+        .set('Authorization', `Bearer ${roleTokens[serverRole]}`)
+        .send({
+          destinationType: 'TABLE',
+          tableLabel: 'Table Direct',
+          items: [{ productId: prod.body.id, quantity: 1 }],
+        })
+        .expect(201);
+      createdOrderIds.push(ordRes.body.id);
+
+      await request(app.getHttpServer())
+        .patch(`/api/restaurant/orders/${ordRes.body.id}/status`)
+        .set('Authorization', `Bearer ${roleTokens['CUISINIER']}`)
+        .send({ status: 'IN_PREPARATION', prepTimeMinutes: 10 })
+        .expect(200);
+
+      await request(app.getHttpServer())
+        .patch(`/api/restaurant/orders/${ordRes.body.id}/status`)
+        .set('Authorization', `Bearer ${roleTokens['CUISINIER']}`)
+        .send({ status: 'READY' })
+        .expect(200);
+
+      const directServe = await request(app.getHttpServer())
+        .patch(`/api/restaurant/orders/${ordRes.body.id}/status`)
+        .set('Authorization', `Bearer ${roleTokens[serverRole]}`)
+        .send({ status: 'SERVED' })
+        .expect(200);
+      expect(directServe.body.status).toBe('SERVED');
+
+      const doubleServe = await request(app.getHttpServer())
+        .patch(`/api/restaurant/orders/${ordRes.body.id}/status`)
+        .set('Authorization', `Bearer ${roleTokens[serverRole]}`)
+        .send({ status: 'SERVED' })
+        .expect(409);
+      expect(String(doubleServe.body.message)).toBe('Cette commande est déjà servie.');
+    }
+
+    // 4. Zéro fuite vers CUISINIER sur toutes les routes + SSE + rejeu d'idempotence + recherche client
+    const restaurantSvc = app.get(RestaurantService);
+    const ssePromise = firstValueFrom(
+      restaurantSvc.getRoleFilteredOrderEventStream('CUISINIER').pipe(take(3), toArray()),
+    );
+
+    const idemKitchen = randomUUID();
+    const roomOrdRes = await request(app.getHttpServer())
+      .post('/api/restaurant/orders')
+      .set('Authorization', `Bearer ${roleTokens['RESTAURANT']}`)
+      .set('Idempotency-Key', idemKitchen)
+      .send({
+        destinationType: 'ROOM',
+        roomId: room.id,
+        reservationId: stay.id,
+        action: 'ROOM_CHARGE',
+        items: [{ productId: prod.body.id, quantity: 3 }],
+      })
+      .expect(201);
+    createdOrderIds.push(roomOrdRes.body.id);
+    if (roomOrdRes.body.invoiceId) createdInvoiceIds.push(roomOrdRes.body.invoiceId);
+
+    await request(app.getHttpServer())
+      .patch(`/api/restaurant/orders/${roomOrdRes.body.id}/status`)
+      .set('Authorization', `Bearer ${roleTokens['CUISINIER']}`)
+      .send({ status: 'IN_PREPARATION', prepTimeMinutes: 15 })
+      .expect(200);
+
+    const readyRoomCook = await request(app.getHttpServer())
+      .patch(`/api/restaurant/orders/${roomOrdRes.body.id}/status`)
+      .set('Authorization', `Bearer ${roleTokens['CUISINIER']}`)
+      .send({ status: 'READY' })
+      .expect(200);
+
+    const sseEvents = await ssePromise;
+    const sseSerialized = JSON.stringify(sseEvents);
+    expect(sseSerialized).not.toContain(specialGuestName);
+    expect(sseSerialized).not.toContain("O'Connor");
+    expect(sseSerialized).not.toContain(secretPhone);
+    expect(sseSerialized).not.toContain('totalTtcFcfa');
+    expect(sseSerialized).not.toContain('unitPriceFcfa');
+    const cookReadyText = JSON.stringify(readyRoomCook.body);
+    expect(cookReadyText).not.toContain(specialGuestName);
+    expect(cookReadyText).not.toContain("O'Connor");
+    expect(cookReadyText).not.toContain(secretPhone);
+    expect(cookReadyText).not.toContain('totalTtcFcfa');
+    expect(readyRoomCook.body.events[0].detail).toContain('Prête : 3');
+
+    const assistantPage = await request(app.getHttpServer())
+      .get(`/api/restaurant/orders/page?offset=0&limit=10&search=${encodeURIComponent(roomOrdRes.body.ticketNumber)}`)
+      .set('Authorization', `Bearer ${roleTokens['RESTAURANT']}`)
+      .expect(200);
+    expect(assistantPage.body.items[0].guestName).toBe(specialGuestName);
+    expect(assistantPage.body.items[0].events[0].detail).toContain(specialGuestName);
+
+    const cookSearchByGuest = await request(app.getHttpServer())
+      .get(`/api/restaurant/orders/page?offset=0&limit=50&search=${encodeURIComponent("O'Connor")}`)
+      .set('Authorization', `Bearer ${roleTokens['CUISINIER']}`)
+      .expect(200);
+    expect(cookSearchByGuest.body.items).toHaveLength(0);
+
+    for (const url of [
+      '/api/restaurant/kitchen/orders',
+      '/api/cuisine/orders',
+      '/api/restaurant/orders',
+      '/api/restaurant/orders/page?offset=0&limit=50',
+    ]) {
+      const res = await request(app.getHttpServer())
+        .get(url)
+        .set('Authorization', `Bearer ${roleTokens['CUISINIER']}`)
+        .expect(200);
+      const rawBody = JSON.stringify(res.body);
+      expect(rawBody).not.toContain(specialGuestName);
+      expect(rawBody).not.toContain("O'Connor");
+      expect(rawBody).not.toContain(secretPhone);
+      expect(rawBody).not.toContain('totalTtcFcfa');
+      expect(rawBody).not.toContain('subtotalHtFcfa');
+      expect(rawBody).not.toContain('unitPriceFcfa');
+    }
+
+    expect((await restaurantSvc.getCatalog('CUISINE')).roomsInStay).toEqual([]);
+    expect((await restaurantSvc.getCatalog('CUISINIER')).roomsInStay).toEqual([]);
+
+    const replayCook = await restaurantSvc.createOrder(
+      {
+        destinationType: 'ROOM',
+        roomId: room.id,
+        reservationId: stay.id,
+        action: 'ROOM_CHARGE',
+        items: [{ productId: prod.body.id, quantity: 3 }],
+      },
+      { idempotencyKey: idemKitchen, actorRole: 'CUISINIER' },
+    );
+    const replaySerialized = JSON.stringify(replayCook);
+    expect(replaySerialized).not.toContain(specialGuestName);
+    expect(replaySerialized).not.toContain('totalTtcFcfa');
+    expect(replaySerialized).not.toContain('unitPriceFcfa');
   });
 });

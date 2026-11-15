@@ -779,7 +779,7 @@ import {
                           Servie
                         </button>
                       }
-                      @if (!ord.syncPending && service.canCancelOrder() && (ord.status === 'PENDING' || ord.status === 'SENT_TO_KITCHEN' || ord.status === 'CONFIRMED' || ord.status === 'IN_PREPARATION')) {
+                      @if (service.canCancelOrder(ord)) {
                         <button
                           type="button"
                           [attr.data-testid]="'btn-cancel-order-' + ord.id"
@@ -853,7 +853,7 @@ import {
                             Servie
                           </button>
                         }
-                        @if (!ord.syncPending && service.canCancelOrder() && (ord.status === 'PENDING' || ord.status === 'SENT_TO_KITCHEN' || ord.status === 'IN_PREPARATION')) {
+                        @if (service.canCancelOrder(ord)) {
                           <button
                             type="button"
                             (click)="openCancelPrompt(ord)"
