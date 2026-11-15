@@ -31,6 +31,7 @@ import {
   CancelRestaurantOrderDto,
   CreateRestaurantOrderDto,
   CreateRestaurantProductDto,
+  ModifyRestaurantOrderItemsDto,
   PayRestaurantOrderDto,
   RestaurantOrdersQueryDto,
   UpdateRestaurantOrderDto,
@@ -255,7 +256,7 @@ export class RestaurantController {
   }
 
   @Post('orders/:id/cancel')
-  @Roles(Role.DIRECTION, Role.RECEPTION)
+  @Roles(Role.DIRECTION, Role.RECEPTION, Role.RESTAURANT, Role.SERVEUR)
   @HttpCode(HttpStatus.OK)
   async cancelOrder(
     @Param('id') id: string,
@@ -263,6 +264,16 @@ export class RestaurantController {
     @Req() req: Request,
   ) {
     return this.restaurantService.cancelOrder(id, dto, this.extractActor(req));
+  }
+
+  @Patch('orders/:id/items')
+  @Roles(Role.DIRECTION, Role.RECEPTION, Role.RESTAURANT, Role.SERVEUR)
+  async modifyOrderItems(
+    @Param('id') id: string,
+    @Body() dto: ModifyRestaurantOrderItemsDto,
+    @Req() req: Request,
+  ) {
+    return this.restaurantService.modifyOrderItems(id, dto, this.extractActor(req));
   }
 
   @Patch('orders/:id/status')
@@ -297,5 +308,24 @@ export class RestaurantController {
     @Req() req: Request,
   ) {
     return this.restaurantService.updateOrder(id, dto, this.extractActor(req));
+  }
+}
+
+@Controller('cuisine')
+export class CuisineController {
+  constructor(private readonly restaurantService: RestaurantService) {}
+
+  @Get('orders')
+  @Roles(Role.DIRECTION, Role.CUISINE, Role.CUISINIER)
+  async findCuisineOrders(@Req() req: Request) {
+    const role = (req as any)?.user?.role as string | undefined;
+    return this.restaurantService.findAllOrders(role);
+  }
+
+  @Get('*')
+  @Roles(Role.DIRECTION, Role.CUISINE, Role.CUISINIER)
+  async findCuisineRoot(@Req() req: Request) {
+    const role = (req as any)?.user?.role as string | undefined;
+    return this.restaurantService.findAllOrders(role);
   }
 }

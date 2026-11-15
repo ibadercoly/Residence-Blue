@@ -464,7 +464,7 @@ describe('Restaurant V3 — Règles métier, Atomicité, RBAC, Photos & Historiq
       .expect(201);
     createdProductIds.push(prod.body.id);
 
-    // 1. CUISINIER reçoit 403 sur catalog, création commande, paiement, annulation ; RECEPTION et RESTAURANT reçoivent 403 sur /api/restaurant/kitchen/orders
+    // 1. CUISINIER reçoit 403 sur catalog, création commande, paiement, annulation ; RECEPTION et RESTAURANT reçoivent 403 sur /api/cuisine/* et /api/restaurant/kitchen/orders
     await request(app.getHttpServer())
       .get('/api/restaurant/catalog')
       .set('Authorization', `Bearer ${roleTokens['CUISINIER']}`)
@@ -482,6 +482,22 @@ describe('Restaurant V3 — Règles métier, Atomicité, RBAC, Photos & Historiq
       .get('/api/restaurant/kitchen/orders')
       .set('Authorization', `Bearer ${roleTokens['RESTAURANT']}`)
       .expect(403);
+    await request(app.getHttpServer())
+      .get('/api/cuisine/orders')
+      .set('Authorization', `Bearer ${roleTokens['RECEPTION']}`)
+      .expect(403);
+    await request(app.getHttpServer())
+      .get('/api/cuisine/orders')
+      .set('Authorization', `Bearer ${roleTokens['RESTAURANT']}`)
+      .expect(403);
+    await request(app.getHttpServer())
+      .get('/api/cuisine/orders')
+      .set('Authorization', `Bearer ${roleTokens['CUISINIER']}`)
+      .expect(200);
+    await request(app.getHttpServer())
+      .get('/api/cuisine/orders')
+      .set('Authorization', `Bearer ${roleTokens['DIRECTION']}`)
+      .expect(200);
 
     // 2. Assistant crée une commande de 4 spaghettis
     const created = await request(app.getHttpServer())
@@ -543,7 +559,7 @@ describe('Restaurant V3 — Règles métier, Atomicité, RBAC, Photos & Historiq
     expect([20, 25]).toContain(adjusted.body.tempsPreparationMinutes);
     expect(adjusted.body.heureFinPrevue).toBeTruthy();
 
-    // 7. CUISINIER marque Prête (200), mais ne peut pas marquer Servie (403) ni Annuler (403)
+    // 7. CUISINIER marque Prête (200), mais ne peut pas autoriser (403), marquer Servie (403) ni Annuler (403)
     const readyRes = await request(app.getHttpServer())
       .patch(`/api/restaurant/orders/${orderId}/status`)
       .set('Authorization', `Bearer ${roleTokens['CUISINIER']}`)
@@ -551,6 +567,12 @@ describe('Restaurant V3 — Règles métier, Atomicité, RBAC, Photos & Historiq
       .expect(200);
     expect(readyRes.body.statut).toBe('PRETE');
     expect(readyRes.body.preteAt).toBeTruthy();
+
+    await request(app.getHttpServer())
+      .patch(`/api/restaurant/orders/${orderId}/status`)
+      .set('Authorization', `Bearer ${roleTokens['CUISINIER']}`)
+      .send({ status: 'AUTHORIZED' })
+      .expect(403);
 
     await request(app.getHttpServer())
       .patch(`/api/restaurant/orders/${orderId}/status`)
@@ -571,7 +593,15 @@ describe('Restaurant V3 — Règles métier, Atomicité, RBAC, Photos & Historiq
       .send({ reason: 'Trop tard déjà prête' })
       .expect(409);
 
-    // 9. Assistant marque Servie (200), puis retour vers En préparation refusé en 409
+    // 9. Assistant autorise le service (AUTHORIZED) puis marque Servie (SERVED)
+    const authRes = await request(app.getHttpServer())
+      .patch(`/api/restaurant/orders/${orderId}/status`)
+      .set('Authorization', `Bearer ${roleTokens['RESTAURANT']}`)
+      .send({ status: 'AUTHORIZED' })
+      .expect(200);
+    expect(authRes.body.statut).toBe('AUTORISEE');
+    expect(authRes.body.autoriseAt).toBeTruthy();
+
     const servedRes = await request(app.getHttpServer())
       .patch(`/api/restaurant/orders/${orderId}/status`)
       .set('Authorization', `Bearer ${roleTokens['RESTAURANT']}`)
@@ -579,6 +609,41 @@ describe('Restaurant V3 — Règles métier, Atomicité, RBAC, Photos & Historiq
       .expect(200);
     expect(servedRes.body.statut).toBe('SERVIE');
     expect(servedRes.body.serviAt).toBeTruthy();
+    expect(Array.isArray(servedRes.body.events)).toBe(true);
+    expect(servedRes.body.events[0].type).toBe('SERVIE');
+
+    // 9b. Signalement plat indisponible + modification par l'assistant
+    const unavailOrderRes = await request(app.getHttpServer())
+      .post('/api/restaurant/orders')
+      .set('Authorization', `Bearer ${roleTokens['RESTAURANT']}`)
+      .send({
+        destinationType: 'TABLE',
+        tableLabel: 'Table 5',
+        items: [{ productId: prod.body.id, quantity: 2 }],
+      })
+      .expect(201);
+    createdOrderIds.push(unavailOrderRes.body.id);
+
+    const reportedRes = await request(app.getHttpServer())
+      .patch(`/api/restaurant/orders/${unavailOrderRes.body.id}/status`)
+      .set('Authorization', `Bearer ${roleTokens['CUISINIER']}`)
+      .send({
+        unavailableLineIds: [unavailOrderRes.body.items[0].id],
+        unavailableReason: 'plus de pâtes',
+      })
+      .expect(200);
+    expect(reportedRes.body.hasUnavailableItems).toBe(true);
+    expect(reportedRes.body.events[0].type).toBe('PLAT_INDISPONIBLE');
+
+    const modifiedRes = await request(app.getHttpServer())
+      .patch(`/api/restaurant/orders/${unavailOrderRes.body.id}/items`)
+      .set('Authorization', `Bearer ${roleTokens['RESTAURANT']}`)
+      .send({
+        items: [{ productId: prod.body.id, quantity: 1 }],
+      })
+      .expect(200);
+    expect(modifiedRes.body.hasUnavailableItems).toBe(false);
+    expect(modifiedRes.body.events[0].type).toBe('COMMANDE_MODIFIEE');
 
     await request(app.getHttpServer())
       .patch(`/api/restaurant/orders/${orderId}/status`)

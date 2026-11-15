@@ -120,7 +120,7 @@ import {
           <div
             role="status"
             data-testid="pos-success-banner"
-            class="flex items-center justify-between gap-3 rounded-xl border border-[#116b41]/35 bg-[#e3f5ec] px-4 py-3 text-sm font-bold text-[#116b41]"
+            class="flex items-center justify-between gap-3 rounded-xl border border-[#116b41]/35 bg-[#e3f5ec] px-4 py-3 text-base font-bold text-[#116b41]"
           >
             <span>{{ ok }}</span>
             <button type="button" (click)="service.clearMessages()" class="rb-btn rb-btn-sm rb-btn-outline">
@@ -129,38 +129,328 @@ import {
           </div>
         }
 
-        <!-- Notifications persistantes des commandes prêtes à servir -->
-        @if (readyOrders().length > 0) {
+        <!-- 4. BANDEAUX DE NOTIFICATIONS ASSISTANT (persistants jusqu'au clic « Compris ») -->
+        @if (service.assistantNotifications().length > 0) {
           <section
-            aria-label="Commandes prêtes à servir"
-            data-testid="pos-ready-notifications"
-            class="space-y-2"
+            aria-label="Notifications de la cuisine"
+            data-testid="pos-assistant-notifications"
+            class="space-y-2.5"
           >
-            @for (readyOrd of readyOrders(); track readyOrd.id) {
+            @for (notif of service.assistantNotifications(); track notif.id) {
               <div
                 role="alert"
-                [attr.data-testid]="'pos-ready-banner-' + readyOrd.id"
-                class="flex flex-wrap items-center justify-between gap-3 rounded-xl border-2 border-[#116b41] bg-[#e3f5ec] px-4 py-3 text-sm font-extrabold text-[#116b41] shadow-sm"
+                [attr.data-testid]="'pos-notif-banner-' + notif.id"
+                [attr.data-notif-type]="notif.type"
+                [attr.data-order-id]="notif.orderId"
+                [class]="
+                  notif.type === 'PRETE'
+                    ? 'flex flex-wrap items-center justify-between gap-3 rounded-xl border-2 border-[#116b41] bg-[#e3f5ec] px-4 py-3 text-base font-extrabold text-[#116b41] shadow-sm'
+                    : notif.type === 'PLAT_INDISPONIBLE'
+                      ? 'flex flex-wrap items-center justify-between gap-3 rounded-xl border-2 border-[#b81d1d] bg-[#fde8e8] px-4 py-3 text-base font-extrabold text-[#9b1c1c] shadow-sm'
+                      : 'flex flex-wrap items-center justify-between gap-3 rounded-xl border-2 border-[#006875] bg-[#e0f2fe] px-4 py-3 text-base font-extrabold text-[#075985] shadow-sm'
+                "
               >
-                <div class="flex items-center gap-2 min-w-0">
-                  <span class="material-symbols-outlined text-[22px] shrink-0" aria-hidden="true">room_service</span>
-                  <span class="break-words">{{ formatReadyBannerText(readyOrd) }}</span>
+                <div class="flex items-center gap-2.5 min-w-0">
+                  <span class="material-symbols-outlined text-[22px] shrink-0" aria-hidden="true">
+                    {{
+                      notif.type === 'PRETE'
+                        ? 'room_service'
+                        : notif.type === 'PLAT_INDISPONIBLE'
+                          ? 'warning'
+                          : 'notifications_active'
+                    }}
+                  </span>
+                  <span class="break-words">{{ notif.message }}</span>
                 </div>
-                @if (!service.canReadOnly()) {
-                  <button
-                    type="button"
-                    [attr.data-testid]="'btn-banner-serve-' + readyOrd.id"
-                    [disabled]="service.busyAction()"
-                    (click)="markServed(readyOrd)"
-                    class="rb-btn rb-btn-sm rb-btn-primary shrink-0"
-                  >
-                    Servie
-                  </button>
-                }
+                <button
+                  type="button"
+                  [attr.data-testid]="'btn-notif-understood-' + notif.id"
+                  (click)="service.dismissAssistantNotification(notif.id)"
+                  class="rb-btn rb-btn-sm rb-btn-primary shrink-0"
+                >
+                  Compris
+                </button>
               </div>
             }
           </section>
         }
+
+        <!-- 3. ZONE « SUIVI DES COMMANDES ENVOYÉES » (cartes d'information temps réel avec frise d'événements) -->
+        <section
+          aria-label="Suivi des commandes envoyées"
+          data-testid="pos-tracking-cards-section"
+          class="rounded-2xl border border-[#d6e2e4] bg-white p-3.5 sm:p-4 space-y-3"
+        >
+          <div class="flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <h2 class="rb-serif text-xl font-bold text-[#161d20]">
+                Suivi des commandes envoyées
+              </h2>
+              <p class="text-base font-medium text-[#3d494a]">
+                Cartes d’information en temps réel, frise des événements de cuisine et autorisation de service.
+              </p>
+            </div>
+            <span class="rounded-full bg-[#e6f0f2] px-3 py-1 text-base font-extrabold text-[#00545f]">
+              {{ trackingCardOrders().length }} commande(s)
+            </span>
+          </div>
+
+          <div
+            data-testid="pos-tracking-cards-scroll"
+            class="rb-scroll-box max-h-[440px] space-y-3.5 pr-1.5"
+          >
+            @if (trackingCardOrders().length === 0) {
+              <p class="rounded-xl border border-dashed border-[#c2d2d4] p-5 text-center text-base font-medium text-[#3d494a]">
+                Aucune commande envoyée en cours de suivi.
+              </p>
+            } @else {
+              @for (ord of trackingCardOrders(); track ord.id) {
+                <article
+                  [attr.data-testid]="'pos-order-card-' + ord.id"
+                  [class]="
+                    ord.status === 'READY'
+                      ? 'rounded-2xl border-2 border-[#116b41] bg-[#e3f5ec] p-4 space-y-3 shadow-sm'
+                      : ord.hasUnavailableItems
+                        ? 'rounded-2xl border-2 border-[#b81d1d] bg-[#fff5f5] p-4 space-y-3 shadow-sm'
+                        : 'rounded-2xl border border-[#c2d2d4] bg-[#f8fafb] p-4 space-y-3'
+                  "
+                >
+                  <!-- En-tête de la carte : destination + nom client, heure d'envoi et état actuel en grand -->
+                  <div class="flex flex-wrap items-start justify-between gap-3">
+                    <div class="min-w-0">
+                      <h3
+                        [attr.data-testid]="'card-header-dest-' + ord.id"
+                        class="text-lg sm:text-xl font-extrabold text-[#161d20] break-words"
+                      >
+                        {{ formatCardHeaderTitle(ord) }}
+                      </h3>
+                      <p class="text-base font-bold text-[#3d494a]">
+                        {{ ord.ticketNumber }} • Envoyée à {{ formatOrderTime(ord.envoyeeAt || ord.createdAt) }}
+                      </p>
+                    </div>
+
+                    <div class="flex flex-col items-end gap-1">
+                      @if (ord.syncPending) {
+                        <span
+                          [attr.data-testid]="'card-status-' + ord.id"
+                          class="inline-flex items-center rounded-xl border border-[#925300] bg-[#fef3c7] px-3 py-1.5 text-base font-extrabold text-[#925300]"
+                        >
+                          En attente de synchronisation, la cuisine ne l'a pas encore reçue
+                        </span>
+                      } @else if (ord.status === 'READY') {
+                        <span
+                          [attr.data-testid]="'card-status-' + ord.id"
+                          class="inline-flex items-center rounded-xl border-2 border-[#116b41] bg-white px-3.5 py-1.5 text-lg font-extrabold text-[#116b41]"
+                        >
+                          Prête à servir
+                        </span>
+                      } @else if (ord.status === 'IN_PREPARATION') {
+                        <span
+                          [attr.data-testid]="'card-status-' + ord.id"
+                          [class]="
+                            prepCountdown(ord).isOverdue
+                              ? 'inline-flex items-center rounded-xl border-2 border-[#c2410c] bg-[#ffedd5] px-3.5 py-1.5 text-base font-extrabold text-[#9a3412]'
+                              : 'inline-flex items-center rounded-xl border border-[#925300] bg-[#fef3c7] px-3.5 py-1.5 text-base font-extrabold text-[#925300]'
+                          "
+                        >
+                          {{ formatCardPrepStatus(ord) }}
+                        </span>
+                      } @else {
+                        <span
+                          [attr.data-testid]="'card-status-' + ord.id"
+                          [class]="'inline-flex items-center rounded-xl border px-3.5 py-1.5 text-base font-extrabold ' + orderStatusBadgeClass(ord.status)"
+                        >
+                          {{ orderStatusLabel(ord.status) }}
+                        </span>
+                      }
+                    </div>
+                  </div>
+
+                  <!-- Liste des plats et quantités -->
+                  <div class="rounded-xl border border-[#d6e2e4] bg-white p-3 space-y-1.5">
+                    @for (it of ord.items; track it.id) {
+                      <div class="flex flex-wrap items-center justify-between gap-2 text-base text-[#161d20]">
+                        <div>
+                          <span class="font-extrabold text-[#00545f] mr-1.5">{{ it.quantity }}×</span>
+                          <span [class]="it.isUnavailable ? 'font-bold line-through text-[#9b1c1c]' : 'font-bold'">
+                            {{ it.name }}
+                          </span>
+                          @if (it.isUnavailable) {
+                            <span class="ml-2 inline-block rounded bg-[#fde8e8] px-2 py-0.5 text-sm font-extrabold text-[#9b1c1c]">
+                              Indisponible ({{ it.unavailableReason || 'rupture' }})
+                            </span>
+                          }
+                          @if (it.notes) {
+                            <span class="ml-2 text-sm font-semibold text-[#3d494a]">({{ it.notes }})</span>
+                          }
+                        </div>
+                      </div>
+                    }
+                  </div>
+
+                  <!-- Frise d'événements datés (la plus récente en haut) -->
+                  @if ((ord.events?.length || 0) > 0) {
+                    <div
+                      [attr.data-testid]="'card-timeline-' + ord.id"
+                      class="rounded-xl border border-[#d6e2e4] bg-white p-3 space-y-1.5"
+                    >
+                      <span class="block text-sm font-extrabold uppercase tracking-wider text-[#3d494a]">
+                        Frise des événements (plus récent en haut)
+                      </span>
+                      <ul class="space-y-1.5">
+                        @for (ev of ord.events; track ev.id) {
+                          <li
+                            [attr.data-testid]="'card-event-' + ord.id + '-' + ev.type"
+                            [class]="
+                              ev.type === 'PLAT_INDISPONIBLE'
+                                ? 'text-base font-extrabold text-[#9b1c1c]'
+                                : ev.type === 'PRETE'
+                                  ? 'text-base font-extrabold text-[#116b41]'
+                                  : 'text-base font-semibold text-[#161d20]'
+                            "
+                          >
+                            <span class="font-extrabold mr-2">{{ formatOrderTime(ev.createdAt) }}</span>
+                            <span>{{ ev.detail }}</span>
+                          </li>
+                        }
+                      </ul>
+                    </div>
+                  }
+
+                  <!-- Éditeur inline de modification de commande si ouvert -->
+                  @if (modifyingOrderId() === ord.id) {
+                    <div
+                      [attr.data-testid]="'card-modify-box-' + ord.id"
+                      class="rounded-xl border-2 border-[#006875] bg-white p-3.5 space-y-3"
+                    >
+                      <div class="flex items-center justify-between gap-2">
+                        <span class="text-base font-extrabold text-[#00545f]">
+                          Modifier les plats de la commande {{ ord.ticketNumber }}
+                        </span>
+                        <button
+                          type="button"
+                          (click)="closeModifyOrder()"
+                          class="rb-btn rb-btn-sm rb-btn-outline"
+                        >
+                          Fermer
+                        </button>
+                      </div>
+                      <div class="space-y-2">
+                        @for (mLine of modifyDraftLines(); track $index) {
+                          <div class="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-[#d6e2e4] p-2">
+                            <span class="text-base font-bold text-[#161d20]">
+                              {{ mLine.name }}
+                            </span>
+                            <div class="flex items-center gap-2">
+                              <button
+                                type="button"
+                                (click)="changeModifyLineQty($index, -1)"
+                                class="rb-btn rb-btn-sm rb-btn-outline min-w-[40px]"
+                              >
+                                −
+                              </button>
+                              <span class="text-base font-extrabold text-[#161d20] min-w-[28px] text-center">
+                                {{ mLine.quantity }}
+                              </span>
+                              <button
+                                type="button"
+                                (click)="changeModifyLineQty($index, 1)"
+                                class="rb-btn rb-btn-sm rb-btn-outline min-w-[40px]"
+                              >
+                                +
+                              </button>
+                            </div>
+                          </div>
+                        }
+                      </div>
+                      <div class="flex flex-wrap items-center gap-2">
+                        <select
+                          [attr.data-testid]="'card-modify-add-select-' + ord.id"
+                          [ngModel]="modifyReplacementProductId()"
+                          (ngModelChange)="modifyReplacementProductId.set($event)"
+                          class="min-h-[44px] flex-1 rounded-xl border border-[#7c8c8e] bg-white px-3 text-base font-semibold text-[#161d20]"
+                        >
+                          <option value="">+ Ajouter un plat de remplacement...</option>
+                          @for (p of activeCatalogProducts(); track p.id) {
+                            <option [value]="p.id">{{ p.name }} ({{ formatFcfa(p.priceFcfa) }})</option>
+                          }
+                        </select>
+                        <button
+                          type="button"
+                          [attr.data-testid]="'btn-add-replacement-' + ord.id"
+                          (click)="addReplacementToModifyDraft()"
+                          class="rb-btn rb-btn-sm rb-btn-outline"
+                        >
+                          Ajouter ce plat
+                        </button>
+                        <button
+                          type="button"
+                          [attr.data-testid]="'btn-save-modified-order-' + ord.id"
+                          [disabled]="modifyDraftLines().length === 0 || service.busyAction()"
+                          (click)="saveModifiedOrder(ord)"
+                          class="rb-btn rb-btn-sm rb-btn-primary"
+                        >
+                          Enregistrer la modification
+                        </button>
+                      </div>
+                    </div>
+                  }
+
+                  <!-- Actions de la carte selon l'état -->
+                  @if (!ord.syncPending && !service.canReadOnly()) {
+                    <div class="flex flex-wrap items-center justify-end gap-2.5 pt-1">
+                      @if (ord.status === 'READY') {
+                        <!-- Carte verte Prête à servir : un seul grand bouton « J'autorise le service » -->
+                        <button
+                          type="button"
+                          [attr.data-testid]="'btn-authorize-service-' + ord.id"
+                          [disabled]="service.busyAction()"
+                          (click)="authorizeService(ord)"
+                          class="rb-btn rb-btn-primary w-full sm:w-auto text-base px-6 min-h-[48px]"
+                        >
+                          J'autorise le service
+                        </button>
+                      } @else if (ord.status === 'AUTHORIZED') {
+                        <button
+                          type="button"
+                          [attr.data-testid]="'btn-card-serve-' + ord.id"
+                          [disabled]="service.busyAction()"
+                          (click)="markServed(ord)"
+                          class="rb-btn rb-btn-secondary w-full sm:w-auto text-base px-6 min-h-[48px]"
+                        >
+                          Servie
+                        </button>
+                      } @else if (ord.status === 'PENDING' || ord.status === 'CONFIRMED' || ord.status === 'IN_PREPARATION') {
+                        @if (ord.hasUnavailableItems) {
+                          <button
+                            type="button"
+                            [attr.data-testid]="'btn-modify-order-' + ord.id"
+                            [disabled]="service.busyAction()"
+                            (click)="openModifyOrder(ord)"
+                            class="rb-btn rb-btn-primary"
+                          >
+                            Modifier la commande
+                          </button>
+                        }
+                        @if (service.canCancelOrder()) {
+                          <button
+                            type="button"
+                            [attr.data-testid]="'btn-card-cancel-order-' + ord.id"
+                            [disabled]="service.busyAction()"
+                            (click)="openCancelPrompt(ord)"
+                            class="rb-btn rb-btn-danger-outline"
+                          >
+                            Annuler la commande
+                          </button>
+                        }
+                      }
+                    </div>
+                  }
+                </article>
+              }
+            }
+          </div>
+        </section>
 
         <!-- Barre supérieure : pastilles de catégories qui passent à la ligne + recherche -->
         <section
@@ -747,15 +1037,26 @@ import {
                       @if (!ord.syncPending && ord.status === 'READY' && !service.canReadOnly()) {
                         <button
                           type="button"
+                          [attr.data-testid]="'btn-row-authorize-' + ord.id"
+                          [disabled]="service.busyAction()"
+                          (click)="authorizeService(ord)"
+                          class="rb-btn rb-btn-sm rb-btn-primary"
+                        >
+                          J'autorise le service
+                        </button>
+                      }
+                      @if (!ord.syncPending && ord.status === 'AUTHORIZED' && !service.canReadOnly()) {
+                        <button
+                          type="button"
                           [attr.data-testid]="'btn-serve-order-' + ord.id"
                           [disabled]="service.busyAction()"
                           (click)="markServed(ord)"
-                          class="rb-btn rb-btn-sm rb-btn-primary"
+                          class="rb-btn rb-btn-sm rb-btn-secondary"
                         >
                           Servie
                         </button>
                       }
-                      @if (!ord.syncPending && service.canCancelOrder() && (ord.status === 'PENDING' || ord.status === 'SENT_TO_KITCHEN' || ord.status === 'IN_PREPARATION')) {
+                      @if (!ord.syncPending && service.canCancelOrder() && (ord.status === 'PENDING' || ord.status === 'SENT_TO_KITCHEN' || ord.status === 'CONFIRMED' || ord.status === 'IN_PREPARATION')) {
                         <button
                           type="button"
                           [attr.data-testid]="'btn-cancel-order-' + ord.id"
@@ -945,6 +1246,18 @@ export class RestaurantPosPageComponent implements OnInit, OnDestroy {
   readonly ordersSearch = signal<string>('');
   readonly cancellingOrder = signal<RestaurantOrderV3 | null>(null);
   readonly cancelReason = signal<string>('');
+  readonly modifyingOrderId = signal<string | null>(null);
+  readonly modifyDraftLines = signal<
+    Array<{
+      productId?: string | null;
+      name: string;
+      quantity: number;
+      unitPriceFcfa?: number;
+      notes?: string;
+      prepStation?: string;
+    }>
+  >([]);
+  readonly modifyReplacementProductId = signal<string>('');
   readonly failedImageIds = signal<Set<string>>(new Set());
   private readonly staleReasonsByOrder = signal<Record<string, string>>({});
 
@@ -955,6 +1268,11 @@ export class RestaurantPosPageComponent implements OnInit, OnDestroy {
   private fallbackPollTimer: ReturnType<typeof setInterval> | null = null;
 
   readonly readyOrders = computed(() => this.service.readyOrdersList());
+
+  readonly trackingCardOrders = computed(() => {
+    const all = this.displayedOrders();
+    return all.filter((o) => o.syncPending || (o.events && o.events.length > 0) || o.status !== 'SERVED');
+  });
 
   readonly visibleCategories = computed(() =>
     this.service.categories().filter((c) => !c.isArchived),
@@ -1045,12 +1363,12 @@ export class RestaurantPosPageComponent implements OnInit, OnDestroy {
       this.selectedReservationId.set(stays[0].reservationId);
     }
 
-    // Démarrer le flux SSE après 800 ms pour laisser l'état networkidle se stabiliser à l'arrivée sur /restaurant
+    // Démarrer le flux SSE après 1 500 ms pour laisser l'état networkidle se stabiliser à l'arrivée sur /restaurant
     this.sseDelayTimer = setTimeout(() => {
       this.service.connectKitchenStream(() => {
         void this.service.loadOrdersPage({ offset: 0, limit: 50, search: this.ordersSearch() });
       });
-    }, 800);
+    }, 1500);
 
     this.clockTimer = setInterval(() => {
       this.nowMs.set(Date.now());
@@ -1093,6 +1411,83 @@ export class RestaurantPosPageComponent implements OnInit, OnDestroy {
       return num ? `Chambre ${num} (Ch. ${num})` : 'Chambre';
     }
     return ord.destinationLabel || 'Table 1';
+  }
+
+  formatCardHeaderTitle(ord: RestaurantOrderV3): string {
+    const dest = formatFullRoomDestination(ord.destinationType, ord.roomNumber, ord.destinationLabel);
+    const guest = ord.guestName?.trim();
+    return guest ? `${dest} : ${guest}` : dest;
+  }
+
+  formatCardPrepStatus(ord: RestaurantOrderV3): string {
+    const cd = this.prepCountdown(ord);
+    if (cd.isOverdue) {
+      return `En préparation • ${cd.label}`;
+    }
+    if (cd.minutesRemaining > 0) {
+      return `En préparation • prête dans ${cd.minutesRemaining} min`;
+    }
+    return 'En préparation';
+  }
+
+  async authorizeService(ord: RestaurantOrderV3): Promise<void> {
+    await this.service.updateOrderStatus(ord.id, 'AUTHORIZED');
+  }
+
+  openModifyOrder(ord: RestaurantOrderV3): void {
+    const availableOnly = (ord.items || []).filter((i) => !i.isUnavailable);
+    const baseList = availableOnly.length > 0 ? availableOnly : ord.items || [];
+    this.modifyDraftLines.set(
+      baseList.map((i) => ({
+        productId: i.productId || null,
+        name: i.name,
+        quantity: i.quantity,
+        unitPriceFcfa: i.unitPriceFcfa,
+        notes: i.notes,
+        prepStation: i.prepStation,
+      })),
+    );
+    this.modifyReplacementProductId.set('');
+    this.modifyingOrderId.set(ord.id);
+  }
+
+  closeModifyOrder(): void {
+    this.modifyingOrderId.set(null);
+    this.modifyDraftLines.set([]);
+  }
+
+  changeModifyLineQty(index: number, delta: number): void {
+    this.modifyDraftLines.update((lines) =>
+      lines
+        .map((l, idx) => (idx === index ? { ...l, quantity: l.quantity + delta } : l))
+        .filter((l) => l.quantity > 0),
+    );
+  }
+
+  addReplacementToModifyDraft(): void {
+    const pid = this.modifyReplacementProductId();
+    const prod =
+      this.activeCatalogProducts().find((p) => p.id === pid) || this.activeCatalogProducts()[0];
+    if (!prod) return;
+    this.modifyDraftLines.update((lines) => [
+      ...lines,
+      {
+        productId: prod.id,
+        name: prod.name,
+        quantity: 1,
+        unitPriceFcfa: prod.priceFcfa,
+        prepStation: prod.prepStation || 'CUISINE',
+      },
+    ]);
+  }
+
+  async saveModifiedOrder(ord: RestaurantOrderV3): Promise<void> {
+    const lines = this.modifyDraftLines();
+    if (lines.length === 0) return;
+    const ok = await this.service.modifyOrderItems(ord.id, lines);
+    if (ok) {
+      this.closeModifyOrder();
+    }
   }
 
   formatOrderDishesSummary(ord: RestaurantOrderV3): string {

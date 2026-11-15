@@ -229,9 +229,27 @@ export class CreateRestaurantOrderDto {
   items!: CreateRestaurantOrderLineDto[];
 }
 
+const ALLOWED_ORDER_STATUS_VALUES = [
+  'PENDING',
+  'SENT_TO_KITCHEN',
+  'ENVOYEE',
+  'CONFIRMED',
+  'CONFIRMEE',
+  'IN_PREPARATION',
+  'EN_PREPARATION',
+  'READY',
+  'PRETE',
+  'AUTHORIZED',
+  'AUTORISEE',
+  'SERVED',
+  'SERVIE',
+  'CANCELLED',
+  'ANNULEE',
+] as const;
+
 export class UpdateRestaurantOrderDto {
   @IsOptional()
-  @IsIn(['PENDING', 'SENT_TO_KITCHEN', 'ENVOYEE', 'IN_PREPARATION', 'EN_PREPARATION', 'READY', 'PRETE', 'SERVED', 'SERVIE', 'CANCELLED', 'ANNULEE'])
+  @IsIn(ALLOWED_ORDER_STATUS_VALUES)
   status?: string;
 
   @IsOptional()
@@ -249,7 +267,7 @@ export class UpdateRestaurantOrderDto {
   motifAnnulation?: string;
 
   @IsOptional()
-  @IsIn(['PENDING', 'SENT_TO_KITCHEN', 'ENVOYEE', 'IN_PREPARATION', 'EN_PREPARATION', 'READY', 'PRETE', 'SERVED', 'SERVIE', 'CANCELLED', 'ANNULEE'])
+  @IsIn(ALLOWED_ORDER_STATUS_VALUES)
   statut?: string;
 
   @IsOptional()
@@ -272,6 +290,24 @@ export class UpdateRestaurantOrderDto {
   @Min(1)
   @Max(120)
   addMinutes?: number;
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  unavailableLineIds?: string[];
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(300)
+  unavailableReason?: string;
+}
+
+export class ModifyRestaurantOrderItemsDto {
+  @IsArray()
+  @ArrayMinSize(1)
+  @ValidateNested({ each: true })
+  @Type(() => CreateRestaurantOrderLineDto)
+  items!: CreateRestaurantOrderLineDto[];
 }
 
 export class CancelRestaurantOrderDto {

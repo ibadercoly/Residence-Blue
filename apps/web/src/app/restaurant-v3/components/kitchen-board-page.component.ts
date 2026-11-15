@@ -118,7 +118,7 @@ import { RestaurantV3Service } from '../services/restaurant-v3.service';
             role="status"
             aria-live="assertive"
             data-testid="kitchen-new-order-banner"
-            class="flex items-center justify-between gap-3 rounded-xl border border-[#006875] bg-[#e0f2fe] px-4 py-3 text-sm font-extrabold text-[#075985] shadow-sm"
+            class="flex items-center justify-between gap-3 rounded-xl border border-[#006875] bg-[#e0f2fe] px-4 py-3 text-base font-extrabold text-[#075985] shadow-sm"
           >
             <div class="flex items-center gap-2">
               <span class="material-symbols-outlined text-[20px]" aria-hidden="true">notifications_active</span>
@@ -139,7 +139,7 @@ import { RestaurantV3Service } from '../services/restaurant-v3.service';
           <div
             role="alert"
             data-testid="kitchen-offline-banner"
-            class="rounded-xl border border-[#b81d1d]/40 bg-[#fde8e8] px-4 py-3 text-sm font-bold text-[#9b1c1c]"
+            class="rounded-xl border border-[#b81d1d]/40 bg-[#fde8e8] px-4 py-3 text-base font-bold text-[#9b1c1c]"
           >
             La cuisine est indisponible hors ligne : reconnectez la tablette pour recevoir et faire avancer les tickets.
           </div>
@@ -149,7 +149,7 @@ import { RestaurantV3Service } from '../services/restaurant-v3.service';
           <div
             role="alert"
             data-testid="kitchen-error-banner"
-            class="flex items-center justify-between gap-3 rounded-xl border border-[#b81d1d]/40 bg-[#fde8e8] px-4 py-3 text-sm font-bold text-[#9b1c1c]"
+            class="flex items-center justify-between gap-3 rounded-xl border border-[#b81d1d]/40 bg-[#fde8e8] px-4 py-3 text-base font-bold text-[#9b1c1c]"
           >
             <span>{{ err }}</span>
             <button type="button" (click)="service.clearMessages()" class="rb-btn rb-btn-sm rb-btn-danger-outline">
@@ -174,7 +174,7 @@ import { RestaurantV3Service } from '../services/restaurant-v3.service';
             </div>
             <div class="rb-scroll-box rb-kitchen-col-scroll space-y-3 pr-1">
               @if (pendingOrders().length === 0) {
-                <p class="p-4 text-center text-xs font-medium text-[#3d494a]">
+                <p class="p-4 text-center text-base font-medium text-[#3d494a]">
                   Aucun ticket en attente.
                 </p>
               } @else {
@@ -211,7 +211,14 @@ import { RestaurantV3Service } from '../services/restaurant-v3.service';
                       @for (item of ord.items; track item.id) {
                         <li class="text-base text-[#161d20]">
                           <span class="text-lg font-extrabold text-[#00545f] mr-1.5">{{ item.quantity }}×</span>
-                          <span class="font-extrabold">{{ item.name }}</span>
+                          <span [class]="item.isUnavailable ? 'font-bold line-through text-[#9b1c1c]' : 'font-extrabold'">
+                            {{ item.name }}
+                          </span>
+                          @if (item.isUnavailable) {
+                            <span class="ml-1.5 inline-block rounded bg-[#fde8e8] px-2 py-0.5 text-xs font-extrabold text-[#9b1c1c]">
+                              Indisponible ({{ item.unavailableReason || 'rupture' }})
+                            </span>
+                          }
                           @if (item.notes) {
                             <span class="block ml-6 text-xs font-bold text-[#925300]">
                               Note : {{ item.notes }}
@@ -222,9 +229,83 @@ import { RestaurantV3Service } from '../services/restaurant-v3.service';
                     </ul>
 
                     @if (!service.canReadOnly()) {
-                      <div class="space-y-2 border-t border-[#d6e2e4] pt-2.5">
+                      <div class="space-y-2.5 border-t border-[#d6e2e4] pt-2.5">
+                        <!-- Grands boutons d'action cuisinier : Disponible & Un plat n'est pas disponible -->
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                          <button
+                            type="button"
+                            [attr.data-testid]="'kitchen-btn-available-' + ord.id"
+                            [disabled]="!service.isOnline() || service.busyAction()"
+                            (click)="confirmAvailable(ord)"
+                            class="rb-btn rb-btn-primary w-full"
+                          >
+                            Disponible
+                          </button>
+                          <button
+                            type="button"
+                            [attr.data-testid]="'kitchen-btn-unavailable-' + ord.id"
+                            [disabled]="!service.isOnline() || service.busyAction()"
+                            (click)="toggleUnavailablePanel(ord.id)"
+                            class="rb-btn rb-btn-danger-outline w-full"
+                          >
+                            Un plat n'est pas disponible
+                          </button>
+                        </div>
+
+                        <!-- Panneau de signalement plat indisponible (ligne par ligne + motif) -->
+                        @if (isUnavailablePanelOpen(ord.id)) {
+                          <div
+                            [attr.data-testid]="'kitchen-unavailable-panel-' + ord.id"
+                            class="rounded-xl border border-[#b81d1d]/40 bg-[#fde8e8] p-3 space-y-2.5"
+                          >
+                            <span class="block text-xs font-extrabold text-[#9b1c1c]">
+                              Cochez le ou les plats indisponibles :
+                            </span>
+                            <div class="space-y-1.5">
+                              @for (item of ord.items; track item.id) {
+                                <label class="flex items-center gap-2 text-sm font-bold text-[#161d20] cursor-pointer">
+                                  <input
+                                    type="checkbox"
+                                    [attr.data-testid]="'kitchen-unavail-check-' + ord.id + '-' + item.id"
+                                    [checked]="isLineCheckedUnavailable(ord.id, item.id)"
+                                    (change)="toggleLineUnavailable(ord.id, item.id)"
+                                    class="h-4 w-4 rounded border-[#b81d1d] text-[#b81d1d]"
+                                  />
+                                  <span>{{ item.quantity }}× {{ item.name }}</span>
+                                </label>
+                              }
+                            </div>
+                            <input
+                              type="text"
+                              [attr.data-testid]="'kitchen-unavail-reason-' + ord.id"
+                              [ngModel]="unavailableReason(ord.id)"
+                              (ngModelChange)="setUnavailableReason(ord.id, $event)"
+                              placeholder="Motif court (ex. plus de pâtes)..."
+                              class="min-h-[40px] w-full rounded-lg border border-[#b81d1d] bg-white px-2.5 text-sm font-medium text-[#161d20]"
+                            />
+                            <div class="flex items-center justify-end gap-2">
+                              <button
+                                type="button"
+                                (click)="toggleUnavailablePanel(ord.id)"
+                                class="rb-btn rb-btn-sm rb-btn-outline"
+                              >
+                                Annuler
+                              </button>
+                              <button
+                                type="button"
+                                [attr.data-testid]="'kitchen-unavail-submit-' + ord.id"
+                                [disabled]="service.busyAction()"
+                                (click)="submitUnavailableLines(ord)"
+                                class="rb-btn rb-btn-sm rb-btn-danger-outline"
+                              >
+                                Signaler à l'assistant
+                              </button>
+                            </div>
+                          </div>
+                        }
+
                         <span class="block text-[11px] font-extrabold uppercase tracking-wider text-[#3d494a]">
-                          Prendre en charge (temps de préparation)
+                          Choix du temps de préparation
                         </span>
                         <div class="grid grid-cols-5 gap-1.5">
                           @for (preset of prepPresets; track preset) {
@@ -282,7 +363,7 @@ import { RestaurantV3Service } from '../services/restaurant-v3.service';
             </div>
             <div class="rb-scroll-box rb-kitchen-col-scroll space-y-3 pr-1">
               @if (preparingOrders().length === 0) {
-                <p class="p-4 text-center text-xs font-medium text-[#3d494a]">
+                <p class="p-4 text-center text-base font-medium text-[#3d494a]">
                   Aucun ticket en cours de préparation.
                 </p>
               } @else {
@@ -330,7 +411,14 @@ import { RestaurantV3Service } from '../services/restaurant-v3.service';
                       @for (item of ord.items; track item.id) {
                         <li class="text-base text-[#161d20]">
                           <span class="text-lg font-extrabold text-[#925300] mr-1.5">{{ item.quantity }}×</span>
-                          <span class="font-extrabold">{{ item.name }}</span>
+                          <span [class]="item.isUnavailable ? 'font-bold line-through text-[#9b1c1c]' : 'font-extrabold'">
+                            {{ item.name }}
+                          </span>
+                          @if (item.isUnavailable) {
+                            <span class="ml-1.5 inline-block rounded bg-[#fde8e8] px-2 py-0.5 text-xs font-extrabold text-[#9b1c1c]">
+                              Indisponible ({{ item.unavailableReason || 'rupture' }})
+                            </span>
+                          }
                           @if (item.notes) {
                             <span class="block ml-6 text-xs font-bold text-[#925300]">
                               Note : {{ item.notes }}
@@ -341,25 +429,87 @@ import { RestaurantV3Service } from '../services/restaurant-v3.service';
                     </ul>
 
                     @if (!service.canReadOnly()) {
-                      <div class="flex items-center gap-2 pt-1">
+                      <div class="space-y-2 pt-1">
+                        <div class="flex items-center gap-2">
+                          <button
+                            type="button"
+                            [attr.data-testid]="'kitchen-add5-' + ord.id"
+                            [disabled]="!service.isOnline() || service.busyAction()"
+                            (click)="addFiveMinutes(ord)"
+                            class="rb-btn rb-btn-outline shrink-0"
+                          >
+                            +5 min
+                          </button>
+                          <button
+                            type="button"
+                            [attr.data-testid]="'kitchen-next-' + ord.id"
+                            [disabled]="!service.isOnline() || service.busyAction()"
+                            (click)="advance(ord, 'READY')"
+                            class="rb-btn rb-btn-secondary flex-1"
+                          >
+                            Marquer prête
+                          </button>
+                        </div>
                         <button
                           type="button"
-                          [attr.data-testid]="'kitchen-add5-' + ord.id"
+                          [attr.data-testid]="'kitchen-btn-unavailable-' + ord.id"
                           [disabled]="!service.isOnline() || service.busyAction()"
-                          (click)="addFiveMinutes(ord)"
-                          class="rb-btn rb-btn-outline shrink-0"
+                          (click)="toggleUnavailablePanel(ord.id)"
+                          class="rb-btn rb-btn-sm rb-btn-danger-outline w-full"
                         >
-                          +5 min
+                          Un plat n'est pas disponible
                         </button>
-                        <button
-                          type="button"
-                          [attr.data-testid]="'kitchen-next-' + ord.id"
-                          [disabled]="!service.isOnline() || service.busyAction()"
-                          (click)="advance(ord, 'READY')"
-                          class="rb-btn rb-btn-secondary flex-1"
-                        >
-                          Marquer prête
-                        </button>
+
+                        @if (isUnavailablePanelOpen(ord.id)) {
+                          <div
+                            [attr.data-testid]="'kitchen-unavailable-panel-' + ord.id"
+                            class="rounded-xl border border-[#b81d1d]/40 bg-[#fde8e8] p-3 space-y-2.5"
+                          >
+                            <span class="block text-xs font-extrabold text-[#9b1c1c]">
+                              Cochez le ou les plats indisponibles :
+                            </span>
+                            <div class="space-y-1.5">
+                              @for (item of ord.items; track item.id) {
+                                <label class="flex items-center gap-2 text-sm font-bold text-[#161d20] cursor-pointer">
+                                  <input
+                                    type="checkbox"
+                                    [attr.data-testid]="'kitchen-unavail-check-' + ord.id + '-' + item.id"
+                                    [checked]="isLineCheckedUnavailable(ord.id, item.id)"
+                                    (change)="toggleLineUnavailable(ord.id, item.id)"
+                                    class="h-4 w-4 rounded border-[#b81d1d] text-[#b81d1d]"
+                                  />
+                                  <span>{{ item.quantity }}× {{ item.name }}</span>
+                                </label>
+                              }
+                            </div>
+                            <input
+                              type="text"
+                              [attr.data-testid]="'kitchen-unavail-reason-' + ord.id"
+                              [ngModel]="unavailableReason(ord.id)"
+                              (ngModelChange)="setUnavailableReason(ord.id, $event)"
+                              placeholder="Motif court (ex. plus de pâtes)..."
+                              class="min-h-[40px] w-full rounded-lg border border-[#b81d1d] bg-white px-2.5 text-sm font-medium text-[#161d20]"
+                            />
+                            <div class="flex items-center justify-end gap-2">
+                              <button
+                                type="button"
+                                (click)="toggleUnavailablePanel(ord.id)"
+                                class="rb-btn rb-btn-sm rb-btn-outline"
+                              >
+                                Annuler
+                              </button>
+                              <button
+                                type="button"
+                                [attr.data-testid]="'kitchen-unavail-submit-' + ord.id"
+                                [disabled]="service.busyAction()"
+                                (click)="submitUnavailableLines(ord)"
+                                class="rb-btn rb-btn-sm rb-btn-danger-outline"
+                              >
+                                Signaler à l'assistant
+                              </button>
+                            </div>
+                          </div>
+                        }
                       </div>
                     }
                   </article>
@@ -382,7 +532,7 @@ import { RestaurantV3Service } from '../services/restaurant-v3.service';
             </div>
             <div class="rb-scroll-box rb-kitchen-col-scroll space-y-3 pr-1">
               @if (readyOrders().length === 0) {
-                <p class="p-4 text-center text-xs font-medium text-[#3d494a]">
+                <p class="p-4 text-center text-base font-medium text-[#3d494a]">
                   Aucun plat prêt à servir.
                 </p>
               } @else {
@@ -419,7 +569,9 @@ import { RestaurantV3Service } from '../services/restaurant-v3.service';
                       @for (item of ord.items; track item.id) {
                         <li class="text-base text-[#161d20]">
                           <span class="text-lg font-extrabold text-[#116b41] mr-1.5">{{ item.quantity }}×</span>
-                          <span class="font-extrabold">{{ item.name }}</span>
+                          <span [class]="item.isUnavailable ? 'font-bold line-through text-[#9b1c1c]' : 'font-extrabold'">
+                            {{ item.name }}
+                          </span>
                           @if (item.notes) {
                             <span class="block ml-6 text-xs font-bold text-[#925300]">
                               Note : {{ item.notes }}
@@ -429,21 +581,9 @@ import { RestaurantV3Service } from '../services/restaurant-v3.service';
                       }
                     </ul>
 
-                    @if (!service.canReadOnly() && !service.isKitchenOnly()) {
-                      <button
-                        type="button"
-                        [attr.data-testid]="'kitchen-next-' + ord.id"
-                        [disabled]="!service.isOnline() || service.busyAction()"
-                        (click)="advance(ord, 'SERVED')"
-                        class="rb-btn rb-btn-outline w-full"
-                      >
-                        Marquer servie
-                      </button>
-                    } @else if (service.isKitchenOnly()) {
-                      <div class="rounded-lg bg-[#e3f5ec] px-3 py-2 text-center text-xs font-extrabold text-[#116b41]">
-                        Prête • En attente de service en salle
-                      </div>
-                    }
+                    <div class="rounded-lg bg-[#e3f5ec] px-3 py-2 text-center text-xs font-extrabold text-[#116b41]">
+                      Prête • En attente d'autorisation et de service en salle
+                    </div>
                   </article>
                 }
               }
@@ -459,12 +599,22 @@ export class KitchenBoardPageComponent implements OnInit, OnDestroy {
   readonly nowMs = signal<number>(Date.now());
   readonly prepPresets = [10, 15, 20, 30, 45];
   private readonly customPrepByOrder = signal<Record<string, number>>({});
+  private readonly openUnavailPanels = signal<Record<string, boolean>>({});
+  private readonly checkedUnavailLines = signal<Record<string, string[]>>({});
+  private readonly unavailReasons = signal<Record<string, string>>({});
 
   private fallbackPollTimer: ReturnType<typeof setInterval> | null = null;
   private clockTimer: ReturnType<typeof setInterval> | null = null;
 
   readonly pendingOrders = computed(() =>
-    this.service.kitchenOrders().filter((o) => o.status === 'PENDING' || o.status === 'SENT_TO_KITCHEN'),
+    this.service
+      .kitchenOrders()
+      .filter(
+        (o) =>
+          o.status === 'PENDING' ||
+          o.status === 'SENT_TO_KITCHEN' ||
+          o.status === 'CONFIRMED',
+      ),
   );
 
   readonly preparingOrders = computed(() =>
@@ -472,7 +622,9 @@ export class KitchenBoardPageComponent implements OnInit, OnDestroy {
   );
 
   readonly readyOrders = computed(() =>
-    this.service.kitchenOrders().filter((o) => o.status === 'READY'),
+    this.service
+      .kitchenOrders()
+      .filter((o) => o.status === 'READY' || o.status === 'AUTHORIZED'),
   );
 
   readonly formatOrderTime = formatOrderTime;
@@ -483,12 +635,10 @@ export class KitchenBoardPageComponent implements OnInit, OnDestroy {
       void this.service.loadKitchenOrders();
     });
 
-    // Secours toutes les 10 s sur cet écran uniquement
     this.fallbackPollTimer = setInterval(() => {
       void this.service.loadKitchenOrders();
     }, 10_000);
 
-    // Mise à jour du chrono d'attente et du compte à rebours toutes les 5 s
     this.clockTimer = setInterval(() => {
       this.nowMs.set(Date.now());
     }, 5_000);
@@ -528,6 +678,58 @@ export class KitchenBoardPageComponent implements OnInit, OnDestroy {
       ...prev,
       [orderId]: !Number.isNaN(num) && num >= 1 ? Math.min(180, Math.round(num)) : 15,
     }));
+  }
+
+  isUnavailablePanelOpen(orderId: string): boolean {
+    return Boolean(this.openUnavailPanels()[orderId]);
+  }
+
+  toggleUnavailablePanel(orderId: string): void {
+    this.openUnavailPanels.update((prev) => ({
+      ...prev,
+      [orderId]: !prev[orderId],
+    }));
+  }
+
+  isLineCheckedUnavailable(orderId: string, lineId: string): boolean {
+    return (this.checkedUnavailLines()[orderId] || []).includes(lineId);
+  }
+
+  toggleLineUnavailable(orderId: string, lineId: string): void {
+    this.checkedUnavailLines.update((prev) => {
+      const current = prev[orderId] || [];
+      const next = current.includes(lineId)
+        ? current.filter((x) => x !== lineId)
+        : [...current, lineId];
+      return { ...prev, [orderId]: next };
+    });
+  }
+
+  unavailableReason(orderId: string): string {
+    return this.unavailReasons()[orderId] || '';
+  }
+
+  setUnavailableReason(orderId: string, reason: string): void {
+    this.unavailReasons.update((prev) => ({ ...prev, [orderId]: reason || '' }));
+  }
+
+  async confirmAvailable(ord: RestaurantOrderV3): Promise<void> {
+    await this.service.updateOrderStatus(ord.id, 'CONFIRMED');
+  }
+
+  async submitUnavailableLines(ord: RestaurantOrderV3): Promise<void> {
+    let selectedIds = this.checkedUnavailLines()[ord.id] || [];
+    if (selectedIds.length === 0 && ord.items.length > 0) {
+      selectedIds = [ord.items[0].id];
+    }
+    const reason = this.unavailableReason(ord.id).trim() || 'plus en stock';
+    const ok = await this.service.updateOrderStatus(ord.id, undefined, {
+      unavailableLineIds: selectedIds,
+      unavailableReason: reason,
+    });
+    if (ok) {
+      this.openUnavailPanels.update((prev) => ({ ...prev, [ord.id]: false }));
+    }
   }
 
   async takeInCharge(ord: RestaurantOrderV3, prepMinutes: number): Promise<void> {

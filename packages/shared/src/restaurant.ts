@@ -148,34 +148,62 @@ export interface RestaurantTicket {
   vatRatePercent: number;
   vatAmountFcfa: number;
   totalTtcFcfa: number;
-  status: 'OPEN' | 'SENT_TO_KITCHEN' | 'PENDING' | 'IN_PREPARATION' | 'READY' | 'SERVED' | 'CANCELLED' | 'PAID' | 'TRANSFERRED_TO_ROOM';
+  status: 'OPEN' | 'SENT_TO_KITCHEN' | 'PENDING' | 'CONFIRMED' | 'IN_PREPARATION' | 'READY' | 'AUTHORIZED' | 'SERVED' | 'CANCELLED' | 'PAID' | 'TRANSFERRED_TO_ROOM';
 }
 
 export type RestaurantDestinationType = 'ROOM' | 'TABLE' | 'TAKEAWAY';
 
 export type RestaurantOrderStatus =
   | 'PENDING'
+  | 'CONFIRMED'
   | 'IN_PREPARATION'
   | 'READY'
+  | 'AUTHORIZED'
   | 'SERVED'
   | 'CANCELLED';
 
 export const RESTAURANT_ORDER_STATUS_LABELS: Record<string, string> = {
-
-
-  IN_PREPARATION: 'En préparation',
-
-  SERVED: 'Servie',
   PENDING: 'Envoyée',
   SENT_TO_KITCHEN: 'Envoyée',
   ENVOYEE: 'Envoyée',
+  CONFIRMED: 'Confirmée',
+  CONFIRMEE: 'Confirmée',
+  IN_PREPARATION: 'En préparation',
   EN_PREPARATION: 'En préparation',
-  READY: 'Prête, à servir',
-  PRETE: 'Prête, à servir',
+  READY: 'Prête à servir',
+  PRETE: 'Prête à servir',
+  AUTHORIZED: 'Autorisée',
+  AUTORISEE: 'Autorisée',
+  SERVED: 'Servie',
   SERVIE: 'Servie',
   CANCELLED: 'Annulée',
   ANNULEE: 'Annulée',
 };
+
+export type RestaurantOrderEventType =
+  | 'ENVOYEE'
+  | 'CONFIRMEE'
+  | 'TEMPS_PREPARATION'
+  | 'TEMPS_AJOUTE'
+  | 'PLAT_INDISPONIBLE'
+  | 'COMMANDE_MODIFIEE'
+  | 'PRETE'
+  | 'AUTORISEE'
+  | 'SERVIE'
+  | 'ANNULEE';
+
+export interface RestaurantOrderEventV3 {
+  id: string;
+  orderId: string;
+  type: RestaurantOrderEventType | string;
+  detail: string;
+  userId?: string | null;
+  userName?: string | null;
+  addedMinutes?: number | null;
+  unavailableItems?: string[];
+  reason?: string | null;
+  createdAt: string;
+}
 
 export interface RestaurantInStayRoom {
   roomId: string;
@@ -197,6 +225,8 @@ export interface RestaurantOrderLineV3 {
   totalPriceFcfa?: number;
   notes?: string;
   prepStation: string;
+  isUnavailable?: boolean;
+  unavailableReason?: string | null;
 }
 
 export interface RestaurantOrderV3 {
@@ -233,17 +263,22 @@ export interface RestaurantOrderV3 {
   heureFinPrevue?: string | null;
   preteAt?: string | null;
   preteById?: string | null;
+  autoriseAt?: string | null;
+  autoriseById?: string | null;
+  autoriseByName?: string | null;
   serviAt?: string | null;
   serviById?: string | null;
   annuleAt?: string | null;
   annuleById?: string | null;
   motifAnnulation?: string | null;
   isStaleOver12h?: boolean;
+  hasUnavailableItems?: boolean;
   subtotalHtFcfa?: number;
   vatRatePercent?: number;
   vatAmountFcfa?: number;
   totalTtcFcfa?: number;
   items: RestaurantOrderLineV3[];
+  events?: RestaurantOrderEventV3[];
   syncPending?: boolean;
 }
 

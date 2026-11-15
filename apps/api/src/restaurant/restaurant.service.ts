@@ -14,6 +14,7 @@ import {
   CancelRestaurantOrderDto,
   CreateRestaurantOrderDto,
   CreateRestaurantProductDto,
+  ModifyRestaurantOrderItemsDto,
   PayRestaurantOrderDto,
   RestaurantOrdersQueryDto,
   UpdateRestaurantOrderDto,
@@ -113,19 +114,27 @@ export class RestaurantService {
 
   private normalizeOrderStatus(status?: string | null): string {
     if (!status || status === 'SENT_TO_KITCHEN' || status === 'ENVOYEE') return 'PENDING';
+    if (status === 'CONFIRMEE') return 'CONFIRMED';
     if (status === 'EN_PREPARATION') return 'IN_PREPARATION';
     if (status === 'PRETE') return 'READY';
+    if (status === 'AUTORISEE') return 'AUTHORIZED';
     if (status === 'SERVIE') return 'SERVED';
     if (status === 'ANNULEE') return 'CANCELLED';
     return status;
   }
 
-  private toFrenchStatut(normalizedStatus: string): 'ENVOYEE' | 'EN_PREPARATION' | 'PRETE' | 'SERVIE' | 'ANNULEE' {
+  private toFrenchStatut(
+    normalizedStatus: string,
+  ): 'ENVOYEE' | 'CONFIRMEE' | 'EN_PREPARATION' | 'PRETE' | 'AUTORISEE' | 'SERVIE' | 'ANNULEE' {
     switch (normalizedStatus) {
+      case 'CONFIRMED':
+        return 'CONFIRMEE';
       case 'IN_PREPARATION':
         return 'EN_PREPARATION';
       case 'READY':
         return 'PRETE';
+      case 'AUTHORIZED':
+        return 'AUTORISEE';
       case 'SERVED':
         return 'SERVIE';
       case 'CANCELLED':
@@ -133,6 +142,19 @@ export class RestaurantService {
       default:
         return 'ENVOYEE';
     }
+  }
+
+  private formatHourMinute(date: Date): string {
+    return date.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+  }
+
+  private get standardOrderInclude() {
+    return {
+      lines: true,
+      room: true,
+      reservation: { include: { guest: { select: { fullName: true } } } },
+      events: { orderBy: { createdAt: 'desc' as const } },
+    };
   }
 
   private getServiceStart04hDakar(now = new Date()): Date {
@@ -222,6 +244,7 @@ export class RestaurantService {
       : o.readyAt
         ? new Date(o.readyAt)
         : null;
+    const autoriseAtDate = o.autoriseAt ? new Date(o.autoriseAt) : null;
     const serviAtDate = o.serviAt
       ? new Date(o.serviAt)
       : o.servedAt
@@ -238,8 +261,11 @@ export class RestaurantService {
         ? new Date(priseEnChargeAtDate.getTime() + o.tempsPreparationMinutes * 60 * 1000)
         : null;
     const isStaleOver12h =
-      (normalizedStatus === 'PENDING' || normalizedStatus === 'IN_PREPARATION') &&
+      (normalizedStatus === 'PENDING' ||
+        normalizedStatus === 'CONFIRMED' ||
+        normalizedStatus === 'IN_PREPARATION') &&
       Date.now() - createdAtDate.getTime() > TWELVE_HOURS_MS;
+    const hasUnavailableItems = (o.lines || []).some((l: any) => Boolean(l.isUnavailable));
 
     return {
       id: o.id,
@@ -267,6 +293,9 @@ export class RestaurantService {
       readyAt: preteAtDate ? preteAtDate.toISOString() : null,
       preteAt: preteAtDate ? preteAtDate.toISOString() : null,
       preteById: o.preteById || null,
+      autoriseAt: autoriseAtDate ? autoriseAtDate.toISOString() : null,
+      autoriseById: o.autoriseById || null,
+      autoriseByName: o.autoriseByName || null,
       servedAt: serviAtDate ? serviAtDate.toISOString() : null,
       serviAt: serviAtDate ? serviAtDate.toISOString() : null,
       serviById: o.serviById || null,
@@ -277,6 +306,7 @@ export class RestaurantService {
       motifAnnulation: o.motifAnnulation || o.cancellationReason || null,
       cancelledByName: o.cancelledByName || null,
       isStaleOver12h,
+      hasUnavailableItems,
       ...(hideAmounts
         ? {}
         : {
@@ -295,6 +325,8 @@ export class RestaurantService {
         productId: l.productId || null,
         name: l.name,
         quantity: l.quantity,
+        isUnavailable: Boolean(l.isUnavailable),
+        unavailableReason: l.unavailableReason || null,
         ...(hideAmounts
           ? {}
           : {
@@ -304,6 +336,18 @@ export class RestaurantService {
         selectedOptions: l.selectedOptions || [],
         notes: l.notes || undefined,
         prepStation: l.prepStation || 'CUISINE',
+      })),
+      events: (o.events || []).map((ev: any) => ({
+        id: ev.id,
+        orderId: ev.orderId,
+        type: ev.type,
+        detail: hideAmounts && guestName ? String(ev.detail || '').replace(guestName, '').replace(/,\s*$/, '') : ev.detail,
+        userId: ev.userId || null,
+        userName: ev.userName || null,
+        addedMinutes: ev.addedMinutes ?? null,
+        unavailableItems: ev.unavailableItems || [],
+        reason: ev.reason || null,
+        createdAt: new Date(ev.createdAt).toISOString(),
       })),
     };
   }
@@ -623,7 +667,7 @@ export class RestaurantService {
             { createdAt: { gte: serviceStart } },
             {
               createdAt: { gte: twelveHoursAgo },
-              status: { in: ['PENDING', 'SENT_TO_KITCHEN', 'IN_PREPARATION'] },
+              status: { in: ['PENDING', 'SENT_TO_KITCHEN', 'CONFIRMED', 'CONFIRMEE', 'IN_PREPARATION', 'EN_PREPARATION'] },
             },
           ],
         }
@@ -631,11 +675,7 @@ export class RestaurantService {
 
     const orders = await this.prisma.restaurantOrder.findMany({
       where,
-      include: {
-        lines: true,
-        room: true,
-        reservation: { include: { guest: { select: { fullName: true } } } },
-      },
+      include: this.standardOrderInclude,
       orderBy: { createdAt: 'desc' },
       take: 100,
     });
@@ -643,7 +683,8 @@ export class RestaurantService {
     const filtered = hideAmounts
       ? orders.filter((o) => {
           const normalized = this.normalizeOrderStatus(o.status);
-          const isUnfinished = normalized === 'PENDING' || normalized === 'IN_PREPARATION';
+          const isUnfinished =
+            normalized === 'PENDING' || normalized === 'CONFIRMED' || normalized === 'IN_PREPARATION';
           const ageMs = now.getTime() - new Date(o.createdAt).getTime();
           if (isUnfinished && ageMs > TWELVE_HOURS_MS) {
             return false;
@@ -660,13 +701,9 @@ export class RestaurantService {
     const stale = await this.prisma.restaurantOrder.findMany({
       where: {
         createdAt: { lt: twelveHoursAgo },
-        status: { in: ['PENDING', 'SENT_TO_KITCHEN', 'IN_PREPARATION'] },
+        status: { in: ['PENDING', 'SENT_TO_KITCHEN', 'CONFIRMED', 'CONFIRMEE', 'IN_PREPARATION', 'EN_PREPARATION'] },
       },
-      include: {
-        lines: true,
-        room: true,
-        reservation: { include: { guest: { select: { fullName: true } } } },
-      },
+      include: this.standardOrderInclude,
       orderBy: { createdAt: 'asc' },
     });
     return stale.map((o) => this.formatOrder(o, false));
@@ -778,11 +815,7 @@ export class RestaurantService {
       this.prisma.restaurantOrder.count({ where }),
       this.prisma.restaurantOrder.findMany({
         where,
-        include: {
-          lines: true,
-          room: true,
-          reservation: { include: { guest: { select: { fullName: true } } } },
-        },
+        include: this.standardOrderInclude,
         orderBy: { createdAt: 'desc' },
         skip: offset,
         take: limit,
@@ -999,12 +1032,17 @@ export class RestaurantService {
                     ? dto.paymentMethod || null
                     : null,
               lines: { create: resolvedLines },
+              events: {
+                create: {
+                  type: 'ENVOYEE',
+                  detail: 'Envoyée à la cuisine',
+                  userId: ctx?.userId || null,
+                  userName: ctx?.actorName || dto.serverName || 'Service',
+                  createdAt: now,
+                },
+              },
             },
-            include: {
-              lines: true,
-              room: true,
-              reservation: { include: { guest: { select: { fullName: true } } } },
-            },
+            include: this.standardOrderInclude,
           });
 
           if (action === 'ROOM_CHARGE' && resolvedReservationId && resolvedRoomId) {
@@ -1136,11 +1174,7 @@ export class RestaurantService {
 
           const fullRecord = await tx.restaurantOrder.findUniqueOrThrow({
             where: { id: order.id },
-            include: {
-              lines: true,
-              room: true,
-              reservation: { include: { guest: { select: { fullName: true } } } },
-            },
+            include: this.standardOrderInclude,
           });
 
           const formattedOrder = this.formatOrder(fullRecord);
@@ -1301,7 +1335,10 @@ export class RestaurantService {
     dto: UpdateRestaurantOrderDto,
     actor?: RestaurantActorContext,
   ) {
-    const existing = await this.prisma.restaurantOrder.findUnique({ where: { id } });
+    const existing = await this.prisma.restaurantOrder.findUnique({
+      where: { id },
+      include: this.standardOrderInclude,
+    });
     if (!existing) throw new NotFoundException(`Commande "${id}" introuvable.`);
 
     const currentStatus = this.normalizeOrderStatus(existing.status);
@@ -1310,9 +1347,9 @@ export class RestaurantService {
     const isKitchen = this.isKitchenRole(actor?.actorRole);
 
     if (requestedStatus === 'CANCELLED') {
-      if (actor?.actorRole !== 'DIRECTION' && actor?.actorRole !== 'RECEPTION') {
+      if (isKitchen) {
         throw new ForbiddenException(
-          "L'annulation d'une commande est réservée aux rôles DIRECTION et RECEPTION.",
+          "Le rôle cuisinier n'est pas autorisé à annuler une commande.",
         );
       }
       return this.cancelOrder(
@@ -1322,9 +1359,14 @@ export class RestaurantService {
       );
     }
 
-    if (isKitchen && (requestedStatus === 'SERVED' || dto.paymentMethod !== undefined)) {
+    if (
+      isKitchen &&
+      (requestedStatus === 'SERVED' ||
+        requestedStatus === 'AUTHORIZED' ||
+        dto.paymentMethod !== undefined)
+    ) {
       throw new ForbiddenException(
-        'Le rôle cuisinier peut uniquement prendre en charge, ajuster le temps de préparation ou marquer prête une commande.',
+        'Le rôle cuisinier peut uniquement confirmer, prendre en charge, signaler un plat indisponible, ajuster le temps de préparation ou marquer prête une commande.',
       );
     }
 
@@ -1335,17 +1377,32 @@ export class RestaurantService {
     const now = new Date();
     const requestedPrepMin = dto.prepTimeMinutes ?? dto.tempsPreparationMinutes;
     const requestedAddMin = dto.addMinutes;
+    const hasUnavailableUpdate =
+      Array.isArray(dto.unavailableLineIds) && dto.unavailableLineIds.length > 0;
 
-    // Ajustement de temps (+5 min ou changement de temps) sur une commande déjà En préparation
+    // Ajustement de temps (+5 min ou changement de temps) sur une commande déjà En préparation ou Confirmée
     const isTimeAdjustmentOnly =
-      currentStatus === 'IN_PREPARATION' &&
-      (!requestedStatus || requestedStatus === 'IN_PREPARATION') &&
+      (currentStatus === 'IN_PREPARATION' || currentStatus === 'CONFIRMED') &&
+      (!requestedStatus ||
+        requestedStatus === 'IN_PREPARATION' ||
+        requestedStatus === 'CONFIRMED') &&
       (requestedAddMin !== undefined || requestedPrepMin !== undefined);
 
-    if (requestedStatus && !isTimeAdjustmentOnly) {
+    const isUnavailableOnly =
+      hasUnavailableUpdate &&
+      (!requestedStatus || requestedStatus === currentStatus) &&
+      (currentStatus === 'PENDING' ||
+        currentStatus === 'CONFIRMED' ||
+        currentStatus === 'IN_PREPARATION');
+
+    if (requestedStatus && !isTimeAdjustmentOnly && !isUnavailableOnly) {
       const validTransition =
+        (currentStatus === 'PENDING' && requestedStatus === 'CONFIRMED') ||
         (currentStatus === 'PENDING' && requestedStatus === 'IN_PREPARATION') ||
+        (currentStatus === 'CONFIRMED' && requestedStatus === 'IN_PREPARATION') ||
         (currentStatus === 'IN_PREPARATION' && requestedStatus === 'READY') ||
+        (currentStatus === 'READY' && requestedStatus === 'AUTHORIZED') ||
+        (currentStatus === 'AUTHORIZED' && requestedStatus === 'SERVED') ||
         (currentStatus === 'READY' && requestedStatus === 'SERVED');
 
       if (!validTransition) {
@@ -1356,21 +1413,91 @@ export class RestaurantService {
     }
 
     const updated = await this.prisma.$transaction(async (tx) => {
-      if (currentStatus === 'PENDING' && requestedStatus === 'IN_PREPARATION') {
-        const prepMinutes = Math.max(1, Math.round(requestedPrepMin ?? 15));
-        const heureFinPrevue = new Date(now.getTime() + prepMinutes * 60 * 1000);
+      if (hasUnavailableUpdate) {
+        const targetLineIds = dto.unavailableLineIds || [];
+        const reasonText = dto.unavailableReason?.trim() || 'rupture en cuisine';
+        const matchingLines = existing.lines.filter(
+          (l) => targetLineIds.includes(l.id) || (l.productId && targetLineIds.includes(l.productId)),
+        );
+        if (matchingLines.length === 0) {
+          throw new BadRequestException('Aucun plat sélectionné ne correspond à cette commande.');
+        }
+        const lineIdsToMark = matchingLines.map((l) => l.id);
+        const dishNames = matchingLines.map((l) => l.name);
+
+        await tx.restaurantOrderLine.updateMany({
+          where: { id: { in: lineIdsToMark } },
+          data: {
+            isUnavailable: true,
+            unavailableReason: reasonText,
+          },
+        });
+
+        await tx.restaurantOrderEvent.create({
+          data: {
+            orderId: id,
+            type: 'PLAT_INDISPONIBLE',
+            detail: `Plat indisponible : ${dishNames.join(', ')}. Motif : ${reasonText}`,
+            userId: actor?.userId || null,
+            userName: actor?.actorName || 'Cuisine',
+            unavailableItems: dishNames,
+            reason: reasonText,
+            createdAt: now,
+          },
+        });
+      }
+
+      if (currentStatus === 'PENDING' && requestedStatus === 'CONFIRMED') {
         const claim = await tx.restaurantOrder.updateMany({
           where: {
             id,
             status: { in: ['PENDING', 'SENT_TO_KITCHEN', 'ENVOYEE'] },
           },
           data: {
-            status: 'IN_PREPARATION',
-            statut: 'EN_PREPARATION',
-            preparingAt: now,
+            status: 'CONFIRMED',
+            statut: 'CONFIRMEE',
             priseEnChargeAt: now,
             priseEnChargeById: actor?.userId || null,
             priseEnChargeByName: actor?.actorName || 'Cuisinier',
+          },
+        });
+        if (claim.count === 0) {
+          throw new ConflictException(
+            'Cette commande a déjà été prise en charge par un autre cuisinier.',
+          );
+        }
+        await tx.restaurantOrderEvent.create({
+          data: {
+            orderId: id,
+            type: 'CONFIRMEE',
+            detail: 'La cuisine a confirmé : tous les plats existent',
+            userId: actor?.userId || null,
+            userName: actor?.actorName || 'Cuisinier',
+            createdAt: now,
+          },
+        });
+      } else if (
+        (currentStatus === 'PENDING' || currentStatus === 'CONFIRMED') &&
+        requestedStatus === 'IN_PREPARATION'
+      ) {
+        const prepMinutes = Math.max(1, Math.round(requestedPrepMin ?? 15));
+        const heureFinPrevue = new Date(now.getTime() + prepMinutes * 60 * 1000);
+        const allowedFrom =
+          currentStatus === 'CONFIRMED'
+            ? ['CONFIRMED', 'CONFIRMEE']
+            : ['PENDING', 'SENT_TO_KITCHEN', 'ENVOYEE'];
+        const claim = await tx.restaurantOrder.updateMany({
+          where: {
+            id,
+            status: { in: allowedFrom },
+          },
+          data: {
+            status: 'IN_PREPARATION',
+            statut: 'EN_PREPARATION',
+            preparingAt: now,
+            priseEnChargeAt: existing.priseEnChargeAt || now,
+            priseEnChargeById: actor?.userId || existing.priseEnChargeById || null,
+            priseEnChargeByName: actor?.actorName || existing.priseEnChargeByName || 'Cuisinier',
             tempsPreparationMinutes: prepMinutes,
             heureFinPrevue,
           },
@@ -1381,6 +1508,31 @@ export class RestaurantService {
             'Cette commande a déjà été prise en charge par un autre cuisinier.',
           );
         }
+
+        if (currentStatus === 'PENDING' && !hasUnavailableUpdate) {
+          await tx.restaurantOrderEvent.create({
+            data: {
+              orderId: id,
+              type: 'CONFIRMEE',
+              detail: 'La cuisine a confirmé : tous les plats existent',
+              userId: actor?.userId || null,
+              userName: actor?.actorName || 'Cuisinier',
+              createdAt: new Date(now.getTime() - 100),
+            },
+          });
+        }
+
+        await tx.restaurantOrderEvent.create({
+          data: {
+            orderId: id,
+            type: 'TEMPS_PREPARATION',
+            detail: `Temps de préparation : ${prepMinutes} min, prête vers ${this.formatHourMinute(heureFinPrevue)}`,
+            userId: actor?.userId || null,
+            userName: actor?.actorName || 'Cuisinier',
+            addedMinutes: prepMinutes,
+            createdAt: now,
+          },
+        });
       } else if (isTimeAdjustmentOnly) {
         const basePrep = existing.tempsPreparationMinutes ?? 15;
         const nextPrepMinutes =
@@ -1390,19 +1542,45 @@ export class RestaurantService {
         const baseStart = existing.priseEnChargeAt || existing.preparingAt || now;
         const nextFinPrevue =
           requestedAddMin !== undefined && existing.heureFinPrevue
-            ? new Date(new Date(existing.heureFinPrevue).getTime() + Math.round(requestedAddMin) * 60 * 1000)
+            ? new Date(
+                new Date(existing.heureFinPrevue).getTime() +
+                  Math.round(requestedAddMin) * 60 * 1000,
+              )
             : new Date(new Date(baseStart).getTime() + nextPrepMinutes * 60 * 1000);
 
         const adjust = await tx.restaurantOrder.updateMany({
-          where: { id, status: { in: ['IN_PREPARATION', 'EN_PREPARATION'] } },
+          where: {
+            id,
+            status: { in: ['IN_PREPARATION', 'EN_PREPARATION', 'CONFIRMED', 'CONFIRMEE'] },
+          },
           data: {
+            status: 'IN_PREPARATION',
+            statut: 'EN_PREPARATION',
             tempsPreparationMinutes: nextPrepMinutes,
             heureFinPrevue: nextFinPrevue,
           },
         });
         if (adjust.count === 0) {
-          throw new ConflictException('Impossible d’ajuster le temps : la commande n’est plus en préparation.');
+          throw new ConflictException(
+            'Impossible d’ajuster le temps : la commande n’est plus en préparation.',
+          );
         }
+
+        const addMinVal = requestedAddMin ?? nextPrepMinutes;
+        await tx.restaurantOrderEvent.create({
+          data: {
+            orderId: id,
+            type: requestedAddMin !== undefined ? 'TEMPS_AJOUTE' : 'TEMPS_PREPARATION',
+            detail:
+              requestedAddMin !== undefined
+                ? `+${Math.round(requestedAddMin)} min ajoutées : prête vers ${this.formatHourMinute(nextFinPrevue)}`
+                : `Temps de préparation : ${nextPrepMinutes} min, prête vers ${this.formatHourMinute(nextFinPrevue)}`,
+            userId: actor?.userId || null,
+            userName: actor?.actorName || 'Cuisinier',
+            addedMinutes: Math.round(addMinVal),
+            createdAt: now,
+          },
+        });
       } else if (currentStatus === 'IN_PREPARATION' && requestedStatus === 'READY') {
         const readyRes = await tx.restaurantOrder.updateMany({
           where: { id, status: { in: ['IN_PREPARATION', 'EN_PREPARATION'] } },
@@ -1417,21 +1595,83 @@ export class RestaurantService {
         if (readyRes.count === 0) {
           throw new ConflictException('Cette commande n’est plus en préparation.');
         }
-      } else if (currentStatus === 'READY' && requestedStatus === 'SERVED') {
-        const servedRes = await tx.restaurantOrder.updateMany({
+
+        const activeLines = existing.lines.filter((l) => !l.isUnavailable);
+        const linesForMsg = activeLines.length > 0 ? activeLines : existing.lines;
+        const totalQty = linesForMsg.reduce((s, l) => s + (l.quantity || 1), 0);
+        const dishesStr = linesForMsg.map((l) => `${l.quantity} ${l.name}`).join(', ');
+        const destFull = this.resolveDestinationLabel(existing, true);
+        const guestLabel =
+          existing.guestName ||
+          existing.reservation?.guest?.fullName ||
+          (existing.destinationType === 'ROOM' ? 'Client séjour' : 'Client de passage');
+        const readyVerb = totalQty > 1 ? 'prêts à servir' : 'prêt à servir';
+
+        await tx.restaurantOrderEvent.create({
+          data: {
+            orderId: id,
+            type: 'PRETE',
+            detail: `Prête : ${dishesStr} ${readyVerb} à ${guestLabel}, ${destFull}`,
+            userId: actor?.userId || null,
+            userName: actor?.actorName || 'Cuisinier',
+            createdAt: now,
+          },
+        });
+      } else if (currentStatus === 'READY' && requestedStatus === 'AUTHORIZED') {
+        const authRes = await tx.restaurantOrder.updateMany({
           where: { id, status: { in: ['READY', 'PRETE'] } },
+          data: {
+            status: 'AUTHORIZED',
+            statut: 'AUTORISEE',
+            autoriseAt: now,
+            autoriseById: actor?.userId || null,
+            autoriseByName: actor?.actorName || 'Service',
+          },
+        });
+        if (authRes.count === 0) {
+          throw new ConflictException('Cette commande n’est plus à l’état Prête.');
+        }
+
+        await tx.restaurantOrderEvent.create({
+          data: {
+            orderId: id,
+            type: 'AUTORISEE',
+            detail: `Service autorisé par ${actor?.actorName || 'l’assistant'}`,
+            userId: actor?.userId || null,
+            userName: actor?.actorName || 'Service',
+            createdAt: now,
+          },
+        });
+      } else if (
+        (currentStatus === 'READY' || currentStatus === 'AUTHORIZED') &&
+        requestedStatus === 'SERVED'
+      ) {
+        const servedRes = await tx.restaurantOrder.updateMany({
+          where: { id, status: { in: ['READY', 'PRETE', 'AUTHORIZED', 'AUTORISEE'] } },
           data: {
             status: 'SERVED',
             statut: 'SERVIE',
             servedAt: now,
             serviAt: now,
             serviById: actor?.userId || null,
+            ...(existing.autoriseAt ? {} : { autoriseAt: now, autoriseById: actor?.userId || null }),
             ...(dto.paymentMethod !== undefined ? { paymentMethod: dto.paymentMethod } : {}),
           },
         });
         if (servedRes.count === 0) {
-          throw new ConflictException('Cette commande n’est plus à l’état Prête.');
+          throw new ConflictException('Cette commande ne peut plus être marquée servie.');
         }
+
+        await tx.restaurantOrderEvent.create({
+          data: {
+            orderId: id,
+            type: 'SERVIE',
+            detail: `Servie par ${actor?.actorName || 'le service'}`,
+            userId: actor?.userId || null,
+            userName: actor?.actorName || 'Service',
+            createdAt: now,
+          },
+        });
       } else if (dto.paymentMethod !== undefined) {
         await tx.restaurantOrder.update({
           where: { id },
@@ -1441,16 +1681,12 @@ export class RestaurantService {
 
       const saved = await tx.restaurantOrder.findUniqueOrThrow({
         where: { id },
-        include: {
-          lines: true,
-          room: true,
-          reservation: { include: { guest: { select: { fullName: true } } } },
-        },
+        include: this.standardOrderInclude,
       });
 
       await appendChainedAuditLog(tx, {
         userId: actor?.userId || null,
-        action: 'ORDER_STATUS_UPDATE',
+        action: hasUnavailableUpdate ? 'ORDER_UNAVAILABLE_REPORT' : 'ORDER_STATUS_UPDATE',
         entity: 'RestaurantOrder',
         entityId: saved.id,
         ip: actor?.ip || null,
@@ -1466,6 +1702,7 @@ export class RestaurantService {
           heureFinPrevue: saved.heureFinPrevue ? new Date(saved.heureFinPrevue).toISOString() : null,
           priseEnChargeById: saved.priseEnChargeById || null,
           preteById: saved.preteById || null,
+          autoriseById: saved.autoriseById || null,
           serviById: saved.serviById || null,
         },
       });
@@ -1478,12 +1715,181 @@ export class RestaurantService {
     return formatted;
   }
 
+  async modifyOrderItems(
+    id: string,
+    dto: ModifyRestaurantOrderItemsDto,
+    actor?: RestaurantActorContext,
+  ) {
+    if (this.isKitchenRole(actor?.actorRole)) {
+      throw new ForbiddenException("Le cuisinier ne peut pas modifier les lignes d'une commande.");
+    }
+    const existing = await this.prisma.restaurantOrder.findUnique({
+      where: { id },
+      include: this.standardOrderInclude,
+    });
+    if (!existing) throw new NotFoundException(`Commande "${id}" introuvable.`);
+
+    const currentStatus = this.normalizeOrderStatus(existing.status);
+    if (
+      currentStatus !== 'PENDING' &&
+      currentStatus !== 'CONFIRMED' &&
+      currentStatus !== 'IN_PREPARATION'
+    ) {
+      throw new ConflictException(
+        'Seules les commandes en attente ou en préparation peuvent être modifiées.',
+      );
+    }
+
+    const productIds = Array.from(
+      new Set(
+        dto.items
+          .map((it) => it.productId || it.dishId)
+          .filter((pid): pid is string => Boolean(pid && /^[0-9a-f-]{36}$/i.test(pid))),
+      ),
+    );
+    const dbProducts =
+      productIds.length > 0
+        ? await this.prisma.restaurantProduct.findMany({ where: { id: { in: productIds } } })
+        : [];
+    const prodMap = new Map(dbProducts.map((p) => [p.id, p]));
+
+    const resolvedLines = dto.items.map((it) => {
+      const pid =
+        (it.productId || it.dishId) && /^[0-9a-f-]{36}$/i.test((it.productId || it.dishId)!)
+          ? (it.productId || it.dishId)!
+          : null;
+      const qty = Math.max(1, Math.round(it.quantity));
+      if (pid && prodMap.has(pid)) {
+        const dbProd = prodMap.get(pid)!;
+        return {
+          productId: dbProd.id,
+          name: dbProd.name,
+          quantity: qty,
+          unitPriceFcfa: dbProd.priceFcfa,
+          totalPriceFcfa: dbProd.priceFcfa * qty,
+          selectedOptions: it.selectedOptions || [],
+          notes: it.notes?.trim() || null,
+          prepStation: dbProd.prepStation || 'CUISINE',
+          isUnavailable: false,
+          unavailableReason: null,
+        };
+      }
+      const cleanName = it.name?.trim() || 'Article';
+      const unit = Math.max(0, Math.round(it.unitPriceFcfa ?? 0));
+      return {
+        productId: null,
+        name: cleanName,
+        quantity: qty,
+        unitPriceFcfa: unit,
+        totalPriceFcfa: unit * qty,
+        selectedOptions: it.selectedOptions || [],
+        notes: it.notes?.trim() || null,
+        prepStation: it.prepStation || 'CUISINE',
+        isUnavailable: false,
+        unavailableReason: null,
+      };
+    });
+
+    const totalTtcFcfa = resolvedLines.reduce((sum, l) => sum + l.totalPriceFcfa, 0);
+    const subtotalHtFcfa = Math.round(totalTtcFcfa / 1.1);
+    const vatAmountFcfa = totalTtcFcfa - subtotalHtFcfa;
+    const now = new Date();
+
+    const updated = await this.prisma.$transaction(async (tx) => {
+      await tx.restaurantOrderLine.deleteMany({ where: { orderId: id } });
+      await tx.restaurantOrder.update({
+        where: { id },
+        data: {
+          subtotalHtFcfa,
+          vatAmountFcfa,
+          totalTtcFcfa,
+          lines: { create: resolvedLines },
+        },
+      });
+
+      if (existing.invoiceId) {
+        const linkedInv = await tx.invoice.findUnique({ where: { id: existing.invoiceId } });
+        if (linkedInv && !linkedInv.isIssued) {
+          await tx.invoiceLine.deleteMany({
+            where: { invoiceId: linkedInv.id, sourceOrderId: existing.id },
+          });
+          const dateLabel = new Date(existing.createdAt).toLocaleDateString('fr-FR');
+          for (const l of resolvedLines) {
+            await tx.invoiceLine.create({
+              data: {
+                invoiceId: linkedInv.id,
+                dateLabel,
+                description: `${l.name} (${existing.ticketNumber})`,
+                subDescription: `Restaurant • ${existing.serverName}`,
+                category: 'RESTAURANT',
+                quantity: l.quantity,
+                quantityLabel: `${l.quantity}`,
+                unitPriceFcfa: l.unitPriceFcfa,
+                totalPriceFcfa: l.totalPriceFcfa,
+                isSystem: true,
+                sourceOrderId: existing.id,
+              },
+            });
+          }
+          await recalculateInvoiceTotalsInTx(tx, linkedInv.id);
+        }
+      }
+
+      const summary = resolvedLines.map((l) => `${l.quantity} ${l.name}`).join(', ');
+      await tx.restaurantOrderEvent.create({
+        data: {
+          orderId: id,
+          type: 'COMMANDE_MODIFIEE',
+          detail: `Commande modifiée : ${summary}`,
+          userId: actor?.userId || null,
+          userName: actor?.actorName || 'Service',
+          createdAt: now,
+        },
+      });
+
+      const saved = await tx.restaurantOrder.findUniqueOrThrow({
+        where: { id },
+        include: this.standardOrderInclude,
+      });
+
+      await appendChainedAuditLog(tx, {
+        userId: actor?.userId || null,
+        action: 'ORDER_ITEMS_MODIFY',
+        entity: 'RestaurantOrder',
+        entityId: saved.id,
+        ip: actor?.ip || null,
+        before: { totalTtcFcfa: existing.totalTtcFcfa },
+        after: { totalTtcFcfa: saved.totalTtcFcfa, items: summary },
+      });
+
+      return saved;
+    });
+
+    this.emitOrderEvent('ORDER_UPDATED', id, updated);
+    return this.formatOrder(updated, false);
+  }
+
   async cancelOrder(
     id: string,
     dto: CancelRestaurantOrderDto,
     actor?: RestaurantActorContext,
   ) {
-    if (actor?.actorRole && actor.actorRole !== 'DIRECTION' && actor.actorRole !== 'RECEPTION') {
+    if (this.isKitchenRole(actor?.actorRole) || actor?.actorRole === 'COMPTABLE') {
+      throw new ForbiddenException(
+        "L'annulation d'une commande n'est pas autorisée pour ce rôle.",
+      );
+    }
+
+    const existing = await this.prisma.restaurantOrder.findUnique({
+      where: { id },
+      include: { lines: true },
+    });
+    if (!existing) throw new NotFoundException(`Commande "${id}" introuvable.`);
+
+    const isDirOrRec =
+      actor?.actorRole === 'DIRECTION' || actor?.actorRole === 'RECEPTION' || !actor?.actorRole;
+    const hasUnavailable = (existing.lines || []).some((l) => Boolean(l.isUnavailable));
+    if (!isDirOrRec && !hasUnavailable) {
       throw new ForbiddenException(
         "L'annulation d'une commande est réservée aux rôles DIRECTION et RECEPTION.",
       );
@@ -1494,16 +1900,17 @@ export class RestaurantService {
       throw new BadRequestException("Un motif d'annulation d'au moins 3 caractères est obligatoire.");
     }
 
-    const existing = await this.prisma.restaurantOrder.findUnique({ where: { id } });
-    if (!existing) throw new NotFoundException(`Commande "${id}" introuvable.`);
-
     const currentStatus = this.normalizeOrderStatus(existing.status);
     if (currentStatus === 'CANCELLED') {
       throw new ConflictException('Cette commande est déjà annulée.');
     }
-    if (currentStatus !== 'PENDING' && currentStatus !== 'IN_PREPARATION') {
+    if (
+      currentStatus !== 'PENDING' &&
+      currentStatus !== 'CONFIRMED' &&
+      currentStatus !== 'IN_PREPARATION'
+    ) {
       throw new ConflictException(
-        'Seules les commandes à l’état Envoyée ou En préparation peuvent être annulées.',
+        'Seules les commandes à l’état Envoyée, Confirmée ou En préparation peuvent être annulées.',
       );
     }
 
@@ -1524,6 +1931,18 @@ export class RestaurantService {
         }
       }
 
+      await tx.restaurantOrderEvent.create({
+        data: {
+          orderId: id,
+          type: 'ANNULEE',
+          detail: `Commande annulée. Motif : ${reason}`,
+          userId: actor?.userId || null,
+          userName: actor?.actorName || actor?.actorRole || 'Service',
+          reason,
+          createdAt: now,
+        },
+      });
+
       const saved = await tx.restaurantOrder.update({
         where: { id },
         data: {
@@ -1537,11 +1956,7 @@ export class RestaurantService {
           annuleById: actor?.userId || null,
           cancelledByName: actor?.actorName || actor?.actorRole || 'Direction',
         },
-        include: {
-          lines: true,
-          room: true,
-          reservation: { include: { guest: { select: { fullName: true } } } },
-        },
+        include: this.standardOrderInclude,
       });
 
       await appendChainedAuditLog(tx, {
