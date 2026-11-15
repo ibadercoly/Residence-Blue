@@ -13,7 +13,7 @@ import { Role } from '@residence-blue/shared';
   template: `
     <!-- Desktop Header (tableau_de_bord) -->
     <header
-      class="hidden min-[900px]:flex fixed top-0 left-[272px] right-0 h-20 bg-surface/90 backdrop-blur-xl shadow-[0_1px_8px_rgba(0,0,0,0.04)] z-40 items-center justify-between px-margin"
+      class="hidden md:flex fixed top-0 left-64 right-0 h-20 bg-surface/90 backdrop-blur-xl shadow-[0_1px_8px_rgba(0,0,0,0.04)] z-40 items-center justify-between px-margin"
       role="banner"
     >
       <!-- Global Search -->
@@ -137,7 +137,7 @@ import { Role } from '@residence-blue/shared';
 
     <!-- Mobile Header (tableau_de_bord_mode_clair) -->
     <header
-      class="min-[900px]:hidden fixed top-0 w-full z-40 pt-safe bg-surface-container-lowest/80 backdrop-blur-xl shadow-[0_1px_8px_rgba(0,0,0,0.04)]"
+      class="md:hidden fixed top-0 w-full z-50 pt-safe bg-surface-container-lowest/80 backdrop-blur-xl shadow-[0_1px_8px_rgba(0,0,0,0.04)]"
       role="banner"
     >
       <div class="h-16 px-gutter-sm flex items-center justify-between gap-space-sm">
@@ -147,9 +147,9 @@ import { Role } from '@residence-blue/shared';
             (click)="menuToggle.emit()"
             data-testid="mobile-menu-toggle"
             aria-label="Ouvrir le menu principal"
-            class="w-11 h-11 rounded-xl bg-surface-container-low text-on-surface flex items-center justify-center shrink-0 cursor-pointer hover:bg-surface-container focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary"
+            class="w-10 h-10 rounded-xl bg-surface-container-low text-on-surface flex items-center justify-center shrink-0 cursor-pointer"
           >
-            <span class="material-symbols-outlined text-[24px]" aria-hidden="true">menu</span>
+            <span class="material-symbols-outlined text-[22px]" aria-hidden="true">menu</span>
           </button>
           <div class="w-9 h-9 rounded-xl bg-primary flex items-center justify-center text-on-primary shadow-sm flex-shrink-0">
             <span class="material-symbols-outlined text-[20px]" aria-hidden="true">hotel</span>

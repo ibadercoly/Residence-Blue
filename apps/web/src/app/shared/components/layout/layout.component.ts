@@ -11,6 +11,7 @@ interface MobileNavItem {
   path: string;
   label: string;
   icon: string;
+  colorClass?: string;
 }
 
 @Component({
@@ -20,16 +21,16 @@ interface MobileNavItem {
   imports: [RouterLink, RouterLinkActive, SidebarComponent, HeaderComponent, ReservationModalComponent],
   host: { class: 'block' },
   template: `
-    <div class="min-h-screen bg-surface text-on-surface font-body-md text-body-md antialiased selection:bg-primary selection:text-on-primary flex flex-col min-[900px]:block">
+    <div class="min-h-screen bg-surface text-on-surface font-body-md text-body-md antialiased selection:bg-primary selection:text-on-primary flex flex-col md:block">
       <app-sidebar
         [mobileOpen]="mobileMenuOpen()"
         (closeMobile)="mobileMenuOpen.set(false)"
       />
-      <div class="min-[900px]:pl-[272px] flex flex-col flex-1 min-w-0">
+      <div class="md:pl-64 flex flex-col flex-1">
         <app-header (menuToggle)="mobileMenuOpen.set(!mobileMenuOpen())" />
         <main
           role="main"
-          class="flex flex-col min-[900px]:block relative w-full min-w-0 pt-16 pb-24 min-[900px]:pt-20 min-[900px]:pb-0 min-[900px]:px-margin bg-surface min-h-screen min-[900px]:min-h-0"
+          class="flex flex-col md:block relative w-full pt-16 pb-24 md:pt-20 md:pb-0 md:px-margin bg-surface min-h-screen md:min-h-0"
         >
           <ng-content />
         </main>
@@ -41,7 +42,7 @@ interface MobileNavItem {
           role="status"
           aria-live="polite"
           data-testid="reservation-toast"
-          class="fixed bottom-20 min-[900px]:bottom-6 right-4 min-[900px]:right-6 z-50 px-4 py-3 rounded-xl bg-teal-900 text-white text-sm font-semibold shadow-sm flex items-center gap-3"
+          class="fixed bottom-20 md:bottom-6 right-4 md:right-6 z-50 px-4 py-3 rounded-xl bg-teal-900 text-white text-sm font-semibold shadow-sm flex items-center gap-3"
         >
           <span>{{ toastMsg }}</span>
           <button
@@ -91,11 +92,18 @@ interface MobileNavItem {
               routerLinkActive
               [routerLinkActiveOptions]="{ exact: item.path === '/tableau-de-bord' }"
               [attr.aria-current]="rla.isActive ? 'page' : null"
-              [class]="rla.isActive
-                ? 'flex flex-col items-center justify-center min-w-[56px] h-12 gap-0.5 transition-colors text-primary font-title-md'
-                : 'flex flex-col items-center justify-center min-w-[56px] h-12 gap-0.5 text-on-surface-variant hover:text-primary transition-colors'"
+              [class]="
+                (item.colorClass || 'rb-menu-color-dashboard') +
+                (rla.isActive
+                  ? ' flex flex-col items-center justify-center min-w-[56px] h-12 gap-0.5 transition-colors text-primary font-title-md'
+                  : ' flex flex-col items-center justify-center min-w-[56px] h-12 gap-0.5 text-on-surface-variant hover:text-primary transition-colors')
+              "
             >
-              <span class="material-symbols-outlined text-[22px]" aria-hidden="true">{{ item.icon }}</span>
+              <span
+                class="material-symbols-outlined text-[22px]"
+                style="color: var(--couleur-menu-item)"
+                aria-hidden="true"
+              >{{ item.icon }}</span>
               <span class="font-label-md text-[11px] leading-tight">{{ item.label }}</span>
             </a>
           }
@@ -111,11 +119,11 @@ export class LayoutComponent implements OnDestroy {
   readonly mobileMenuOpen = signal(false);
 
   readonly mobileNavItems: MobileNavItem[] = [
-    { path: '/tableau-de-bord', label: 'Bord', icon: 'dashboard' },
-    { path: '/planning', label: 'Planning', icon: 'calendar_month' },
-    { path: '/chambres', label: 'Chambres', icon: 'bed' },
-    { path: '/reservations', label: 'Résas', icon: 'book_online' },
-    { path: '/parametres', label: 'Plus', icon: 'widgets' },
+    { path: '/tableau-de-bord', label: 'Bord', icon: 'dashboard', colorClass: 'rb-menu-color-dashboard' },
+    { path: '/planning', label: 'Planning', icon: 'calendar_month', colorClass: 'rb-menu-color-planning' },
+    { path: '/chambres', label: 'Chambres', icon: 'bed', colorClass: 'rb-menu-color-rooms' },
+    { path: '/reservations', label: 'Résas', icon: 'book_online', colorClass: 'rb-menu-color-facturation' },
+    { path: '/parametres', label: 'Plus', icon: 'widgets', colorClass: 'rb-menu-color-rapports' },
   ];
 
   constructor() {

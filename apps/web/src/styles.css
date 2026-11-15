@@ -14,6 +14,57 @@
 
 :root {
   --icone-menu: 26px;
+  --couleur-menu-accueil: #4FD1C5;
+  --couleur-menu-planning: #5B9DF9;
+  --couleur-menu-chambres: #A78BFA;
+  --couleur-menu-clients: #F472B6;
+  --couleur-menu-facturation: #34C48B;
+  --couleur-menu-restaurant: #F2A33A;
+  --couleur-menu-rapports: #F2785C;
+}
+
+.rb-menu-color-dashboard { --couleur-menu-item: var(--couleur-menu-accueil); }
+.rb-menu-color-planning { --couleur-menu-item: var(--couleur-menu-planning); }
+.rb-menu-color-rooms { --couleur-menu-item: var(--couleur-menu-chambres); }
+.rb-menu-color-clients { --couleur-menu-item: var(--couleur-menu-clients); }
+.rb-menu-color-facturation { --couleur-menu-item: var(--couleur-menu-facturation); }
+.rb-menu-color-restaurant { --couleur-menu-item: var(--couleur-menu-restaurant); }
+.rb-menu-color-rapports { --couleur-menu-item: var(--couleur-menu-rapports); }
+
+.rb-menu-svg-icon {
+  width: var(--icone-menu, 26px);
+  height: var(--icone-menu, 26px);
+  color: var(--couleur-menu-item);
+  flex-shrink: 0;
+  display: inline-block;
+}
+
+.rb-menu-svg-icon .accent {
+  fill: currentColor;
+  fill-opacity: 0.3;
+}
+
+.rb-menu-entry {
+  color: #DDEFF1;
+  font-weight: 500;
+  background-color: transparent;
+  transition: background-color 150ms ease, color 150ms ease;
+}
+
+.rb-menu-entry:hover {
+  background-color: color-mix(in srgb, var(--couleur-menu-item) 10%, transparent);
+  color: #FFFFFF;
+}
+
+.rb-menu-entry.rb-menu-entry-active {
+  background-color: color-mix(in srgb, var(--couleur-menu-item) 18%, transparent);
+  color: #FFFFFF;
+  font-weight: 600;
+}
+
+.rb-menu-entry:focus-visible {
+  outline: 2px solid var(--couleur-menu-item);
+  outline-offset: 2px;
 }
 
 /* Repris tel quel des maquettes (balise <style> de code.html). */

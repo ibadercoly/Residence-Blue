@@ -1,7 +1,7 @@
-import { Component, EventEmitter, Input, Output, computed, inject, signal } from '@angular/core';
+import { Component, EventEmitter, Input, Output, inject, signal, computed } from '@angular/core';
+import { RoomsService } from '../../../core/services/rooms.service';
 import { CommonModule } from '@angular/common';
 import { RouterLink, RouterLinkActive } from '@angular/router';
-import { RoomsService } from '../../../core/services/rooms.service';
 import { ModuleConfigService } from '../../../core/services/module-config.service';
 
 export interface NavItem {
@@ -16,96 +16,10 @@ export interface NavItem {
   standalone: true,
   imports: [CommonModule, RouterLink, RouterLinkActive],
   host: { class: 'block' },
-  styles: [
-    `
-      .rb-sidebar-aside {
-        width: 272px;
-        max-width: 85vw;
-      }
-
-      .rb-sidebar-scroll {
-        overflow-y: auto;
-        overflow-x: hidden;
-        scrollbar-width: thin;
-        scrollbar-color: rgba(255, 255, 255, 0.35) transparent;
-      }
-
-      .rb-sidebar-scroll::-webkit-scrollbar {
-        display: block;
-        width: 6px;
-      }
-
-      .rb-sidebar-scroll::-webkit-scrollbar-track {
-        background: transparent;
-      }
-
-      .rb-sidebar-scroll::-webkit-scrollbar-thumb {
-        background-color: rgba(255, 255, 255, 0.35);
-        border-radius: 9999px;
-      }
-
-      .rb-sidebar-heading {
-        font-size: 13px;
-        line-height: 1.25;
-        letter-spacing: 0.08em;
-      }
-
-      .rb-sidebar-nav {
-        display: flex;
-        flex-direction: column;
-        gap: 10px;
-      }
-
-      .rb-sidebar-link {
-        display: flex;
-        align-items: center;
-        gap: 16px;
-        width: 100%;
-        height: 56px;
-        min-height: 56px;
-        padding: 0 16px;
-        border-radius: 14px;
-        font-size: 18px;
-        line-height: 1.2;
-        font-weight: 500;
-        text-decoration: none;
-        white-space: nowrap;
-        transition: background-color 150ms ease, color 150ms ease, box-shadow 150ms ease;
-      }
-
-      .rb-sidebar-link.rb-sidebar-link-active {
-        font-weight: 600;
-      }
-
-      .rb-sidebar-link:focus-visible {
-        outline: 2px solid #9ef0f8;
-        outline-offset: 2px;
-      }
-
-      .rb-sidebar-icon {
-        font-size: var(--icone-menu, 26px);
-        width: var(--icone-menu, 26px);
-        height: var(--icone-menu, 26px);
-        line-height: 1;
-        color: currentColor;
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        flex-shrink: 0;
-      }
-
-      .rb-sidebar-label {
-        font-size: 18px;
-        line-height: 1.2;
-        white-space: nowrap;
-      }
-    `,
-  ],
   template: `
-    <!-- Backdrop mobile (< 900 px) -->
     @if (mobileOpen) {
       <div
-        class="fixed inset-0 z-40 bg-black/45 min-[900px]:hidden"
+        class="fixed inset-0 z-40 bg-black/45 md:hidden"
         data-testid="sidebar-backdrop"
         aria-hidden="true"
         (click)="closeMobile.emit()"
@@ -115,85 +29,147 @@ export interface NavItem {
     <aside
       data-testid="app-sidebar-aside"
       [class]="
-        'rb-sidebar-aside fixed left-0 top-0 h-dvh bg-inverse-surface z-50 flex flex-col shadow-[0_1px_8px_rgba(0,0,0,0.06)] transition-transform duration-200 min-[900px]:translate-x-0 ' +
+        'fixed left-0 top-0 h-full w-64 bg-inverse-surface z-50 flex flex-col justify-between shadow-[0_1px_8px_rgba(0,0,0,0.06)] transition-transform duration-200 md:translate-x-0 ' +
         (mobileOpen ? 'translate-x-0' : '-translate-x-full')
       "
       aria-label="Navigation principale"
     >
-      <!-- Brand Header (fixe en haut, espace aéré sous le logo) -->
-      <div class="shrink-0 flex items-center justify-between gap-2 px-4 pt-5 pb-5">
-        <div class="flex items-center gap-3 min-w-0">
-          <div class="w-10 h-10 rounded-xl bg-primary flex items-center justify-center text-on-primary shadow-sm shrink-0">
-            <span class="material-symbols-outlined text-[24px]" aria-hidden="true">hotel</span>
+      <div class="flex flex-col">
+        <!-- Brand Header -->
+        <div class="h-20 flex items-center justify-between gap-space-md px-gutter">
+          <div class="flex items-center gap-space-md min-w-0">
+            <div class="w-10 h-10 rounded-xl bg-primary flex items-center justify-center text-on-primary shadow-sm shrink-0">
+              <span class="material-symbols-outlined text-[24px]">hotel</span>
+            </div>
+            <div class="flex flex-col justify-center min-w-0">
+              <span class="font-headline-sm text-headline-sm text-surface-bright tracking-tight truncate leading-tight">
+                Résidence Blue
+              </span>
+              <span class="font-label-md text-label-md text-outline-variant uppercase tracking-wider truncate">
+                Hôtel {{ roomsCount() }} Clés &bull; Thiès
+              </span>
+            </div>
           </div>
-          <div class="flex flex-col justify-center min-w-0">
-            <span class="font-headline-sm text-headline-sm text-surface-bright tracking-tight truncate leading-tight">
-              Résidence Blue
-            </span>
-            <span class="font-label-md text-label-md text-outline-variant uppercase tracking-wider truncate">
-              Hôtel {{ roomsCount() }} Clés &bull; Thiès
-            </span>
-          </div>
+
+          <button
+            type="button"
+            class="md:hidden w-9 h-9 rounded-lg text-surface-container-high hover:bg-surface-variant/20 flex items-center justify-center shrink-0"
+            aria-label="Fermer le menu"
+            data-testid="sidebar-close-mobile"
+            (click)="closeMobile.emit()"
+          >
+            <span class="material-symbols-outlined text-[20px]">close</span>
+          </button>
         </div>
 
-        <!-- Bouton fermer sur mobile (< 900 px) -->
-        <button
-          type="button"
-          class="min-[900px]:hidden w-10 h-10 rounded-xl text-surface-container-high hover:bg-surface-variant/20 flex items-center justify-center shrink-0 focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary-fixed"
-          aria-label="Fermer le menu"
-          data-testid="sidebar-close-mobile"
-          (click)="closeMobile.emit()"
-        >
-          <span class="material-symbols-outlined text-[24px]" aria-hidden="true">close</span>
-        </button>
-      </div>
-
-      <!-- Titre de section (13 px) -->
-      <div class="shrink-0 px-4 mb-2">
-        <div
-          class="rb-sidebar-heading px-4 font-semibold text-outline-variant uppercase"
-          data-testid="sidebar-section-title"
-        >
-          Menu Principal
+        <!-- Section Navigation principale (Maximum 7 modules actifs V1) -->
+        <div class="px-space-md py-space-sm">
+          <div class="px-space-md py-space-xs mb-space-xs font-label-md text-label-md text-outline-variant uppercase tracking-wider">
+            Menu Principal
+          </div>
+          <nav class="flex flex-col gap-space-xs" data-testid="sidebar-nav">
+            @for (item of activeMenuItems(); track item.route) {
+              <a
+                [routerLink]="item.route"
+                #rla="routerLinkActive"
+                routerLinkActive
+                [routerLinkActiveOptions]="{ exact: item.route === '/tableau-de-bord' || item.route === '/accueil' || item.route === '/' }"
+                [attr.aria-current]="rla.isActive ? 'page' : null"
+                [attr.data-testid]="'nav-' + item.id"
+                (click)="closeMobile.emit()"
+                [class]="
+                  'flex items-center gap-space-md px-space-md py-space-sm rounded-lg font-title-md text-title-md rb-menu-entry rb-menu-color-' +
+                  item.id +
+                  (rla.isActive ? ' rb-menu-entry-active' : '')
+                "
+              >
+                <svg
+                  class="rb-menu-svg-icon"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  aria-hidden="true"
+                >
+                  @switch (item.id) {
+                    @case ('dashboard') {
+                      <!-- Accueil : 4 tuiles, accent sur les 2 tuiles diagonales -->
+                      <rect class="accent" x="3" y="3" width="8" height="8" rx="2" />
+                      <rect class="accent" x="13" y="13" width="8" height="8" rx="2" />
+                      <rect x="3" y="3" width="8" height="8" rx="2" stroke="currentColor" stroke-width="1.9" />
+                      <rect x="13" y="3" width="8" height="5" rx="1.8" stroke="currentColor" stroke-width="1.9" />
+                      <rect x="3" y="14" width="8" height="7" rx="1.8" stroke="currentColor" stroke-width="1.9" />
+                      <rect x="13" y="11" width="8" height="10" rx="2" stroke="currentColor" stroke-width="1.9" />
+                    }
+                    @case ('planning') {
+                      <!-- Planning : calendrier avec bandeau supérieur en accent -->
+                      <rect class="accent" x="3.5" y="4.5" width="17" height="5" rx="1.5" />
+                      <rect x="3.5" y="4.5" width="17" height="16" rx="2.5" stroke="currentColor" stroke-width="1.9" />
+                      <line x1="8" y1="2.5" x2="8" y2="6.5" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" />
+                      <line x1="16" y1="2.5" x2="16" y2="6.5" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" />
+                      <line x1="3.5" y1="9.5" x2="20.5" y2="9.5" stroke="currentColor" stroke-width="1.9" />
+                      <circle cx="8.5" cy="13.5" r="1.1" fill="currentColor" />
+                      <circle cx="12" cy="13.5" r="1.1" fill="currentColor" />
+                      <circle cx="15.5" cy="13.5" r="1.1" fill="currentColor" />
+                      <circle cx="8.5" cy="17" r="1.1" fill="currentColor" />
+                      <circle cx="12" cy="17" r="1.1" fill="currentColor" />
+                    }
+                    @case ('rooms') {
+                      <!-- Chambres : lit avec matelas et oreillers en accent -->
+                      <rect class="accent" x="4" y="11" width="16" height="5" rx="1.5" />
+                      <path d="M3 19V7a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v12" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" />
+                      <path d="M3 15h18" stroke="currentColor" stroke-width="1.9" />
+                      <path d="M6 11V9.5A1.5 1.5 0 0 1 7.5 8h2A1.5 1.5 0 0 1 11 9.5V11" stroke="currentColor" stroke-width="1.8" />
+                      <path d="M13 11V9.5A1.5 1.5 0 0 1 14.5 8h2A1.5 1.5 0 0 1 18 9.5V11" stroke="currentColor" stroke-width="1.8" />
+                    }
+                    @case ('clients') {
+                      <!-- Clients : duo avec silhouette principale en accent -->
+                      <circle class="accent" cx="9" cy="8" r="3.5" />
+                      <path class="accent" d="M3.5 19c0-3 2.5-5.2 5.5-5.2s5.5 2.2 5.5 5.2" />
+                      <circle cx="9" cy="8" r="3.5" stroke="currentColor" stroke-width="1.9" />
+                      <path d="M3.5 19c0-3 2.5-5.2 5.5-5.2s5.5 2.2 5.5 5.2" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" />
+                      <circle cx="16.5" cy="9" r="2.5" stroke="currentColor" stroke-width="1.8" />
+                      <path d="M16 14.2c2.4.2 4.3 2 4.5 4.8" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" />
+                    }
+                    @case ('facturation') {
+                      <!-- Facturation : reçu avec corps en accent -->
+                      <path class="accent" d="M5 4.5h14v15l-2.3-1.6-2.4 1.6-2.3-1.6-2.3 1.6-2.4-1.6L5 19.5V4.5Z" />
+                      <path d="M5 4.5h14v15l-2.3-1.6-2.4 1.6-2.3-1.6-2.3 1.6-2.4-1.6L5 19.5V4.5Z" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round" />
+                      <line x1="8.5" y1="9" x2="15.5" y2="9" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" />
+                      <line x1="8.5" y1="13" x2="13.5" y2="13" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" />
+                    }
+                    @case ('rapports') {
+                      <!-- Rapports : barres analytiques avec zone en accent -->
+                      <rect class="accent" x="4.5" y="13" width="3.5" height="6.5" rx="1" />
+                      <rect class="accent" x="10.25" y="8" width="3.5" height="11.5" rx="1" />
+                      <rect class="accent" x="16" y="4.5" width="3.5" height="15" rx="1" />
+                      <rect x="4.5" y="13" width="3.5" height="6.5" rx="1" stroke="currentColor" stroke-width="1.8" />
+                      <rect x="10.25" y="8" width="3.5" height="11.5" rx="1" stroke="currentColor" stroke-width="1.8" />
+                      <rect x="16" y="4.5" width="3.5" height="15" rx="1" stroke="currentColor" stroke-width="1.8" />
+                      <line x1="3" y1="19.5" x2="21" y2="19.5" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" />
+                    }
+                    @default {
+                      <!-- Restaurant & Bar : cloche / service avec dôme en accent -->
+                      <path class="accent" d="M4.5 15a7.5 7.5 0 0 1 15 0H4.5Z" />
+                      <path d="M4.5 15a7.5 7.5 0 0 1 15 0H4.5Z" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round" />
+                      <circle cx="12" cy="5.5" r="1.3" stroke="currentColor" stroke-width="1.8" />
+                      <line x1="3" y1="18.5" x2="21" y2="18.5" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" />
+                    }
+                  }
+                </svg>
+                <span>{{ item.label }}</span>
+              </a>
+            }
+          </nav>
         </div>
       </div>
 
-      <!-- Liste du menu (défile verticalement si hauteur < 720 px, jamais de scroll horizontal) -->
-      <div
-        class="rb-sidebar-scroll flex-1 min-h-0 px-4 pb-2"
-        data-testid="sidebar-scroll-container"
-      >
-        <nav class="rb-sidebar-nav" data-testid="sidebar-nav">
-          @for (item of activeMenuItems(); track item.route) {
-            <a
-              [routerLink]="item.route"
-              #rla="routerLinkActive"
-              routerLinkActive
-              [routerLinkActiveOptions]="{ exact: item.route === '/tableau-de-bord' || item.route === '/accueil' || item.route === '/' }"
-              [attr.aria-current]="rla.isActive ? 'page' : null"
-              [attr.data-testid]="'nav-' + item.id"
-              (click)="closeMobile.emit()"
-              [class]="
-                rla.isActive
-                  ? 'rb-sidebar-link rb-sidebar-link-active bg-primary text-on-primary shadow-sm'
-                  : 'rb-sidebar-link text-surface-container-high hover:bg-surface-variant/20 hover:text-surface-bright'
-              "
-            >
-              <span class="material-symbols-outlined rb-sidebar-icon" aria-hidden="true">{{ item.icon }}</span>
-              <span class="rb-sidebar-label">{{ item.label }}</span>
-            </a>
-          }
-        </nav>
-      </div>
-
-      <!-- Bloc Version fixe en bas (ne chevauche jamais le menu) -->
-      <div class="shrink-0 px-4 py-3" data-testid="sidebar-version-block">
-        <div class="bg-surface-variant/10 rounded-xl px-4 py-2.5 flex items-center justify-between">
-          <div class="flex flex-col min-w-0">
+      <!-- Badge Mode V1 Minimale & Version -->
+      <div class="p-gutter">
+        <div class="bg-surface-variant/10 rounded-xl p-space-md flex items-center justify-between">
+          <div class="flex flex-col">
             <span class="font-label-md text-label-md text-surface-container-high">Version 1.0</span>
-            <span class="font-body-sm text-[11px] text-outline-variant truncate">Légère &bull; {{ roomsCount() }} Chambres</span>
+            <span class="font-body-sm text-[11px] text-outline-variant">Légère &bull; {{ roomsCount() }} Chambres</span>
           </div>
-          <span class="material-symbols-outlined text-primary-fixed-dim text-[20px] shrink-0" aria-hidden="true">speed</span>
+          <span class="material-symbols-outlined text-primary-fixed-dim text-[20px]">speed</span>
         </div>
       </div>
     </aside>
