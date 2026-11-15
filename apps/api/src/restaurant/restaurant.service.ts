@@ -6,7 +6,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InvoiceDocumentType, InvoiceStatus, PaymentMethod, Prisma, ReservationStatus } from '@prisma/client';
-import { Observable, Subject } from 'rxjs';
+import { Observable, Subject, concat, from, map } from 'rxjs';
 import { PrismaService } from '../prisma/prisma.service';
 import { appendChainedAuditLog } from '../common/audit/audit.service';
 import { recalculateInvoiceTotalsInTx } from '../billing/billing-totals.helper';
@@ -33,34 +33,115 @@ export interface RestaurantActorContext {
 }
 
 export interface RestaurantOrderStreamEvent {
+  eventId: number;
   type: 'ORDER_CREATED' | 'ORDER_UPDATED' | 'ORDER_CANCELLED' | 'HEARTBEAT';
   orderId?: string;
+  order?: any;
+  timestamp: string;
+}
+
+interface BufferedRestaurantOrderEvent {
+  eventId: number;
+  type: 'ORDER_CREATED' | 'ORDER_UPDATED' | 'ORDER_CANCELLED';
+  orderId?: string;
+  rawOrder?: any;
   timestamp: string;
 }
 
 const CARD_PAN_REGEX = /\b(?:\d[ -]*?){13,19}\b/;
+const TWELVE_HOURS_MS = 12 * 60 * 60 * 1000;
 
 @Injectable()
 export class RestaurantService {
-  private readonly orderEvents$ = new Subject<RestaurantOrderStreamEvent>();
+  private readonly orderEvents$ = new Subject<BufferedRestaurantOrderEvent>();
+  private readonly recentEventsBuffer: BufferedRestaurantOrderEvent[] = [];
+  private nextEventId = 1;
 
   constructor(private readonly prisma: PrismaService) {}
 
-  getOrderEventStream(): Observable<RestaurantOrderStreamEvent> {
-    return this.orderEvents$.asObservable();
+  private isKitchenRole(role?: string | null): boolean {
+    return role === 'CUISINIER' || role === 'CUISINE';
   }
 
-  private emitOrderEvent(type: RestaurantOrderStreamEvent['type'], orderId?: string): void {
-    this.orderEvents$.next({
+  getOrderEventStream(): Observable<RestaurantOrderStreamEvent> {
+    return this.getRoleFilteredOrderEventStream(undefined);
+  }
+
+  getRoleFilteredOrderEventStream(
+    role?: string,
+    lastEventId?: number,
+  ): Observable<RestaurantOrderStreamEvent> {
+    const isKitchen = this.isKitchenRole(role);
+    const replayEvents =
+      typeof lastEventId === 'number' && !Number.isNaN(lastEventId)
+        ? this.recentEventsBuffer.filter((evt) => evt.eventId > lastEventId)
+        : [];
+
+    const toClientEvent = (evt: BufferedRestaurantOrderEvent): RestaurantOrderStreamEvent => ({
+      eventId: evt.eventId,
+      type: evt.type,
+      orderId: evt.orderId,
+      order: evt.rawOrder ? this.formatOrder(evt.rawOrder, isKitchen) : undefined,
+      timestamp: evt.timestamp,
+    });
+
+    const live$ = this.orderEvents$.asObservable().pipe(map(toClientEvent));
+    if (replayEvents.length > 0) {
+      return concat(from(replayEvents.map(toClientEvent)), live$);
+    }
+    return live$;
+  }
+
+  private emitOrderEvent(
+    type: BufferedRestaurantOrderEvent['type'],
+    orderId?: string,
+    rawOrder?: any,
+  ): void {
+    const evt: BufferedRestaurantOrderEvent = {
+      eventId: this.nextEventId++,
       type,
       orderId,
+      rawOrder,
       timestamp: new Date().toISOString(),
-    });
+    };
+    this.recentEventsBuffer.push(evt);
+    if (this.recentEventsBuffer.length > 100) {
+      this.recentEventsBuffer.shift();
+    }
+    this.orderEvents$.next(evt);
   }
 
   private normalizeOrderStatus(status?: string | null): string {
-    if (!status || status === 'SENT_TO_KITCHEN') return 'PENDING';
+    if (!status || status === 'SENT_TO_KITCHEN' || status === 'ENVOYEE') return 'PENDING';
+    if (status === 'EN_PREPARATION') return 'IN_PREPARATION';
+    if (status === 'PRETE') return 'READY';
+    if (status === 'SERVIE') return 'SERVED';
+    if (status === 'ANNULEE') return 'CANCELLED';
     return status;
+  }
+
+  private toFrenchStatut(normalizedStatus: string): 'ENVOYEE' | 'EN_PREPARATION' | 'PRETE' | 'SERVIE' | 'ANNULEE' {
+    switch (normalizedStatus) {
+      case 'IN_PREPARATION':
+        return 'EN_PREPARATION';
+      case 'READY':
+        return 'PRETE';
+      case 'SERVED':
+        return 'SERVIE';
+      case 'CANCELLED':
+        return 'ANNULEE';
+      default:
+        return 'ENVOYEE';
+    }
+  }
+
+  private getServiceStart04hDakar(now = new Date()): Date {
+    const dakarStart = new Date(now);
+    dakarStart.setUTCHours(4, 0, 0, 0);
+    if (now.getUTCHours() < 4) {
+      dakarStart.setUTCDate(dakarStart.getUTCDate() - 1);
+    }
+    return dakarStart;
   }
 
   private assertNoCardPan(value?: string | null): void {
@@ -97,10 +178,11 @@ export class RestaurantService {
     };
   }
 
-  private resolveDestinationLabel(o: any): string {
+  private resolveDestinationLabel(o: any, fullRoomLabel = false): string {
     if (o.destinationType === 'ROOM') {
-      const num = o.room?.number || o.tableLabel?.replace(/^Ch\.\s*/i, '') || '';
-      return num ? `Ch. ${num}` : 'Chambre';
+      const num = o.room?.number || o.tableLabel?.replace(/^(Ch\.|Chambre)\s*/i, '') || '';
+      if (!num) return 'Chambre';
+      return fullRoomLabel ? `Chambre ${num}` : `Ch. ${num}`;
     }
     if (o.destinationType === 'TAKEAWAY') {
       return 'À emporter';
@@ -126,33 +208,82 @@ export class RestaurantService {
       o.reservation?.guest?.fullName ||
       (destType === 'ROOM' ? 'Client séjour' : 'Client de passage');
 
+    const normalizedStatus = this.normalizeOrderStatus(o.status);
+    const frenchStatut = this.toFrenchStatut(normalizedStatus);
+    const createdAtDate = new Date(o.createdAt);
+    const envoyeeAtDate = o.envoyeeAt ? new Date(o.envoyeeAt) : createdAtDate;
+    const priseEnChargeAtDate = o.priseEnChargeAt
+      ? new Date(o.priseEnChargeAt)
+      : o.preparingAt
+        ? new Date(o.preparingAt)
+        : null;
+    const preteAtDate = o.preteAt
+      ? new Date(o.preteAt)
+      : o.readyAt
+        ? new Date(o.readyAt)
+        : null;
+    const serviAtDate = o.serviAt
+      ? new Date(o.serviAt)
+      : o.servedAt
+        ? new Date(o.servedAt)
+        : null;
+    const annuleAtDate = o.annuleAt
+      ? new Date(o.annuleAt)
+      : o.cancelledAt
+        ? new Date(o.cancelledAt)
+        : null;
+    const heureFinPrevueDate = o.heureFinPrevue
+      ? new Date(o.heureFinPrevue)
+      : priseEnChargeAtDate && o.tempsPreparationMinutes
+        ? new Date(priseEnChargeAtDate.getTime() + o.tempsPreparationMinutes * 60 * 1000)
+        : null;
+    const isStaleOver12h =
+      (normalizedStatus === 'PENDING' || normalizedStatus === 'IN_PREPARATION') &&
+      Date.now() - createdAtDate.getTime() > TWELVE_HOURS_MS;
+
     return {
       id: o.id,
       ticketNumber: o.ticketNumber,
       serverName: o.serverName,
-      time: new Date(o.createdAt).toISOString(),
-      createdAt: new Date(o.createdAt).toISOString(),
+      time: createdAtDate.toISOString(),
+      createdAt: createdAtDate.toISOString(),
       updatedAt: new Date(o.updatedAt).toISOString(),
       destinationType: destType,
       destinationValue: destValue,
-      destinationLabel: this.resolveDestinationLabel(o),
+      destinationLabel: this.resolveDestinationLabel(o, hideAmounts),
       tableLabel: o.tableLabel || null,
       roomId: o.roomId || null,
       roomNumber: o.room?.number || null,
-      reservationId: o.reservationId || null,
-      invoiceId: o.invoiceId || null,
-      guestName,
-      status: this.normalizeOrderStatus(o.status),
-      paymentMethod: o.paymentMethod || null,
-      cancellationReason: o.cancellationReason || null,
+      status: normalizedStatus,
+      statut: frenchStatut,
+      envoyeeAt: envoyeeAtDate.toISOString(),
+      envoyeeById: o.envoyeeById || null,
+      preparingAt: priseEnChargeAtDate ? priseEnChargeAtDate.toISOString() : null,
+      priseEnChargeAt: priseEnChargeAtDate ? priseEnChargeAtDate.toISOString() : null,
+      priseEnChargeById: o.priseEnChargeById || null,
+      priseEnChargeByName: o.priseEnChargeByName || null,
+      tempsPreparationMinutes: o.tempsPreparationMinutes ?? null,
+      heureFinPrevue: heureFinPrevueDate ? heureFinPrevueDate.toISOString() : null,
+      readyAt: preteAtDate ? preteAtDate.toISOString() : null,
+      preteAt: preteAtDate ? preteAtDate.toISOString() : null,
+      preteById: o.preteById || null,
+      servedAt: serviAtDate ? serviAtDate.toISOString() : null,
+      serviAt: serviAtDate ? serviAtDate.toISOString() : null,
+      serviById: o.serviById || null,
+      cancelledAt: annuleAtDate ? annuleAtDate.toISOString() : null,
+      annuleAt: annuleAtDate ? annuleAtDate.toISOString() : null,
+      annuleById: o.annuleById || o.cancelledById || null,
+      cancellationReason: o.cancellationReason || o.motifAnnulation || null,
+      motifAnnulation: o.motifAnnulation || o.cancellationReason || null,
       cancelledByName: o.cancelledByName || null,
-      preparingAt: o.preparingAt ? new Date(o.preparingAt).toISOString() : null,
-      readyAt: o.readyAt ? new Date(o.readyAt).toISOString() : null,
-      servedAt: o.servedAt ? new Date(o.servedAt).toISOString() : null,
-      cancelledAt: o.cancelledAt ? new Date(o.cancelledAt).toISOString() : null,
+      isStaleOver12h,
       ...(hideAmounts
         ? {}
         : {
+            reservationId: o.reservationId || null,
+            invoiceId: o.invoiceId || null,
+            guestName,
+            paymentMethod: o.paymentMethod || null,
             subtotalHtFcfa: o.subtotalHtFcfa,
             vatRatePercent: 10,
             vatAmountFcfa: o.vatAmountFcfa,
@@ -481,8 +612,25 @@ export class RestaurantService {
   }
 
   async findAllOrders(actorRole?: string) {
-    const hideAmounts = actorRole === 'CUISINE';
+    const hideAmounts = this.isKitchenRole(actorRole);
+    const now = new Date();
+    const serviceStart = this.getServiceStart04hDakar(now);
+    const twelveHoursAgo = new Date(now.getTime() - TWELVE_HOURS_MS);
+
+    const where: Prisma.RestaurantOrderWhereInput = hideAmounts
+      ? {
+          OR: [
+            { createdAt: { gte: serviceStart } },
+            {
+              createdAt: { gte: twelveHoursAgo },
+              status: { in: ['PENDING', 'SENT_TO_KITCHEN', 'IN_PREPARATION'] },
+            },
+          ],
+        }
+      : {};
+
     const orders = await this.prisma.restaurantOrder.findMany({
+      where,
       include: {
         lines: true,
         room: true,
@@ -491,13 +639,121 @@ export class RestaurantService {
       orderBy: { createdAt: 'desc' },
       take: 100,
     });
-    return orders.map((o) => this.formatOrder(o, hideAmounts));
+
+    const filtered = hideAmounts
+      ? orders.filter((o) => {
+          const normalized = this.normalizeOrderStatus(o.status);
+          const isUnfinished = normalized === 'PENDING' || normalized === 'IN_PREPARATION';
+          const ageMs = now.getTime() - new Date(o.createdAt).getTime();
+          if (isUnfinished && ageMs > TWELVE_HOURS_MS) {
+            return false;
+          }
+          return true;
+        })
+      : orders;
+
+    return filtered.map((o) => this.formatOrder(o, hideAmounts));
+  }
+
+  async findStaleOrders() {
+    const twelveHoursAgo = new Date(Date.now() - TWELVE_HOURS_MS);
+    const stale = await this.prisma.restaurantOrder.findMany({
+      where: {
+        createdAt: { lt: twelveHoursAgo },
+        status: { in: ['PENDING', 'SENT_TO_KITCHEN', 'IN_PREPARATION'] },
+      },
+      include: {
+        lines: true,
+        room: true,
+        reservation: { include: { guest: { select: { fullName: true } } } },
+      },
+      orderBy: { createdAt: 'asc' },
+    });
+    return stale.map((o) => this.formatOrder(o, false));
+  }
+
+  async closeStaleOrder(
+    id: string,
+    dto: CancelRestaurantOrderDto,
+    actor?: RestaurantActorContext,
+  ) {
+    if (actor?.actorRole && actor.actorRole !== 'DIRECTION' && actor.actorRole !== 'RECEPTION') {
+      throw new ForbiddenException(
+        'La clôture des anciennes commandes est réservée aux rôles DIRECTION et RECEPTION.',
+      );
+    }
+    const reason = dto.reason?.trim();
+    if (!reason || reason.length < 3) {
+      throw new BadRequestException("Un motif de clôture d'au moins 3 caractères est obligatoire.");
+    }
+    const existing = await this.prisma.restaurantOrder.findUnique({ where: { id } });
+    if (!existing) throw new NotFoundException(`Commande "${id}" introuvable.`);
+
+    const normalized = this.normalizeOrderStatus(existing.status);
+    if (normalized !== 'PENDING' && normalized !== 'IN_PREPARATION') {
+      throw new ConflictException('Seules les commandes non terminées peuvent être clôturées.');
+    }
+
+    const now = new Date();
+    const closed = await this.prisma.$transaction(async (tx) => {
+      if (existing.invoiceId) {
+        const linkedInv = await tx.invoice.findUnique({ where: { id: existing.invoiceId } });
+        if (linkedInv && !linkedInv.isIssued) {
+          await tx.invoiceLine.deleteMany({
+            where: { invoiceId: linkedInv.id, sourceOrderId: existing.id },
+          });
+          await recalculateInvoiceTotalsInTx(tx, linkedInv.id);
+        }
+      }
+
+      const saved = await tx.restaurantOrder.update({
+        where: { id },
+        data: {
+          status: 'CANCELLED',
+          statut: 'ANNULEE',
+          cancellationReason: reason,
+          motifAnnulation: reason,
+          cancelledAt: now,
+          annuleAt: now,
+          cancelledById: actor?.userId || null,
+          annuleById: actor?.userId || null,
+          cancelledByName: actor?.actorName || actor?.actorRole || 'Direction',
+        },
+        include: {
+          lines: true,
+          room: true,
+          reservation: { include: { guest: { select: { fullName: true } } } },
+        },
+      });
+
+      await appendChainedAuditLog(tx, {
+        userId: actor?.userId || null,
+        action: 'ORDER_CLOSE_STALE',
+        entity: 'RestaurantOrder',
+        entityId: saved.id,
+        ip: actor?.ip || null,
+        before: { status: normalized, statut: this.toFrenchStatut(normalized) },
+        after: {
+          status: 'CANCELLED',
+          statut: 'ANNULEE',
+          reason,
+          annuleById: actor?.userId || null,
+          annuleAt: now.toISOString(),
+          ticketNumber: saved.ticketNumber,
+        },
+      });
+
+      return saved;
+    });
+
+    this.emitOrderEvent('ORDER_CANCELLED', id, closed);
+    return this.formatOrder(closed, false);
   }
 
   async findOrdersPage(query: RestaurantOrdersQueryDto, actorRole?: string) {
     const offset = Math.max(0, Math.round(query.offset || 0));
     const limit = Math.min(50, Math.max(1, Math.round(query.limit || 50)));
-    const hideAmounts = actorRole === 'CUISINE';
+    const hideAmounts = this.isKitchenRole(actorRole);
 
     const where: Prisma.RestaurantOrderWhereInput = {};
     if (query.destinationType) {
@@ -715,7 +971,8 @@ export class RestaurantService {
     }
 
     try {
-      const created = await this.prisma.$transaction(
+      const now = new Date();
+      const { formatted, full } = await this.prisma.$transaction(
         async (tx) => {
           let linkedInvoiceId: string | null = null;
           const order = await tx.restaurantOrder.create({
@@ -729,6 +986,9 @@ export class RestaurantService {
               guestName: resolvedGuestName,
               serverName: dto.serverName?.trim() || ctx?.actorName || 'Service',
               status: 'PENDING',
+              statut: 'ENVOYEE',
+              envoyeeAt: now,
+              envoyeeById: ctx?.userId || null,
               subtotalHtFcfa,
               vatAmountFcfa,
               totalTtcFcfa,
@@ -868,10 +1128,13 @@ export class RestaurantService {
               totalTtcFcfa: order.totalTtcFcfa,
               action,
               invoiceId: linkedInvoiceId,
+              statut: 'ENVOYEE',
+              envoyeeAt: now.toISOString(),
+              envoyeeById: ctx?.userId || null,
             },
           });
 
-          const full = await tx.restaurantOrder.findUniqueOrThrow({
+          const fullRecord = await tx.restaurantOrder.findUniqueOrThrow({
             where: { id: order.id },
             include: {
               lines: true,
@@ -880,24 +1143,24 @@ export class RestaurantService {
             },
           });
 
-          const formatted = this.formatOrder(full);
+          const formattedOrder = this.formatOrder(fullRecord);
           if (idempotencyKey) {
             await tx.syncOperation.create({
               data: {
                 idempotencyKey,
                 userId: ctx?.userId || null,
-                result: formatted as any,
+                result: formattedOrder as any,
               },
             });
           }
 
-          return formatted;
+          return { formatted: formattedOrder, full: fullRecord };
         },
         { timeout: 15000 },
       );
 
-      this.emitOrderEvent('ORDER_CREATED', created.id);
-      return created;
+      this.emitOrderEvent('ORDER_CREATED', formatted.id, full);
+      return formatted;
     } catch (err: any) {
       if (idempotencyKey && err?.code === 'P2002') {
         const retry = await this.prisma.restaurantOrder.findUnique({
@@ -1041,31 +1304,143 @@ export class RestaurantService {
     const existing = await this.prisma.restaurantOrder.findUnique({ where: { id } });
     if (!existing) throw new NotFoundException(`Commande "${id}" introuvable.`);
 
-    const requestedStatus = dto.status ? this.normalizeOrderStatus(dto.status) : undefined;
+    const currentStatus = this.normalizeOrderStatus(existing.status);
+    const rawRequested = dto.status || dto.statut;
+    const requestedStatus = rawRequested ? this.normalizeOrderStatus(rawRequested) : undefined;
+    const isKitchen = this.isKitchenRole(actor?.actorRole);
+
     if (requestedStatus === 'CANCELLED') {
       if (actor?.actorRole !== 'DIRECTION' && actor?.actorRole !== 'RECEPTION') {
         throw new ForbiddenException(
           "L'annulation d'une commande est réservée aux rôles DIRECTION et RECEPTION.",
         );
       }
-      return this.cancelOrder(id, { reason: dto.cancellationReason || '' }, actor);
+      return this.cancelOrder(
+        id,
+        { reason: dto.cancellationReason || dto.motifAnnulation || '' },
+        actor,
+      );
     }
 
-    if (existing.status === 'CANCELLED' && requestedStatus) {
-      throw new BadRequestException('Une commande annulée ne peut plus changer d’état.');
+    if (isKitchen && (requestedStatus === 'SERVED' || dto.paymentMethod !== undefined)) {
+      throw new ForbiddenException(
+        'Le rôle cuisinier peut uniquement prendre en charge, ajuster le temps de préparation ou marquer prête une commande.',
+      );
+    }
+
+    if (existing.status === 'CANCELLED' || currentStatus === 'CANCELLED') {
+      throw new ConflictException('Une commande annulée ne peut plus changer d’état.');
     }
 
     const now = new Date();
+    const requestedPrepMin = dto.prepTimeMinutes ?? dto.tempsPreparationMinutes;
+    const requestedAddMin = dto.addMinutes;
+
+    // Ajustement de temps (+5 min ou changement de temps) sur une commande déjà En préparation
+    const isTimeAdjustmentOnly =
+      currentStatus === 'IN_PREPARATION' &&
+      (!requestedStatus || requestedStatus === 'IN_PREPARATION') &&
+      (requestedAddMin !== undefined || requestedPrepMin !== undefined);
+
+    if (requestedStatus && !isTimeAdjustmentOnly) {
+      const validTransition =
+        (currentStatus === 'PENDING' && requestedStatus === 'IN_PREPARATION') ||
+        (currentStatus === 'IN_PREPARATION' && requestedStatus === 'READY') ||
+        (currentStatus === 'READY' && requestedStatus === 'SERVED');
+
+      if (!validTransition) {
+        throw new ConflictException(
+          `Transition d'état invalide de ${this.toFrenchStatut(currentStatus)} vers ${this.toFrenchStatut(requestedStatus)}.`,
+        );
+      }
+    }
+
     const updated = await this.prisma.$transaction(async (tx) => {
-      const saved = await tx.restaurantOrder.update({
+      if (currentStatus === 'PENDING' && requestedStatus === 'IN_PREPARATION') {
+        const prepMinutes = Math.max(1, Math.round(requestedPrepMin ?? 15));
+        const heureFinPrevue = new Date(now.getTime() + prepMinutes * 60 * 1000);
+        const claim = await tx.restaurantOrder.updateMany({
+          where: {
+            id,
+            status: { in: ['PENDING', 'SENT_TO_KITCHEN', 'ENVOYEE'] },
+          },
+          data: {
+            status: 'IN_PREPARATION',
+            statut: 'EN_PREPARATION',
+            preparingAt: now,
+            priseEnChargeAt: now,
+            priseEnChargeById: actor?.userId || null,
+            priseEnChargeByName: actor?.actorName || 'Cuisinier',
+            tempsPreparationMinutes: prepMinutes,
+            heureFinPrevue,
+          },
+        });
+
+        if (claim.count === 0) {
+          throw new ConflictException(
+            'Cette commande a déjà été prise en charge par un autre cuisinier.',
+          );
+        }
+      } else if (isTimeAdjustmentOnly) {
+        const basePrep = existing.tempsPreparationMinutes ?? 15;
+        const nextPrepMinutes =
+          requestedAddMin !== undefined
+            ? basePrep + Math.round(requestedAddMin)
+            : Math.max(1, Math.round(requestedPrepMin ?? basePrep));
+        const baseStart = existing.priseEnChargeAt || existing.preparingAt || now;
+        const nextFinPrevue =
+          requestedAddMin !== undefined && existing.heureFinPrevue
+            ? new Date(new Date(existing.heureFinPrevue).getTime() + Math.round(requestedAddMin) * 60 * 1000)
+            : new Date(new Date(baseStart).getTime() + nextPrepMinutes * 60 * 1000);
+
+        const adjust = await tx.restaurantOrder.updateMany({
+          where: { id, status: { in: ['IN_PREPARATION', 'EN_PREPARATION'] } },
+          data: {
+            tempsPreparationMinutes: nextPrepMinutes,
+            heureFinPrevue: nextFinPrevue,
+          },
+        });
+        if (adjust.count === 0) {
+          throw new ConflictException('Impossible d’ajuster le temps : la commande n’est plus en préparation.');
+        }
+      } else if (currentStatus === 'IN_PREPARATION' && requestedStatus === 'READY') {
+        const readyRes = await tx.restaurantOrder.updateMany({
+          where: { id, status: { in: ['IN_PREPARATION', 'EN_PREPARATION'] } },
+          data: {
+            status: 'READY',
+            statut: 'PRETE',
+            readyAt: now,
+            preteAt: now,
+            preteById: actor?.userId || null,
+          },
+        });
+        if (readyRes.count === 0) {
+          throw new ConflictException('Cette commande n’est plus en préparation.');
+        }
+      } else if (currentStatus === 'READY' && requestedStatus === 'SERVED') {
+        const servedRes = await tx.restaurantOrder.updateMany({
+          where: { id, status: { in: ['READY', 'PRETE'] } },
+          data: {
+            status: 'SERVED',
+            statut: 'SERVIE',
+            servedAt: now,
+            serviAt: now,
+            serviById: actor?.userId || null,
+            ...(dto.paymentMethod !== undefined ? { paymentMethod: dto.paymentMethod } : {}),
+          },
+        });
+        if (servedRes.count === 0) {
+          throw new ConflictException('Cette commande n’est plus à l’état Prête.');
+        }
+      } else if (dto.paymentMethod !== undefined) {
+        await tx.restaurantOrder.update({
+          where: { id },
+          data: { paymentMethod: dto.paymentMethod },
+        });
+      }
+
+      const saved = await tx.restaurantOrder.findUniqueOrThrow({
         where: { id },
-        data: {
-          ...(requestedStatus ? { status: requestedStatus } : {}),
-          ...(requestedStatus === 'IN_PREPARATION' && !existing.preparingAt ? { preparingAt: now } : {}),
-          ...(requestedStatus === 'READY' && !existing.readyAt ? { readyAt: now } : {}),
-          ...(requestedStatus === 'SERVED' && !existing.servedAt ? { servedAt: now } : {}),
-          ...(dto.paymentMethod !== undefined ? { paymentMethod: dto.paymentMethod } : {}),
-        },
         include: {
           lines: true,
           room: true,
@@ -1079,15 +1454,27 @@ export class RestaurantService {
         entity: 'RestaurantOrder',
         entityId: saved.id,
         ip: actor?.ip || null,
-        before: { status: this.normalizeOrderStatus(existing.status) },
-        after: { status: this.normalizeOrderStatus(saved.status) },
+        before: {
+          status: currentStatus,
+          statut: this.toFrenchStatut(currentStatus),
+          tempsPreparationMinutes: existing.tempsPreparationMinutes ?? null,
+        },
+        after: {
+          status: this.normalizeOrderStatus(saved.status),
+          statut: saved.statut,
+          tempsPreparationMinutes: saved.tempsPreparationMinutes ?? null,
+          heureFinPrevue: saved.heureFinPrevue ? new Date(saved.heureFinPrevue).toISOString() : null,
+          priseEnChargeById: saved.priseEnChargeById || null,
+          preteById: saved.preteById || null,
+          serviById: saved.serviById || null,
+        },
       });
 
       return saved;
     });
 
-    const formatted = this.formatOrder(updated, actor?.actorRole === 'CUISINE');
-    this.emitOrderEvent('ORDER_UPDATED', id);
+    const formatted = this.formatOrder(updated, isKitchen);
+    this.emitOrderEvent('ORDER_UPDATED', id, updated);
     return formatted;
   }
 
@@ -1109,10 +1496,18 @@ export class RestaurantService {
 
     const existing = await this.prisma.restaurantOrder.findUnique({ where: { id } });
     if (!existing) throw new NotFoundException(`Commande "${id}" introuvable.`);
-    if (existing.status === 'CANCELLED') {
-      throw new BadRequestException('Cette commande est déjà annulée.');
+
+    const currentStatus = this.normalizeOrderStatus(existing.status);
+    if (currentStatus === 'CANCELLED') {
+      throw new ConflictException('Cette commande est déjà annulée.');
+    }
+    if (currentStatus !== 'PENDING' && currentStatus !== 'IN_PREPARATION') {
+      throw new ConflictException(
+        'Seules les commandes à l’état Envoyée ou En préparation peuvent être annulées.',
+      );
     }
 
+    const now = new Date();
     const cancelled = await this.prisma.$transaction(async (tx) => {
       if (existing.invoiceId) {
         const linkedInv = await tx.invoice.findUnique({ where: { id: existing.invoiceId } });
@@ -1133,9 +1528,13 @@ export class RestaurantService {
         where: { id },
         data: {
           status: 'CANCELLED',
+          statut: 'ANNULEE',
           cancellationReason: reason,
-          cancelledAt: new Date(),
+          motifAnnulation: reason,
+          cancelledAt: now,
+          annuleAt: now,
           cancelledById: actor?.userId || null,
+          annuleById: actor?.userId || null,
           cancelledByName: actor?.actorName || actor?.actorRole || 'Direction',
         },
         include: {
@@ -1151,14 +1550,21 @@ export class RestaurantService {
         entity: 'RestaurantOrder',
         entityId: saved.id,
         ip: actor?.ip || null,
-        before: { status: this.normalizeOrderStatus(existing.status) },
-        after: { status: 'CANCELLED', reason, ticketNumber: saved.ticketNumber },
+        before: { status: currentStatus, statut: this.toFrenchStatut(currentStatus) },
+        after: {
+          status: 'CANCELLED',
+          statut: 'ANNULEE',
+          reason,
+          annuleById: actor?.userId || null,
+          annuleAt: now.toISOString(),
+          ticketNumber: saved.ticketNumber,
+        },
       });
 
       return saved;
     });
 
-    this.emitOrderEvent('ORDER_CANCELLED', id);
+    this.emitOrderEvent('ORDER_CANCELLED', id, cancelled);
     return this.formatOrder(cancelled);
   }
 }

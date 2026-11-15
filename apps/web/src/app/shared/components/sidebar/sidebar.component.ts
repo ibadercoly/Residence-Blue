@@ -2,7 +2,10 @@ import { Component, EventEmitter, Input, Output, inject, signal, computed } from
 import { RoomsService } from '../../../core/services/rooms.service';
 import { CommonModule } from '@angular/common';
 import { RouterLink, RouterLinkActive } from '@angular/router';
+import { isKitchenOnlyRole } from '@residence-blue/shared';
+import { AuthService } from '../../../core/services/auth.service';
 import { ModuleConfigService } from '../../../core/services/module-config.service';
+import { RestaurantV3Service } from '../../../restaurant-v3/services/restaurant-v3.service';
 
 export interface NavItem {
   path: string;
@@ -146,6 +149,14 @@ export interface NavItem {
                       <rect x="16" y="4.5" width="3.5" height="15" rx="1" stroke="currentColor" stroke-width="1.8" />
                       <line x1="3" y1="19.5" x2="21" y2="19.5" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" />
                     }
+                    @case ('cuisine') {
+                      <!-- Cuisine : toque de chef avec dôme en accent -->
+                      <path class="accent" d="M6 10.5a3.5 3.5 0 0 1 2.2-6.2A4 4 0 0 1 15.8 4.3 3.5 3.5 0 0 1 18 10.5V15H6v-4.5Z" />
+                      <path d="M6 10.5a3.5 3.5 0 0 1 2.2-6.2A4 4 0 0 1 15.8 4.3 3.5 3.5 0 0 1 18 10.5V19H6v-8.5Z" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round" />
+                      <line x1="6" y1="15.5" x2="18" y2="15.5" stroke="currentColor" stroke-width="1.8" />
+                      <line x1="9.5" y1="12" x2="9.5" y2="15.5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" />
+                      <line x1="14.5" y1="12" x2="14.5" y2="15.5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" />
+                    }
                     @default {
                       <!-- Restaurant & Bar : cloche / service avec dôme en accent -->
                       <path class="accent" d="M4.5 15a7.5 7.5 0 0 1 15 0H4.5Z" />
@@ -155,22 +166,68 @@ export interface NavItem {
                     }
                   }
                 </svg>
-                <span>{{ item.label }}</span>
+                <span class="flex-1 truncate">{{ item.label }}</span>
+                @if (item.id === 'restaurant' && readyOrdersCount() > 0) {
+                  <span
+                    data-testid="nav-restaurant-ready-badge"
+                    class="ml-auto inline-flex min-w-[22px] h-[22px] items-center justify-center rounded-full bg-[#e11d48] px-1.5 text-[11px] font-extrabold text-white shadow-sm"
+                    [attr.aria-label]="readyOrdersCount() + ' commande(s) prête(s) à servir'"
+                  >
+                    {{ readyOrdersCount() }}
+                  </span>
+                }
+                @if (item.id === 'cuisine' && pendingKitchenOrdersCount() > 0) {
+                  <span
+                    data-testid="nav-cuisine-pending-badge"
+                    class="ml-auto inline-flex min-w-[22px] h-[22px] items-center justify-center rounded-full bg-[#e11d48] px-1.5 text-[11px] font-extrabold text-white shadow-sm"
+                    [attr.aria-label]="pendingKitchenOrdersCount() + ' commande(s) en attente en cuisine'"
+                  >
+                    {{ pendingKitchenOrdersCount() }}
+                  </span>
+                }
               </a>
             }
           </nav>
         </div>
       </div>
 
-      <!-- Badge Mode V1 Minimale & Version -->
+      <!-- Pied de barre latérale : compte & déconnexion pour CUISINIER, sinon badge Version -->
       <div class="p-gutter">
-        <div class="bg-surface-variant/10 rounded-xl p-space-md flex items-center justify-between">
-          <div class="flex flex-col">
-            <span class="font-label-md text-label-md text-surface-container-high">Version 1.0</span>
-            <span class="font-body-sm text-[11px] text-outline-variant">Légère &bull; {{ roomsCount() }} Chambres</span>
+        @if (isKitchenOnly()) {
+          <div
+            data-testid="sidebar-cook-footer"
+            class="bg-surface-variant/10 rounded-xl p-space-md flex flex-col gap-space-sm"
+          >
+            <div class="flex flex-col min-w-0">
+              <span
+                data-testid="sidebar-cook-name"
+                class="font-label-lg text-label-lg text-surface-bright font-semibold truncate"
+              >
+                {{ cookAccountName() }}
+              </span>
+              <span class="font-body-sm text-[11px] text-outline-variant truncate">
+                Cuisine &bull; Temps réel
+              </span>
+            </div>
+            <button
+              type="button"
+              data-testid="sidebar-cook-logout-btn"
+              (click)="logout()"
+              class="w-full h-10 rounded-lg bg-[#e11d48]/20 hover:bg-[#e11d48]/30 text-white font-label-md text-label-md flex items-center justify-center gap-2 transition-colors cursor-pointer"
+            >
+              <span class="material-symbols-outlined text-[18px]" aria-hidden="true">logout</span>
+              <span>Déconnexion</span>
+            </button>
           </div>
-          <span class="material-symbols-outlined text-primary-fixed-dim text-[20px]">speed</span>
-        </div>
+        } @else {
+          <div class="bg-surface-variant/10 rounded-xl p-space-md flex items-center justify-between">
+            <div class="flex flex-col">
+              <span class="font-label-md text-label-md text-surface-container-high">Version 1.0</span>
+              <span class="font-body-sm text-[11px] text-outline-variant">Légère &bull; {{ roomsCount() }} Chambres</span>
+            </div>
+            <span class="material-symbols-outlined text-primary-fixed-dim text-[20px]">speed</span>
+          </div>
+        }
       </div>
     </aside>
   `,
@@ -181,7 +238,23 @@ export class SidebarComponent {
 
   readonly roomsService = inject(RoomsService, { optional: true });
   readonly roomsCount = computed(() => (this.roomsService ? this.roomsService.rooms().length : 12));
+  private readonly authService = inject(AuthService, { optional: true });
   private readonly moduleConfig = inject(ModuleConfigService, { optional: true });
+  private readonly restaurantService = inject(RestaurantV3Service, { optional: true });
+  readonly isKitchenOnly = computed(() => isKitchenOnlyRole(this.authService?.currentRole()));
+  readonly cookAccountName = computed(
+    () => this.authService?.currentUser()?.fullName || 'Cuisinier',
+  );
+  readonly readyOrdersCount = computed(() =>
+    this.restaurantService ? this.restaurantService.readyOrdersCount() : 0,
+  );
+  readonly pendingKitchenOrdersCount = computed(() =>
+    this.restaurantService ? this.restaurantService.pendingKitchenOrdersCount() : 0,
+  );
+
+  async logout(): Promise<void> {
+    await this.authService?.logout();
+  }
 
   readonly navItems: NavItem[] = [
     { path: '/tableau-de-bord', label: 'Tableau de bord', icon: 'dashboard' },

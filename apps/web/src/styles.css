@@ -20,6 +20,7 @@
   --couleur-menu-clients: #F472B6;
   --couleur-menu-facturation: #34C48B;
   --couleur-menu-restaurant: #F2A33A;
+  --couleur-menu-cuisine: #A3E635;
   --couleur-menu-rapports: #F2785C;
 }
 
@@ -29,6 +30,7 @@
 .rb-menu-color-clients { --couleur-menu-item: var(--couleur-menu-clients); }
 .rb-menu-color-facturation { --couleur-menu-item: var(--couleur-menu-facturation); }
 .rb-menu-color-restaurant { --couleur-menu-item: var(--couleur-menu-restaurant); }
+.rb-menu-color-cuisine { --couleur-menu-item: var(--couleur-menu-cuisine); }
 .rb-menu-color-rapports { --couleur-menu-item: var(--couleur-menu-rapports); }
 
 .rb-menu-svg-icon {

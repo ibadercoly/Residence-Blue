@@ -483,6 +483,15 @@
       "canManageMenu": false
     },
     "CUISINE": {
+      "allowedModules": [ "restaurant" ],
+      "enabled": true,
+      "version": "v1",
+      "kitchenScreenOnly": true,
+      "description": "Alias cuisine : consultation et suivi de l'écran des bons de commande.",
+      "canExportClients": false,
+      "canManageMenu": false
+    },
+    "CUISINIER": {
       "allowedModules": [
         "restaurant"
       ],

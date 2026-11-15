@@ -76,6 +76,7 @@ describe('Restaurant V3 — Règles métier, Atomicité, RBAC, Photos & Historiq
       'RESTAURANT',
       'SERVEUR',
       'CUISINE',
+      'CUISINIER',
       'HOUSEKEEPING',
       'MAINTENANCE',
     ]) {
@@ -448,5 +449,181 @@ describe('Restaurant V3 — Règles métier, Atomicité, RBAC, Photos & Historiq
       .expect(200);
     const idx = createdProductIds.indexOf(prod.body.id);
     if (idx >= 0) createdProductIds.splice(idx, 1);
+  });
+
+  it('flux cuisine & rôle CUISINIER : filtrage strict sans prix ni client, transitions 409, concurrence atomique et clôture >12h', async () => {
+    const prod = await request(app.getHttpServer())
+      .post('/api/restaurant/products')
+      .set('Authorization', `Bearer ${roleTokens['DIRECTION']}`)
+      .send({
+        name: `Spaghetti Bolognaise ${Date.now()}`,
+        categoryName: 'Plats sénégalais & Mer',
+        priceFcfa: 4500,
+        prepStation: 'CUISINE',
+      })
+      .expect(201);
+    createdProductIds.push(prod.body.id);
+
+    // 1. CUISINIER reçoit 403 sur catalog, création commande, paiement, annulation ; RECEPTION et RESTAURANT reçoivent 403 sur /api/restaurant/kitchen/orders
+    await request(app.getHttpServer())
+      .get('/api/restaurant/catalog')
+      .set('Authorization', `Bearer ${roleTokens['CUISINIER']}`)
+      .expect(403);
+    await request(app.getHttpServer())
+      .post('/api/restaurant/orders')
+      .set('Authorization', `Bearer ${roleTokens['CUISINIER']}`)
+      .send({ destinationType: 'TABLE', tableLabel: 'Table 2', items: [{ productId: prod.body.id, quantity: 4 }] })
+      .expect(403);
+    await request(app.getHttpServer())
+      .get('/api/restaurant/kitchen/orders')
+      .set('Authorization', `Bearer ${roleTokens['RECEPTION']}`)
+      .expect(403);
+    await request(app.getHttpServer())
+      .get('/api/restaurant/kitchen/orders')
+      .set('Authorization', `Bearer ${roleTokens['RESTAURANT']}`)
+      .expect(403);
+
+    // 2. Assistant crée une commande de 4 spaghettis
+    const created = await request(app.getHttpServer())
+      .post('/api/restaurant/orders')
+      .set('Authorization', `Bearer ${roleTokens['RESTAURANT']}`)
+      .send({
+        destinationType: 'TABLE',
+        tableLabel: 'Table 2',
+        items: [{ productId: prod.body.id, quantity: 4, notes: 'Sans piment' }],
+      })
+      .expect(201);
+    const orderId = created.body.id;
+    createdOrderIds.push(orderId);
+    expect(created.body.statut).toBe('ENVOYEE');
+    expect(created.body.envoyeeAt).toBeTruthy();
+
+    // 3. CUISINIER lit les commandes : aucun prix, aucun total, aucun nom client
+    const kitchenList = await request(app.getHttpServer())
+      .get('/api/restaurant/orders')
+      .set('Authorization', `Bearer ${roleTokens['CUISINIER']}`)
+      .expect(200);
+    const kOrder = kitchenList.body.find((o: any) => o.id === orderId);
+    expect(kOrder).toBeTruthy();
+    expect(kOrder.totalTtcFcfa).toBeUndefined();
+    expect(kOrder.subtotalHtFcfa).toBeUndefined();
+    expect(kOrder.guestName).toBeUndefined();
+    expect(kOrder.items[0].unitPriceFcfa).toBeUndefined();
+    expect(kOrder.items[0].totalPriceFcfa).toBeUndefined();
+    expect(kOrder.items[0].quantity).toBe(4);
+    expect(kOrder.items[0].notes).toBe('Sans piment');
+
+    // 4. Transition invalide directe Envoyée -> Prête refusée en 409
+    await request(app.getHttpServer())
+      .patch(`/api/restaurant/orders/${orderId}/status`)
+      .set('Authorization', `Bearer ${roleTokens['CUISINIER']}`)
+      .send({ status: 'READY' })
+      .expect(409);
+
+    // 5. Prise en charge concurrente par deux cuisiniers : 1 seul 200, l'autre 409
+    const [claim1, claim2] = await Promise.all([
+      request(app.getHttpServer())
+        .patch(`/api/restaurant/orders/${orderId}/status`)
+        .set('Authorization', `Bearer ${roleTokens['CUISINIER']}`)
+        .send({ status: 'IN_PREPARATION', prepTimeMinutes: 15 }),
+      request(app.getHttpServer())
+        .patch(`/api/restaurant/orders/${orderId}/status`)
+        .set('Authorization', `Bearer ${roleTokens['CUISINE']}`)
+        .send({ status: 'IN_PREPARATION', prepTimeMinutes: 20 }),
+    ]);
+    const statuses = [claim1.status, claim2.status].sort();
+    expect(statuses).toEqual([200, 409]);
+
+    // 6. Ajustement +5 min en cours de préparation
+    const adjusted = await request(app.getHttpServer())
+      .patch(`/api/restaurant/orders/${orderId}/status`)
+      .set('Authorization', `Bearer ${roleTokens['CUISINIER']}`)
+      .send({ status: 'IN_PREPARATION', addMinutes: 5 })
+      .expect(200);
+    expect([20, 25]).toContain(adjusted.body.tempsPreparationMinutes);
+    expect(adjusted.body.heureFinPrevue).toBeTruthy();
+
+    // 7. CUISINIER marque Prête (200), mais ne peut pas marquer Servie (403) ni Annuler (403)
+    const readyRes = await request(app.getHttpServer())
+      .patch(`/api/restaurant/orders/${orderId}/status`)
+      .set('Authorization', `Bearer ${roleTokens['CUISINIER']}`)
+      .send({ status: 'READY' })
+      .expect(200);
+    expect(readyRes.body.statut).toBe('PRETE');
+    expect(readyRes.body.preteAt).toBeTruthy();
+
+    await request(app.getHttpServer())
+      .patch(`/api/restaurant/orders/${orderId}/status`)
+      .set('Authorization', `Bearer ${roleTokens['CUISINIER']}`)
+      .send({ status: 'SERVED' })
+      .expect(403);
+
+    await request(app.getHttpServer())
+      .post(`/api/restaurant/orders/${orderId}/cancel`)
+      .set('Authorization', `Bearer ${roleTokens['CUISINIER']}`)
+      .send({ reason: 'Tentative cuisinier' })
+      .expect(403);
+
+    // 8. Annulation depuis Prête refusée en 409 même pour RECEPTION
+    await request(app.getHttpServer())
+      .post(`/api/restaurant/orders/${orderId}/cancel`)
+      .set('Authorization', `Bearer ${roleTokens['RECEPTION']}`)
+      .send({ reason: 'Trop tard déjà prête' })
+      .expect(409);
+
+    // 9. Assistant marque Servie (200), puis retour vers En préparation refusé en 409
+    const servedRes = await request(app.getHttpServer())
+      .patch(`/api/restaurant/orders/${orderId}/status`)
+      .set('Authorization', `Bearer ${roleTokens['RESTAURANT']}`)
+      .send({ status: 'SERVED' })
+      .expect(200);
+    expect(servedRes.body.statut).toBe('SERVIE');
+    expect(servedRes.body.serviAt).toBeTruthy();
+
+    await request(app.getHttpServer())
+      .patch(`/api/restaurant/orders/${orderId}/status`)
+      .set('Authorization', `Bearer ${roleTokens['DIRECTION']}`)
+      .send({ status: 'IN_PREPARATION' })
+      .expect(409);
+
+    // 10. Commande ancienne (> 12h) masquée au cuisinier et listée dans /orders/stale pour clôture
+    const thirteenHoursAgo = new Date(Date.now() - 13 * 60 * 60 * 1000);
+    const staleOrder = await prisma.restaurantOrder.create({
+      data: {
+        ticketNumber: `#CMD-OLD-${Date.now().toString().slice(-4)}`,
+        destinationType: 'TABLE',
+        tableLabel: 'Table 9',
+        guestName: 'Client veille',
+        serverName: 'Service Veille',
+        status: 'PENDING',
+        statut: 'ENVOYEE',
+        createdAt: thirteenHoursAgo,
+        envoyeeAt: thirteenHoursAgo,
+        subtotalHtFcfa: 4091,
+        vatAmountFcfa: 409,
+        totalTtcFcfa: 4500,
+      },
+    });
+    createdOrderIds.push(staleOrder.id);
+
+    const kitchenAfterStale = await request(app.getHttpServer())
+      .get('/api/restaurant/orders')
+      .set('Authorization', `Bearer ${roleTokens['CUISINIER']}`)
+      .expect(200);
+    expect(kitchenAfterStale.body.some((o: any) => o.id === staleOrder.id)).toBe(false);
+
+    const staleList = await request(app.getHttpServer())
+      .get('/api/restaurant/orders/stale')
+      .set('Authorization', `Bearer ${roleTokens['RECEPTION']}`)
+      .expect(200);
+    expect(staleList.body.some((o: any) => o.id === staleOrder.id)).toBe(true);
+
+    const closedStale = await request(app.getHttpServer())
+      .post(`/api/restaurant/orders/${staleOrder.id}/close-stale`)
+      .set('Authorization', `Bearer ${roleTokens['RECEPTION']}`)
+      .send({ reason: 'Fin de service veille non clôturée' })
+      .expect(200);
+    expect(closedStale.body.status).toBe('CANCELLED');
+    expect(closedStale.body.statut).toBe('ANNULEE');
   });
 });

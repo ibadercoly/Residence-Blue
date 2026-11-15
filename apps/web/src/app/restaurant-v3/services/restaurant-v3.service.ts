@@ -10,6 +10,7 @@ import {
   RestaurantOrdersPage,
   Role,
   SyncStatus,
+  isKitchenOnlyRole,
 } from '@residence-blue/shared';
 import { AuthService } from '../../core/services/auth.service';
 import { IdbService } from '../../core/offline/idb.service';
@@ -48,7 +49,10 @@ export class RestaurantV3Service {
   private catalogAbort: AbortController | null = null;
   private ordersAbort: AbortController | null = null;
   private sseAbort: AbortController | null = null;
+  private sseReconnectTimer: ReturnType<typeof setTimeout> | null = null;
   private syncingOutbox = false;
+  private lastSseEventId: number | null = null;
+  private userInteracted = false;
 
   readonly categories = signal<DishCategory[]>([]);
   readonly products = signal<DishItem[]>([]);
@@ -61,6 +65,7 @@ export class RestaurantV3Service {
     hasMore: false,
   });
   readonly kitchenOrders = signal<RestaurantOrderV3[]>([]);
+  readonly staleOrders = signal<RestaurantOrderV3[]>([]);
   readonly pendingOfflineOrders = signal<RestaurantOrderV3[]>([]);
 
   readonly loadingCatalog = signal<boolean>(false);
@@ -70,9 +75,12 @@ export class RestaurantV3Service {
   readonly errorMessage = signal<string | null>(null);
   readonly successMessage = signal<string | null>(null);
   readonly sseConnected = signal<boolean>(false);
+  readonly soundEnabled = signal<boolean>(true);
+  readonly kitchenNewOrderNotice = signal<string | null>(null);
 
   readonly currentRole = computed<string>(() => this.authService?.currentRole() || '');
   readonly isDirection = computed<boolean>(() => this.currentRole() === Role.DIRECTION);
+  readonly isKitchenOnly = computed<boolean>(() => isKitchenOnlyRole(this.currentRole()));
   readonly canCancelOrder = computed<boolean>(() => {
     const role = this.currentRole();
     return role === Role.DIRECTION || role === Role.RECEPTION;
@@ -89,6 +97,34 @@ export class RestaurantV3Service {
   });
   readonly isOnline = computed<boolean>(() => (this.network ? this.network.isOnline() : true));
 
+  readonly readyOrdersList = computed<RestaurantOrderV3[]>(() => {
+    const byId = new Map<string, RestaurantOrderV3>();
+    for (const o of this.ordersPage().items) {
+      if (o.status === 'READY' || o.statut === 'PRETE') byId.set(o.id, o);
+    }
+    for (const o of this.kitchenOrders()) {
+      if (o.status === 'READY' || o.statut === 'PRETE') byId.set(o.id, o);
+    }
+    return Array.from(byId.values());
+  });
+
+  readonly readyOrdersCount = computed<number>(() => this.readyOrdersList().length);
+
+  readonly pendingKitchenOrdersCount = computed<number>(() => {
+    const byId = new Map<string, RestaurantOrderV3>();
+    for (const o of this.ordersPage().items) {
+      if (!o.syncPending && (o.status === 'PENDING' || o.status === 'SENT_TO_KITCHEN' || o.statut === 'ENVOYEE')) {
+        byId.set(o.id, o);
+      }
+    }
+    for (const o of this.kitchenOrders()) {
+      if (o.status === 'PENDING' || o.status === 'SENT_TO_KITCHEN' || o.statut === 'ENVOYEE') {
+        byId.set(o.id, o);
+      }
+    }
+    return byId.size;
+  });
+
   constructor() {
     if (typeof window !== 'undefined' && typeof window.addEventListener === 'function') {
       window.addEventListener('online', () => {
@@ -96,6 +132,37 @@ export class RestaurantV3Service {
           void this.syncOfflineOrders();
         }, 50);
       });
+      const markInteracted = () => {
+        this.userInteracted = true;
+      };
+      window.addEventListener('pointerdown', markInteracted, { once: true });
+      window.addEventListener('keydown', markInteracted, { once: true });
+    }
+  }
+
+  toggleSound(): void {
+    this.userInteracted = true;
+    this.soundEnabled.update((v) => !v);
+  }
+
+  playNotificationTone(kind: 'NEW_ORDER' | 'ORDER_READY' = 'NEW_ORDER'): void {
+    if (!this.soundEnabled() || !this.userInteracted || typeof window === 'undefined') return;
+    try {
+      const AudioCtx = (window as any).AudioContext || (window as any).webkitAudioContext;
+      if (!AudioCtx) return;
+      const ctx = new AudioCtx();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(kind === 'ORDER_READY' ? 880 : 660, ctx.currentTime);
+      gain.gain.setValueAtTime(0.08, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.25);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start();
+      osc.stop(ctx.currentTime + 0.25);
+    } catch {
+      // Ignorer si AudioContext est bloqué
     }
   }
 
@@ -461,23 +528,76 @@ export class RestaurantV3Service {
     }
   }
 
-  async updateOrderStatus(orderId: string, status: string): Promise<boolean> {
+  async updateOrderStatus(
+    orderId: string,
+    status?: string,
+    extra?: { prepTimeMinutes?: number; addMinutes?: number },
+  ): Promise<boolean> {
     this.clearMessages();
     this.busyAction.set(true);
     try {
+      const payload: { status?: string; prepTimeMinutes?: number; addMinutes?: number } = {};
+      if (status) payload.status = status;
+      if (extra?.prepTimeMinutes !== undefined) payload.prepTimeMinutes = extra.prepTimeMinutes;
+      if (extra?.addMinutes !== undefined) payload.addMinutes = extra.addMinutes;
+
       const res = await this.apiFetch(`/api/restaurant/orders/${encodeURIComponent(orderId)}/status`, {
         method: 'PATCH',
         headers: this.authHeaders({ 'Content-Type': 'application/json' }),
-        body: JSON.stringify({ status }),
+        body: JSON.stringify(payload),
       });
       if (!res.ok) {
         this.errorMessage.set(await this.extractError(res, 'Impossible de modifier le statut.'));
+        await this.loadKitchenOrders();
         return false;
       }
-      await Promise.all([this.loadOrdersPage(), this.loadKitchenOrders()]);
+      if (this.isKitchenOnly()) {
+        await this.loadKitchenOrders();
+      } else {
+        await Promise.all([this.loadOrdersPage(), this.loadKitchenOrders()]);
+      }
       return true;
     } catch {
       this.errorMessage.set('Erreur réseau lors du changement de statut.');
+      return false;
+    } finally {
+      this.busyAction.set(false);
+    }
+  }
+
+  async loadStaleOrders(): Promise<void> {
+    if (!this.isOnline() || !this.canCancelOrder()) return;
+    try {
+      const res = await this.apiFetch('/api/restaurant/orders/stale', {
+        method: 'GET',
+        headers: this.authHeaders(),
+      });
+      if (!res.ok) return;
+      const list = (await res.json()) as RestaurantOrderV3[];
+      this.staleOrders.set(list || []);
+    } catch {
+      // Ignorer
+    }
+  }
+
+  async closeStaleOrder(orderId: string, reason: string): Promise<boolean> {
+    this.clearMessages();
+    this.busyAction.set(true);
+    try {
+      const res = await this.apiFetch(`/api/restaurant/orders/${encodeURIComponent(orderId)}/close-stale`, {
+        method: 'POST',
+        headers: this.authHeaders({ 'Content-Type': 'application/json' }),
+        body: JSON.stringify({ reason: reason.trim() }),
+      });
+      if (!res.ok) {
+        this.errorMessage.set(await this.extractError(res, 'Clôture refusée.'));
+        return false;
+      }
+      this.successMessage.set('Ancienne commande clôturée et journalisée.');
+      await Promise.all([this.loadStaleOrders(), this.loadOrdersPage()]);
+      return true;
+    } catch {
+      this.errorMessage.set('Erreur réseau lors de la clôture.');
       return false;
     } finally {
       this.busyAction.set(false);
@@ -510,8 +630,9 @@ export class RestaurantV3Service {
 
   async loadKitchenOrders(): Promise<void> {
     if (!this.isOnline()) return;
+    if (!this.isDirection() && !this.isKitchenOnly()) return;
     try {
-      const res = await this.apiFetch('/api/restaurant/orders', {
+      const res = await this.apiFetch('/api/restaurant/kitchen/orders', {
         method: 'GET',
         headers: this.authHeaders(),
       });
@@ -531,24 +652,32 @@ export class RestaurantV3Service {
   }
 
   /**
-   * Flux temps réel SSE via fetch + ReadableStream (en-tête Authorization Bearer, jamais de jeton en URL).
+   * Flux temps réel SSE via fetch + ReadableStream (en-tête Authorization Bearer, reprise Last-Event-ID).
    */
-  connectKitchenStream(onEvent: () => void): void {
+  connectKitchenStream(
+    onEvent?: (evt?: { type?: string; orderId?: string; order?: RestaurantOrderV3 }) => void,
+  ): void {
     this.disconnectKitchenStream();
     if (!this.isOnline() || typeof fetch === 'undefined') return;
 
     const controller = new AbortController();
     this.sseAbort = controller;
 
-    void (async () => {
+    const connectLoop = async () => {
+      if (controller.signal.aborted) return;
       try {
+        const headers: Record<string, string> = { Accept: 'text/event-stream' };
+        if (this.lastSseEventId !== null) {
+          headers['Last-Event-ID'] = String(this.lastSseEventId);
+        }
         const res = await this.apiFetch('/api/restaurant/orders/stream', {
           method: 'GET',
-          headers: this.authHeaders({ Accept: 'text/event-stream' }),
+          headers: this.authHeaders(headers),
           signal: controller.signal,
         });
         if (!res.ok || !res.body) {
           this.sseConnected.set(false);
+          this.scheduleSseReconnect(controller, connectLoop);
           return;
         }
         this.sseConnected.set(true);
@@ -563,22 +692,65 @@ export class RestaurantV3Service {
           const frames = buffer.split('\n\n');
           buffer = frames.pop() || '';
           for (const frame of frames) {
+            const idMatch = frame.match(/^id:\s*(\d+)/m);
+            if (idMatch) {
+              const parsedId = Number(idMatch[1]);
+              if (!Number.isNaN(parsedId)) {
+                this.lastSseEventId = parsedId;
+              }
+            }
+            const dataMatch = frame.match(/^data:\s*(.+)$/m);
+            let parsedEvt: any = undefined;
+            if (dataMatch) {
+              try {
+                parsedEvt = JSON.parse(dataMatch[1]);
+                if (typeof parsedEvt?.eventId === 'number') {
+                  this.lastSseEventId = parsedEvt.eventId;
+                }
+              } catch {
+                // Ignorer
+              }
+            }
             if (frame.includes('ORDER_')) {
-              onEvent();
+              if (parsedEvt?.type === 'ORDER_CREATED') {
+                const dest = parsedEvt?.order?.destinationLabel || 'Nouveau ticket';
+                this.kitchenNewOrderNotice.set(`Nouvelle commande • ${dest}`);
+                this.playNotificationTone('NEW_ORDER');
+              } else if (parsedEvt?.type === 'ORDER_UPDATED' && parsedEvt?.order?.status === 'READY') {
+                this.playNotificationTone('ORDER_READY');
+              }
+              onEvent?.(parsedEvt);
             }
           }
         }
       } catch {
-        // Baisse propre sur le polling de secours 10 s
+        // Baisse propre sur le polling de secours 10 s et reconnexion auto
       } finally {
-        if (this.sseAbort === controller) {
+        if (this.sseAbort === controller && !controller.signal.aborted) {
           this.sseConnected.set(false);
+          this.scheduleSseReconnect(controller, connectLoop);
         }
       }
-    })();
+    };
+
+    void connectLoop();
+  }
+
+  private scheduleSseReconnect(controller: AbortController, retryFn: () => Promise<void>): void {
+    if (controller.signal.aborted) return;
+    if (this.sseReconnectTimer) clearTimeout(this.sseReconnectTimer);
+    this.sseReconnectTimer = setTimeout(() => {
+      if (!controller.signal.aborted && this.sseAbort === controller) {
+        void retryFn();
+      }
+    }, 3000);
   }
 
   disconnectKitchenStream(): void {
+    if (this.sseReconnectTimer) {
+      clearTimeout(this.sseReconnectTimer);
+      this.sseReconnectTimer = null;
+    }
     this.sseAbort?.abort();
     this.sseAbort = null;
     this.sseConnected.set(false);

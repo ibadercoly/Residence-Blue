@@ -231,7 +231,7 @@ export class CreateRestaurantOrderDto {
 
 export class UpdateRestaurantOrderDto {
   @IsOptional()
-  @IsIn(['PENDING', 'SENT_TO_KITCHEN', 'IN_PREPARATION', 'READY', 'SERVED', 'CANCELLED'])
+  @IsIn(['PENDING', 'SENT_TO_KITCHEN', 'ENVOYEE', 'IN_PREPARATION', 'EN_PREPARATION', 'READY', 'PRETE', 'SERVED', 'SERVIE', 'CANCELLED', 'ANNULEE'])
   status?: string;
 
   @IsOptional()
@@ -242,6 +242,36 @@ export class UpdateRestaurantOrderDto {
   @IsString()
   @MaxLength(300)
   cancellationReason?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(300)
+  motifAnnulation?: string;
+
+  @IsOptional()
+  @IsIn(['PENDING', 'SENT_TO_KITCHEN', 'ENVOYEE', 'IN_PREPARATION', 'EN_PREPARATION', 'READY', 'PRETE', 'SERVED', 'SERVIE', 'CANCELLED', 'ANNULEE'])
+  statut?: string;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(180)
+  prepTimeMinutes?: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(180)
+  tempsPreparationMinutes?: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(120)
+  addMinutes?: number;
 }
 
 export class CancelRestaurantOrderDto {

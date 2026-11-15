@@ -19,6 +19,7 @@ const EXPECTED_MENU_COLORS: Array<{
   { id: 'facturation', cssVar: '--couleur-menu-facturation', hex: '#34C48B', rgb: [52, 196, 139] },
   { id: 'rapports', cssVar: '--couleur-menu-rapports', hex: '#F2785C', rgb: [242, 120, 92] },
   { id: 'restaurant', cssVar: '--couleur-menu-restaurant', hex: '#F2A33A', rgb: [242, 163, 58] },
+  { id: 'cuisine', cssVar: '--couleur-menu-cuisine', hex: '#A3E635', rgb: [163, 230, 53] },
 ];
 
 function relLuminance([r, g, b]: [number, number, number]): number {
@@ -58,7 +59,7 @@ test.describe('Menu latéral : couleurs des 7 icônes SVG et suppression de Expo
 
     // 1. « Exports » absent du menu et /exports redirige vers /accueil
     const navLinks = page.locator('[data-testid="sidebar-nav"] a');
-    expect(await navLinks.count()).toBe(7);
+    expect(await navLinks.count()).toBe(8);
 
     await page.goto('/exports');
     await expect(page).toHaveURL(/\/accueil$/);
@@ -130,8 +131,8 @@ test.describe('Menu latéral : couleurs des 7 icônes SVG et suppression de Expo
       }
     }
 
-    // Les 7 couleurs d'icônes sont toutes distinctes
-    expect(seenColors.size).toBe(7);
+    // Les 8 couleurs d'icônes sont toutes distinctes
+    expect(seenColors.size).toBe(8);
 
     // 3. Activer chaque entrée tour à tour, vérifier la pastille teintée et capturer la barre latérale
     const asideLocator = page.getByTestId('app-sidebar-aside');

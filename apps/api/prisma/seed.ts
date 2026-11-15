@@ -138,7 +138,13 @@ export async function seedAll(customPrisma: PrismaClient = prisma) {
       email: 'cheikh.sow@residenceblue.sn',
       fullName: 'Cheikh Sow',
       jobTitle: 'Chef de Cuisine',
-      role: Role.CUISINE,
+      role: Role.CUISINIER,
+    },
+    {
+      email: 'cuisinier@residenceblue.sn',
+      fullName: 'Modou Ndiaye',
+      jobTitle: 'Cuisinier',
+      role: Role.CUISINIER,
     },
     {
       email: 'comptable@residenceblue.sn',

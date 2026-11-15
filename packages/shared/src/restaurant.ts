@@ -140,7 +140,7 @@ export interface RestaurantTicket {
   guestInfo?: {
     roomNumber: string;
     roomName: string;
-    guestName: string;
+    guestName?: string;
     vipTier?: string;
   };
   items: OrderTicketItem[];
@@ -161,12 +161,20 @@ export type RestaurantOrderStatus =
   | 'CANCELLED';
 
 export const RESTAURANT_ORDER_STATUS_LABELS: Record<string, string> = {
-  PENDING: 'En attente',
-  SENT_TO_KITCHEN: 'En attente',
+
+
   IN_PREPARATION: 'En préparation',
-  READY: 'Prête',
+
   SERVED: 'Servie',
+  PENDING: 'Envoyée',
+  SENT_TO_KITCHEN: 'Envoyée',
+  ENVOYEE: 'Envoyée',
+  EN_PREPARATION: 'En préparation',
+  READY: 'Prête, à servir',
+  PRETE: 'Prête, à servir',
+  SERVIE: 'Servie',
   CANCELLED: 'Annulée',
+  ANNULEE: 'Annulée',
 };
 
 export interface RestaurantInStayRoom {
@@ -174,7 +182,7 @@ export interface RestaurantInStayRoom {
   roomNumber: string;
   roomCategory: string;
   reservationId: string;
-  guestName: string;
+  guestName?: string;
   checkInDate: string;
   checkOutDate: string;
 }
@@ -206,7 +214,7 @@ export interface RestaurantOrderV3 {
   roomNumber?: string | null;
   reservationId?: string | null;
   invoiceId?: string | null;
-  guestName: string;
+  guestName?: string;
   status: RestaurantOrderStatus | string;
   paymentMethod?: string | null;
   cancellationReason?: string | null;
@@ -215,6 +223,22 @@ export interface RestaurantOrderV3 {
   readyAt?: string | null;
   servedAt?: string | null;
   cancelledAt?: string | null;
+  statut?: string;
+  envoyeeAt?: string | null;
+  envoyeeById?: string | null;
+  priseEnChargeAt?: string | null;
+  priseEnChargeById?: string | null;
+  priseEnChargeByName?: string | null;
+  tempsPreparationMinutes?: number | null;
+  heureFinPrevue?: string | null;
+  preteAt?: string | null;
+  preteById?: string | null;
+  serviAt?: string | null;
+  serviById?: string | null;
+  annuleAt?: string | null;
+  annuleById?: string | null;
+  motifAnnulation?: string | null;
+  isStaleOver12h?: boolean;
   subtotalHtFcfa?: number;
   vatRatePercent?: number;
   vatAmountFcfa?: number;

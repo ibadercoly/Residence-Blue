@@ -60,14 +60,14 @@ export class RestaurantController {
   }
 
   @Get('catalog')
-  @Roles(Role.DIRECTION, Role.RECEPTION, Role.RESTAURANT, Role.SERVEUR, Role.CUISINE, Role.COMPTABLE)
+  @Roles(Role.DIRECTION, Role.RECEPTION, Role.RESTAURANT, Role.SERVEUR, Role.COMPTABLE)
   async getCatalog(@Req() req: Request) {
     const role = (req as any)?.user?.role as string | undefined;
     return this.restaurantService.getCatalog(role);
   }
 
   @Get('categories')
-  @Roles(Role.DIRECTION, Role.RECEPTION, Role.RESTAURANT, Role.SERVEUR, Role.CUISINE, Role.COMPTABLE)
+  @Roles(Role.DIRECTION, Role.RECEPTION, Role.RESTAURANT, Role.SERVEUR, Role.COMPTABLE)
   async findAllCategories() {
     return this.restaurantService.findAllCategories();
   }
@@ -96,7 +96,7 @@ export class RestaurantController {
   }
 
   @Get('products')
-  @Roles(Role.DIRECTION, Role.RECEPTION, Role.RESTAURANT, Role.SERVEUR, Role.CUISINE, Role.COMPTABLE)
+  @Roles(Role.DIRECTION, Role.RECEPTION, Role.RESTAURANT, Role.SERVEUR, Role.COMPTABLE)
   async findAllProducts() {
     return this.restaurantService.findAllProducts();
   }
@@ -149,26 +149,84 @@ export class RestaurantController {
 
   @Get('orders/stream')
   @Sse()
-  @Roles(Role.DIRECTION, Role.RECEPTION, Role.RESTAURANT, Role.SERVEUR, Role.CUISINE)
-  streamOrders(): Observable<MessageEvent> {
+  @Roles(
+    Role.DIRECTION,
+    Role.RECEPTION,
+    Role.RESTAURANT,
+    Role.SERVEUR,
+    Role.CUISINE,
+    Role.CUISINIER,
+  )
+  streamOrders(@Req() req: Request): Observable<MessageEvent> {
+    const role = (req as any)?.user?.role as string | undefined;
+    const rawLastId =
+      (req.headers['last-event-id'] as string | undefined) ||
+      (req.query?.lastEventId as string | undefined);
+    const lastEventId = rawLastId ? Number(rawLastId) : undefined;
+
     const updates$ = this.restaurantService
-      .getOrderEventStream()
-      .pipe(map((evt) => ({ data: evt }) as MessageEvent));
+      .getRoleFilteredOrderEventStream(role, lastEventId)
+      .pipe(
+        map(
+          (evt) =>
+            ({
+              id: String(evt.eventId),
+              data: evt,
+            }) as MessageEvent,
+        ),
+      );
     const heartbeat$ = interval(25000).pipe(
-      map(() => ({ data: { type: 'HEARTBEAT', timestamp: new Date().toISOString() } }) as MessageEvent),
+      map(
+        () =>
+          ({
+            data: { type: 'HEARTBEAT', timestamp: new Date().toISOString() },
+          }) as MessageEvent,
+      ),
     );
     return merge(updates$, heartbeat$);
   }
 
+  @Get('orders/stale')
+  @Roles(Role.DIRECTION, Role.RECEPTION)
+  async findStaleOrders() {
+    return this.restaurantService.findStaleOrders();
+  }
+
+  @Post('orders/:id/close-stale')
+  @Roles(Role.DIRECTION, Role.RECEPTION)
+  @HttpCode(HttpStatus.OK)
+  async closeStaleOrder(
+    @Param('id') id: string,
+    @Body() dto: CancelRestaurantOrderDto,
+    @Req() req: Request,
+  ) {
+    return this.restaurantService.closeStaleOrder(id, dto, this.extractActor(req));
+  }
+
   @Get('orders/page')
-  @Roles(Role.DIRECTION, Role.RECEPTION, Role.RESTAURANT, Role.SERVEUR, Role.CUISINE, Role.COMPTABLE)
+  @Roles(
+    Role.DIRECTION,
+    Role.RECEPTION,
+    Role.RESTAURANT,
+    Role.SERVEUR,
+    Role.CUISINE,
+    Role.CUISINIER,
+    Role.COMPTABLE,
+  )
   async findOrdersPage(@Query() query: RestaurantOrdersQueryDto, @Req() req: Request) {
     const role = (req as any)?.user?.role as string | undefined;
     return this.restaurantService.findOrdersPage(query, role);
   }
 
+  @Get('kitchen/orders')
+  @Roles(Role.DIRECTION, Role.CUISINE, Role.CUISINIER)
+  async findKitchenOrders(@Req() req: Request) {
+    const role = (req as any)?.user?.role as string | undefined;
+    return this.restaurantService.findAllOrders(role);
+  }
+
   @Get('orders')
-  @Roles(Role.DIRECTION, Role.RECEPTION, Role.RESTAURANT, Role.SERVEUR, Role.CUISINE, Role.COMPTABLE)
+  @Roles(Role.DIRECTION, Role.CUISINE, Role.CUISINIER)
   async findAllOrders(@Req() req: Request) {
     const role = (req as any)?.user?.role as string | undefined;
     return this.restaurantService.findAllOrders(role);
@@ -208,7 +266,14 @@ export class RestaurantController {
   }
 
   @Patch('orders/:id/status')
-  @Roles(Role.DIRECTION, Role.RECEPTION, Role.RESTAURANT, Role.SERVEUR, Role.CUISINE)
+  @Roles(
+    Role.DIRECTION,
+    Role.RECEPTION,
+    Role.RESTAURANT,
+    Role.SERVEUR,
+    Role.CUISINE,
+    Role.CUISINIER,
+  )
   async updateOrderStatus(
     @Param('id') id: string,
     @Body() dto: UpdateRestaurantOrderDto,
@@ -218,7 +283,14 @@ export class RestaurantController {
   }
 
   @Patch('orders/:id')
-  @Roles(Role.DIRECTION, Role.RECEPTION, Role.RESTAURANT, Role.SERVEUR, Role.CUISINE)
+  @Roles(
+    Role.DIRECTION,
+    Role.RECEPTION,
+    Role.RESTAURANT,
+    Role.SERVEUR,
+    Role.CUISINE,
+    Role.CUISINIER,
+  )
   async updateOrder(
     @Param('id') id: string,
     @Body() dto: UpdateRestaurantOrderDto,

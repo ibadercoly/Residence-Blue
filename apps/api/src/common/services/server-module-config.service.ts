@@ -59,6 +59,7 @@ export class ServerModuleConfigService {
         RECEPTION: { allowedModules: ['dashboard', 'planning', 'rooms', 'clients', 'facturation', 'restaurant', 'pool', 'exports'] },
         SERVEUR: { allowedModules: ['restaurant'] },
         CUISINE: { allowedModules: ['restaurant'] },
+        CUISINIER: { allowedModules: ['restaurant'] },
         HOUSEKEEPING: { allowedModules: ['housekeeping'], enabled: false },
         MAINTENANCE: { allowedModules: ['maintenance'], enabled: false },
         COMPTABLE: { allowedModules: ['facturation', 'rapports', 'exports'], enabled: true },

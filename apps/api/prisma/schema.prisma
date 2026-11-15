@@ -14,6 +14,7 @@ enum Role {
   RESTAURANT
   SERVEUR
   CUISINE
+  CUISINIER
   HOUSEKEEPING
   MAINTENANCE
   COMPTABLE
@@ -402,6 +403,21 @@ model RestaurantOrder {
   preparingAt        DateTime?             @map("preparing_at")
   readyAt            DateTime?             @map("ready_at")
   servedAt           DateTime?             @map("served_at")
+  statut                  String                @default("ENVOYEE") @map("statut")
+  envoyeeAt               DateTime              @default(now()) @map("envoyee_at")
+  envoyeeById             String?               @map("envoyee_by_id") @db.Uuid
+  priseEnChargeAt         DateTime?             @map("prise_en_charge_at")
+  priseEnChargeById       String?               @map("prise_en_charge_by_id") @db.Uuid
+  priseEnChargeByName     String?               @map("prise_en_charge_by_name")
+  tempsPreparationMinutes Int?                  @map("temps_preparation_minutes")
+  heureFinPrevue          DateTime?             @map("heure_fin_prevue")
+  preteAt                 DateTime?             @map("prete_at")
+  preteById               String?               @map("prete_by_id") @db.Uuid
+  serviAt                 DateTime?             @map("servi_at")
+  serviById               String?               @map("servi_by_id") @db.Uuid
+  annuleAt                DateTime?             @map("annule_at")
+  annuleById              String?               @map("annule_by_id") @db.Uuid
+  motifAnnulation         String?               @map("motif_annulation") @db.Text
   createdAt       DateTime              @default(now()) @map("created_at")
   updatedAt       DateTime              @updatedAt @map("updated_at")
   lines           RestaurantOrderLine[]

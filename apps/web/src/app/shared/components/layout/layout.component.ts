@@ -1,7 +1,9 @@
-import { ChangeDetectionStrategy, Component, OnDestroy, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, OnDestroy, computed, inject, signal } from '@angular/core';
 import { Router, RouterLink, RouterLinkActive, NavigationEnd } from '@angular/router';
 import { Subscription } from 'rxjs';
 import { filter } from 'rxjs/operators';
+import { isKitchenOnlyRole } from '@residence-blue/shared';
+import { AuthService } from '../../../core/services/auth.service';
 import { SidebarComponent } from '../sidebar/sidebar.component';
 import { HeaderComponent } from '../header/header.component';
 import { ReservationModalComponent } from '../../../features/reservation-modal/reservation-modal.component';
@@ -27,10 +29,16 @@ interface MobileNavItem {
         (closeMobile)="mobileMenuOpen.set(false)"
       />
       <div class="md:pl-64 flex flex-col flex-1">
-        <app-header (menuToggle)="mobileMenuOpen.set(!mobileMenuOpen())" />
+        @if (!isKitchenOnly()) {
+          <app-header (menuToggle)="mobileMenuOpen.set(!mobileMenuOpen())" />
+        }
         <main
           role="main"
-          class="flex flex-col md:block relative w-full pt-16 pb-24 md:pt-20 md:pb-0 md:px-margin bg-surface min-h-screen md:min-h-0"
+          [class]="
+            isKitchenOnly()
+              ? 'flex flex-col relative w-full bg-surface min-h-screen'
+              : 'flex flex-col md:block relative w-full pt-16 pb-24 md:pt-20 md:pb-0 md:px-margin bg-surface min-h-screen md:min-h-0'
+          "
         >
           <ng-content />
         </main>
@@ -80,6 +88,7 @@ interface MobileNavItem {
       }
 
       <!-- Mobile Bottom Navigation (tableau_de_bord_mode_clair) -->
+      @if (!isKitchenOnly()) {
       <nav
         class="md:hidden fixed bottom-0 w-full z-40 pb-safe bg-surface-container-lowest/90 backdrop-blur-xl shadow-[0_-2px_12px_rgba(10,37,64,0.05)]"
         aria-label="Navigation mobile"
@@ -109,12 +118,15 @@ interface MobileNavItem {
           }
         </div>
       </nav>
+      }
     </div>
   `,
 })
 export class LayoutComponent implements OnDestroy {
   private readonly router = inject(Router, { optional: true });
+  private readonly authService = inject(AuthService, { optional: true });
   readonly modalService = inject(ReservationModalService, { optional: true });
+  readonly isKitchenOnly = computed(() => isKitchenOnlyRole(this.authService?.currentRole()));
   private readonly routerSub: Subscription | null = null;
   readonly mobileMenuOpen = signal(false);
 

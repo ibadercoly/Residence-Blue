@@ -8,9 +8,14 @@ export enum Role {
   RESTAURANT = 'RESTAURANT',
   SERVEUR = 'SERVEUR',
   CUISINE = 'CUISINE',
+  CUISINIER = 'CUISINIER',
   HOUSEKEEPING = 'HOUSEKEEPING',
   MAINTENANCE = 'MAINTENANCE',
   COMPTABLE = 'COMPTABLE',
+}
+
+export function isKitchenOnlyRole(role?: string | null): boolean {
+  return role === Role.CUISINIER || role === Role.CUISINE;
 }
 
 /**
@@ -24,6 +29,7 @@ export const UserRole = {
   RESTAURANT_STAFF: Role.RESTAURANT,
   SERVEUR: Role.SERVEUR,
   CUISINE: Role.CUISINE,
+  CUISINIER: Role.CUISINIER,
 } as const;
 
 export type UserRole = Role | (typeof UserRole)[keyof typeof UserRole];

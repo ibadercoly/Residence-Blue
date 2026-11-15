@@ -41,7 +41,7 @@ export async function loginViaUi(
  * Crée un utilisateur E2E éphémère en base (totpEnabled=false initial) pour tester DIRECTION/COMPTABLE sans polluer les comptes seedés.
  */
 export function createE2eUser(
-  role: 'DIRECTION' | 'COMPTABLE' | 'RECEPTION' | 'RESTAURANT' | 'SERVEUR' | 'CUISINE' = 'DIRECTION',
+  role: 'DIRECTION' | 'COMPTABLE' | 'RECEPTION' | 'RESTAURANT' | 'SERVEUR' | 'CUISINE' | 'CUISINIER' = 'DIRECTION',
 ): { email: string; password: string } {
   const email = `e2e.${role.toLowerCase()}.${Date.now()}.${Math.floor(Math.random() * 10000)}@residenceblue.sn`;
   const password = 'E2eStrongPass2026!';

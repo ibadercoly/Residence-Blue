@@ -48,6 +48,65 @@ export function elapsedMinutesSince(iso: string | undefined | null, nowMs: numbe
   return Math.max(0, Math.floor((nowMs - t) / 60000));
 }
 
+export function computePrepCountdown(
+  heureFinPrevueIso: string | undefined | null,
+  nowMs: number,
+): { isOverdue: boolean; minutesRemaining: number; minutesLate: number; label: string } {
+  if (!heureFinPrevueIso) {
+    return {
+      isOverdue: false,
+      minutesRemaining: 0,
+      minutesLate: 0,
+      label: 'En préparation',
+    };
+  }
+  const targetMs = new Date(heureFinPrevueIso).getTime();
+  if (Number.isNaN(targetMs)) {
+    return {
+      isOverdue: false,
+      minutesRemaining: 0,
+      minutesLate: 0,
+      label: 'En préparation',
+    };
+  }
+  const diffMs = targetMs - nowMs;
+  const timeStr = formatOrderTime(heureFinPrevueIso);
+  if (diffMs < 0) {
+    const lateMin = Math.max(1, Math.ceil(Math.abs(diffMs) / 60000));
+    return {
+      isOverdue: true,
+      minutesRemaining: 0,
+      minutesLate: lateMin,
+      label: `En retard de ${lateMin} min`,
+    };
+  }
+  const remMin = Math.max(1, Math.ceil(diffMs / 60000));
+  return {
+    isOverdue: false,
+    minutesRemaining: remMin,
+    minutesLate: 0,
+    label: `En préparation, prête vers ${timeStr} (dans ${remMin} min)`,
+  };
+}
+
+export function formatFullRoomDestination(
+  destinationType: string | undefined | null,
+  roomNumber: string | undefined | null,
+  fallbackLabel: string | undefined | null,
+): string {
+  if (destinationType === 'ROOM') {
+    const num =
+      roomNumber ||
+      fallbackLabel?.replace(/^(Ch\.|Chambre)\s*/i, '').trim() ||
+      '';
+    return num ? `Chambre ${num}` : 'Chambre';
+  }
+  if (destinationType === 'TAKEAWAY') {
+    return 'À emporter';
+  }
+  return fallbackLabel || 'Table 1';
+}
+
 export function orderStatusLabel(status: string): string {
   return RESTAURANT_ORDER_STATUS_LABELS[status] || status;
 }

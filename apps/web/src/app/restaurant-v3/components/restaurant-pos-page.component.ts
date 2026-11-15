@@ -2,6 +2,7 @@ import {
   ChangeDetectionStrategy,
   Component,
   HostListener,
+  OnDestroy,
   OnInit,
   computed,
   inject,
@@ -20,8 +21,10 @@ import {
   RESTAURANT_PAYMENT_METHODS,
   RESTAURANT_SCROLL_STYLES,
   TicketDraftLine,
+  computePrepCountdown,
   destinationLabel,
   formatFcfa,
+  formatFullRoomDestination,
   formatOrderTime,
   hasPotentialCardPan,
   orderStatusBadgeClass,
@@ -67,15 +70,27 @@ import {
                 Mode hors ligne actif
               </span>
             }
-            <a
-              routerLink="/cuisine"
-              data-testid="link-kitchen"
-              class="rb-btn rb-btn-outline"
+            <button
+              type="button"
+              data-testid="pos-sound-toggle"
+              (click)="service.toggleSound()"
+              class="rb-btn rb-btn-sm rb-btn-outline"
+              [attr.aria-pressed]="service.soundEnabled()"
             >
-              <span class="material-symbols-outlined text-[18px]" aria-hidden="true">soup_kitchen</span>
-              <span>Cuisine</span>
-            </a>
+              <span class="material-symbols-outlined text-[18px]" aria-hidden="true">
+                {{ service.soundEnabled() ? 'volume_up' : 'volume_off' }}
+              </span>
+              <span>Son : {{ service.soundEnabled() ? 'Activé' : 'Coupé' }}</span>
+            </button>
             @if (service.isDirection()) {
+              <a
+                routerLink="/cuisine"
+                data-testid="link-kitchen"
+                class="rb-btn rb-btn-outline"
+              >
+                <span class="material-symbols-outlined text-[18px]" aria-hidden="true">soup_kitchen</span>
+                <span>Cuisine</span>
+              </a>
               <a
                 routerLink="/restaurant/carte"
                 data-testid="link-carte"
@@ -112,6 +127,39 @@ import {
               OK
             </button>
           </div>
+        }
+
+        <!-- Notifications persistantes des commandes prêtes à servir -->
+        @if (readyOrders().length > 0) {
+          <section
+            aria-label="Commandes prêtes à servir"
+            data-testid="pos-ready-notifications"
+            class="space-y-2"
+          >
+            @for (readyOrd of readyOrders(); track readyOrd.id) {
+              <div
+                role="alert"
+                [attr.data-testid]="'pos-ready-banner-' + readyOrd.id"
+                class="flex flex-wrap items-center justify-between gap-3 rounded-xl border-2 border-[#116b41] bg-[#e3f5ec] px-4 py-3 text-sm font-extrabold text-[#116b41] shadow-sm"
+              >
+                <div class="flex items-center gap-2 min-w-0">
+                  <span class="material-symbols-outlined text-[22px] shrink-0" aria-hidden="true">room_service</span>
+                  <span class="break-words">{{ formatReadyBannerText(readyOrd) }}</span>
+                </div>
+                @if (!service.canReadOnly()) {
+                  <button
+                    type="button"
+                    [attr.data-testid]="'btn-banner-serve-' + readyOrd.id"
+                    [disabled]="service.busyAction()"
+                    (click)="markServed(readyOrd)"
+                    class="rb-btn rb-btn-sm rb-btn-primary shrink-0"
+                  >
+                    Servie
+                  </button>
+                }
+              </div>
+            }
+          </section>
         }
 
         <!-- Barre supérieure : pastilles de catégories qui passent à la ligne + recherche -->
@@ -611,9 +659,9 @@ import {
             >
               <div>N°</div>
               <div>Destination</div>
-              <div>Client</div>
+              <div>Plats</div>
               <div>Total</div>
-              <div>État</div>
+              <div>État / Préparation</div>
               <div>Heure</div>
               <div class="text-right">Actions</div>
             </div>
@@ -629,7 +677,10 @@ import {
                   <div
                     role="row"
                     [attr.data-testid]="'service-order-row-' + ord.id"
-                    class="hidden lg:grid rb-orders-grid rb-orders-row border-b border-[#e6f0f2] text-sm hover:bg-[#f8fbfc]"
+                    [class]="
+                      'hidden lg:grid rb-orders-grid rb-orders-row border-b border-[#e6f0f2] text-sm ' +
+                      (ord.status === 'READY' ? 'bg-[#e3f5ec]/75 hover:bg-[#e3f5ec]' : 'hover:bg-[#f8fbfc]')
+                    "
                   >
                     <div class="font-bold text-[#161d20] break-words">
                       {{ ord.ticketNumber }}
@@ -643,38 +694,68 @@ import {
                       }
                     </div>
                     <div class="font-semibold text-[#161d20] break-words">
-                      {{ ord.destinationLabel }}
+                      {{ formatOrderDestination(ord) }}
                     </div>
-                    <div class="font-medium text-[#3d494a] break-words">
-                      {{ ord.guestName }}
+                    <div class="font-medium text-[#161d20] break-words">
+                      <span class="block font-bold">{{ formatOrderDishesSummary(ord) }}</span>
+                      @if (ord.guestName) {
+                        <span class="block text-xs text-[#3d494a]">{{ ord.guestName }}</span>
+                      }
                     </div>
                     <div class="font-extrabold text-[#161d20]">
                       {{ formatFcfa(ord.totalTtcFcfa) }}
                     </div>
                     <div>
-                      <span
-                        [attr.data-testid]="'order-status-' + ord.id"
-                        [class]="'inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-bold ' + orderStatusBadgeClass(ord.status)"
-                      >
-                        {{ orderStatusLabel(ord.status) }}
-                      </span>
+                      @if (ord.syncPending) {
+                        <span
+                          [attr.data-testid]="'order-status-' + ord.id"
+                          class="inline-flex items-center rounded-lg border border-[#f59e0b]/45 bg-[#fef3c7] px-2.5 py-1 text-xs font-extrabold text-[#925300]"
+                        >
+                          En attente de synchronisation, la cuisine ne l'a pas encore reçue
+                        </span>
+                      } @else if (ord.status === 'IN_PREPARATION') {
+                        <span
+                          [attr.data-testid]="'order-status-' + ord.id"
+                          [class]="
+                            prepCountdown(ord).isOverdue
+                              ? 'inline-flex items-center rounded-lg border border-[#d97706] bg-[#ffedd5] px-2.5 py-1 text-xs font-extrabold text-[#b45309]'
+                              : 'inline-flex items-center rounded-lg border border-[#f59e0b]/45 bg-[#fef3c7] px-2.5 py-1 text-xs font-extrabold text-[#925300]'
+                          "
+                        >
+                          {{ prepCountdown(ord).label }}
+                        </span>
+                      } @else if (ord.status === 'READY') {
+                        <span
+                          [attr.data-testid]="'order-status-' + ord.id"
+                          class="inline-flex items-center rounded-full border border-[#116b41] bg-[#e3f5ec] px-2.5 py-0.5 text-xs font-extrabold text-[#116b41]"
+                        >
+                          Prête, à servir
+                        </span>
+                      } @else {
+                        <span
+                          [attr.data-testid]="'order-status-' + ord.id"
+                          [class]="'inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-bold ' + orderStatusBadgeClass(ord.status)"
+                        >
+                          {{ orderStatusLabel(ord.status) }}
+                        </span>
+                      }
                     </div>
                     <div class="text-xs font-semibold text-[#3d494a]">
-                      {{ formatOrderTime(ord.createdAt) }}
+                      {{ formatOrderTime(ord.envoyeeAt || ord.createdAt) }}
                     </div>
                     <div class="flex flex-wrap justify-end gap-1.5">
-                      @if (!ord.syncPending && ord.status !== 'SERVED' && ord.status !== 'CANCELLED' && !service.canReadOnly()) {
+                      @if (!ord.syncPending && ord.status === 'READY' && !service.canReadOnly()) {
                         <button
                           type="button"
                           [attr.data-testid]="'btn-serve-order-' + ord.id"
                           [disabled]="service.busyAction()"
                           (click)="markServed(ord)"
-                          class="rb-btn rb-btn-sm rb-btn-outline"
+                          class="rb-btn rb-btn-sm rb-btn-primary"
                         >
                           Servie
                         </button>
                       }
-                      @if (!ord.syncPending && service.canCancelOrder() && ord.status !== 'CANCELLED') {
+                      @if (!ord.syncPending && service.canCancelOrder() && (ord.status === 'PENDING' || ord.status === 'SENT_TO_KITCHEN' || ord.status === 'IN_PREPARATION')) {
                         <button
                           type="button"
                           [attr.data-testid]="'btn-cancel-order-' + ord.id"
@@ -690,16 +771,22 @@ import {
 
                   <!-- Carte compacte mobile / tablette (< 1024 px) dans la même zone défilante -->
                   <div
-                    class="lg:hidden border-b border-[#e6f0f2] p-3 space-y-2"
+                    [class]="
+                      'lg:hidden border-b border-[#e6f0f2] p-3 space-y-2 ' +
+                      (ord.status === 'READY' ? 'bg-[#e3f5ec]/75' : '')
+                    "
                     [attr.data-testid]="'service-order-mobile-' + ord.id"
                   >
                     <div class="flex items-start justify-between gap-2">
                       <div>
                         <div class="text-sm font-extrabold text-[#161d20]">
-                          {{ ord.ticketNumber }} • {{ ord.destinationLabel }}
+                          {{ ord.ticketNumber }} • {{ formatOrderDestination(ord) }}
+                        </div>
+                        <div class="text-xs font-bold text-[#161d20]">
+                          {{ formatOrderDishesSummary(ord) }}
                         </div>
                         <div class="text-xs font-medium text-[#3d494a]">
-                          {{ ord.guestName }} • {{ formatOrderTime(ord.createdAt) }}
+                          {{ ord.guestName }} • {{ formatOrderTime(ord.envoyeeAt || ord.createdAt) }}
                         </div>
                       </div>
                       <span class="text-sm font-extrabold text-[#161d20]">
@@ -707,22 +794,42 @@ import {
                       </span>
                     </div>
                     <div class="flex flex-wrap items-center justify-between gap-2">
-                      <span
-                        [class]="'inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-bold ' + orderStatusBadgeClass(ord.status)"
-                      >
-                        {{ ord.syncPending ? 'En attente de synchronisation' : orderStatusLabel(ord.status) }}
-                      </span>
+                      @if (ord.syncPending) {
+                        <span class="inline-flex items-center rounded-lg border border-[#f59e0b]/45 bg-[#fef3c7] px-2.5 py-0.5 text-xs font-extrabold text-[#925300]">
+                          En attente de synchronisation, la cuisine ne l'a pas encore reçue
+                        </span>
+                      } @else if (ord.status === 'IN_PREPARATION') {
+                        <span
+                          [class]="
+                            prepCountdown(ord).isOverdue
+                              ? 'inline-flex items-center rounded-lg border border-[#d97706] bg-[#ffedd5] px-2.5 py-0.5 text-xs font-extrabold text-[#b45309]'
+                              : 'inline-flex items-center rounded-lg border border-[#f59e0b]/45 bg-[#fef3c7] px-2.5 py-0.5 text-xs font-extrabold text-[#925300]'
+                          "
+                        >
+                          {{ prepCountdown(ord).label }}
+                        </span>
+                      } @else if (ord.status === 'READY') {
+                        <span class="inline-flex items-center rounded-full border border-[#116b41] bg-[#e3f5ec] px-2.5 py-0.5 text-xs font-extrabold text-[#116b41]">
+                          Prête, à servir
+                        </span>
+                      } @else {
+                        <span
+                          [class]="'inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-bold ' + orderStatusBadgeClass(ord.status)"
+                        >
+                          {{ orderStatusLabel(ord.status) }}
+                        </span>
+                      }
                       <div class="flex flex-wrap gap-1.5">
-                        @if (!ord.syncPending && ord.status !== 'SERVED' && ord.status !== 'CANCELLED' && !service.canReadOnly()) {
+                        @if (!ord.syncPending && ord.status === 'READY' && !service.canReadOnly()) {
                           <button
                             type="button"
                             (click)="markServed(ord)"
-                            class="rb-btn rb-btn-sm rb-btn-outline"
+                            class="rb-btn rb-btn-sm rb-btn-primary"
                           >
                             Servie
                           </button>
                         }
-                        @if (!ord.syncPending && service.canCancelOrder() && ord.status !== 'CANCELLED') {
+                        @if (!ord.syncPending && service.canCancelOrder() && (ord.status === 'PENDING' || ord.status === 'SENT_TO_KITCHEN' || ord.status === 'IN_PREPARATION')) {
                           <button
                             type="button"
                             (click)="openCancelPrompt(ord)"
@@ -746,6 +853,61 @@ import {
             }
           </div>
         </section>
+
+        <!-- SECTION « ANCIENNES COMMANDES À CLÔTURER » (> 12 h non terminées, RECEPTION & DIRECTION) -->
+        @if (service.canCancelOrder() && service.staleOrders().length > 0) {
+          <section
+            aria-label="Anciennes commandes à clôturer"
+            data-testid="stale-orders-section"
+            class="rounded-2xl border border-[#f59e0b] bg-[#fffcf2] p-4 space-y-3"
+          >
+            <div>
+              <h2 class="rb-serif text-lg font-bold text-[#925300]">
+                Anciennes commandes à clôturer (&gt; 12 h)
+              </h2>
+              <p class="text-xs font-medium text-[#925300]">
+                Ces tickets non terminés de plus de 12 heures sont masqués de l’écran du cuisinier et doivent être clôturés avec un motif.
+              </p>
+            </div>
+
+            <div class="space-y-2">
+              @for (st of service.staleOrders(); track st.id) {
+                <div
+                  [attr.data-testid]="'stale-order-row-' + st.id"
+                  class="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[#f59e0b]/45 bg-white p-3"
+                >
+                  <div>
+                    <span class="font-extrabold text-sm text-[#161d20]">
+                      {{ st.ticketNumber }} • {{ formatOrderDestination(st) }}
+                    </span>
+                    <span class="block text-xs font-semibold text-[#3d494a]">
+                      {{ formatOrderDishesSummary(st) }} • Envoyée le {{ st.createdAt | date: 'dd/MM/yyyy HH:mm' }}
+                    </span>
+                  </div>
+                  <div class="flex flex-wrap items-center gap-2">
+                    <input
+                      type="text"
+                      [attr.data-testid]="'stale-reason-input-' + st.id"
+                      [ngModel]="staleReason(st.id)"
+                      (ngModelChange)="setStaleReason(st.id, $event)"
+                      placeholder="Motif de clôture (min. 3 car.)..."
+                      class="min-h-[40px] w-56 rounded-lg border border-[#7c8c8e] bg-white px-2.5 text-xs font-medium text-[#161d20]"
+                    />
+                    <button
+                      type="button"
+                      [attr.data-testid]="'btn-close-stale-' + st.id"
+                      [disabled]="staleReason(st.id).trim().length < 3 || service.busyAction()"
+                      (click)="confirmCloseStale(st)"
+                      class="rb-btn rb-btn-sm rb-btn-danger-outline"
+                    >
+                      Clôturer
+                    </button>
+                  </div>
+                </div>
+              }
+            </div>
+          </section>
+        }
       </div>
 
       <!-- Barre fixe mobile en bas (sous 768 px, au-dessus de la nav mobile) -->
@@ -768,8 +930,9 @@ import {
       </div>
   `,
 })
-export class RestaurantPosPageComponent implements OnInit {
+export class RestaurantPosPageComponent implements OnInit, OnDestroy {
   readonly service = inject(RestaurantV3Service);
+  readonly nowMs = signal<number>(Date.now());
 
   readonly selectedCategoryId = signal<string>('ALL');
   readonly productSearch = signal<string>('');
@@ -783,9 +946,15 @@ export class RestaurantPosPageComponent implements OnInit {
   readonly cancellingOrder = signal<RestaurantOrderV3 | null>(null);
   readonly cancelReason = signal<string>('');
   readonly failedImageIds = signal<Set<string>>(new Set());
+  private readonly staleReasonsByOrder = signal<Record<string, string>>({});
 
   readonly paymentMethods = RESTAURANT_PAYMENT_METHODS;
   private searchTimer: ReturnType<typeof setTimeout> | null = null;
+  private sseDelayTimer: ReturnType<typeof setTimeout> | null = null;
+  private clockTimer: ReturnType<typeof setInterval> | null = null;
+  private fallbackPollTimer: ReturnType<typeof setInterval> | null = null;
+
+  readonly readyOrders = computed(() => this.service.readyOrdersList());
 
   readonly visibleCategories = computed(() =>
     this.service.categories().filter((c) => !c.isArchived),
@@ -869,10 +1038,95 @@ export class RestaurantPosPageComponent implements OnInit {
     await Promise.all([
       this.service.loadCatalog(),
       this.service.loadOrdersPage({ offset: 0, limit: 50 }),
+      this.service.loadStaleOrders(),
     ]);
     const stays = this.service.roomsInStay();
     if (stays.length > 0 && !this.selectedReservationId()) {
       this.selectedReservationId.set(stays[0].reservationId);
+    }
+
+    // Démarrer le flux SSE après 800 ms pour laisser l'état networkidle se stabiliser à l'arrivée sur /restaurant
+    this.sseDelayTimer = setTimeout(() => {
+      this.service.connectKitchenStream(() => {
+        void this.service.loadOrdersPage({ offset: 0, limit: 50, search: this.ordersSearch() });
+      });
+    }, 800);
+
+    this.clockTimer = setInterval(() => {
+      this.nowMs.set(Date.now());
+    }, 5_000);
+
+    this.fallbackPollTimer = setInterval(() => {
+      if (!this.service.sseConnected()) {
+        void this.service.loadOrdersPage({ offset: 0, limit: 50, search: this.ordersSearch() });
+      }
+    }, 10_000);
+  }
+
+  ngOnDestroy(): void {
+    if (this.sseDelayTimer) {
+      clearTimeout(this.sseDelayTimer);
+      this.sseDelayTimer = null;
+    }
+    this.service.disconnectKitchenStream();
+    if (this.searchTimer) {
+      clearTimeout(this.searchTimer);
+      this.searchTimer = null;
+    }
+    if (this.clockTimer) {
+      clearInterval(this.clockTimer);
+      this.clockTimer = null;
+    }
+    if (this.fallbackPollTimer) {
+      clearInterval(this.fallbackPollTimer);
+      this.fallbackPollTimer = null;
+    }
+  }
+
+  prepCountdown(ord: RestaurantOrderV3) {
+    return computePrepCountdown(ord.heureFinPrevue, this.nowMs());
+  }
+
+  formatOrderDestination(ord: RestaurantOrderV3): string {
+    if (ord.destinationType === 'ROOM') {
+      const num = ord.roomNumber || ord.destinationLabel?.replace(/^(Ch\.|Chambre)\s*/i, '').trim() || '';
+      return num ? `Chambre ${num} (Ch. ${num})` : 'Chambre';
+    }
+    return ord.destinationLabel || 'Table 1';
+  }
+
+  formatOrderDishesSummary(ord: RestaurantOrderV3): string {
+    const items = ord.items || [];
+    if (items.length === 0) return '—';
+    return items.map((it) => `${it.quantity} ${it.name}`).join(', ');
+  }
+
+  formatReadyBannerText(ord: RestaurantOrderV3): string {
+    const dest = formatFullRoomDestination(ord.destinationType, ord.roomNumber, ord.destinationLabel);
+    const items = ord.items || [];
+    const totalQty = items.reduce((s, it) => s + (it.quantity || 1), 0);
+    const dishesText =
+      items.length > 0
+        ? items.map((it) => `${it.quantity} ${it.name}`).join(', ')
+        : ord.ticketNumber;
+    const suffix = totalQty > 1 ? 'prêts à servir' : 'prêt à servir';
+    return `${dest} : ${dishesText} ${suffix}`;
+  }
+
+  staleReason(orderId: string): string {
+    return this.staleReasonsByOrder()[orderId] || '';
+  }
+
+  setStaleReason(orderId: string, val: string): void {
+    this.staleReasonsByOrder.update((prev) => ({ ...prev, [orderId]: val || '' }));
+  }
+
+  async confirmCloseStale(ord: RestaurantOrderV3): Promise<void> {
+    const reason = this.staleReason(ord.id).trim();
+    if (reason.length < 3) return;
+    const ok = await this.service.closeStaleOrder(ord.id, reason);
+    if (ok) {
+      this.setStaleReason(ord.id, '');
     }
   }
 

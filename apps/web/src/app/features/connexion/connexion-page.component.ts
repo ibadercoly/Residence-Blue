@@ -1,6 +1,7 @@
 import { Component, OnInit, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router } from '@angular/router';
+import { isKitchenOnlyRole } from '@residence-blue/shared';
 import { AuthService } from '../../core/services/auth.service';
 import { HotelSettingsService } from '../../core/services/hotel-settings.service';
 
@@ -343,7 +344,10 @@ export class ConnexionPageComponent implements OnInit {
         password: currentPassword,
         stayConnected8h: this.stayConnected8h(),
       });
-      await this.router?.navigate(['/tableau-de-bord']);
+      const targetRoute = isKitchenOnlyRole(this.authService.currentRole())
+        ? '/cuisine'
+        : '/tableau-de-bord';
+      await this.router?.navigate([targetRoute]);
     } catch (err) {
       this.errorMessage.set(
         err instanceof Error

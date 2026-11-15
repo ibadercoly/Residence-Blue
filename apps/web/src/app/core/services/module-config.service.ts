@@ -341,6 +341,15 @@ export class ModuleConfigService {
         canExportClients: false,
         canManageMenu: false
       },
+      CUISINIER: {
+        allowedModules: ['restaurant'],
+        enabled: true,
+        version: 'v1',
+        kitchenScreenOnly: true,
+        description: "Cuisinier : accès exclusif à l'écran cuisine en temps réel.",
+        canExportClients: false,
+        canManageMenu: false
+      },
       CUISINE: {
         allowedModules: ['restaurant'],
         enabled: true,
@@ -431,7 +440,7 @@ export class ModuleConfigService {
     if (role === Role.SERVEUR || role === Role.RESTAURANT) {
       return moduleId === 'restaurant';
     }
-    if (role === Role.CUISINE) {
+    if (role === Role.CUISINE || role === Role.CUISINIER) {
       return moduleId === 'restaurant';
     }
 
@@ -450,15 +459,15 @@ export class ModuleConfigService {
   readonly menuItems = computed<NavMenuItem[]>(() => {
     const role = this.authService.currentUser()?.role || Role.DIRECTION;
 
-    if (role === Role.CUISINE) {
+    if (role === Role.CUISINE || role === Role.CUISINIER) {
       return [
-        { id: 'restaurant', label: 'Écran Cuisine', route: '/cuisine', icon: 'soup_kitchen' }
+        { id: 'cuisine', label: 'Cuisine', route: '/cuisine', icon: 'chef_hat' }
       ];
     }
 
-    if (role === Role.SERVEUR) {
+    if (role === Role.SERVEUR || role === Role.RESTAURANT) {
       return [
-        { id: 'restaurant', label: 'Caisse Restaurant', route: '/restaurant', icon: 'restaurant' }
+        { id: 'restaurant', label: 'Restaurant & Bar', route: '/restaurant', icon: 'restaurant' }
       ];
     }
 
@@ -470,11 +479,13 @@ export class ModuleConfigService {
       { id: 'clients', label: 'Clients', route: '/clients', icon: 'group' },
       { id: 'facturation', label: 'Facturation', route: '/facturation', icon: 'receipt_long' },
       { id: 'rapports', label: 'Rapports', route: '/rapports', icon: 'analytics' },
-      { id: 'restaurant', label: 'Restaurant & Bar', route: '/restaurant', icon: 'restaurant' }
-
+      { id: 'restaurant', label: 'Restaurant & Bar', route: '/restaurant', icon: 'restaurant' },
+      ...(role === Role.DIRECTION
+        ? [{ id: 'cuisine', label: 'Cuisine', route: '/cuisine', icon: 'chef_hat' }]
+        : []),
     ];
 
-    return items.filter(item => this.canAccessModule(item.id, role));
+    return items.filter(item => item.id === 'cuisine' || this.canAccessModule(item.id, role));
   });
 
   /**
