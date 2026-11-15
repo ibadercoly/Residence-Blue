@@ -48,6 +48,57 @@ export interface RapportsRevenueEvolution {
   bestPoint: RapportsEvolutionMilestone;
 }
 
+export interface RapportsEvolutionDetailedPoint {
+  key: string;
+  label: string;
+  fullDateLabel: string;
+  amountFcfa: number;
+  accommodationFcfa: number;
+  restaurantFcfa: number;
+  otherFcfa: number;
+  trendFcfa: number;
+}
+
+export interface RapportsEvolutionChangeMarker {
+  fromKey: string;
+  toKey: string;
+  fromLabel: string;
+  toLabel: string;
+  deltaFcfa: number;
+}
+
+export type RapportsEvolutionInsightType =
+  | 'total'
+  | 'best_worst'
+  | 'trend'
+  | 'biggest_moves'
+  | 'habit'
+  | 'alert';
+
+export interface RapportsEvolutionInsight {
+  type: RapportsEvolutionInsightType;
+  text: string;
+  direction?: 'up' | 'down' | 'flat';
+  isAlert?: boolean;
+}
+
+export interface RapportsEvolutionSection {
+  granularity: 'day' | 'week' | 'month';
+  trendLabel: string;
+  totalFcfa: number;
+  averageFcfa: number;
+  previousTotalFcfa?: number;
+  deltaPercent?: number;
+  points: RapportsEvolutionDetailedPoint[];
+  previousPoints?: RapportsEvolutionPoint[];
+  topPoints: RapportsEvolutionMilestone[];
+  lowestPoint: RapportsEvolutionMilestone;
+  bestPoint: RapportsEvolutionMilestone;
+  biggestIncrease?: RapportsEvolutionChangeMarker;
+  biggestDecrease?: RapportsEvolutionChangeMarker;
+  insights: RapportsEvolutionInsight[];
+}
+
 export interface RapportsSalesByTypeWeek {
   weekKey: string;
   label: string;
@@ -159,6 +210,7 @@ export interface RapportsResponse {
   previousPeriodHasData: boolean;
   tiles?: RapportsSummaryTiles;
   revenueEvolution?: RapportsRevenueEvolution;
+  evolution?: RapportsEvolutionSection;
   salesByTypeByWeek?: RapportsSalesByTypeWeek[];
   occupancyByDay?: RapportsOccupancyByDay;
   paymentsByMethod?: RapportsPaymentsByMethod;
