@@ -14,6 +14,14 @@ export const routes: Routes = [
       import('./features/connexion/connexion-page.component').then((m) => m.ConnexionPageComponent),
   },
   {
+    path: 'accueil',
+    canActivate: [authGuard],
+    loadComponent: () =>
+      import('./features/dashboard/pages/dashboard-page/dashboard-page.component').then(
+        (m) => m.DashboardPageComponent,
+      ),
+  },
+  {
     path: 'tableau-de-bord',
     canActivate: [authGuard],
     loadComponent: () =>
@@ -104,9 +112,8 @@ export const routes: Routes = [
   },
   {
     path: 'exports',
-    canActivate: [authGuard],
-    loadComponent: () =>
-      import('./features/exports/exports-page.component').then((m) => m.ExportsPageComponent),
+    pathMatch: 'full',
+    redirectTo: 'accueil',
   },
   // Modules reportés V2/V3 (protégés par canMatch et authGuard)
   {

@@ -12,6 +12,10 @@
 @tailwind components;
 @tailwind utilities;
 
+:root {
+  --icone-menu: 26px;
+}
+
 /* Repris tel quel des maquettes (balise <style> de code.html). */
 @layer base {
   html, body { margin: 0; padding: 0; }

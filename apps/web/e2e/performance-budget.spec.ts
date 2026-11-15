@@ -66,7 +66,7 @@ test.describe('Budgets de Performance V1 Minimale', () => {
     await page.goto('/');
     await page.waitForLoadState('networkidle');
 
-    const navPaths = ['/planning', '/restaurant', '/facturation', '/exports', '/tableau-de-bord'];
+    const navPaths = ['/planning', '/restaurant', '/facturation', '/chambres', '/tableau-de-bord'];
     const transitionTimes: number[] = [];
 
     for (const p of navPaths) {
@@ -95,7 +95,7 @@ test.describe('Budgets de Performance V1 Minimale', () => {
     const client = await page.context().newCDPSession(page);
     await client.send('Performance.enable');
 
-    const navPaths = ['/planning', '/restaurant', '/facturation', '/exports', '/tableau-de-bord'];
+    const navPaths = ['/planning', '/restaurant', '/facturation', '/chambres', '/tableau-de-bord'];
 
     for (let i = 0; i < 4; i++) {
       for (const p of navPaths) {
