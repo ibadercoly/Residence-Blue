@@ -470,8 +470,8 @@ export class ModuleConfigService {
       { id: 'clients', label: 'Clients', route: '/clients', icon: 'group' },
       { id: 'facturation', label: 'Facturation', route: '/facturation', icon: 'receipt_long' },
       { id: 'rapports', label: 'Rapports', route: '/rapports', icon: 'analytics' },
-      { id: 'restaurant', label: 'Restaurant & Bar', route: '/restaurant', icon: 'restaurant' },
-      { id: 'exports', label: 'Exports', route: '/exports', icon: 'file_download' }
+      { id: 'restaurant', label: 'Restaurant & Bar', route: '/restaurant', icon: 'restaurant' }
+
     ];
 
     return items.filter(item => this.canAccessModule(item.id, role));

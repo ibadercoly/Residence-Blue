@@ -15,7 +15,8 @@ Ce document détaille la cartographie complète des modules de l'application Ré
 | **Facturation & Caisse** | `facturation` | **V1** | **Actif** | `clients` | *Rupture V3 (`docs/facturation/DESIGN.md`)* | `facturation.service.spec.ts`, `comptoir-page.component.spec.ts`, `note-sejour-page.component.spec.ts`, `e2e/facturation-v3.spec.ts`, `test/facturation-v3.e2e-spec.ts` | Comptoir 4,78 Ko gzip + Note 8,73 Ko gzip, pagination par lot de 8 |
 | **Restaurant & Bar** | `restaurant` | **V1** | **Actif** | *Aucune* | `design/maquettes/point_de_vente_restaurant_la_teranga/` | `restaurant-page.component.spec.ts`, `restaurant-mock.service.spec.ts`, `kitchen-screen.component.spec.ts` | < 35 Ko gzip, tactile réactif |
 | **Accès Piscine** | `pool` | **V1** | **Actif** | `facturation` | *Sous-produit POS Restaurant* | `restaurant-mock.service.spec.ts` (PASS-PISCINE) | 0 Ko (intégré au catalogue) |
-| **Exports & Rapports** | `exports` | **V1** | **Actif** | *Aucune* | `design/maquettes/rapports_statistiques_financi_res/` | `exports-page.component.spec.ts`, `exports.controller.ts`, `exports-security.e2e-spec.ts` | < 20 Ko gzip, streaming |
+| **Rapports** | `rapports` | **V1** | **Actif** | *Aucune* | `design/maquettes/rapports_statistiques_financi_res/` | `rapports-page.component.spec.ts`, `rapports-charts.util.spec.ts`, `rapports.service.spec.ts`, `rapports-evolution.util.spec.ts`, `e2e/rapports.spec.ts`, `test/rapports.e2e-spec.ts` | < 20 Ko gzip, PDF vectoriel + Excel |
+| **Exports (écran supprimé, API conservée)** | `exports` | **V1** | **Intégré aux écrans métiers** | *Aucune* | *Écran `/exports` supprimé (redirigé vers `/accueil`)* | `exports.controller.ts`, `exports-security.e2e-spec.ts` | API streaming conservée |
 | **Housekeeping détaillé** | `housekeeping` | **V2** | **Reporté** | `rooms` | *Formulaire dérivé du style* | `housekeeping.spec.ts` (CI dormant) | < 25 Ko lazy chunk |
 | **Maintenance complète** | `maintenance` | **V2** | **Reporté** | `rooms` | `design/maquettes/maintenance_suivi_des_tickets_techniques/` | `maintenance.spec.ts` (CI dormant) | < 30 Ko lazy chunk |
 | **Stocks & Économat** | `inventory` | **V2** | **Reporté** | `restaurant` | *Dérivé du style* | `inventory.spec.ts` (CI dormant) | < 25 Ko lazy chunk |
@@ -139,3 +140,21 @@ En revanche, les tests E2E Playwright de navigation et de rendu graphique comple
 | **Matrice 12 Chambres Mobile** | `apps/web/e2e/photos-chambres.spec.ts` | Vue matrice mobile complète reportée en V2 | À relancer à la réactivation de `mobile_complete` |
 | **Planning 14 Jours E2E** | pps/web/e2e/planning-refonte.spec.ts | Vue 14 jours et défilement horizontal reportés en V2 | À relancer à la réactivation de planning_vue_14j |
 | **Planning Relogement Auto** | pps/web/e2e/planning-refonte.spec.ts | Relogement automatique et conflits Tape Chart reportés en V2 | À relancer à la réactivation de planning_relogement_auto |
+
+
+---
+
+## 7. Inventaire des Exports (suite à la suppression de l'écran `/exports`)
+
+L'écran dédié `/exports` a été retiré du menu latéral et redirigé vers `/accueil` afin de garder une navigation simple et centrée sur les écrans métiers. **Aucune route d'API (`GET /api/exports/download`, `GET /api/exports/audit`) ni aucun service métier n'a été supprimé.**
+
+| Type d'export (`ExportDocumentType`) | Format | Disponibilité dans l'interface | Statut API |
+| :--- | :--- | :--- | :--- |
+| **Facture du séjour** (`STAY_INVOICE_PDF`) | PDF | **Facturation — Note de séjour** (`/facturation/:id`) et **Archives** (`/facturation/archives`) | Conservé (`GET /api/exports/download`) |
+| **Clôture de caisse journalière — Z de caisse** (`DAILY_SALES_CLOSURE_PDF`) | PDF | **Comptoir** (`/facturation` : clôture de caisse) et **Rapports** (`/rapports` : Export PDF) | Conservé (`GET /api/exports/download`) |
+| **Clôture de caisse journalière — Tableur** (`DAILY_SALES_CLOSURE_EXCEL`) | Excel | **Comptoir** (`/facturation`), **Archives** (`/facturation/archives` : exporter la sélection) et **Rapports** (`/rapports` : Export Excel) | Conservé (`GET /api/exports/download`) |
+| **Ventes Restaurant & Piscine** (`RESTAURANT_POOL_SALES_EXCEL`) | Excel | **Rapports** (`/rapports` : Export Excel, feuille « Restaurant » et ventilation) | Conservé (`GET /api/exports/download`) |
+| **Arrivées et départs du jour** (`DAILY_ARRIVALS_DEPARTURES_PDF`) | PDF | *Existait uniquement dans l'écran Exports (non encore réintégré dans Planning)* | **Conservé dans l'API** (`GET /api/exports/download`) |
+| **État des chambres** (`ROOMS_STATUS_PDF`) | PDF | *Existait uniquement dans l'écran Exports (non encore réintégré dans Chambres)* | **Conservé dans l'API** (`GET /api/exports/download`) |
+| **Fichier clients complet** (`CLIENTS_LIST_EXCEL`, DIRECTION uniquement) | Excel | *Existait uniquement dans l'écran Exports (non encore réintégré dans Clients)* | **Conservé dans l'API** (`GET /api/exports/download`) |
+| **Journal d'audit des exports** | JSON | *Existait uniquement dans l'écran Exports* | **Conservé dans l'API** (`GET /api/exports/audit`) |

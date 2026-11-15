@@ -1,4 +1,4 @@
-import { Component, inject, signal, computed, HostListener } from '@angular/core';
+import { Component, EventEmitter, Output, inject, signal, computed, HostListener } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ReservationModalService } from '../../../core/services/reservation-modal.service';
 import { AuthService, ConnectedSessionItem } from '../../../core/services/auth.service';
@@ -142,6 +142,15 @@ import { Role } from '@residence-blue/shared';
     >
       <div class="h-16 px-gutter-sm flex items-center justify-between gap-space-sm">
         <div class="flex items-center gap-space-sm min-w-0">
+          <button
+            type="button"
+            (click)="menuToggle.emit()"
+            data-testid="mobile-menu-toggle"
+            aria-label="Ouvrir le menu principal"
+            class="w-10 h-10 rounded-xl bg-surface-container-low text-on-surface flex items-center justify-center shrink-0 cursor-pointer"
+          >
+            <span class="material-symbols-outlined text-[22px]" aria-hidden="true">menu</span>
+          </button>
           <div class="w-9 h-9 rounded-xl bg-primary flex items-center justify-center text-on-primary shadow-sm flex-shrink-0">
             <span class="material-symbols-outlined text-[20px]" aria-hidden="true">hotel</span>
           </div>
@@ -271,6 +280,7 @@ import { Role } from '@residence-blue/shared';
   `,
 })
 export class HeaderComponent {
+  @Output() menuToggle = new EventEmitter<void>();
   readonly modalService = inject(ReservationModalService);
   readonly authService = inject(AuthService);
 
