@@ -259,6 +259,90 @@ test.describe('Écran Rapports (/rapports) — Diagrammes, Tableau, Responsive &
     await expect(page.getByTestId('chart-weekday-averages')).toBeVisible();
     await expect(page.getByTestId('chart-top-dishes')).toBeVisible();
 
+    // 1. Disposition : les 4 diagrammes de dates en pleine largeur, les 4 compacts en 2 colonnes
+    const gridBox = await page.getByTestId('rapports-charts-grid').boundingBox();
+    expect(gridBox).not.toBeNull();
+    for (const wideId of [
+      'chart-revenue-evolution',
+      'chart-sales-by-week',
+      'chart-occupancy-by-day',
+      'chart-weekday-averages',
+    ]) {
+      const box = await page.getByTestId(wideId).boundingBox();
+      expect(box).not.toBeNull();
+      expect(box!.width).toBeGreaterThanOrEqual(gridBox!.width * 0.95);
+    }
+    for (const halfId of [
+      'chart-payments-by-method',
+      'chart-reservation-sources',
+      'chart-sales-by-room-category',
+      'chart-top-dishes',
+    ]) {
+      const box = await page.getByTestId(halfId).boundingBox();
+      expect(box).not.toBeNull();
+      expect(box!.width).toBeLessThan(gridBox!.width * 0.6);
+    }
+
+    // 2. Hauteur de la zone de tracé >= 340 px sur ordinateur et pas de preserveAspectRatio="none"
+    for (const plotId of [
+      'plot-area-revenue-evolution',
+      'plot-area-sales-by-week',
+      'plot-area-occupancy-by-day',
+      'plot-area-weekday-averages',
+    ]) {
+      const plotBox = await page.getByTestId(plotId).boundingBox();
+      expect(plotBox).not.toBeNull();
+      expect(plotBox!.height).toBeGreaterThanOrEqual(340);
+    }
+
+    const desktopSvgCheck = await page.locator('[data-testid="rapports-charts-grid"] svg').evaluateAll((svgs) => {
+      const badPreserve = svgs.some((s) => s.getAttribute('preserveAspectRatio') === 'none');
+      const texts = svgs.flatMap((s) => Array.from(s.querySelectorAll('text')));
+      const minFontSize = texts.reduce((min, t) => {
+        const fs = parseFloat(window.getComputedStyle(t).fontSize);
+        return Math.min(min, fs);
+      }, 999);
+      const minWeight = texts.reduce((min, t) => {
+        const fw = parseInt(window.getComputedStyle(t).fontWeight, 10) || 400;
+        return Math.min(min, fw);
+      }, 999);
+      const hasKAbbrev = texts.some((t) => /\d+\s*k\b/i.test(t.textContent || ''));
+      return { badPreserve, textCount: texts.length, minFontSize, minWeight, hasKAbbrev };
+    });
+    expect(desktopSvgCheck.badPreserve).toBe(false);
+    expect(desktopSvgCheck.textCount).toBeGreaterThan(0);
+    expect(desktopSvgCheck.minFontSize).toBeGreaterThanOrEqual(14);
+    expect(desktopSvgCheck.minWeight).toBeGreaterThanOrEqual(700);
+    expect(desktopSvgCheck.hasKAbbrev).toBe(false);
+
+    // 3. Diagramme des chambres occupées : phrase d'aide sans décimales, étiquette moyenne hors barres, infobulle au clic
+    await expect(page.getByTestId('occupancy-help-text')).toHaveText(
+      /^\s*En moyenne \d+ % des chambres occupées \(\d+ chambres? sur \d+ en moyenne, arrondi à l'unité\)\s*$/,
+    );
+    const occPlotBox = await page.getByTestId('plot-area-occupancy-by-day').boundingBox();
+    const avgLabelBox = await page.getByTestId('occupancy-avg-label').boundingBox();
+    expect(occPlotBox).not.toBeNull();
+    expect(avgLabelBox).not.toBeNull();
+    expect(avgLabelBox!.x).toBeGreaterThanOrEqual(occPlotBox!.x + occPlotBox!.width - 1);
+
+    await page.locator('[data-testid="chart-occupancy-by-day"] svg g').first().click();
+    await expect(page.getByTestId('tooltip-occupancy')).toContainText(/chambres? sur \d+/);
+
+    // 4. Phrases de résumé calculées sous chaque diagramme
+    for (const summaryId of [
+      'summary-revenue-evolution',
+      'summary-sales-by-week',
+      'summary-occupancy-by-day',
+      'summary-weekday-averages',
+      'summary-payments-by-method',
+      'summary-reservation-sources',
+      'summary-sales-by-room-category',
+      'summary-top-dishes',
+    ]) {
+      const txt = (await page.getByTestId(summaryId).innerText()).trim();
+      expect(txt.length).toBeGreaterThan(10);
+    }
+
     // Décocher la comparaison masque la courbe pointillée
     await page.getByTestId('compare-previous-checkbox').uncheck();
     await expect(page.getByTestId('svg-previous-dashed-line')).toHaveCount(0);
@@ -323,13 +407,32 @@ test.describe('Écran Rapports (/rapports) — Diagrammes, Tableau, Responsive &
     // Vérifier scrollWidth <= clientWidth aux 4 largeurs obligatoires
     for (const width of [1440, 1024, 768, 360]) {
       await page.setViewportSize({ width, height: 900 });
-      await page.waitForTimeout(150);
+      await page.waitForTimeout(200);
       const overflow = await page.evaluate(() => ({
         scrollWidth: document.documentElement.scrollWidth,
         clientWidth: document.documentElement.clientWidth,
       }));
       expect(overflow.scrollWidth).toBeLessThanOrEqual(overflow.clientWidth);
     }
+
+    // À 360 px (mobile) : hauteur de la zone de tracé >= 280 px et textes >= 12 px en gras
+    for (const plotId of [
+      'plot-area-revenue-evolution',
+      'plot-area-sales-by-week',
+      'plot-area-occupancy-by-day',
+      'plot-area-weekday-averages',
+    ]) {
+      const plotBox = await page.getByTestId(plotId).boundingBox();
+      expect(plotBox).not.toBeNull();
+      expect(plotBox!.height).toBeGreaterThanOrEqual(280);
+    }
+    const mobileSvgCheck = await page.locator('[data-testid="rapports-charts-grid"] svg text').evaluateAll((texts) => ({
+      minFontSize: texts.reduce((min, t) => Math.min(min, parseFloat(window.getComputedStyle(t).fontSize)), 999),
+      minWeight: texts.reduce((min, t) => Math.min(min, parseInt(window.getComputedStyle(t).fontWeight, 10) || 400), 999),
+    }));
+    expect(mobileSvgCheck.minFontSize).toBeGreaterThanOrEqual(12);
+    expect(mobileSvgCheck.minWeight).toBeGreaterThanOrEqual(700);
+
     await page.screenshot({ path: path.join(capturesDir, 'rapports-mobile-360.png'), fullPage: true });
   });
 
