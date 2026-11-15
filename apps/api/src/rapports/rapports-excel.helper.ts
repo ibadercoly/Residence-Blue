@@ -108,6 +108,22 @@ export async function generateRapportsExcelBuffer(params: {
     r.getCell(2).numFmt = FCFA_NUM_FMT;
   }
 
+  // Phrases « Ce que dit ce graphique » (évolution du chiffre d'affaires)
+  if (report.evolution?.insights?.length) {
+    wsSummary.addRow([]);
+    const evoHead = wsSummary.addRow([
+      'Ce que dit le graphique — Évolution du chiffre d’affaires',
+      '',
+      '',
+      '',
+    ]);
+    styleHeaderRow(evoHead);
+    for (const ins of report.evolution.insights) {
+      const label = ins.isAlert ? 'Alerte' : 'Constat';
+      wsSummary.addRow([label, '', '', sanitizeSpreadsheetCell(ins.text)]);
+    }
+  }
+
   // 2. Feuille Jour par jour
   const wsDaily = workbook.addWorksheet('Jour par jour', {
     views: [{ state: 'frozen', ySplit: 1 }],

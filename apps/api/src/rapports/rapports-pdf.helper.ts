@@ -26,6 +26,58 @@ function ensureSpace(doc: PDFKit.PDFDocument, neededHeight: number): number {
   return doc.y;
 }
 
+function drawMonotoneCubicPdf(
+  doc: PDFKit.PDFDocument,
+  coords: Array<{ x: number; y: number }>,
+): void {
+  const n = coords.length;
+  if (n === 0) return;
+  doc.moveTo(coords[0].x, coords[0].y);
+  if (n === 1) return;
+  if (n === 2) {
+    doc.lineTo(coords[1].x, coords[1].y);
+    return;
+  }
+
+  const deltas: number[] = [];
+  for (let i = 0; i < n - 1; i++) {
+    const dx = Math.max(0.0001, coords[i + 1].x - coords[i].x);
+    deltas.push((coords[i + 1].y - coords[i].y) / dx);
+  }
+  const m = new Array<number>(n).fill(0);
+  m[0] = deltas[0];
+  m[n - 1] = deltas[n - 2];
+  for (let i = 1; i < n - 1; i++) {
+    m[i] = deltas[i - 1] * deltas[i] <= 0 ? 0 : (deltas[i - 1] + deltas[i]) / 2;
+  }
+  for (let i = 0; i < n - 1; i++) {
+    if (deltas[i] === 0) {
+      m[i] = 0;
+      m[i + 1] = 0;
+    } else {
+      const a = m[i] / deltas[i];
+      const b = m[i + 1] / deltas[i];
+      if (a < 0) m[i] = 0;
+      if (b < 0) m[i + 1] = 0;
+      const hyp = Math.hypot(a, b);
+      if (hyp > 3) {
+        const tau = 3 / hyp;
+        m[i] = tau * a * deltas[i];
+        m[i + 1] = tau * b * deltas[i];
+      }
+    }
+  }
+
+  for (let i = 0; i < n - 1; i++) {
+    const h = coords[i + 1].x - coords[i].x;
+    const cx1 = coords[i].x + h / 3;
+    const cy1 = coords[i].y + (m[i] * h) / 3;
+    const cx2 = coords[i + 1].x - h / 3;
+    const cy2 = coords[i + 1].y - (m[i + 1] * h) / 3;
+    doc.bezierCurveTo(cx1, cy1, cx2, cy2, coords[i + 1].x, coords[i + 1].y);
+  }
+}
+
 function drawSectionHeader(doc: PDFKit.PDFDocument, title: string, subtitle?: string): void {
   ensureSpace(doc, 40);
   doc.fillColor('#004f56').font('Helvetica-Bold').fontSize(12).text(title, 40, doc.y);
@@ -178,90 +230,186 @@ export async function generateRapportsPdfBuffer(params: {
     }
   }
 
-  // Diagramme vectoriel 1 : Évolution du chiffre d'affaires
-  if (report.revenueEvolution) {
-    const evo = report.revenueEvolution;
+  // Diagramme vectoriel 1 : Évolution du chiffre d'affaires (barres + courbe de tendance monotone + phrases)
+  if (report.evolution || report.revenueEvolution) {
+    const richEvo = report.evolution;
+    const fallbackEvo = report.revenueEvolution!;
+    const evoPoints = richEvo
+      ? richEvo.points
+      : fallbackEvo.points.map((p) => ({
+          ...p,
+          fullDateLabel: p.label,
+          accommodationFcfa: 0,
+          restaurantFcfa: 0,
+          otherFcfa: 0,
+          trendFcfa: Math.max(0, p.amountFcfa),
+        }));
+    const prevPts =
+      comparePrevious && (richEvo?.previousPoints || fallbackEvo.previousPoints)
+        ? (richEvo?.previousPoints || fallbackEvo.previousPoints)!
+        : [];
+    const bestPt = richEvo ? richEvo.bestPoint : fallbackEvo.bestPoint;
+    const lowestPt = richEvo ? richEvo.lowestPoint : fallbackEvo.lowestPoint;
+    const topPoints = richEvo ? richEvo.topPoints : fallbackEvo.topPoints;
+    const avgFcfa = richEvo
+      ? richEvo.averageFcfa
+      : Math.round(
+          evoPoints.reduce((s, p) => s + p.amountFcfa, 0) / Math.max(1, evoPoints.length),
+        );
+
     drawSectionHeader(
       doc,
       "Évolution du chiffre d'affaires",
-      `Meilleur jour : ${evo.bestPoint.label} (${fmtFcfa(evo.bestPoint.amountFcfa)}) • Plus bas : ${evo.lowestPoint.label} (${fmtFcfa(evo.lowestPoint.amountFcfa)})`,
+      `Barres : ventes réelles • Courbe : ${richEvo?.trendLabel || 'Tendance'} • Meilleur : ${bestPt.label} (${fmtFcfa(bestPt.amountFcfa)})`,
     );
-    const chartH = 125;
-    const y0 = ensureSpace(doc, chartH + 26);
-    const padL = 56;
-    const plotW = pageWidth - padL - 12;
-    const plotH = chartH - 26;
+    const chartH = 148;
+    const y0 = ensureSpace(doc, chartH + 34);
+    const padL = 62;
+    const padR = 54;
+    const plotW = pageWidth - padL - padR;
+    const plotH = chartH - 28;
     const baseY = y0 + plotH;
 
-    const prevPts = comparePrevious && evo.previousPoints ? evo.previousPoints : [];
     const maxVal = Math.max(
-      ...evo.points.map((p) => p.amountFcfa),
+      ...evoPoints.map((p) => Math.max(p.amountFcfa, p.trendFcfa)),
       ...prevPts.map((p) => p.amountFcfa),
+      avgFcfa,
       1,
     );
-    const minVal = Math.min(...evo.points.map((p) => p.amountFcfa), 0);
-    const span = Math.max(1, maxVal - minVal);
-    const toY = (v: number) => y0 + ((maxVal - v) / span) * plotH;
-    const toX = (idx: number, len: number) =>
-      len <= 1 ? 40 + padL + plotW / 2 : 40 + padL + (idx * plotW) / (len - 1);
+    const toY = (v: number) => y0 + ((maxVal - Math.max(0, v)) / maxVal) * plotH;
+    const count = Math.max(1, evoPoints.length);
+    const slotW = plotW / count;
+    const barW = Math.max(3, Math.min(slotW - 1.5, slotW * 0.68));
+    const centerX = (idx: number, len: number) => {
+      const sW = plotW / Math.max(1, len);
+      return 40 + padL + idx * sW + sW / 2;
+    };
 
     // Grille horizontale vectorielle
     doc.save();
     for (const ratio of [0, 0.5, 1]) {
-      const val = Math.round(minVal + ratio * span);
+      const val = Math.round(ratio * maxVal);
       const gy = toY(val);
-      doc.strokeColor('#dce4e7').lineWidth(0.6).moveTo(40 + padL, gy).lineTo(40 + padL + plotW, gy).stroke();
-      doc.fillColor('#3d494a').font('Helvetica').fontSize(7).text(fmtFcfa(val), 40, gy - 4, {
+      doc
+        .strokeColor('#dce4e7')
+        .lineWidth(0.6)
+        .moveTo(40 + padL, gy)
+        .lineTo(40 + padL + plotW, gy)
+        .stroke();
+      doc.fillColor('#2b3638').font('Helvetica-Bold').fontSize(7).text(fmtFcfa(val), 40, gy - 4, {
         width: padL - 6,
         align: 'right',
       });
     }
 
-    // Courbe précédente en pointillé si présente
+    // Barres réelles (couleur chaude ambre)
+    evoPoints.forEach((pt, idx) => {
+      const val = Math.max(0, pt.amountFcfa);
+      const h = (val / maxVal) * plotH;
+      if (h > 0) {
+        const bx = 40 + padL + idx * slotW + (slotW - barW) / 2;
+        doc.rect(bx, baseY - h, barW, h).fillOpacity(0.75).fill('#d97706').fillOpacity(1);
+      }
+    });
+
+    // Période précédente en pointillé (monotone)
     if (prevPts.length >= 2) {
+      const prevCoords = prevPts.map((pt, idx) => ({
+        x: centerX(idx, prevPts.length),
+        y: toY(pt.amountFcfa),
+      }));
       doc.strokeColor('#465d7b').lineWidth(1.2).dash(4, { space: 3 });
-      prevPts.forEach((pt, idx) => {
-        const px = toX(idx, prevPts.length);
-        const py = toY(pt.amountFcfa);
-        if (idx === 0) doc.moveTo(px, py);
-        else doc.lineTo(px, py);
-      });
+      drawMonotoneCubicPdf(doc, prevCoords);
       doc.stroke().undash();
     }
 
-    // Courbe courante vectorielle
+    // Courbe de tendance monotone vectorielle
+    const trendCoords = evoPoints.map((pt, idx) => ({
+      x: centerX(idx, evoPoints.length),
+      y: toY(pt.trendFcfa),
+    }));
     doc.strokeColor('#00666f').lineWidth(2);
-    evo.points.forEach((pt, idx) => {
-      const px = toX(idx, evo.points.length);
-      const py = toY(pt.amountFcfa);
-      if (idx === 0) doc.moveTo(px, py);
-      else doc.lineTo(px, py);
-    });
+    drawMonotoneCubicPdf(doc, trendCoords);
     doc.stroke();
 
-    // Points records (Top 3)
-    const topSet = new Set(evo.topPoints.map((t) => t.key));
-    evo.points.forEach((pt, idx) => {
-      const px = toX(idx, evo.points.length);
+    // Ligne de moyenne en pointillé + étiquette à droite hors barres
+    const avgY = toY(avgFcfa);
+    doc
+      .strokeColor('#93000a')
+      .lineWidth(1)
+      .dash(3, { space: 2 })
+      .moveTo(40 + padL, avgY)
+      .lineTo(40 + padL + plotW, avgY)
+      .stroke()
+      .undash();
+    doc
+      .fillColor('#93000a')
+      .font('Helvetica-Bold')
+      .fontSize(6.5)
+      .text(`Moy. ${Math.round(avgFcfa / 1000) > 0 ? new Intl.NumberFormat('fr-FR').format(avgFcfa).replace(/[\u202f\u00a0]/g, ' ') : avgFcfa} F`, 40 + padL + plotW + 4, avgY - 4, {
+        width: padR - 4,
+        align: 'left',
+      });
+
+    // Points records (Top 3) et plus bas
+    const topSet = new Set(topPoints.map((t) => t.key));
+    evoPoints.forEach((pt, idx) => {
+      const px = centerX(idx, evoPoints.length);
       const py = toY(pt.amountFcfa);
       if (topSet.has(pt.key)) {
         doc.circle(px, py, 3.2).fill('#7e5700');
-      } else if (pt.key === evo.lowestPoint.key) {
+      } else if (pt.key === lowestPt.key) {
         doc.circle(px, py, 2.8).fill('#93000a');
       }
     });
 
-    // Étiquettes X espacées
-    const step = Math.max(1, Math.floor((evo.points.length - 1) / 4));
-    for (let i = 0; i < evo.points.length; i += step) {
-      const px = toX(i, evo.points.length);
-      doc.fillColor('#3d494a').font('Helvetica').fontSize(7).text(evo.points[i].label, px - 20, baseY + 5, {
-        width: 40,
-        align: 'center',
-      });
+    // Axe X et étiquettes espacées
+    doc
+      .strokeColor('#4a585a')
+      .lineWidth(0.8)
+      .moveTo(40 + padL, baseY)
+      .lineTo(40 + padL + plotW, baseY)
+      .stroke();
+    const step = Math.max(1, Math.floor((evoPoints.length - 1) / 4));
+    for (let i = 0; i < evoPoints.length; i += step) {
+      const px = centerX(i, evoPoints.length);
+      doc
+        .fillColor('#2b3638')
+        .font('Helvetica-Bold')
+        .fontSize(7)
+        .text(evoPoints[i].label, px - 22, baseY + 5, {
+          width: 44,
+          align: 'center',
+        });
     }
     doc.restore();
-    doc.y = y0 + chartH + 6;
+    doc.y = y0 + chartH + 4;
+
+    // Bloc « Ce que dit ce graphique »
+    if (richEvo?.insights?.length) {
+      const boxY = ensureSpace(doc, 22 + richEvo.insights.length * 14);
+      doc.fillColor('#004f56').font('Helvetica-Bold').fontSize(9.5).text('Ce que dit ce graphique', 40, boxY);
+      doc.y = boxY + 14;
+      for (const ins of richEvo.insights) {
+        const yLine = ensureSpace(doc, 18);
+        if (ins.isAlert) {
+          doc.save();
+          doc.roundedRect(40, yLine - 2, pageWidth, 16, 3).fill('#fff7ed').stroke('#d97706');
+          doc.restore();
+          doc.fillColor('#7c2d12').font('Helvetica-Bold').fontSize(8).text(ins.text, 46, yLine + 2, {
+            width: pageWidth - 12,
+          });
+          doc.y = yLine + 18;
+        } else {
+          const prefix = ins.direction === 'up' ? '▲ ' : ins.direction === 'down' ? '▼ ' : '• ';
+          const col = ins.direction === 'up' ? '#047857' : ins.direction === 'down' ? '#93000a' : '#161d20';
+          doc.fillColor(col).font('Helvetica-Bold').fontSize(8).text(prefix, 42, yLine, { continued: true });
+          doc.fillColor('#161d20').font('Helvetica').fontSize(8).text(ins.text, { width: pageWidth - 14 });
+          doc.y += 2;
+        }
+      }
+      doc.moveDown(0.5);
+    }
   }
 
   // Diagramme vectoriel 2 : Ventes par type et par semaine (barres empilées)

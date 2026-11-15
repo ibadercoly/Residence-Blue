@@ -215,6 +215,7 @@ test.describe('Écran Rapports (/rapports) — Diagrammes, Tableau, Responsive &
   test('DIRECTION accède au menu Rapports après Facturation, voit les 6 tuiles, 8 diagrammes, comparaison, tableau défilant et 0 overflow', async ({
     page,
   }) => {
+    test.setTimeout(120000);
     const dir = createE2eUser('DIRECTION');
     createdEmails.push(dir.email);
 
@@ -283,9 +284,12 @@ test.describe('Écran Rapports (/rapports) — Diagrammes, Tableau, Responsive &
       expect(box!.width).toBeLessThan(gridBox!.width * 0.6);
     }
 
-    // 2. Hauteur de la zone de tracé >= 340 px sur ordinateur et pas de preserveAspectRatio="none"
+    // 2. Hauteur de la zone de tracé >= 360 px pour l'évolution, >= 340 px pour les autres sur ordinateur
+    const evoPlotBox = await page.getByTestId('plot-area-revenue-evolution').boundingBox();
+    expect(evoPlotBox).not.toBeNull();
+    expect(evoPlotBox!.height).toBeGreaterThanOrEqual(360);
+
     for (const plotId of [
-      'plot-area-revenue-evolution',
       'plot-area-sales-by-week',
       'plot-area-occupancy-by-day',
       'plot-area-weekday-averages',
@@ -294,6 +298,50 @@ test.describe('Écran Rapports (/rapports) — Diagrammes, Tableau, Responsive &
       expect(plotBox).not.toBeNull();
       expect(plotBox!.height).toBeGreaterThanOrEqual(340);
     }
+
+    // 2b. Diagramme Évolution : légende « Tendance sur 7 jours », courbe monotone, moyenne hors barres, infobulle dans le cadre sur 1re et dernière barre
+    await expect(page.getByTestId('legend-trend-label')).toContainText('Tendance sur 7 jours');
+    await expect(page.getByTestId('svg-trend-monotone-line')).toBeVisible();
+    const evoAvgBox = await page.getByTestId('evolution-avg-label').boundingBox();
+    expect(evoAvgBox).not.toBeNull();
+    expect(evoAvgBox!.x).toBeGreaterThanOrEqual(evoPlotBox!.x + evoPlotBox!.width - 1);
+
+    const svgHostBox = await page.getByTestId('evolution-svg-host').boundingBox();
+    expect(svgHostBox).not.toBeNull();
+    const evoBars = page.locator('[data-testid^="evo-bar-"]');
+    const evoBarCount = await evoBars.count();
+    expect(evoBarCount).toBeGreaterThanOrEqual(2);
+
+    // Première barre : infobulle entièrement à l'intérieur du diagramme
+    await evoBars.first().click();
+    const firstHostBox = await page.getByTestId('evolution-svg-host').boundingBox();
+    const firstTipBox = await page.getByTestId('tooltip-evolution').boundingBox();
+    expect(firstHostBox).not.toBeNull();
+    expect(firstTipBox).not.toBeNull();
+    expect(firstTipBox!.x).toBeGreaterThanOrEqual(firstHostBox!.x - 1);
+    expect(firstTipBox!.x + firstTipBox!.width).toBeLessThanOrEqual(firstHostBox!.x + firstHostBox!.width + 1);
+    expect(firstTipBox!.y).toBeGreaterThanOrEqual(firstHostBox!.y - 1);
+    expect(firstTipBox!.y + firstTipBox!.height).toBeLessThanOrEqual(firstHostBox!.y + firstHostBox!.height + 1);
+
+    // Dernière barre : infobulle entièrement à l'intérieur du diagramme
+    await evoBars.last().click();
+    const lastHostBox = await page.getByTestId('evolution-svg-host').boundingBox();
+    const lastTipBox = await page.getByTestId('tooltip-evolution').boundingBox();
+    expect(lastHostBox).not.toBeNull();
+    expect(lastTipBox).not.toBeNull();
+    expect(lastTipBox!.x).toBeGreaterThanOrEqual(lastHostBox!.x - 1);
+    expect(lastTipBox!.x + lastTipBox!.width).toBeLessThanOrEqual(lastHostBox!.x + lastHostBox!.width + 1);
+    expect(lastTipBox!.y).toBeGreaterThanOrEqual(lastHostBox!.y - 1);
+    expect(lastTipBox!.y + lastTipBox!.height).toBeLessThanOrEqual(lastHostBox!.y + lastHostBox!.height + 1);
+
+    // Bloc « Ce que dit ce graphique » présent et sans causalité
+    const insightsBox = page.getByTestId('evolution-insights');
+    await expect(insightsBox).toBeVisible();
+    const insightsText = await insightsBox.innerText();
+    expect(insightsText).toContain('Ce que dit ce graphique');
+    expect(insightsText).not.toMatch(/(à cause de|en raison de|parce que|grâce à)/i);
+    const insightItemsCount = await insightsBox.locator('li').count();
+    expect(insightItemsCount).toBeGreaterThanOrEqual(3);
 
     const desktopSvgCheck = await page.locator('[data-testid="rapports-charts-grid"] svg').evaluateAll((svgs) => {
       const badPreserve = svgs.some((s) => s.getAttribute('preserveAspectRatio') === 'none');
@@ -328,9 +376,8 @@ test.describe('Écran Rapports (/rapports) — Diagrammes, Tableau, Responsive &
     await page.locator('[data-testid="chart-occupancy-by-day"] svg g').first().click();
     await expect(page.getByTestId('tooltip-occupancy')).toContainText(/chambres? sur \d+/);
 
-    // 4. Phrases de résumé calculées sous chaque diagramme
+    // 4. Phrases de résumé calculées sous les autres diagrammes
     for (const summaryId of [
-      'summary-revenue-evolution',
       'summary-sales-by-week',
       'summary-occupancy-by-day',
       'summary-weekday-averages',

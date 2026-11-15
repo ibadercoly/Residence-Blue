@@ -13,8 +13,8 @@ import { CommonModule } from '@angular/common';
 import { RapportsResponse } from '@residence-blue/shared';
 import {
   buildDonutSegments,
-  buildEvolutionSvgGeometry,
   buildOccupancyBarsGeometry,
+  buildRichEvolutionGeometry,
   buildStackedWeeksGeometry,
   buildWeekdayGeometry,
   formatPlainNumber,
@@ -107,9 +107,44 @@ const SOURCE_COLORS = ['#00666f', '#314865', '#b45309', '#047857', '#6d28d9', '#
       }
 
       .rb-svg-host {
+        position: relative;
         width: 100%;
         min-width: 0;
         overflow: hidden;
+      }
+
+      .rb-evo-tooltip {
+        position: absolute;
+        z-index: 10;
+        pointer-events: none;
+        width: 248px;
+        max-width: calc(100% - 16px);
+        padding: 10px 12px;
+        border-radius: 10px;
+        background-color: #ffffff;
+        border: 1.5px solid #004f56;
+        box-shadow: 0 6px 18px rgba(10, 37, 64, 0.14);
+        color: #161d20;
+        font-size: 12px;
+        line-height: 1.4;
+      }
+
+      .rb-evo-insights {
+        margin-top: 16px;
+        padding: 14px 16px;
+        border-radius: 12px;
+        background-color: #f3fafe;
+        border: 1px solid #dce4e7;
+      }
+
+      .rb-evo-alert {
+        margin-top: 8px;
+        padding: 10px 12px;
+        border-radius: 10px;
+        background-color: #fff7ed;
+        border: 1.5px solid #d97706;
+        color: #7c2d12;
+        font-weight: 700;
       }
 
       .rb-chart-svg {
@@ -180,8 +215,8 @@ const SOURCE_COLORS = ['#00666f', '#314865', '#b45309', '#047857', '#6d28d9', '#
         data-testid="rapports-charts-grid"
         class="rb-charts-grid mb-6"
       >
-        <!-- a) Évolution du chiffre d'affaires (PLEINE LARGEUR) -->
-        @if (rep.revenueEvolution; as evo) {
+        <!-- a) Évolution du chiffre d'affaires (PLEINE LARGEUR — Barres + Courbe monotone + Ce que dit ce graphique) -->
+        @if (rep.evolution; as evo) {
           @if (evolutionGeo(); as geo) {
             <article
               data-testid="chart-revenue-evolution"
@@ -196,10 +231,10 @@ const SOURCE_COLORS = ['#00666f', '#314865', '#b45309', '#047857', '#6d28d9', '#
                   <p class="rb-chart-help mt-1">
                     {{
                       evo.granularity === 'day'
-                        ? 'Ventes quotidiennes hors taxes sur la période.'
+                        ? 'Ventes quotidiennes hors taxes (barres) et tendance lissée sur 7 jours (courbe).'
                         : evo.granularity === 'week'
-                          ? 'Ventes hebdomadaires hors taxes sur 3 mois.'
-                          : 'Ventes mensuelles hors taxes sur 12 mois.'
+                          ? 'Ventes hebdomadaires hors taxes sur 3 mois (barres et courbe de tendance).'
+                          : 'Ventes mensuelles hors taxes sur 12 mois (barres et courbe de tendance).'
                     }}
                   </p>
                 </div>
@@ -211,7 +246,7 @@ const SOURCE_COLORS = ['#00666f', '#314865', '#b45309', '#047857', '#6d28d9', '#
                 >
                   <div class="flex items-center gap-1.5 text-xs md:text-sm font-extrabold uppercase tracking-wider text-[#004f56]">
                     <span aria-hidden="true">&#9733;</span>
-                    <span>Meilleur jour</span>
+                    <span>{{ evo.granularity === 'day' ? 'Meilleur jour' : 'Meilleure période' }}</span>
                   </div>
                   <div class="mt-0.5 text-base font-extrabold text-[#161d20]" data-testid="best-day-amount">
                     {{ fcfa(evo.bestPoint.amountFcfa) }}
@@ -222,37 +257,37 @@ const SOURCE_COLORS = ['#00666f', '#314865', '#b45309', '#047857', '#6d28d9', '#
                 </div>
               </div>
 
-              <!-- Légende juste sous le titre + infobulle au survol -->
-              <div class="rb-chart-legend mt-3 flex flex-wrap items-center justify-between gap-2">
-                <div class="flex flex-wrap items-center gap-4">
-                  <span class="inline-flex items-center gap-2 text-[#161d20]">
-                    <span class="inline-block h-1 w-5 rounded bg-[#00666f]"></span>
-                    <span>Période en cours</span>
+              <!-- Légende juste sous le titre -->
+              <div class="rb-chart-legend mt-3 flex flex-wrap items-center gap-x-4 gap-y-2">
+                <span class="inline-flex items-center gap-2 text-[#161d20]">
+                  <span class="h-3.5 w-3.5 rounded-sm bg-[#d97706] opacity-80"></span>
+                  <span>Ventes réelles</span>
+                </span>
+                <span class="inline-flex items-center gap-2 text-[#004f56]" data-testid="legend-trend-label">
+                  <span class="inline-block h-1 w-5 rounded bg-[#00666f]"></span>
+                  <span>{{ evo.trendLabel }}</span>
+                </span>
+                @if (comparePrevious && geo.prevPath) {
+                  <span class="inline-flex items-center gap-2 text-[#2b3638]" data-testid="legend-previous-dashed">
+                    <span class="inline-block h-0 w-5 border-t-2 border-dashed border-[#465d7b]"></span>
+                    <span>Période précédente</span>
                   </span>
-                  @if (comparePrevious && evo.previousPoints?.length) {
-                    <span class="inline-flex items-center gap-2 text-[#2b3638]" data-testid="legend-previous-dashed">
-                      <span class="inline-block h-0 w-5 border-t-2 border-dashed border-[#465d7b]"></span>
-                      <span>Période précédente</span>
-                    </span>
-                  }
-                  <span class="inline-flex items-center gap-1 text-[#604100]">
-                    <span aria-hidden="true">&#9733;</span>
-                    <span>3 sommets</span>
-                  </span>
-                  <span class="inline-flex items-center gap-1 text-[#93000a]">
-                    <span aria-hidden="true">&#9660;</span>
-                    <span>Plus bas : {{ cleanDate(evo.lowestPoint.label) }} ({{ fcfa(evo.lowestPoint.amountFcfa) }})</span>
-                  </span>
-                </div>
-
-                @if (hoveredEvo(); as hov) {
-                  <div class="rb-tooltip-pill" data-testid="tooltip-evolution">
-                    {{ hov.label }} : {{ fcfa(hov.amountFcfa) }}
-                  </div>
                 }
+                <span class="inline-flex items-center gap-2 text-[#93000a]">
+                  <span class="inline-block h-0 w-5 border-t-2 border-dashed border-[#93000a]"></span>
+                  <span>Moyenne</span>
+                </span>
+                <span class="inline-flex items-center gap-1 text-[#604100]">
+                  <span aria-hidden="true">&#9733;</span>
+                  <span>3 sommets</span>
+                </span>
+                <span class="inline-flex items-center gap-1 text-[#93000a]">
+                  <span aria-hidden="true">&#9660;</span>
+                  <span>Plus bas : {{ cleanDate(evo.lowestPoint.label) }} ({{ fcfa(evo.lowestPoint.amountFcfa) }})</span>
+                </span>
               </div>
 
-              <div class="rb-svg-host mt-3">
+              <div class="rb-svg-host mt-3" data-testid="evolution-svg-host">
                 <svg
                   class="rb-chart-svg"
                   [attr.width]="geo.width"
@@ -277,10 +312,11 @@ const SOURCE_COLORS = ['#00666f', '#314865', '#b45309', '#047857', '#6d28d9', '#
                     fill="transparent"
                   ></rect>
 
+                  <!-- Grille horizontale -->
                   @for (yt of geo.yTicks; track yt.value) {
                     <line
                       [attr.x1]="geo.padLeft"
-                      [attr.x2]="geo.width - geo.padRight"
+                      [attr.x2]="geo.plotRight"
                       [attr.y1]="yt.y"
                       [attr.y2]="yt.y"
                       stroke="#dce4e7"
@@ -297,8 +333,63 @@ const SOURCE_COLORS = ['#00666f', '#314865', '#b45309', '#047857', '#6d28d9', '#
                     </text>
                   }
 
-                  <path [attr.d]="geo.areaPath" fill="url(#rbRapportsArea)"></path>
+                  <!-- Dégradé sous la courbe de tendance monotone -->
+                  <path
+                    [attr.d]="geo.trendAreaPath"
+                    fill="url(#rbRapportsArea)"
+                    data-testid="svg-trend-area"
+                  ></path>
 
+                  <!-- Barres : chiffre d'affaires réel en couleur chaude -->
+                  @for (b of geo.bars; track b.key; let i = $index) {
+                    <g
+                      [attr.data-testid]="'evo-bar-' + i"
+                      tabindex="0"
+                      role="button"
+                      [attr.aria-label]="b.fullDateLabel + ' : total ' + fcfa(b.amountFcfa) + ', hébergement ' + fcfa(b.accommodationFcfa) + ', restaurant et bar ' + fcfa(b.restaurantFcfa) + ', autres ' + fcfa(b.otherFcfa)"
+                      (mouseenter)="hoveredEvo.set(b)"
+                      (focus)="hoveredEvo.set(b)"
+                      (click)="selectedEvo.set(b)"
+                      (keydown.enter)="selectedEvo.set(b)"
+                      (keydown.space)="$event.preventDefault(); selectedEvo.set(b)"
+                      (mouseleave)="hoveredEvo.set(null)"
+                      (blur)="hoveredEvo.set(null)"
+                      style="cursor: pointer"
+                    >
+                      <title>{{ b.fullDateLabel }} — Total : {{ fcfa(b.amountFcfa) }} | Hébergement : {{ fcfa(b.accommodationFcfa) }} | Restaurant et bar : {{ fcfa(b.restaurantFcfa) }} | Autres : {{ fcfa(b.otherFcfa) }}</title>
+                      <!-- Zone cliquable/survolable sur toute la colonne -->
+                      <rect
+                        [attr.x]="b.x"
+                        [attr.y]="geo.padTop"
+                        [attr.width]="b.barW"
+                        [attr.height]="geo.plotH"
+                        fill="transparent"
+                      ></rect>
+                      @if (b.barH > 0) {
+                        <rect
+                          [attr.x]="b.x"
+                          [attr.y]="b.barY"
+                          [attr.width]="b.barW"
+                          [attr.height]="b.barH"
+                          fill="#d97706"
+                          fill-opacity="0.72"
+                          rx="4"
+                        ></rect>
+                      }
+                      @if (b.showBarValue) {
+                        <text
+                          class="rb-value-label"
+                          [attr.x]="b.cx"
+                          [attr.y]="b.barY - 8"
+                          text-anchor="middle"
+                        >
+                          {{ b.barValueLabel }}
+                        </text>
+                      }
+                    </g>
+                  }
+
+                  <!-- Période précédente en pointillé -->
                   @if (comparePrevious && geo.prevPath) {
                     <path
                       [attr.d]="geo.prevPath"
@@ -310,60 +401,89 @@ const SOURCE_COLORS = ['#00666f', '#314865', '#b45309', '#047857', '#6d28d9', '#
                     ></path>
                   }
 
+                  <!-- Courbe de tendance monotone par-dessus -->
                   <path
-                    [attr.d]="geo.linePath"
+                    [attr.d]="geo.trendPath"
                     fill="none"
                     stroke="#00666f"
                     stroke-width="3"
                     stroke-linecap="round"
                     stroke-linejoin="round"
+                    data-testid="svg-trend-monotone-line"
                   ></path>
 
-                  @for (pt of geo.currentCoords; track pt.key) {
-                    <g>
-                      <circle
-                        [attr.cx]="pt.x"
-                        [attr.cy]="pt.y"
-                        [attr.r]="pt.isTop ? 6.5 : pt.isLowest ? 5.5 : 4.5"
-                        [attr.fill]="pt.isTop ? '#7e5700' : pt.isLowest ? '#93000a' : '#00666f'"
-                        stroke="#ffffff"
-                        stroke-width="2"
-                        tabindex="0"
-                        [attr.aria-label]="pt.label + ' : ' + fcfa(pt.amountFcfa)"
-                        (mouseenter)="hoveredEvo.set({ label: pt.label, amountFcfa: pt.amountFcfa })"
-                        (focus)="hoveredEvo.set({ label: pt.label, amountFcfa: pt.amountFcfa })"
-                        (mouseleave)="hoveredEvo.set(null)"
-                        (blur)="hoveredEvo.set(null)"
-                        style="cursor: pointer"
-                      >
-                        <title>{{ pt.label }} : {{ fcfa(pt.amountFcfa) }}</title>
-                      </circle>
-                      @if (pt.isTop) {
-                        <text
-                          class="rb-star-label"
-                          [attr.x]="pt.x"
-                          [attr.y]="pt.y - 12"
-                          text-anchor="middle"
-                        >
-                          &#9733;
-                        </text>
-                      }
-                      @if (pt.isLowest && !pt.isTop) {
-                        <text
-                          class="rb-avg-label"
-                          [attr.x]="pt.x"
-                          [attr.y]="pt.y + 18"
-                          text-anchor="middle"
-                        >
-                          &#9660;
-                        </text>
-                      }
-                    </g>
-                  }
-
+                  <!-- Ligne de moyenne en pointillé + étiquette à droite hors des barres -->
                   <line
                     [attr.x1]="geo.padLeft"
-                    [attr.x2]="geo.width - geo.padRight"
+                    [attr.x2]="geo.plotRight"
+                    [attr.y1]="geo.avgY"
+                    [attr.y2]="geo.avgY"
+                    stroke="#93000a"
+                    stroke-width="2"
+                    stroke-dasharray="6 4"
+                  ></line>
+                  <text
+                    class="rb-avg-label"
+                    data-testid="evolution-avg-label"
+                    [attr.x]="geo.plotRight + 8"
+                    [attr.y]="geo.avgY + 5"
+                    text-anchor="start"
+                  >
+                    {{ geo.avgLabel }}
+                  </text>
+
+                  <!-- Repères : 3 plus hauts (étoile) et plus bas (triangle) -->
+                  @for (b of geo.bars; track b.key) {
+                    @if (b.isTop) {
+                      <text
+                        class="rb-star-label"
+                        [attr.x]="b.cx"
+                        [attr.y]="Math.max(geo.padTop + 14, b.barY - (b.showBarValue ? 24 : 10))"
+                        text-anchor="middle"
+                      >
+                        &#9733;
+                      </text>
+                    }
+                    @if (b.isLowest && !b.isTop) {
+                      <text
+                        class="rb-avg-label"
+                        [attr.x]="b.cx"
+                        [attr.y]="Math.min(geo.baseY - 6, b.barY - 8)"
+                        text-anchor="middle"
+                      >
+                        &#9660;
+                      </text>
+                    }
+                  }
+
+                  <!-- Plus forte hausse et plus forte baisse -->
+                  @if (geo.increaseMarker; as inc) {
+                    <text
+                      data-testid="marker-biggest-increase"
+                      [attr.x]="inc.x"
+                      [attr.y]="inc.y"
+                      text-anchor="middle"
+                      fill="#047857"
+                    >
+                      &#9650; {{ inc.label }}
+                    </text>
+                  }
+                  @if (geo.decreaseMarker; as dec) {
+                    <text
+                      data-testid="marker-biggest-decrease"
+                      [attr.x]="dec.x"
+                      [attr.y]="dec.y"
+                      text-anchor="middle"
+                      fill="#93000a"
+                    >
+                      &#9660; {{ dec.label }}
+                    </text>
+                  }
+
+                  <!-- Axe X -->
+                  <line
+                    [attr.x1]="geo.padLeft"
+                    [attr.x2]="geo.plotRight"
                     [attr.y1]="geo.baseY"
                     [attr.y2]="geo.baseY"
                     stroke="#4a585a"
@@ -381,6 +501,24 @@ const SOURCE_COLORS = ['#00666f', '#314865', '#b45309', '#047857', '#6d28d9', '#
                     </text>
                   }
                 </svg>
+
+                <!-- Infobulle toujours à l'intérieur du diagramme -->
+                @if (activeEvoTooltip(); as tip) {
+                  <div
+                    class="rb-evo-tooltip"
+                    data-testid="tooltip-evolution"
+                    [style.left.px]="tip.left"
+                    [style.top.px]="tip.top"
+                  >
+                    <div class="font-extrabold text-[#004f56] capitalize">{{ tip.bar.fullDateLabel }}</div>
+                    <div class="mt-1 font-extrabold text-[#161d20]">Total : {{ fcfa(tip.bar.amountFcfa) }}</div>
+                    <div class="mt-1 space-y-0.5 text-xs font-semibold text-[#2b3638]">
+                      <div>Hébergement : {{ fcfa(tip.bar.accommodationFcfa) }}</div>
+                      <div>Restaurant et bar : {{ fcfa(tip.bar.restaurantFcfa) }}</div>
+                      <div>Autres : {{ fcfa(tip.bar.otherFcfa) }}</div>
+                    </div>
+                  </div>
+                }
               </div>
 
               <!-- Liste explicite des 3 plus hauts jours (étoiles) -->
@@ -393,10 +531,34 @@ const SOURCE_COLORS = ['#00666f', '#314865', '#b45309', '#047857', '#6d28d9', '#
                 }
               </div>
 
-              @if (evolutionSummary(); as summary) {
-                <p class="rb-chart-summary" data-testid="summary-revenue-evolution">
-                  {{ summary }}
-                </p>
+              <!-- « Ce que dit ce graphique » : 3 à 6 phrases courtes calculées côté serveur -->
+              @if (evo.insights.length) {
+                <div class="rb-evo-insights" data-testid="evolution-insights">
+                  <h3 class="text-sm md:text-base font-extrabold text-[#004f56]">
+                    Ce que dit ce graphique
+                  </h3>
+                  <ul class="mt-2 space-y-1.5 text-xs md:text-sm font-semibold text-[#161d20]">
+                    @for (ins of evo.insights; track ins.type) {
+                      @if (ins.isAlert) {
+                        <li class="rb-evo-alert list-none" data-testid="evolution-alert-box">
+                          <span class="text-[#93000a] font-extrabold" aria-hidden="true">&#9660;</span>
+                          {{ ins.text }}
+                        </li>
+                      } @else {
+                        <li class="flex items-start gap-2">
+                          @if (ins.direction === 'up') {
+                            <span class="font-extrabold text-[#047857] shrink-0" aria-hidden="true">&#9650;</span>
+                          } @else if (ins.direction === 'down') {
+                            <span class="font-extrabold text-[#93000a] shrink-0" aria-hidden="true">&#9660;</span>
+                          } @else {
+                            <span class="font-extrabold text-[#004f56] shrink-0" aria-hidden="true">&bull;</span>
+                          }
+                          <span>{{ ins.text }}</span>
+                        </li>
+                      }
+                    }
+                  </ul>
+                </div>
               }
             </article>
           }
@@ -1036,9 +1198,13 @@ export class RapportsChartsComponent implements AfterViewInit, OnDestroy {
 
   readonly reportSignal = signal<RapportsResponse | null>(null);
 
+  readonly Math = Math;
+
   @Input({ required: true })
   set report(value: RapportsResponse) {
     this.reportSignal.set(value);
+    this.hoveredEvo.set(null);
+    this.selectedEvo.set(null);
     this.selectedWeek.set(null);
     this.selectedOcc.set(null);
   }
@@ -1050,7 +1216,40 @@ export class RapportsChartsComponent implements AfterViewInit, OnDestroy {
     typeof window !== 'undefined' ? window.innerWidth < 768 : false,
   );
 
-  readonly hoveredEvo = signal<{ label: string; amountFcfa: number } | null>(null);
+  readonly hoveredEvo = signal<{
+    cx: number;
+    barY: number;
+    fullDateLabel: string;
+    amountFcfa: number;
+    accommodationFcfa: number;
+    restaurantFcfa: number;
+    otherFcfa: number;
+  } | null>(null);
+  readonly selectedEvo = signal<{
+    cx: number;
+    barY: number;
+    fullDateLabel: string;
+    amountFcfa: number;
+    accommodationFcfa: number;
+    restaurantFcfa: number;
+    otherFcfa: number;
+  } | null>(null);
+
+  readonly activeEvoTooltip = computed(() => {
+    const bar = this.hoveredEvo() ?? this.selectedEvo();
+    const geo = this.evolutionGeo();
+    if (!bar || !geo) return null;
+    const tooltipW = Math.min(248, geo.width - 16);
+    const tooltipH = 122;
+    const rawLeft = bar.cx - tooltipW / 2;
+    const left = Math.max(8, Math.min(geo.width - tooltipW - 8, Math.round(rawLeft)));
+    const rawTop = bar.barY - tooltipH - 12;
+    const top =
+      rawTop >= 8
+        ? Math.round(rawTop)
+        : Math.max(8, Math.min(geo.height - tooltipH - 8, Math.round(geo.padTop + 8)));
+    return { bar, left, top };
+  });
   readonly hoveredWeek = signal<{
     summaryLabel: string;
     total: number;
@@ -1130,16 +1329,12 @@ export class RapportsChartsComponent implements AfterViewInit, OnDestroy {
   });
 
   readonly evolutionGeo = computed(() => {
-    const evo = this.reportSignal()?.revenueEvolution;
+    const evo = this.reportSignal()?.evolution;
     if (!evo?.points?.length) return null;
     const mobile = this.isMobile();
-    return buildEvolutionSvgGeometry({
-      points: evo.points,
-      previousPoints: evo.previousPoints,
-      topKeys: evo.topPoints.map((t) => ({ key: t.key, rank: t.rank || 1 })),
-      lowestKey: evo.lowestPoint.key,
+    return buildRichEvolutionGeometry(evo, {
       width: this.chartWidth(),
-      plotHeight: mobile ? 290 : 350,
+      plotHeight: mobile ? 290 : 370,
       isMobile: mobile,
     });
   });

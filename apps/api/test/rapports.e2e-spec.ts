@@ -597,4 +597,69 @@ describe('Rapports — GET /api/rapports (e2e sur base de test séparée)', () =
     expect(pdfAudit).not.toBeNull();
     expect(xlAudit).not.toBeNull();
   });
+
+  it('section evolution : pics, plus bas, hausses/baisses exacts en base, comparaison mois 1..N et zéro causalité', async () => {
+    // Période isolée dans le passé : 2022-05-10 (jours 1..10 de mai vs jours 1..10 d'avril)
+    const refDate = new Date('2022-05-10T12:00:00.000Z');
+    const room = await prisma.room.findFirstOrThrow({ where: { isActive: true } });
+    const ts = Date.now();
+
+    const makeInv = async (suffix: string, isoDay: string, ht: number) => {
+      const inv = await prisma.invoice.create({
+        data: {
+          invoiceNumber: `FA-RAP-EVO-${suffix}-${ts}`,
+          documentType: InvoiceDocumentType.INVOICE,
+          isIssued: true,
+          roomId: room.id,
+          subtotalHtFcfa: ht,
+          vatRatePercent: 10,
+          vatAmountFcfa: Math.round(ht * 0.1),
+          totalFcfa: Math.round(ht * 1.1),
+          paidAmountFcfa: Math.round(ht * 1.1),
+          balanceFcfa: 0,
+          status: InvoiceStatus.PAID,
+          issuedAt: new Date(`${isoDay}T12:00:00.000Z`),
+          lines: {
+            create: [
+              {
+                description: 'Nuitée',
+                category: 'HEBERGEMENT',
+                quantity: 1,
+                unitPriceFcfa: Math.round(ht * 1.1),
+                totalPriceFcfa: Math.round(ht * 1.1),
+              },
+            ],
+          },
+        },
+      });
+      createdInvoiceIds.push(inv.id);
+    };
+
+    // Mois précédent : 100 000 le 5 avril (dans jours 1..10) + 900 000 le 25 avril (HORS jours 1..10 -> ne doit PAS être compté)
+    await makeInv('PREV-IN', '2022-04-05', 100000);
+    await makeInv('PREV-OUT', '2022-04-25', 900000);
+
+    // Mois en cours (1..10 mai) : total = 300 000 -> hausse de +200 % vs 100 000 (et NON baisse vs 1 000 000 !)
+    await makeInv('CUR-1', '2022-05-02', 40000); // plus bas non nul
+    await makeInv('CUR-2', '2022-05-03', 200000); // pic + plus forte hausse (+160 000)
+    await makeInv('CUR-3', '2022-05-04', 60000); // plus forte baisse (-140 000)
+
+    const report = await rapportsService.getReport('mois', refDate);
+    expect(report.evolution).toBeDefined();
+    const evo = report.evolution!;
+
+    expect(evo.totalFcfa).toBe(300000);
+    expect(evo.previousTotalFcfa).toBe(100000);
+    expect(evo.deltaPercent).toBe(200);
+    expect(evo.bestPoint.amountFcfa).toBe(200000);
+    expect(evo.lowestPoint.amountFcfa).toBe(40000);
+    expect(evo.biggestIncrease?.deltaFcfa).toBe(160000);
+    expect(evo.biggestDecrease?.deltaFcfa).toBe(-140000);
+    // Moins de 3 semaines -> aucune phrase d'habitude
+    expect(evo.insights.find((i) => i.type === 'habit')).toBeUndefined();
+    // Aucune phrase causale
+    for (const ins of evo.insights) {
+      expect(ins.text).not.toMatch(/(à cause de|en raison de|parce que|grâce à)/i);
+    }
+  });
 });

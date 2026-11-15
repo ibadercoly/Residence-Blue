@@ -1,5 +1,6 @@
 import {
   RapportsEvolutionPoint,
+  RapportsEvolutionSection,
   RapportsOccupancyDayPoint,
   RapportsSalesByTypeWeek,
   RapportsWeekdayAverageItem,
@@ -32,6 +33,293 @@ export interface ChartSizeOptions {
   width?: number;
   plotHeight?: number;
   isMobile?: boolean;
+}
+
+export interface MonotoneCubicSegment {
+  x0: number;
+  y0: number;
+  cx1: number;
+  cy1: number;
+  cx2: number;
+  cy2: number;
+  x1: number;
+  y1: number;
+}
+
+/**
+ * Calcule les segments de Bézier cubiques monotones (Fritsch-Carlson) :
+ * aucun point intermédiaire ne sort de [min(y_i, y_{i+1}), max(y_i, y_{i+1})].
+ */
+export function computeMonotoneCubicSegments(
+  coords: Array<{ x: number; y: number }>,
+): MonotoneCubicSegment[] {
+  const n = coords.length;
+  if (n < 2) return [];
+  if (n === 2) {
+    const [p0, p1] = coords;
+    const h = p1.x - p0.x;
+    return [
+      {
+        x0: p0.x,
+        y0: p0.y,
+        cx1: p0.x + h / 3,
+        cy1: p0.y + (p1.y - p0.y) / 3,
+        cx2: p1.x - h / 3,
+        cy2: p1.y - (p1.y - p0.y) / 3,
+        x1: p1.x,
+        y1: p1.y,
+      },
+    ];
+  }
+
+  const deltas: number[] = [];
+  for (let i = 0; i < n - 1; i++) {
+    const dx = Math.max(0.0001, coords[i + 1].x - coords[i].x);
+    deltas.push((coords[i + 1].y - coords[i].y) / dx);
+  }
+
+  const m = new Array<number>(n).fill(0);
+  m[0] = deltas[0];
+  m[n - 1] = deltas[n - 2];
+  for (let i = 1; i < n - 1; i++) {
+    m[i] = deltas[i - 1] * deltas[i] <= 0 ? 0 : (deltas[i - 1] + deltas[i]) / 2;
+  }
+
+  for (let i = 0; i < n - 1; i++) {
+    if (deltas[i] === 0) {
+      m[i] = 0;
+      m[i + 1] = 0;
+    } else {
+      const alpha = m[i] / deltas[i];
+      const beta = m[i + 1] / deltas[i];
+      if (alpha < 0) m[i] = 0;
+      if (beta < 0) m[i + 1] = 0;
+      const hyp = Math.hypot(alpha, beta);
+      if (hyp > 3) {
+        const tau = 3 / hyp;
+        m[i] = tau * alpha * deltas[i];
+        m[i + 1] = tau * beta * deltas[i];
+      }
+    }
+  }
+
+  const segments: MonotoneCubicSegment[] = [];
+  for (let i = 0; i < n - 1; i++) {
+    const h = coords[i + 1].x - coords[i].x;
+    segments.push({
+      x0: coords[i].x,
+      y0: coords[i].y,
+      cx1: coords[i].x + h / 3,
+      cy1: coords[i].y + (m[i] * h) / 3,
+      cx2: coords[i + 1].x - h / 3,
+      cy2: coords[i + 1].y - (m[i + 1] * h) / 3,
+      x1: coords[i + 1].x,
+      y1: coords[i + 1].y,
+    });
+  }
+  return segments;
+}
+
+export function buildMonotoneCubicPath(coords: Array<{ x: number; y: number }>): string {
+  if (coords.length === 0) return '';
+  if (coords.length === 1) {
+    return `M ${coords[0].x.toFixed(1)},${coords[0].y.toFixed(1)}`;
+  }
+  const segs = computeMonotoneCubicSegments(coords);
+  const first = coords[0];
+  const parts = [`M ${first.x.toFixed(1)},${first.y.toFixed(1)}`];
+  for (const s of segs) {
+    parts.push(
+      `C ${s.cx1.toFixed(1)},${s.cy1.toFixed(1)} ${s.cx2.toFixed(1)},${s.cy2.toFixed(1)} ${s.x1.toFixed(1)},${s.y1.toFixed(1)}`,
+    );
+  }
+  return parts.join(' ');
+}
+
+export function buildMonotoneAreaPath(
+  coords: Array<{ x: number; y: number }>,
+  baseY: number,
+): string {
+  if (coords.length === 0) return '';
+  const curve = buildMonotoneCubicPath(coords);
+  const last = coords[coords.length - 1];
+  const first = coords[0];
+  return `${curve} L ${last.x.toFixed(1)},${baseY.toFixed(1)} L ${first.x.toFixed(1)},${baseY.toFixed(1)} Z`;
+}
+
+export function sampleMonotoneCurve(
+  coords: Array<{ x: number; y: number }>,
+  stepsPerSegment = 10,
+): Array<{ segIndex: number; x: number; y: number }> {
+  const segs = computeMonotoneCubicSegments(coords);
+  const samples: Array<{ segIndex: number; x: number; y: number }> = [];
+  segs.forEach((s, segIndex) => {
+    for (let k = 0; k <= stepsPerSegment; k++) {
+      const t = k / stepsPerSegment;
+      const u = 1 - t;
+      const x =
+        u * u * u * s.x0 +
+        3 * u * u * t * s.cx1 +
+        3 * u * t * t * s.cx2 +
+        t * t * t * s.x1;
+      const y =
+        u * u * u * s.y0 +
+        3 * u * u * t * s.cy1 +
+        3 * u * t * t * s.cy2 +
+        t * t * t * s.y1;
+      samples.push({ segIndex, x, y });
+    }
+  });
+  return samples;
+}
+
+export function buildRichEvolutionGeometry(
+  evolution: RapportsEvolutionSection,
+  options: ChartSizeOptions = {},
+) {
+  const isMobile = options.isMobile ?? false;
+  const width = Math.max(260, Math.round(options.width ?? 960));
+  const plotH = Math.max(
+    isMobile ? 280 : 360,
+    Math.round(options.plotHeight ?? (isMobile ? 290 : 370)),
+  );
+  const padTop = isMobile ? 42 : 52;
+  const padBottom = isMobile ? 36 : 44;
+  const padRight = isMobile ? 96 : 126;
+  const height = padTop + plotH + padBottom;
+  const baseY = padTop + plotH;
+
+  const prev = evolution.previousPoints || [];
+  const allValues = [
+    ...evolution.points.map((p) => Math.max(0, p.amountFcfa)),
+    ...evolution.points.map((p) => Math.max(0, p.trendFcfa)),
+    ...prev.map((p) => Math.max(0, p.amountFcfa)),
+    Math.max(0, evolution.averageFcfa),
+    0,
+  ];
+  const rawMax = Math.max(...allValues, 0);
+  const scale = buildNiceMoneyScale(rawMax);
+  const maxVal = scale.max;
+  const toY = (val: number) => padTop + ((maxVal - Math.max(0, val)) / maxVal) * plotH;
+
+  const yTicks: YAxisTick[] = scale.ticks.map((val, idx, arr) => ({
+    y: toY(val),
+    value: val,
+    label: formatAxisFcfa(val, idx === arr.length - 1),
+  }));
+
+  const padLeft = computeMoneyPadLeft(yTicks, isMobile);
+  const plotW = Math.max(120, width - padLeft - padRight);
+  const plotRight = padLeft + plotW;
+
+  const count = Math.max(1, evolution.points.length);
+  const slotW = plotW / count;
+  const gap = Math.max(1.5, Math.min(16, slotW * 0.26));
+  const barW = Math.max(3, Math.min(slotW - 1.5, slotW - gap));
+
+  const topMap = new Map<string, number>(
+    evolution.topPoints.map((t) => [t.key, t.rank || 1]),
+  );
+  const showBarValues = evolution.points.length <= 12;
+
+  const bars = evolution.points.map((pt, idx) => {
+    const val = Math.max(0, pt.amountFcfa);
+    const barH = (val / maxVal) * plotH;
+    const x = padLeft + idx * slotW + (slotW - barW) / 2;
+    const cx = x + barW / 2;
+    const barY = baseY - barH;
+    const trendY = toY(pt.trendFcfa);
+    const cleanLabel = formatShortDateLabel(pt.label);
+    return {
+      ...pt,
+      cleanLabel,
+      x,
+      cx,
+      barW,
+      barY,
+      barH,
+      trendY,
+      isTop: topMap.has(pt.key),
+      topRank: topMap.get(pt.key),
+      isLowest: pt.key === evolution.lowestPoint.key,
+      showBarValue: showBarValues && val > 0,
+      barValueLabel: formatAxisFcfa(val, !isMobile),
+    };
+  });
+
+  const trendCoords = bars.map((b) => ({ x: b.cx, y: b.trendY }));
+  const trendPath = buildMonotoneCubicPath(trendCoords);
+  const trendAreaPath = buildMonotoneAreaPath(trendCoords, baseY);
+
+  const prevCoords = prev.map((pt, idx) => {
+    const pSlot = plotW / Math.max(1, prev.length);
+    const x = padLeft + idx * pSlot + pSlot / 2;
+    return { x, y: toY(pt.amountFcfa) };
+  });
+  const prevPath = prevCoords.length >= 2 ? buildMonotoneCubicPath(prevCoords) : '';
+
+  const avgY = toY(evolution.averageFcfa);
+  const avgLabel = `Moy. ${formatAxisFcfa(evolution.averageFcfa, true)}`;
+
+  const maxTicks = Math.max(4, Math.min(7, Math.floor(plotW / (isMobile ? 74 : 105))));
+  const tickIndices = pickSpacedIndices(bars.length, maxTicks);
+  const xTicks: AxisTick[] = tickIndices.map((i) => ({
+    x: bars[i].cx,
+    label: bars[i].cleanLabel,
+  }));
+
+  const findBarByKey = (key: string | undefined) =>
+    key ? bars.find((b) => b.key === key) : undefined;
+
+  const incBar = findBarByKey(evolution.biggestIncrease?.toKey);
+  const decBar = findBarByKey(evolution.biggestDecrease?.toKey);
+
+  const increaseMarker =
+    incBar && evolution.biggestIncrease
+      ? {
+          x: Math.max(padLeft + 46, Math.min(plotRight - 46, incBar.cx)),
+          y: Math.max(padTop + 14, Math.min(incBar.barY, incBar.trendY) - 18),
+          label: `+${formatAxisFcfa(evolution.biggestIncrease.deltaFcfa, true)}`,
+          fromLabel: evolution.biggestIncrease.fromLabel,
+          toLabel: evolution.biggestIncrease.toLabel,
+        }
+      : null;
+
+  const decreaseMarker =
+    decBar && evolution.biggestDecrease
+      ? {
+          x: Math.max(padLeft + 46, Math.min(plotRight - 46, decBar.cx)),
+          y: Math.max(padTop + 30, Math.min(decBar.barY, decBar.trendY) - 18),
+          label: `\u2212${formatAxisFcfa(Math.abs(evolution.biggestDecrease.deltaFcfa), true)}`,
+          fromLabel: evolution.biggestDecrease.fromLabel,
+          toLabel: evolution.biggestDecrease.toLabel,
+        }
+      : null;
+
+  return {
+    width,
+    height,
+    padLeft,
+    padRight,
+    padTop,
+    padBottom,
+    plotW,
+    plotH,
+    plotRight,
+    baseY,
+    maxVal,
+    yTicks,
+    xTicks,
+    bars,
+    trendCoords,
+    trendPath,
+    trendAreaPath,
+    prevPath,
+    avgY,
+    avgLabel,
+    increaseMarker,
+    decreaseMarker,
+  };
 }
 
 export function buildLinearPath(coords: Array<{ x: number; y: number }>): string {

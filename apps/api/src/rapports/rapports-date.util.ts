@@ -103,10 +103,12 @@ export function dakarWeekdayIndex(isoDate: string): number {
 
 export function formatShortDakarDate(isoDate: string): string {
   const [y, m, d] = isoDate.split('-').map(Number);
-  return `${String(d).padStart(2, '0')} ${SHORT_MONTHS_FR[(m || 1) - 1] || ''} ${y}`.replace(
-    ` ${y}`,
-    '',
-  );
+  return `${d} ${SHORT_MONTHS_FR[(m || 1) - 1] || ''} ${y}`.replace(` ${y}`, '');
+}
+
+export function formatWeekdayShortDateFr(isoDate: string): string {
+  const weekday = (WEEKDAY_LABELS_FR[dakarWeekdayIndex(isoDate)] || '').toLowerCase();
+  return `${weekday} ${formatShortDakarDate(isoDate)}`.trim();
 }
 
 export function formatFullDakarDate(isoDate: string): string {
@@ -149,8 +151,13 @@ export function resolveDakarPeriodWindow(
 
   if (period === 'mois') {
     const startIso = `${todayIso.slice(0, 7)}-01`;
+    const dayOfMonth = Number(todayIso.slice(8, 10));
     const prevStartIso = addDakarMonthsFirstDay(startIso, -1);
-    const prevEndInclusiveIso = addDakarDays(startIso, -1);
+    const prevMonthLastIso = addDakarDays(startIso, -1);
+    const prevMonthMaxDay = Number(prevMonthLastIso.slice(8, 10));
+    const clampedDay = Math.min(dayOfMonth, prevMonthMaxDay);
+    const prevEndInclusiveIso = `${prevStartIso.slice(0, 7)}-${String(clampedDay).padStart(2, '0')}`;
+    const prevEndExclusiveIso = addDakarDays(prevEndInclusiveIso, 1);
     return {
       period,
       periodLabel: `Mois en cours (${formatMonthYearFr(todayIso.slice(0, 7))})`,
@@ -161,7 +168,7 @@ export function resolveDakarPeriodWindow(
       prevStartIso,
       prevEndInclusiveIso,
       prevStartDate: dakarStartOfDay(prevStartIso),
-      prevEndExclusiveDate: dakarStartOfDay(startIso),
+      prevEndExclusiveDate: dakarStartOfDay(prevEndExclusiveIso),
       granularity: 'day',
     };
   }

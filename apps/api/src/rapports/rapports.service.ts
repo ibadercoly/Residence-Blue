@@ -25,6 +25,7 @@ import {
   resolveDakarPeriodWindow,
   WEEKDAY_LABELS_FR,
 } from './rapports-date.util';
+import { buildEvolutionSection } from './rapports-evolution.util';
 
 interface RawInvoiceRow {
   id: string;
@@ -365,6 +366,21 @@ export class RapportsService {
         lowestPoint: { key: lowest.key, label: lowest.label, amountFcfa: lowest.amountFcfa },
         bestPoint: { key: best.key, label: best.label, amountFcfa: best.amountFcfa },
       };
+
+      const evolutionSection = buildEvolutionSection({
+        window,
+        currDays,
+        currByDay: currBreakdown.byDay,
+        currTotalRevenue: currBreakdown.totalRevenue,
+        prevDays,
+        prevByDay: prevBreakdown.byDay,
+        prevTotalRevenue: prevBreakdown.totalRevenue,
+        previousPeriodHasData,
+        previousPoints,
+      });
+      if (evolutionSection) {
+        baseResponse.evolution = evolutionSection;
+      }
     }
 
     // 3. Diagramme b) Ventes par type et par semaine (>= 1 valeur non nulle)

@@ -1,8 +1,10 @@
 import {
   buildDonutSegments,
   buildEvolutionSvgGeometry,
+  buildMonotoneCubicPath,
   buildNiceMoneyScale,
   buildOccupancyBarsGeometry,
+  buildRichEvolutionGeometry,
   buildRoomTicks,
   buildStackedWeeksGeometry,
   buildWeekdayGeometry,
@@ -12,6 +14,7 @@ import {
   formatWeekSummaryLabel,
   pickSpacedIndices,
   pickTopIndices,
+  sampleMonotoneCurve,
 } from './rapports-charts.util';
 
 describe('rapports-charts.util', () => {
@@ -153,5 +156,63 @@ describe('rapports-charts.util', () => {
     ]);
     expect(donut).toHaveLength(2);
     expect(formatShortFcfa(1500000)).toBe('1.5 M');
+  });
+
+  it('garantit une courbe monotone sans dépassement ni valeur négative', () => {
+    // Série très contrastée avec zéros et pics brutaux
+    const values = [0, 0, 500000, 0, 0, 350000, 10000, 0];
+    const baseY = 400;
+    const coords = values.map((v, i) => ({
+      x: 50 + i * 80,
+      y: baseY - (v / 500000) * 300,
+    }));
+
+    const path = buildMonotoneCubicPath(coords);
+    expect(path.startsWith('M ')).toBe(true);
+    expect(path).toContain(' C ');
+
+    const samples = sampleMonotoneCurve(coords, 20);
+    for (const s of samples) {
+      const yA = coords[s.segIndex].y;
+      const yB = coords[s.segIndex + 1].y;
+      const minY = Math.min(yA, yB) - 0.01;
+      const maxY = Math.max(yA, yB) + 0.01;
+      // Aucun dépassement hors des valeurs voisines
+      expect(s.y).toBeGreaterThanOrEqual(minY);
+      expect(s.y).toBeLessThanOrEqual(maxY);
+      // Jamais sous 0 (y <= baseY en coordonnées SVG)
+      expect(s.y).toBeLessThanOrEqual(baseY + 0.01);
+    }
+  });
+
+  it('construit la géométrie enrichie Évolution avec plotH >= 360 desktop, >= 280 mobile et barres + tendance', () => {
+    const mockEvo = {
+      granularity: 'day' as const,
+      trendLabel: 'Tendance sur 7 jours',
+      totalFcfa: 600000,
+      averageFcfa: 150000,
+      points: [
+        { key: '2026-11-01', label: '1 nov.', fullDateLabel: 'dimanche 1 nov.', amountFcfa: 50000, accommodationFcfa: 50000, restaurantFcfa: 0, otherFcfa: 0, trendFcfa: 50000 },
+        { key: '2026-11-02', label: '2 nov.', fullDateLabel: 'lundi 2 nov.', amountFcfa: 300000, accommodationFcfa: 250000, restaurantFcfa: 50000, otherFcfa: 0, trendFcfa: 175000 },
+        { key: '2026-11-03', label: '3 nov.', fullDateLabel: 'mardi 3 nov.', amountFcfa: 100000, accommodationFcfa: 80000, restaurantFcfa: 20000, otherFcfa: 0, trendFcfa: 150000 },
+        { key: '2026-11-04', label: '4 nov.', fullDateLabel: 'mercredi 4 nov.', amountFcfa: 150000, accommodationFcfa: 120000, restaurantFcfa: 30000, otherFcfa: 0, trendFcfa: 150000 },
+      ],
+      topPoints: [{ key: '2026-11-02', label: '2 nov.', amountFcfa: 300000, rank: 1 as const }],
+      lowestPoint: { key: '2026-11-01', label: '1 nov.', amountFcfa: 50000 },
+      bestPoint: { key: '2026-11-02', label: '2 nov.', amountFcfa: 300000 },
+      biggestIncrease: { fromKey: '2026-11-01', toKey: '2026-11-02', fromLabel: '1 nov.', toLabel: '2 nov.', deltaFcfa: 250000 },
+      biggestDecrease: { fromKey: '2026-11-02', toKey: '2026-11-03', fromLabel: '2 nov.', toLabel: '3 nov.', deltaFcfa: -200000 },
+      insights: [{ type: 'total' as const, text: 'Sur ce mois : 600 000 FCFA.' }],
+    };
+
+    const geoDesk = buildRichEvolutionGeometry(mockEvo, { width: 1000, isMobile: false });
+    expect(geoDesk.plotH).toBeGreaterThanOrEqual(360);
+    expect(geoDesk.plotRight).toBeLessThan(geoDesk.width - 100);
+    expect(geoDesk.bars.every((b) => b.showBarValue)).toBe(true);
+    expect(geoDesk.increaseMarker?.label).toBe('+250 000 F');
+    expect(geoDesk.decreaseMarker?.label).toBe('\u2212200 000 F');
+
+    const geoMob = buildRichEvolutionGeometry(mockEvo, { width: 320, isMobile: true });
+    expect(geoMob.plotH).toBeGreaterThanOrEqual(280);
   });
 });

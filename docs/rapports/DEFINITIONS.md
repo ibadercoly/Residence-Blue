@@ -12,7 +12,7 @@ Ce document précise les règles retenues côté serveur (`GET /api/rapports`) p
   - `30j` : 30 derniers jours en cours jusqu'à aujourd'hui inclus ; période précédente = les 30 jours immédiatement antérieurs.
   - `3m` : 90 derniers jours jusqu'à aujourd'hui inclus ; période précédente = les 90 jours immédiatement antérieurs.
   - `12m` : 12 mois calendaires complets jusqu'à aujourd'hui inclus (du 1er du mois M-11 à aujourd'hui) ; période précédente = les 12 mois immédiatement antérieurs.
-  - `mois` : du 1er jour du mois calendaire Dakar en cours jusqu'à aujourd'hui inclus ; période précédente = le mois calendaire complet précédent.
+  - `mois` : du 1er jour du mois calendaire Dakar en cours jusqu'à aujourd'hui inclus (jours 1 à N) ; période précédente = les **mêmes jours 1 à N** du mois calendaire précédent (bornés au dernier jour du mois précédent si N dépasse sa longueur, afin d'éviter toute fausse baisse en cours de mois).
 
 ## 2. Montants et unités
 
@@ -44,3 +44,23 @@ Ce document précise les règles retenues côté serveur (`GET /api/rapports`) p
   - Barres (ventes par semaine, occupation par jour, encaissements par mode, ventes par catégorie, jours de la semaine) : au moins 1 valeur non nulle.
   - Provenance des réservations : au moins 1 réservation active dotée d'une source non vide.
   - Top 10 plats : au moins 1 vente restaurant non annulée (classement par quantité décroissante, puis chiffre d'affaires hors taxes décroissant en cas d'égalité).
+
+## 5. Section « Évolution du chiffre d'affaires » et seuils documentés
+
+La section `evolution` de `GET /api/rapports` est calculée côté serveur en fuseau `Africa/Dakar` à partir des mêmes ventes que les tuiles et le tableau jour par jour.
+
+### Constantes de seuils (`apps/api/src/rapports/rapports-evolution.util.ts`)
+
+| Constante | Valeur | Rôle |
+| --- | --- | --- |
+| `EVOLUTION_MIN_POINTS_BEST_WORST` | `2` | Nombre minimum de périodes non nulles requis pour afficher le diagramme et la phrase meilleur / pire jour. |
+| `EVOLUTION_MIN_POINTS_TREND` | `5` | Nombre minimum de périodes requis pour calculer la phrase de tendance (2e moitié vs 1re moitié). |
+| `EVOLUTION_TREND_WINDOW_DAYS` | `7` | Fenêtre en jours de la moyenne mobile en vue journalière (« Tendance sur 7 jours ») et de la comparaison 7 derniers jours vs 7 jours précédents. |
+| `EVOLUTION_HABIT_MIN_WEEKS` | `3` | Nombre minimum de semaines calendaires (`21` jours) requis pour énoncer la phrase d'habitude sur le meilleur jour de la semaine. |
+| `EVOLUTION_ALERT_DROP_PERCENT` | `20` | Seuil de baisse (en %) des 7 derniers jours par rapport aux 7 jours précédents déclenchant l'alerte neutre (cadre orange). |
+
+### Courbe de tendance monotone et phrases factuelles
+
+- **Courbe de tendance** : moyenne mobile sur 7 jours en vue journalière (`30j`, `mois`), valeurs réelles par semaine (`3m`) ou par mois (`12m`). Tracé par interpolation cubique **monotone** (Fritsch-Carlson) garantissant qu'aucun point intermédiaire ne descend sous `0` ni ne sort de l'intervalle des valeurs voisines.
+- **Phrases « Ce que dit ce graphique »** : 3 à 6 phrases courtes et factuelles générées de manière déterministe côté serveur (jamais par IA, jamais de texte inventé). Chaque phrase est omise si ses données minimales manquent.
+- **Aucune interprétation causale** : aucune phrase ne mentionne de cause (« à cause de », « en raison de », « parce que », « grâce à ») ; les chiffres décrivent uniquement ce qui s'est passé.
