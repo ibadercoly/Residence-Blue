@@ -73,8 +73,8 @@ export const routes: Routes = [
     path: 'cuisine',
     canActivate: [authGuard],
     loadComponent: () =>
-      import('./restaurant-v3/components/kitchen-board-page.component').then(
-        (m) => m.KitchenBoardPageComponent,
+      import('./restaurant-v3/components/cuisine-ecran-page.component').then(
+        (m) => m.CuisineEcranPageComponent,
       ),
   },
   {
