@@ -1,6 +1,7 @@
 import { test, expect } from '@playwright/test';
 import * as fs from 'fs';
 import * as path from 'path';
+import { loginViaUi } from './auth-e2e.helper';
 
 test.describe('Isolation et Exclusion des Modules Reportés (V2 / V3)', () => {
   test.beforeEach(async ({ page }) => {
@@ -38,6 +39,7 @@ test.describe('Isolation et Exclusion des Modules Reportés (V2 / V3)', () => {
   });
 
   test('les entrées de menu des modules reportés ne sont pas affichées dans la barre latérale', async ({ page }) => {
+    await loginViaUi(page, 'fatou.ndiaye@residenceblue.sn', 'ThiesTeranga2024!');
     await page.goto('/');
     await expect(page).toHaveURL(/.*tableau-de-bord/);
     await page.waitForLoadState('networkidle');
@@ -56,6 +58,7 @@ test.describe('Isolation et Exclusion des Modules Reportés (V2 / V3)', () => {
   });
 
   test('la navigation directe vers un module reporté est rejetée (canMatch) et redirigée', async ({ page }) => {
+    await loginViaUi(page, 'fatou.ndiaye@residenceblue.sn', 'ThiesTeranga2024!');
     // Navigation directe vers une route protégée par canMatch
     await page.goto('/housekeeping');
     await expect(page).toHaveURL(/.*tableau-de-bord/);

@@ -8,3 +8,5 @@ export * from './billing';
 export * from './restaurant';
 export * from './exports';
 export * from './modules';
+export * from './accueil';
+export * from './rapports';

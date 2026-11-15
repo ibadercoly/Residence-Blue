@@ -1,6 +1,7 @@
 import { test, expect } from '@playwright/test';
 import * as fs from 'fs';
 import * as path from 'path';
+import { loginViaUi } from './auth-e2e.helper';
 
 test.describe('Chambres - État dans menu ⋯ et titre non tronqué', () => {
   const repoRoot = path.resolve(__dirname, '../../..');
@@ -13,6 +14,7 @@ test.describe('Chambres - État dans menu ⋯ et titre non tronqué', () => {
   });
 
   test.beforeEach(async ({ page }) => {
+    await loginViaUi(page, 'aissatou.ba@residenceblue.sn', 'ThiesTeranga2024!');
     page.on('console', (msg) => console.log('PAGE LOG:', msg.text()));
     page.on('pageerror', (err) => console.log('PAGE ERROR:', err.message));
 
@@ -22,7 +24,7 @@ test.describe('Chambres - État dans menu ⋯ et titre non tronqué', () => {
     });
 
     // Interception API avec 4 états + nom très long
-    await page.route(/\/api\/rooms(\/.*)?$/, async (route) => {
+    await page.context().route(/\/api\/rooms(\/.*)?$/, async (route) => {
       const method = route.request().method();
       if (method === 'GET') {
         await route.fulfill({

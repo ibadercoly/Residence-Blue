@@ -1,4 +1,4 @@
-import { Injectable, signal, computed, inject, Injector } from '@angular/core';
+import { Injectable, signal, computed, effect, inject, Injector } from '@angular/core';
 import { IdbService } from '../offline/idb.service';
 import { OutboxService } from '../offline/outbox.service';
 import { NetworkService } from '../offline/network.service';
@@ -15,6 +15,7 @@ import {
   FALLBACK_ROOM_IMAGE,
 } from '@residence-blue/shared';
 import { PlanningMockService } from './planning-mock.service';
+import { AuthService } from './auth.service';
 
 export interface RoomUiItem extends RoomDto {
   syncPending?: boolean;
@@ -31,7 +32,7 @@ export class RoomsService {
   private readonly injector = inject(Injector);
 
   readonly rooms = signal<RoomUiItem[]>([]);
-  readonly currentRole = signal<Role>(Role.DIRECTION);
+  readonly currentRole = computed<Role>(() => this.authService?.currentRole() || Role.RECEPTION);
   readonly selectedFilter = signal<string>('ALL');
   readonly selectedFloor = signal<number | null>(null);
   readonly selectedCategory = signal<string | null>(null);
@@ -142,12 +143,31 @@ export class RoomsService {
     return list;
   });
 
+  private readonly authService: AuthService | null;
+
   constructor(
     private readonly idb: IdbService,
     private readonly outbox: OutboxService,
     public readonly network: NetworkService,
+    authServiceOverride?: AuthService,
   ) {
+    let injectedAuth: AuthService | null = null;
+    try {
+      injectedAuth = inject(AuthService, { optional: true });
+    } catch {
+      injectedAuth = null;
+    }
+    this.authService = authServiceOverride ?? injectedAuth;
     this.initRooms();
+    try {
+      effect(() => {
+        if (this.authService?.isAuthenticated()) {
+          void this.fetchFromServer();
+        }
+      });
+    } catch {
+      // Hors contexte d'injection Angular
+    }
 
     // Rejeu automatique de l'outbox au retour de la connexion
     if (typeof window !== 'undefined') {
@@ -186,12 +206,21 @@ export class RoomsService {
   /**
    * Récupère la liste des chambres depuis l'API serveur (source de vérité).
    */
+  private getAuthHeaders(extra?: Record<string, string>): Record<string, string> {
+    return {
+      ...(this.authService ? this.authService.getAuthHeaders() : {}),
+      ...(extra || {}),
+    };
+  }
+
   async fetchFromServer(): Promise<boolean> {
+    if (this.authService && !this.authService.isAuthenticated()) {
+      return false;
+    }
     try {
       const response = await fetch('/api/rooms', {
-        headers: {
-          'x-user-role': this.currentRole(),
-        },
+        credentials: 'include',
+        headers: this.getAuthHeaders(),
       });
 
       if (response.ok) {
@@ -363,18 +392,17 @@ export class RoomsService {
 
           response = await fetch('/api/rooms', {
             method: 'POST',
-            headers: {
-              'x-user-role': this.currentRole(),
-            },
+            credentials: 'include',
+            headers: this.getAuthHeaders(),
             body: formData,
           });
         } else {
           response = await fetch('/api/rooms', {
             method: 'POST',
-            headers: {
+            credentials: 'include',
+            headers: this.getAuthHeaders({
               'Content-Type': 'application/json',
-              'x-user-role': this.currentRole(),
-            },
+            }),
             body: JSON.stringify({
               ...dto,
               number: cleanNumber,
@@ -513,18 +541,17 @@ export class RoomsService {
 
           response = await fetch(`/api/rooms/${roomId}`, {
             method: 'PATCH',
-            headers: {
-              'x-user-role': this.currentRole(),
-            },
+            credentials: 'include',
+            headers: this.getAuthHeaders(),
             body: formData,
           });
         } else {
           response = await fetch(`/api/rooms/${roomId}`, {
             method: 'PATCH',
-            headers: {
+            credentials: 'include',
+            headers: this.getAuthHeaders({
               'Content-Type': 'application/json',
-              'x-user-role': this.currentRole(),
-            },
+            }),
             body: JSON.stringify({
               ...dto,
               number: cleanNumber,
@@ -599,9 +626,8 @@ export class RoomsService {
       try {
         const response = await fetch(`/api/rooms/${roomId}`, {
           method: 'DELETE',
-          headers: {
-            'x-user-role': this.currentRole(),
-          },
+          credentials: 'include',
+          headers: this.getAuthHeaders(),
         });
 
         if (response.status === 409) {
@@ -778,10 +804,10 @@ export class RoomsService {
     try {
       const response = await fetch(`/api/rooms/${roomId}/status`, {
         method: 'PATCH',
-        headers: {
+        credentials: 'include',
+        headers: this.getAuthHeaders({
           'Content-Type': 'application/json',
-          'x-user-role': this.currentRole(),
-        },
+        }),
         body: JSON.stringify({ status: targetStatus, reason }),
       });
 
@@ -822,9 +848,6 @@ export class RoomsService {
     await this.fetchFromServer();
   }
 
-  setRole(role: Role): void {
-    this.currentRole.set(role);
-  }
 
   setFilter(filter: string): void {
     this.selectedFilter.set(filter);

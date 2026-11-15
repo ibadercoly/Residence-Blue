@@ -6,7 +6,7 @@ import {
   ExportDocumentType
 } from '@residence-blue/shared';
 import { ExportService } from '../../core/services/export.service';
-import { AuthMockService } from '../../core/services/auth-mock.service';
+import { AuthService } from '../../core/services/auth.service';
 
 @Component({
   selector: 'app-exports-page',
@@ -262,7 +262,7 @@ import { AuthMockService } from '../../core/services/auth-mock.service';
 })
 export class ExportsPageComponent {
   readonly exportService = inject(ExportService);
-  readonly authService = inject(AuthMockService);
+  readonly authService = inject(AuthService);
 
   readonly definitions = EXPORT_DEFINITIONS;
   readonly availableDocuments = this.exportService.availableDocuments;

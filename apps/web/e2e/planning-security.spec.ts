@@ -1,6 +1,10 @@
 import { test, expect } from '@playwright/test';
+import { loginViaUi } from './auth-e2e.helper';
 
 test.describe('Porte de Sécurité Front-End — Planning des Réservations (/planning)', () => {
+  test.beforeEach(async ({ page }) => {
+    await loginViaUi(page, 'fatou.ndiaye@residenceblue.sn', 'ThiesTeranga2024!');
+  });
   test('Sécurité Réseau : Aucune requête vers des CDN ou domaines externes', async ({ page }) => {
     const externalRequests: string[] = [];
 

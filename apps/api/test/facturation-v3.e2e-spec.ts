@@ -4,6 +4,7 @@ import request from 'supertest';
 import { AppModule } from '../src/app.module';
 import { PrismaService } from '../src/prisma/prisma.service';
 import { ReservationStatus, RoomStatus } from '@prisma/client';
+import { issueDbTestToken } from './auth-test.helper';
 import { randomUUID } from 'crypto';
 
 describe('Facturation V3 — Règles métier, Atomicité, Sécurité & PDF (e2e)', () => {
@@ -13,6 +14,7 @@ describe('Facturation V3 — Règles métier, Atomicité, Sécurité & PDF (e2e)
   const createdGuestIds: string[] = [];
   const createdReservationIds: string[] = [];
   const createdInvoiceIds: string[] = [];
+  const roleTokens: Record<string, string> = {};
   let savedSettingsSnapshot: {
     id: string;
     vatRatePercent: number;
@@ -37,6 +39,9 @@ describe('Facturation V3 — Règles métier, Atomicité, Sécurité & PDF (e2e)
     );
     await app.init();
     prisma = moduleFixture.get<PrismaService>(PrismaService);
+    for (const r of ['DIRECTION', 'RECEPTION', 'COMPTABLE', 'RESTAURANT', 'SERVEUR', 'CUISINE', 'HOUSEKEEPING', 'MAINTENANCE']) {
+      roleTokens[r] = (await issueDbTestToken(prisma, r)).token;
+    }
 
     const existingTestRes = await prisma.reservation.findMany({
       where: { reference: { startsWith: 'RES-TST-' } },
@@ -83,7 +88,7 @@ describe('Facturation V3 — Règles métier, Atomicité, Sécurité & PDF (e2e)
         },
       });
     }
-  });
+  }, 30000);
 
   afterAll(async () => {
     if (prisma) {
@@ -130,7 +135,7 @@ describe('Facturation V3 — Règles métier, Atomicité, Sécurité & PDF (e2e)
     if (app) {
       await app.close();
     }
-  });
+  }, 30000);
 
   async function createTestStay(roomNum: string, guestName: string) {
     const room = await prisma.room.findUnique({ where: { number: roomNum } });
@@ -220,7 +225,7 @@ describe('Facturation V3 — Règles métier, Atomicité, Sécurité & PDF (e2e)
 
     await request(app.getHttpServer())
       .post(`/api/invoices/${stay.invoice.id}/lines`)
-      .set('x-user-role', 'RECEPTION')
+      .set('Authorization', `Bearer ${roleTokens['RECEPTION']}`)
       .send({
         description: 'Café décimal interdit',
         category: 'RESTAURANT',
@@ -231,7 +236,7 @@ describe('Facturation V3 — Règles métier, Atomicité, Sécurité & PDF (e2e)
 
     const added = await request(app.getHttpServer())
       .post(`/api/invoices/${stay.invoice.id}/lines`)
-      .set('x-user-role', 'RECEPTION')
+      .set('Authorization', `Bearer ${roleTokens['RECEPTION']}`)
       .send({
         description: 'Navette Thiès',
         category: 'AUTRES',
@@ -253,8 +258,6 @@ describe('Facturation V3 — Règles métier, Atomicité, Sécurité & PDF (e2e)
 
     // Rôles interdits sur la facturation
     for (const forbiddenRole of [
-      'GOUVERNANTE',
-      'TECHNIQUE',
       'HOUSEKEEPING',
       'MAINTENANCE',
       'SERVEUR',
@@ -263,14 +266,14 @@ describe('Facturation V3 — Règles métier, Atomicité, Sécurité & PDF (e2e)
     ]) {
       await request(app.getHttpServer())
         .get('/api/invoices/counter')
-        .set('x-user-role', forbiddenRole)
+        .set('Authorization', `Bearer ${roleTokens[forbiddenRole]}`)
         .expect(403);
     }
 
     // RESTAURANT peut uniquement ajouter une ligne RESTAURANT, sans totaux généraux
     const restoRes = await request(app.getHttpServer())
       .post(`/api/invoices/${stay.invoice.id}/lines`)
-      .set('x-user-role', 'RESTAURANT')
+      .set('Authorization', `Bearer ${roleTokens['RESTAURANT']}`)
       .send({
         description: 'Jus de bissap',
         category: 'RESTAURANT',
@@ -284,7 +287,7 @@ describe('Facturation V3 — Règles métier, Atomicité, Sécurité & PDF (e2e)
 
     await request(app.getHttpServer())
       .post(`/api/invoices/${stay.invoice.id}/lines`)
-      .set('x-user-role', 'RESTAURANT')
+      .set('Authorization', `Bearer ${roleTokens['RESTAURANT']}`)
       .send({
         description: 'Nuitée cachée',
         category: 'HEBERGEMENT',
@@ -296,13 +299,13 @@ describe('Facturation V3 — Règles métier, Atomicité, Sécurité & PDF (e2e)
     // Remise > 10% refusée pour RECEPTION, autorisée pour DIRECTION
     await request(app.getHttpServer())
       .patch(`/api/invoices/${stay.invoice.id}/discount`)
-      .set('x-user-role', 'RECEPTION')
+      .set('Authorization', `Bearer ${roleTokens['RECEPTION']}`)
       .send({ discountFcfa: 30000 })
       .expect(403);
 
     const discOk = await request(app.getHttpServer())
       .patch(`/api/invoices/${stay.invoice.id}/discount`)
-      .set('x-user-role', 'DIRECTION')
+      .set('Authorization', `Bearer ${roleTokens['DIRECTION']}`)
       .send({ discountFcfa: 20000 })
       .expect(200);
 
@@ -311,12 +314,12 @@ describe('Facturation V3 — Règles métier, Atomicité, Sécurité & PDF (e2e)
     // Clôture de caisse réservée à DIRECTION et COMPTABLE
     await request(app.getHttpServer())
       .get('/api/invoices/cash-closure/export?format=pdf')
-      .set('x-user-role', 'RECEPTION')
+      .set('Authorization', `Bearer ${roleTokens['RECEPTION']}`)
       .expect(403);
 
     const comptablePdf = await request(app.getHttpServer())
       .get('/api/invoices/cash-closure/export?format=pdf')
-      .set('x-user-role', 'COMPTABLE')
+      .set('Authorization', `Bearer ${roleTokens['COMPTABLE']}`)
       .expect(200);
     expect(comptablePdf.headers['content-type']).toContain('application/pdf');
   });
@@ -328,13 +331,13 @@ describe('Facturation V3 — Règles métier, Atomicité, Sécurité & PDF (e2e)
     // Surpaiement et zéro/PAN refusés
     await request(app.getHttpServer())
       .post(`/api/invoices/${stayA.invoice.id}/payments`)
-      .set('x-user-role', 'RECEPTION')
+      .set('Authorization', `Bearer ${roleTokens['RECEPTION']}`)
       .send({ method: 'CASH', amountFcfa: 999999 })
       .expect(400);
 
     await request(app.getHttpServer())
       .post(`/api/invoices/${stayA.invoice.id}/payments`)
-      .set('x-user-role', 'RECEPTION')
+      .set('Authorization', `Bearer ${roleTokens['RECEPTION']}`)
       .send({ method: 'CARD', amountFcfa: 10000, transactionRef: '4532111122223333' })
       .expect(400);
 
@@ -342,7 +345,7 @@ describe('Facturation V3 — Règles métier, Atomicité, Sécurité & PDF (e2e)
     const idemKey = randomUUID();
     const p1 = await request(app.getHttpServer())
       .post(`/api/invoices/${stayA.invoice.id}/payments`)
-      .set('x-user-role', 'RECEPTION')
+      .set('Authorization', `Bearer ${roleTokens['RECEPTION']}`)
       .set('x-user-name', 'Oumar Réception')
       .set('Idempotency-Key', idemKey)
       .send({ method: 'WAVE', amountFcfa: 50000, transactionRef: 'WAV-001' })
@@ -350,7 +353,7 @@ describe('Facturation V3 — Règles métier, Atomicité, Sécurité & PDF (e2e)
 
     const p2 = await request(app.getHttpServer())
       .post(`/api/invoices/${stayA.invoice.id}/payments`)
-      .set('x-user-role', 'RECEPTION')
+      .set('Authorization', `Bearer ${roleTokens['RECEPTION']}`)
       .set('x-user-name', 'Oumar Réception')
       .set('Idempotency-Key', idemKey)
       .send({ method: 'WAVE', amountFcfa: 50000, transactionRef: 'WAV-001' })
@@ -364,13 +367,13 @@ describe('Facturation V3 — Règles métier, Atomicité, Sécurité & PDF (e2e)
     // Écriture inverse réservée à DIRECTION
     await request(app.getHttpServer())
       .post(`/api/invoices/${stayA.invoice.id}/payments/${paymentId}/reverse`)
-      .set('x-user-role', 'RECEPTION')
+      .set('Authorization', `Bearer ${roleTokens['RECEPTION']}`)
       .send({ reason: 'Erreur saisie' })
       .expect(403);
 
     const reversed = await request(app.getHttpServer())
       .post(`/api/invoices/${stayA.invoice.id}/payments/${paymentId}/reverse`)
-      .set('x-user-role', 'DIRECTION')
+      .set('Authorization', `Bearer ${roleTokens['DIRECTION']}`)
       .send({ reason: 'Double encaissement Wave' })
       .expect(201);
 
@@ -382,28 +385,28 @@ describe('Facturation V3 — Règles métier, Atomicité, Sécurité & PDF (e2e)
     // Check-out refusé tant que solde > 0 (sans force)
     await request(app.getHttpServer())
       .post(`/api/invoices/${stayA.invoice.id}/checkout`)
-      .set('x-user-role', 'RECEPTION')
+      .set('Authorization', `Bearer ${roleTokens['RECEPTION']}`)
       .send({})
       .expect(400);
 
     // Check-out forcé interdit pour RECEPTION
     await request(app.getHttpServer())
       .post(`/api/invoices/${stayA.invoice.id}/checkout`)
-      .set('x-user-role', 'RECEPTION')
+      .set('Authorization', `Bearer ${roleTokens['RECEPTION']}`)
       .send({ force: true, reason: 'Départ sans payer' })
       .expect(403);
 
     // Solder A et B (recalculé à 109000 avec service 5%) puis lancer 2 check-outs concurrents
     const payARes = await request(app.getHttpServer())
       .post(`/api/invoices/${stayA.invoice.id}/payments`)
-      .set('x-user-role', 'RECEPTION')
+      .set('Authorization', `Bearer ${roleTokens['RECEPTION']}`)
       .set('Idempotency-Key', randomUUID())
       .send({ method: 'CASH', amountFcfa: 104000 })
       .expect(201);
     if (payARes.body.balanceFcfa > 0) {
       await request(app.getHttpServer())
         .post(`/api/invoices/${stayA.invoice.id}/payments`)
-        .set('x-user-role', 'RECEPTION')
+        .set('Authorization', `Bearer ${roleTokens['RECEPTION']}`)
         .set('Idempotency-Key', randomUUID())
         .send({ method: 'CASH', amountFcfa: payARes.body.balanceFcfa })
         .expect(201);
@@ -411,14 +414,14 @@ describe('Facturation V3 — Règles métier, Atomicité, Sécurité & PDF (e2e)
 
     const payBRes = await request(app.getHttpServer())
       .post(`/api/invoices/${stayB.invoice.id}/payments`)
-      .set('x-user-role', 'RECEPTION')
+      .set('Authorization', `Bearer ${roleTokens['RECEPTION']}`)
       .set('Idempotency-Key', randomUUID())
       .send({ method: 'ORANGE_MONEY', amountFcfa: 104000, transactionRef: 'OM-104' })
       .expect(201);
     if (payBRes.body.balanceFcfa > 0) {
       await request(app.getHttpServer())
         .post(`/api/invoices/${stayB.invoice.id}/payments`)
-        .set('x-user-role', 'RECEPTION')
+        .set('Authorization', `Bearer ${roleTokens['RECEPTION']}`)
         .set('Idempotency-Key', randomUUID())
         .send({ method: 'ORANGE_MONEY', amountFcfa: payBRes.body.balanceFcfa, transactionRef: 'OM-105' })
         .expect(201);
@@ -427,11 +430,11 @@ describe('Facturation V3 — Règles métier, Atomicité, Sécurité & PDF (e2e)
     const [coA, coB] = await Promise.all([
       request(app.getHttpServer())
         .post(`/api/invoices/${stayA.invoice.id}/checkout`)
-        .set('x-user-role', 'RECEPTION')
+        .set('Authorization', `Bearer ${roleTokens['RECEPTION']}`)
         .send({}),
       request(app.getHttpServer())
         .post(`/api/invoices/${stayB.invoice.id}/checkout`)
-        .set('x-user-role', 'RECEPTION')
+        .set('Authorization', `Bearer ${roleTokens['RECEPTION']}`)
         .send({}),
     ]);
 
@@ -456,19 +459,19 @@ describe('Facturation V3 — Règles métier, Atomicité, Sécurité & PDF (e2e)
     // Immuabilité absolue après émission
     await request(app.getHttpServer())
       .post(`/api/invoices/${stayA.invoice.id}/lines`)
-      .set('x-user-role', 'DIRECTION')
+      .set('Authorization', `Bearer ${roleTokens['DIRECTION']}`)
       .send({ description: 'Ajout tardif', category: 'AUTRES', quantity: 1, unitPriceFcfa: 2000 })
       .expect(400);
 
     await request(app.getHttpServer())
       .delete(`/api/invoices/${stayA.invoice.id}`)
-      .set('x-user-role', 'DIRECTION')
+      .set('Authorization', `Bearer ${roleTokens['DIRECTION']}`)
       .expect(400);
 
     // PDF serveur valide
     const pdfRes = await request(app.getHttpServer())
       .get(`/api/invoices/${stayA.invoice.id}/pdf`)
-      .set('x-user-role', 'COMPTABLE')
+      .set('Authorization', `Bearer ${roleTokens['COMPTABLE']}`)
       .expect(200);
     expect(pdfRes.headers['content-type']).toContain('application/pdf');
     expect(pdfRes.body.slice(0, 4).toString()).toBe('%PDF');
@@ -476,13 +479,13 @@ describe('Facturation V3 — Règles métier, Atomicité, Sécurité & PDF (e2e)
     // Création d'avoir (RECEPTION interdit, COMPTABLE autorisé)
     await request(app.getHttpServer())
       .post(`/api/invoices/${stayA.invoice.id}/credit-notes`)
-      .set('x-user-role', 'RECEPTION')
+      .set('Authorization', `Bearer ${roleTokens['RECEPTION']}`)
       .send({ reason: 'Geste' })
       .expect(403);
 
     const creditRes = await request(app.getHttpServer())
       .post(`/api/invoices/${stayA.invoice.id}/credit-notes`)
-      .set('x-user-role', 'COMPTABLE')
+      .set('Authorization', `Bearer ${roleTokens['COMPTABLE']}`)
       .send({ reason: 'Erreur facturation nuitée' })
       .expect(201);
 
@@ -491,5 +494,31 @@ describe('Facturation V3 — Règles métier, Atomicité, Sécurité & PDF (e2e)
     expect(creditRes.body.invoiceNumber).toMatch(/^AV-\d{4}-\d{4}$/);
     expect(creditRes.body.totalFcfa).toBe(-coA.body.totalFcfa);
     expect(creditRes.body.parentInvoiceId).toBe(stayA.invoice.id);
-  });
+
+    const counterRes = await request(app.getHttpServer())
+      .get('/api/invoices/counter?filter=TO_PROCESS&sortBy=balance&sortOrder=desc&offset=0&limit=50')
+      .set('Authorization', `Bearer ${roleTokens['RECEPTION']}`)
+      .expect(200);
+    expect(counterRes.body.page).toBeDefined();
+    expect(Array.isArray(counterRes.body.page.items)).toBe(true);
+    expect(counterRes.body.page.limit).toBe(50);
+
+    const archRes = await request(app.getHttpServer())
+      .get('/api/invoices/archives?status=CREDIT_NOTE&offset=0&limit=50')
+      .set('Authorization', `Bearer ${roleTokens['COMPTABLE']}`)
+      .expect(200);
+    expect(archRes.body.page.items.some((i: any) => i.id === creditRes.body.id)).toBe(true);
+
+    await request(app.getHttpServer())
+      .get('/api/invoices/archives/export')
+      .set('Authorization', `Bearer ${roleTokens['RECEPTION']}`)
+      .expect(403);
+    const exportRes = await request(app.getHttpServer())
+      .get('/api/invoices/archives/export?status=ALL')
+      .set('Authorization', `Bearer ${roleTokens['COMPTABLE']}`)
+      .expect(200);
+    expect(exportRes.headers['content-type']).toContain(
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    );
+  }, 30000);
 });

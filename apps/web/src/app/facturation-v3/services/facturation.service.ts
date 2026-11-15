@@ -1,15 +1,21 @@
 import { Injectable, computed, inject, signal } from '@angular/core';
 import {
+  BillingArchiveStatusFilter,
+  BillingArchivesResponse,
+  BillingCounterFilter,
   BillingCounterResponse,
+  BillingListPage,
   BillingNoteDetail,
   BillingPaymentMethod,
   BillingLineCategory,
+  BillingSortField,
+  BillingSortOrder,
   OutboxItem,
   Role,
   SyncStatus,
 } from '@residence-blue/shared';
 import { RoomsService } from '../../core/services/rooms.service';
-import { AuthMockService } from '../../core/services/auth-mock.service';
+import { AuthService } from '../../core/services/auth.service';
 import { IdbService } from '../../core/offline/idb.service';
 import { NetworkService } from '../../core/offline/network.service';
 import { OutboxService } from '../../core/offline/outbox.service';
@@ -20,13 +26,14 @@ import { PlanningMockService } from '../../core/services/planning-mock.service';
 })
 export class FacturationService {
   private readonly roomsService = inject(RoomsService, { optional: true });
-  private readonly authService = inject(AuthMockService, { optional: true });
+  private readonly authService = inject(AuthService, { optional: true });
   private readonly planningService = inject(PlanningMockService, { optional: true });
   private readonly idb = inject(IdbService, { optional: true });
   private readonly network = inject(NetworkService, { optional: true });
   private readonly outbox = inject(OutboxService, { optional: true });
 
   private counterAbort: AbortController | null = null;
+  private archivesAbort: AbortController | null = null;
   private noteAbort: AbortController | null = null;
   private syncingOffline = false;
 
@@ -39,8 +46,12 @@ export class FacturationService {
   }
 
   readonly counter = signal<BillingCounterResponse | null>(null);
+  readonly archivesPage = signal<BillingListPage | null>(null);
   readonly currentNote = signal<BillingNoteDetail | null>(null);
   readonly loadingCounter = signal<boolean>(false);
+  readonly loadingMoreCounter = signal<boolean>(false);
+  readonly loadingArchives = signal<boolean>(false);
+  readonly loadingMoreArchives = signal<boolean>(false);
   readonly loadingNote = signal<boolean>(false);
   readonly busyAction = signal<boolean>(false);
   readonly errorMessage = signal<string | null>(null);
@@ -48,15 +59,11 @@ export class FacturationService {
   readonly pendingOfflinePaymentKeys = signal<string[]>([]);
 
   readonly currentRole = computed<string>(() => {
-    return (
-      this.roomsService?.currentRole() ||
-      this.authService?.currentUser()?.role ||
-      Role.DIRECTION
-    );
+    return this.authService?.currentRole() || this.roomsService?.currentRole() || '';
   });
 
   readonly currentUserName = computed<string>(() => {
-    return this.authService?.currentUser()?.fullName || 'Aïssatou Ba';
+    return this.authService?.currentUser()?.fullName || '';
   });
 
   readonly canManageCreditsAndExport = computed<boolean>(() => {
@@ -66,16 +73,15 @@ export class FacturationService {
 
   readonly isDirection = computed<boolean>(() => this.currentRole() === Role.DIRECTION);
 
+  authHeaderMap(): Record<string, string> {
+    return this.authService ? this.authService.getAuthHeaders() : {};
+  }
+
   private buildHeaders(idempotencyKey?: string): Record<string, string> {
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
-      'x-user-role': this.currentRole(),
-      'x-user-name': this.currentUserName(),
+      ...(this.authService ? this.authService.getAuthHeaders() : {}),
     };
-    const token = this.authService?.currentSession()?.token;
-    if (token && !token.startsWith('mock-')) {
-      headers['Authorization'] = `Bearer ${token}`;
-    }
     if (idempotencyKey) {
       headers['Idempotency-Key'] = idempotencyKey;
     }
@@ -113,12 +119,34 @@ export class FacturationService {
     this.successMessage.set(null);
   }
 
-  async loadCounter(params: {
+  private buildCounterQueryString(params: {
     search?: string;
-    openLimit?: number;
-    partialLimit?: number;
-    paidLimit?: number;
-  } = {}): Promise<void> {
+    filter?: BillingCounterFilter;
+    sortBy?: BillingSortField;
+    sortOrder?: BillingSortOrder;
+    offset?: number;
+    limit?: number;
+  }): string {
+    const qs = new URLSearchParams();
+    const search = (params.search || '').trim();
+    if (search) qs.set('search', search);
+    if (params.filter) qs.set('filter', params.filter);
+    if (params.sortBy) qs.set('sortBy', params.sortBy);
+    if (params.sortOrder) qs.set('sortOrder', params.sortOrder);
+    qs.set('offset', String(Math.max(0, params.offset ?? 0)));
+    qs.set('limit', String(Math.min(50, Math.max(1, params.limit ?? 50))));
+    return qs.toString();
+  }
+
+  async loadCounter(
+    params: {
+      search?: string;
+      filter?: BillingCounterFilter;
+      sortBy?: BillingSortField;
+      sortOrder?: BillingSortOrder;
+      limit?: number;
+    } = {},
+  ): Promise<void> {
     this.counterAbort?.abort();
     const controller = new AbortController();
     this.counterAbort = controller;
@@ -127,15 +155,8 @@ export class FacturationService {
     this.errorMessage.set(null);
 
     try {
-      const search = (params.search || '').trim();
-      const qs = new URLSearchParams();
-      if (search) qs.set('search', search);
-      qs.set('limit', '8');
-      qs.set('openOffset', '0');
-      qs.set('partialOffset', '0');
-      qs.set('paidOffset', '0');
-
-      const res = await fetch(`/api/invoices/counter?${qs.toString()}`, {
+      const query = this.buildCounterQueryString({ ...params, offset: 0, limit: params.limit ?? 50 });
+      const res = await fetch(`/api/invoices/counter?${query}`, {
         method: 'GET',
         headers: this.buildHeaders(),
         signal: controller.signal,
@@ -159,27 +180,28 @@ export class FacturationService {
     }
   }
 
-  async loadMoreForColumn(
-    column: 'toPay' | 'partial' | 'paid',
-    search: string,
+  async loadMoreCounter(
+    params: {
+      search?: string;
+      filter?: BillingCounterFilter;
+      sortBy?: BillingSortField;
+      sortOrder?: BillingSortOrder;
+      limit?: number;
+    } = {},
   ): Promise<void> {
     const current = this.counter();
-    if (!current || this.busyAction()) return;
+    if (!current || !current.page.hasMore || this.loadingMoreCounter() || this.loadingCounter()) return;
 
-    const existingItems = current.columns[column].items;
-    const offset = existingItems.length;
-
-    this.busyAction.set(true);
+    const offset = current.page.items.length;
+    this.loadingMoreCounter.set(true);
     this.errorMessage.set(null);
     try {
-      const qs = new URLSearchParams();
-      if (search.trim()) qs.set('search', search.trim());
-      qs.set('limit', '8');
-      qs.set('openOffset', column === 'toPay' ? String(offset) : '0');
-      qs.set('partialOffset', column === 'partial' ? String(offset) : '0');
-      qs.set('paidOffset', column === 'paid' ? String(offset) : '0');
-
-      const res = await fetch(`/api/invoices/counter?${qs.toString()}`, {
+      const query = this.buildCounterQueryString({
+        ...params,
+        offset,
+        limit: params.limit ?? 50,
+      });
+      const res = await fetch(`/api/invoices/counter?${query}`, {
         method: 'GET',
         headers: this.buildHeaders(),
       });
@@ -191,29 +213,154 @@ export class FacturationService {
       }
 
       const nextData = (await res.json()) as BillingCounterResponse;
-      const appended = nextData.columns[column];
-      const merged = [...existingItems, ...appended.items].filter(
+      const merged = [...current.page.items, ...nextData.page.items].filter(
         (item, index, arr) => arr.findIndex((x) => x.id === item.id) === index,
       );
 
       this.counter.set({
-        ...current,
         kpis: nextData.kpis,
         dailyCash: nextData.dailyCash,
-        columns: {
-          ...current.columns,
-          [column]: {
-            items: merged,
-            total: appended.total,
-            hasMore: appended.hasMore,
-          },
+        page: {
+          items: merged,
+          total: nextData.page.total,
+          offset,
+          limit: nextData.page.limit,
+          hasMore: nextData.page.hasMore,
         },
       });
     } catch {
-      this.errorMessage.set('Erreur réseau lors du chargement des notes supplémentaires.');
+      this.errorMessage.set('Erreur r\u00e9seau lors du chargement des notes suppl\u00e9mentaires.');
     } finally {
-      this.busyAction.set(false);
+      this.loadingMoreCounter.set(false);
     }
+  }
+
+  private buildArchivesQueryString(params: {
+    search?: string;
+    status?: BillingArchiveStatusFilter;
+    paymentMethod?: string;
+    fromDate?: string;
+    toDate?: string;
+    sortBy?: BillingSortField;
+    sortOrder?: BillingSortOrder;
+    offset?: number;
+    limit?: number;
+  }): string {
+    const qs = new URLSearchParams();
+    const search = (params.search || '').trim();
+    if (search) qs.set('search', search);
+    if (params.status) qs.set('status', params.status);
+    if (params.paymentMethod) qs.set('paymentMethod', params.paymentMethod);
+    if (params.fromDate) qs.set('fromDate', params.fromDate);
+    if (params.toDate) qs.set('toDate', params.toDate);
+    if (params.sortBy) qs.set('sortBy', params.sortBy);
+    if (params.sortOrder) qs.set('sortOrder', params.sortOrder);
+    if (params.offset !== undefined) qs.set('offset', String(Math.max(0, params.offset)));
+    if (params.limit !== undefined) qs.set('limit', String(Math.min(50, Math.max(1, params.limit))));
+    return qs.toString();
+  }
+
+  async loadArchives(
+    params: {
+      search?: string;
+      status?: BillingArchiveStatusFilter;
+      paymentMethod?: string;
+      fromDate?: string;
+      toDate?: string;
+      sortBy?: BillingSortField;
+      sortOrder?: BillingSortOrder;
+      limit?: number;
+    } = {},
+  ): Promise<void> {
+    this.archivesAbort?.abort();
+    const controller = new AbortController();
+    this.archivesAbort = controller;
+    this.loadingArchives.set(true);
+    this.errorMessage.set(null);
+
+    try {
+      const query = this.buildArchivesQueryString({ ...params, offset: 0, limit: params.limit ?? 50 });
+      const res = await fetch(`/api/invoices/archives?${query}`, {
+        method: 'GET',
+        headers: this.buildHeaders(),
+        signal: controller.signal,
+      });
+      if (!res.ok) {
+        this.errorMessage.set(await this.extractError(res, 'Impossible de charger les archives.'));
+        return;
+      }
+      const data = (await res.json()) as BillingArchivesResponse;
+      this.archivesPage.set(data.page);
+    } catch (err: any) {
+      if (err?.name === 'AbortError') return;
+      this.errorMessage.set('Serveur inaccessible : archives indisponibles hors ligne.');
+    } finally {
+      if (this.archivesAbort === controller) {
+        this.loadingArchives.set(false);
+      }
+    }
+  }
+
+  async loadMoreArchives(
+    params: {
+      search?: string;
+      status?: BillingArchiveStatusFilter;
+      paymentMethod?: string;
+      fromDate?: string;
+      toDate?: string;
+      sortBy?: BillingSortField;
+      sortOrder?: BillingSortOrder;
+      limit?: number;
+    } = {},
+  ): Promise<void> {
+    const current = this.archivesPage();
+    if (!current || !current.hasMore || this.loadingMoreArchives() || this.loadingArchives()) return;
+
+    const offset = current.items.length;
+    this.loadingMoreArchives.set(true);
+    this.errorMessage.set(null);
+    try {
+      const query = this.buildArchivesQueryString({ ...params, offset, limit: params.limit ?? 50 });
+      const res = await fetch(`/api/invoices/archives?${query}`, {
+        method: 'GET',
+        headers: this.buildHeaders(),
+      });
+      if (!res.ok) {
+        this.errorMessage.set(await this.extractError(res, 'Impossible de charger plus de factures.'));
+        return;
+      }
+      const nextData = (await res.json()) as BillingArchivesResponse;
+      const merged = [...current.items, ...nextData.page.items].filter(
+        (item, index, arr) => arr.findIndex((x) => x.id === item.id) === index,
+      );
+      this.archivesPage.set({
+        items: merged,
+        total: nextData.page.total,
+        offset,
+        limit: nextData.page.limit,
+        hasMore: nextData.page.hasMore,
+      });
+    } catch {
+      this.errorMessage.set('Erreur r\u00e9seau lors du chargement des archives.');
+    } finally {
+      this.loadingMoreArchives.set(false);
+    }
+  }
+
+  downloadArchivesExport(params: {
+    search?: string;
+    status?: BillingArchiveStatusFilter;
+    paymentMethod?: string;
+    fromDate?: string;
+    toDate?: string;
+    sortBy?: BillingSortField;
+    sortOrder?: BillingSortOrder;
+  }): Promise<boolean> {
+    const query = this.buildArchivesQueryString({ ...params });
+    return this.downloadFile(
+      `/api/invoices/archives/export?${query}`,
+      'archives-facturation.xlsx',
+    );
   }
 
   async loadNote(id: string): Promise<void> {
@@ -399,6 +546,15 @@ export class FacturationService {
       }
 
       const all = await this.idb.getAll<OutboxItem>('outbox');
+      const activeOutboxKeys = new Set(all.map((i) => i.idempotencyKey));
+      let reconciledByOutbox = false;
+      const beforePending = this.pendingOfflinePaymentKeys();
+      const remainingTracked = beforePending.filter((k) => activeOutboxKeys.has(k));
+      if (remainingTracked.length !== beforePending.length) {
+        this.pendingOfflinePaymentKeys.set(remainingTracked);
+        reconciledByOutbox = true;
+      }
+
       const paymentItems = all.filter(
         (item) =>
           item.type === 'CREATE_INVOICE_PAYMENT' &&
@@ -431,7 +587,7 @@ export class FacturationService {
         }
       }
 
-      if (syncedCount > 0) {
+      if (syncedCount > 0 || reconciledByOutbox) {
         await this.outbox?.refreshPendingCount?.();
         const activeId = this.currentNote()?.id;
         if (activeId) {

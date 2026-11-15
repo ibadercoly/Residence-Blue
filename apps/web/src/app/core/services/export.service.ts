@@ -6,7 +6,7 @@ import {
   ExportDocumentType,
   Role
 } from '@residence-blue/shared';
-import { AuthMockService } from './auth-mock.service';
+import { AuthService } from './auth.service';
 import { RoomsService } from './rooms.service';
 import { GuestProfileService } from './guest-profile.service';
 
@@ -23,7 +23,7 @@ export interface ExportProgress {
   providedIn: 'root'
 })
 export class ExportService {
-  private readonly authService = inject(AuthMockService);
+  private readonly authService = inject(AuthService);
   private readonly roomsService = inject(RoomsService);
   private readonly guestService = inject(GuestProfileService);
 

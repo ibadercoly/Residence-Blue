@@ -47,7 +47,7 @@ test.describe('Porte de Sécurité Front - Connexion', () => {
 
   test('Sécurité 4 : Les tokens de session ne fuient jamais dans l’URL', async ({ page }) => {
     await page.goto('/connexion');
-    await page.locator('#user-login').fill('aissatou.ba@residenceblue.sn');
+    await page.locator('#user-login').fill('fatou.ndiaye@residenceblue.sn');
     await page.locator('#user-password').fill('ThiesTeranga2024!');
     await page.locator('#login-btn').click();
 

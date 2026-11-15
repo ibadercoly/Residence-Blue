@@ -1,4 +1,5 @@
 import { test, expect, Page } from '@playwright/test';
+import { getApiAuthHeaders, loginViaUi } from './auth-e2e.helper';
 
 function futureIso(daysFromToday: number): string {
   const now = new Date();
@@ -34,19 +35,20 @@ async function openModalFromHeader(page: Page): Promise<number> {
 test.describe('Refonte Fenêtre Nouvelle Réservation - E2E & Budget Performance', () => {
   const createdGuestIds: string[] = [];
 
+  test.beforeEach(async ({ page }) => {
+    await loginViaUi(page, 'fatou.ndiaye@residenceblue.sn', 'ThiesTeranga2024!');
+  });
+
   test.afterEach(async ({ request }) => {
+    const headers = await getApiAuthHeaders(request, 'fatou.ndiaye@residenceblue.sn');
     for (const guestId of createdGuestIds.splice(0)) {
-      const gRes = await request.get(`/api/guests/${guestId}`, {
-        headers: { 'x-user-role': 'DIRECTION' },
-      });
+      const gRes = await request.get(`/api/guests/${guestId}`, { headers });
       if (gRes.ok()) {
         const gData = await gRes.json();
         const reservations = Array.isArray(gData?.reservations) ? gData.reservations : [];
         for (const r of reservations) {
           if (r?.id) {
-            await request.post(`/api/reservations/${r.id}/cancel`, {
-              headers: { 'x-user-role': 'DIRECTION' },
-            });
+            await request.post(`/api/reservations/${r.id}/cancel`, { headers });
           }
         }
       }

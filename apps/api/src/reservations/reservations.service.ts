@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import * as crypto from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
+import { appendChainedAuditLog } from '../common/audit/audit.service';
 import { CreateReservationDto, UpdateReservationDto } from './dto/reservation.dto';
 import {
   InvoiceStatus,
@@ -439,44 +440,42 @@ export class ReservationsService {
             });
             createdPaymentId = payment.id;
 
-            await tx.auditLog.create({
-              data: {
-                action: 'PAYMENT_CREATE',
-                entity: 'Payment',
-                entityId: payment.id,
-                ip: ctx.ip || null,
-                after: {
-                  actorRole: ctx.actorRole || 'RECEPTION',
-                  reservationId: res.id,
-                  invoiceId: invoice.id,
-                  amountFcfa: depositFcfa,
-                  method: paymentMethod,
-                  transactionRef: dto.transactionRef?.trim() || null,
-                },
+            await appendChainedAuditLog(tx, {
+              userId: ctx.userId || null,
+              action: 'PAYMENT_CREATE',
+              entity: 'Payment',
+              entityId: payment.id,
+              ip: ctx.ip || null,
+              after: {
+                actorRole: ctx.actorRole || 'RECEPTION',
+                reservationId: res.id,
+                invoiceId: invoice.id,
+                amountFcfa: depositFcfa,
+                method: paymentMethod,
+                transactionRef: dto.transactionRef?.trim() || null,
               },
             });
           }
 
-          await tx.auditLog.create({
-            data: {
-              action: 'RESERVATION_CREATE',
-              entity: 'Reservation',
-              entityId: res.id,
-              ip: ctx.ip || null,
-              after: {
-                actorRole: ctx.actorRole || 'RECEPTION',
-                id: res.id,
-                reference: res.reference,
-                guestId: resolvedGuestId,
-                roomNumber: room.number,
-                checkInDate: checkInStr,
-                checkOutDate: checkOutStr,
-                adultsCount,
-                childrenCount,
-                totalFcfa: res.totalFcfa,
-                depositFcfa: res.depositFcfa,
-                source,
-              },
+          await appendChainedAuditLog(tx, {
+            userId: ctx.userId || null,
+            action: 'RESERVATION_CREATE',
+            entity: 'Reservation',
+            entityId: res.id,
+            ip: ctx.ip || null,
+            after: {
+              actorRole: ctx.actorRole || 'RECEPTION',
+              id: res.id,
+              reference: res.reference,
+              guestId: resolvedGuestId,
+              roomNumber: room.number,
+              checkInDate: checkInStr,
+              checkOutDate: checkOutStr,
+              adultsCount,
+              childrenCount,
+              totalFcfa: res.totalFcfa,
+              depositFcfa: res.depositFcfa,
+              source,
             },
           });
 
@@ -586,14 +585,12 @@ export class ReservationsService {
         include: { guest: true, room: true },
       });
 
-      await tx.auditLog.create({
-        data: {
-          action: 'RESERVATION_UPDATE',
-          entity: 'Reservation',
-          entityId: res.id,
-          before: { status: existing.status, totalFcfa: existing.totalFcfa },
-          after: { status: res.status, totalFcfa: res.totalFcfa },
-        },
+      await appendChainedAuditLog(tx, {
+        action: 'RESERVATION_UPDATE',
+        entity: 'Reservation',
+        entityId: res.id,
+        before: { status: existing.status, totalFcfa: existing.totalFcfa },
+        after: { status: res.status, totalFcfa: res.totalFcfa },
       });
 
       return res;
@@ -621,13 +618,11 @@ export class ReservationsService {
         data: { status: RoomStatus.OCCUPIED },
       });
 
-      await tx.auditLog.create({
-        data: {
-          action: 'RESERVATION_CHECK_IN',
-          entity: 'Reservation',
-          entityId: res.id,
-          after: { status: res.status, checkedInAt: res.checkedInAt },
-        },
+      await appendChainedAuditLog(tx, {
+        action: 'RESERVATION_CHECK_IN',
+        entity: 'Reservation',
+        entityId: res.id,
+        after: { status: res.status, checkedInAt: res.checkedInAt },
       });
 
       return res;
@@ -655,13 +650,11 @@ export class ReservationsService {
         data: { status: RoomStatus.CLEANING },
       });
 
-      await tx.auditLog.create({
-        data: {
-          action: 'RESERVATION_CHECK_OUT',
-          entity: 'Reservation',
-          entityId: res.id,
-          after: { status: res.status, checkedOutAt: res.checkedOutAt },
-        },
+      await appendChainedAuditLog(tx, {
+        action: 'RESERVATION_CHECK_OUT',
+        entity: 'Reservation',
+        entityId: res.id,
+        after: { status: res.status, checkedOutAt: res.checkedOutAt },
       });
 
       return res;
@@ -681,14 +674,12 @@ export class ReservationsService {
         include: { guest: true, room: true },
       });
 
-      await tx.auditLog.create({
-        data: {
-          action: 'RESERVATION_CANCEL',
-          entity: 'Reservation',
-          entityId: res.id,
-          before: { status: existing.status },
-          after: { status: res.status },
-        },
+      await appendChainedAuditLog(tx, {
+        action: 'RESERVATION_CANCEL',
+        entity: 'Reservation',
+        entityId: res.id,
+        before: { status: existing.status },
+        after: { status: res.status },
       });
 
       return res;
@@ -710,13 +701,11 @@ export class ReservationsService {
     }
 
     await this.prisma.$transaction(async (tx) => {
-      await tx.auditLog.create({
-        data: {
-          action: 'RESERVATION_DELETE',
-          entity: 'Reservation',
-          entityId: existing.id,
-          before: { id: existing.id, reference: existing.reference },
-        },
+      await appendChainedAuditLog(tx, {
+        action: 'RESERVATION_DELETE',
+        entity: 'Reservation',
+        entityId: existing.id,
+        before: { id: existing.id, reference: existing.reference },
       });
       await tx.reservation.delete({ where: { id } });
     });

@@ -1,13 +1,27 @@
-import { IsArray, IsInt, IsOptional, IsString, Min, MinLength } from 'class-validator';
+import {
+  ArrayMinSize,
+  IsArray,
+  IsIn,
+  IsInt,
+  IsOptional,
+  IsString,
+  Max,
+  MaxLength,
+  Min,
+  MinLength,
+  ValidateNested,
+} from 'class-validator';
 import { Type } from 'class-transformer';
 
 export class CreateRestaurantProductDto {
   @IsString()
   @MinLength(2)
+  @MaxLength(120)
   name!: string;
 
   @IsOptional()
   @IsString()
+  @MaxLength(500)
   description?: string;
 
   @IsOptional()
@@ -16,6 +30,7 @@ export class CreateRestaurantProductDto {
 
   @IsOptional()
   @IsString()
+  @MaxLength(80)
   categoryName?: string;
 
   @Type(() => Number)
@@ -40,10 +55,12 @@ export class CreateRestaurantProductDto {
   @IsOptional()
   @Type(() => Number)
   @IsInt()
+  @Min(1)
+  @Max(180)
   prepTimeMinutes?: number;
 
   @IsOptional()
-  @IsString()
+  @IsIn(['CUISINE', 'BAR', 'PATISSERIE'])
   prepStation?: string;
 
   @IsOptional()
@@ -51,22 +68,30 @@ export class CreateRestaurantProductDto {
   photoUrl?: string;
 
   @IsOptional()
-  @IsString()
+  @IsIn(['AVAILABLE', 'SOLD_OUT', 'ARCHIVED'])
   status?: string;
 }
 
 export class UpdateRestaurantProductDto {
   @IsOptional()
   @IsString()
+  @MinLength(2)
+  @MaxLength(120)
   name?: string;
 
   @IsOptional()
   @IsString()
+  @MaxLength(500)
   description?: string;
 
   @IsOptional()
   @IsString()
   categoryId?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(80)
+  categoryName?: string;
 
   @IsOptional()
   @Type(() => Number)
@@ -85,10 +110,12 @@ export class UpdateRestaurantProductDto {
   @IsOptional()
   @Type(() => Number)
   @IsInt()
+  @Min(1)
+  @Max(180)
   prepTimeMinutes?: number;
 
   @IsOptional()
-  @IsString()
+  @IsIn(['CUISINE', 'BAR', 'PATISSERIE'])
   prepStation?: string;
 
   @IsOptional()
@@ -96,7 +123,7 @@ export class UpdateRestaurantProductDto {
   photoUrl?: string;
 
   @IsOptional()
-  @IsString()
+  @IsIn(['AVAILABLE', 'SOLD_OUT', 'ARCHIVED'])
   status?: string;
 }
 
@@ -109,18 +136,21 @@ export class CreateRestaurantOrderLineDto {
   @IsString()
   productId?: string;
 
+  @IsOptional()
   @IsString()
-  name!: string;
+  @MaxLength(120)
+  name?: string;
 
   @Type(() => Number)
   @IsInt()
   @Min(1)
   quantity!: number;
 
+  @IsOptional()
   @Type(() => Number)
   @IsInt()
   @Min(0)
-  unitPriceFcfa!: number;
+  unitPriceFcfa?: number;
 
   @IsOptional()
   @Type(() => Number)
@@ -134,6 +164,7 @@ export class CreateRestaurantOrderLineDto {
 
   @IsOptional()
   @IsString()
+  @MaxLength(250)
   notes?: string;
 
   @IsOptional()
@@ -144,18 +175,21 @@ export class CreateRestaurantOrderLineDto {
 export class CreateRestaurantOrderDto {
   @IsOptional()
   @IsString()
+  @MaxLength(40)
   ticketNumber?: string;
 
   @IsOptional()
-  @IsString()
-  destinationType?: string;
+  @IsIn(['ROOM', 'TABLE', 'TAKEAWAY'])
+  destinationType?: 'ROOM' | 'TABLE' | 'TAKEAWAY';
 
   @IsOptional()
   @IsString()
+  @MaxLength(60)
   tableLabel?: string;
 
   @IsOptional()
   @IsString()
+  @MaxLength(20)
   roomNumber?: string;
 
   @IsOptional()
@@ -168,26 +202,89 @@ export class CreateRestaurantOrderDto {
 
   @IsOptional()
   @IsString()
+  @MaxLength(80)
   serverName?: string;
 
   @IsOptional()
-  @IsString()
+  @IsIn(['SEND_TO_KITCHEN', 'ROOM_CHARGE', 'PAY'])
+  action?: 'SEND_TO_KITCHEN' | 'ROOM_CHARGE' | 'PAY';
+
+  @IsOptional()
+  @IsIn(['PENDING', 'SENT_TO_KITCHEN'])
   status?: string;
 
   @IsOptional()
-  @IsString()
+  @IsIn(['CASH', 'ORANGE_MONEY', 'WAVE', 'CARD', 'BANK_TRANSFER', 'ROOM_CHARGE'])
   paymentMethod?: string;
 
+  @IsOptional()
+  @IsString()
+  @MaxLength(80)
+  paymentRef?: string;
+
   @IsArray()
+  @ArrayMinSize(1)
+  @ValidateNested({ each: true })
+  @Type(() => CreateRestaurantOrderLineDto)
   items!: CreateRestaurantOrderLineDto[];
 }
 
 export class UpdateRestaurantOrderDto {
   @IsOptional()
+  @IsIn(['PENDING', 'SENT_TO_KITCHEN', 'IN_PREPARATION', 'READY', 'SERVED', 'CANCELLED'])
+  status?: string;
+
+  @IsOptional()
+  @IsIn(['CASH', 'ORANGE_MONEY', 'WAVE', 'CARD', 'BANK_TRANSFER', 'ROOM_CHARGE'])
+  paymentMethod?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(300)
+  cancellationReason?: string;
+}
+
+export class CancelRestaurantOrderDto {
+  @IsString()
+  @MinLength(3)
+  @MaxLength(300)
+  reason!: string;
+}
+
+export class PayRestaurantOrderDto {
+  @IsIn(['CASH', 'ORANGE_MONEY', 'WAVE', 'CARD', 'BANK_TRANSFER'])
+  paymentMethod!: 'CASH' | 'ORANGE_MONEY' | 'WAVE' | 'CARD' | 'BANK_TRANSFER';
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(80)
+  transactionRef?: string;
+}
+
+export class RestaurantOrdersQueryDto {
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  offset?: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(50)
+  limit?: number;
+
+  @IsOptional()
   @IsString()
   status?: string;
 
   @IsOptional()
+  @IsIn(['ROOM', 'TABLE', 'TAKEAWAY'])
+  destinationType?: 'ROOM' | 'TABLE' | 'TAKEAWAY';
+
+  @IsOptional()
   @IsString()
-  paymentMethod?: string;
+  @MaxLength(80)
+  search?: string;
 }

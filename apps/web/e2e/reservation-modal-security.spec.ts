@@ -1,6 +1,10 @@
 import { test, expect } from '@playwright/test';
+import { loginViaUi } from './auth-e2e.helper';
 
 test.describe('Refonte Fenêtre Nouvelle Réservation - Sécurité & Mémoire', () => {
+  test.beforeEach(async ({ page }) => {
+    await loginViaUi(page, 'fatou.ndiaye@residenceblue.sn', 'ThiesTeranga2024!');
+  });
   test('Aucune fuite mémoire après 20 ouvertures/fermetures successives', async ({ page }) => {
     await page.goto('/tableau-de-bord', { waitUntil: 'networkidle' });
     const client = await page.context().newCDPSession(page);
@@ -60,7 +64,7 @@ test.describe('Refonte Fenêtre Nouvelle Réservation - Sécurité & Mémoire', 
     await page.locator('[data-testid="quick-guest-phone"]').fill('+221 77 333 44 55');
 
     // Simuler une course perdue côté serveur (409 Conflict)
-    await page.route('**/api/reservations', async (route) => {
+    await page.context().route('**/api/reservations', async (route) => {
       if (route.request().method() === 'POST') {
         await route.fulfill({
           status: 409,

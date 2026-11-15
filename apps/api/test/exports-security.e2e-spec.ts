@@ -5,6 +5,7 @@ import { AppModule } from '../src/app.module';
 import { PrismaService } from '../src/prisma/prisma.service';
 import { sanitizeSpreadsheetCell } from '../src/exports/exports.service';
 import { Role } from '@residence-blue/shared';
+import { signMockTestToken } from './auth-test.helper';
 
 const request: any = (supertest as any).default || supertest;
 
@@ -58,23 +59,23 @@ describe('Porte de Sécurité : Module Exports (API)', () => {
   });
 
   describe('2. Contrôle d\'accès RBAC strict', () => {
-    it('doit refuser l\'accès au journal d\'audit sans authentification (403)', async () => {
+    it('doit refuser l\'accès au journal d\'audit sans authentification (401)', async () => {
       await request(app.getHttpServer())
         .get('/api/exports/audit')
-        .expect(403);
+        .expect(401);
     });
 
     it('doit refuser l\'accès au journal d\'audit au rôle RECEPTION (403)', async () => {
       await request(app.getHttpServer())
         .get('/api/exports/audit')
-        .set('x-user-role', Role.RECEPTION)
+        .set('Authorization', `Bearer ${signMockTestToken(Role.RECEPTION)}`)
         .expect(403);
     });
 
     it('doit autoriser l\'accès au journal d\'audit au rôle DIRECTION (200)', async () => {
       const res = await request(app.getHttpServer())
         .get('/api/exports/audit')
-        .set('x-user-role', Role.DIRECTION)
+        .set('Authorization', `Bearer ${signMockTestToken(Role.DIRECTION)}`)
         .expect(200);
 
       expect(Array.isArray(res.body)).toBe(true);
@@ -83,7 +84,7 @@ describe('Porte de Sécurité : Module Exports (API)', () => {
     it('doit refuser l\'export CLIENTS_LIST_EXCEL au rôle RECEPTION (403)', async () => {
       const res = await request(app.getHttpServer())
         .get('/api/exports/download?type=CLIENTS_LIST_EXCEL')
-        .set('x-user-role', Role.RECEPTION)
+        .set('Authorization', `Bearer ${signMockTestToken(Role.RECEPTION)}`)
         .expect(403);
 
       expect(res.body.message).toMatch(/Rôle non autorisé/);
@@ -92,7 +93,7 @@ describe('Porte de Sécurité : Module Exports (API)', () => {
     it('doit autoriser l\'export CLIENTS_LIST_EXCEL au rôle DIRECTION (200)', async () => {
       const res = await request(app.getHttpServer())
         .get('/api/exports/download?type=CLIENTS_LIST_EXCEL')
-        .set('x-user-role', Role.DIRECTION)
+        .set('Authorization', `Bearer ${signMockTestToken(Role.DIRECTION)}`)
         .expect(200);
 
       expect(res.headers['content-type']).toMatch(/openxmlformats-officedocument/);
@@ -103,7 +104,7 @@ describe('Porte de Sécurité : Module Exports (API)', () => {
     it('doit refuser une période excédant 12 mois (400)', async () => {
       const res = await request(app.getHttpServer())
         .get('/api/exports/download?type=RESTAURANT_POOL_SALES_EXCEL&startDate=2024-01-01&endDate=2025-06-01')
-        .set('x-user-role', Role.DIRECTION)
+        .set('Authorization', `Bearer ${signMockTestToken(Role.DIRECTION)}`)
         .expect(400);
 
       expect(res.body.message).toMatch(/dépasse la limite stricte de 12 mois/);
@@ -112,7 +113,7 @@ describe('Porte de Sécurité : Module Exports (API)', () => {
     it('doit refuser si la date de début est postérieure à la date de fin (400)', async () => {
       const res = await request(app.getHttpServer())
         .get('/api/exports/download?type=RESTAURANT_POOL_SALES_EXCEL&startDate=2026-11-10&endDate=2026-11-01')
-        .set('x-user-role', Role.DIRECTION)
+        .set('Authorization', `Bearer ${signMockTestToken(Role.DIRECTION)}`)
         .expect(400);
 
       expect(res.body.message).toMatch(/ne peut pas être postérieure/);
@@ -121,7 +122,7 @@ describe('Porte de Sécurité : Module Exports (API)', () => {
     it('doit refuser si les dates sont manquantes pour un rapport périodique (400)', async () => {
       const res = await request(app.getHttpServer())
         .get('/api/exports/download?type=RESTAURANT_POOL_SALES_EXCEL')
-        .set('x-user-role', Role.DIRECTION)
+        .set('Authorization', `Bearer ${signMockTestToken(Role.DIRECTION)}`)
         .expect(400);
 
       expect(res.body.message).toMatch(/obligatoires/);
@@ -132,8 +133,7 @@ describe('Porte de Sécurité : Module Exports (API)', () => {
     it('doit streamer un fichier PDF valide avec en-têtes corrects', async () => {
       const res = await request(app.getHttpServer())
         .get('/api/exports/download?type=DAILY_SALES_CLOSURE_PDF')
-        .set('x-user-role', Role.RECEPTION)
-        .set('x-user-name', 'Aminata Diallo')
+        .set('Authorization', `Bearer ${signMockTestToken(Role.RECEPTION, undefined, 'Aminata Diallo')}`)
         .expect(200);
 
       expect(res.headers['content-type']).toBe('application/pdf');
@@ -143,7 +143,7 @@ describe('Porte de Sécurité : Module Exports (API)', () => {
     it('doit enregistrer une entrée d\'audit pour chaque export généré', async () => {
       const auditRes = await request(app.getHttpServer())
         .get('/api/exports/audit')
-        .set('x-user-role', Role.DIRECTION)
+        .set('Authorization', `Bearer ${signMockTestToken(Role.DIRECTION)}`)
         .expect(200);
 
       expect(auditRes.body.length).toBeGreaterThan(0);

@@ -47,6 +47,23 @@ export interface BillingDailyCash {
   byMethod: DailyCashByMethod;
 }
 
+export type BillingCounterFilter =
+  | 'TO_PROCESS'
+  | 'DEPARTURES_TODAY'
+  | 'OVERDUE_24H'
+  | 'PAID_TODAY';
+
+export type BillingSortField = 'guest' | 'stay' | 'balance' | 'updatedAt';
+export type BillingSortOrder = 'asc' | 'desc';
+
+export type BillingArchiveStatusFilter =
+  | 'ALL'
+  | 'PAID'
+  | 'OPEN'
+  | 'PARTIAL'
+  | 'CREDIT_NOTE'
+  | 'CANCELLED';
+
 export interface BillingSummaryCard {
   id: string;
   invoiceNumber: string | null;
@@ -65,24 +82,30 @@ export interface BillingSummaryCard {
   balanceFcfa: number;
   progressPercent: number;
   isDepartureToday: boolean;
+  isOverdue24h?: boolean;
+  paymentMethods?: BillingPaymentMethod[];
   parentInvoiceId: string | null;
+  createdAt?: string;
+  issuedAt?: string;
   updatedAt: string;
 }
 
-export interface BillingColumnPage {
+export interface BillingListPage {
   items: BillingSummaryCard[];
   total: number;
+  offset: number;
+  limit: number;
   hasMore: boolean;
 }
 
 export interface BillingCounterResponse {
   kpis: BillingCounterKpis;
   dailyCash: BillingDailyCash;
-  columns: {
-    toPay: BillingColumnPage;
-    partial: BillingColumnPage;
-    paid: BillingColumnPage;
-  };
+  page: BillingListPage;
+}
+
+export interface BillingArchivesResponse {
+  page: BillingListPage;
 }
 
 export interface BillingLineDetail {

@@ -3,7 +3,8 @@ import fs from 'fs';
 import path from 'path';
 
 const BROWSER_DIR = path.resolve('apps/web/dist/residence-blue-web/browser');
-const PORT = 4200;
+const PORT = Number(process.env.PORT || 4200);
+const API_PORT = Number(process.env.API_PORT || 3000);
 
 const mimeTypes = {
   '.html': 'text/html',
@@ -24,21 +25,26 @@ const server = http.createServer((req, res) => {
   if (req.url.startsWith('/api') || req.url.startsWith('/health')) {
     const proxyReq = http.request({
       hostname: '127.0.0.1',
-      port: 3000,
+      port: API_PORT,
       path: req.url,
       method: req.method,
+      agent: false,
       headers: {
         ...req.headers,
-        host: '127.0.0.1:3000',
+        host: `127.0.0.1:${API_PORT}`,
+        connection: 'close',
       },
     }, (proxyRes) => {
       res.writeHead(proxyRes.statusCode, proxyRes.headers);
       proxyRes.pipe(res);
     });
 
+    req.on('aborted', () => proxyReq.destroy());
+    res.on('close', () => { if (!res.writableEnded) proxyReq.destroy(); });
     proxyReq.on('error', (err) => {
-      res.writeHead(502, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ error: 'API indisponible sur 127.0.0.1:3000', details: err.message }));
+      if (req.aborted || res.writableEnded) return;
+      if (!res.headersSent) res.writeHead(502, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: `API indisponible sur 127.0.0.1:${API_PORT}`, details: err.message }));
     });
 
     req.pipe(proxyReq);

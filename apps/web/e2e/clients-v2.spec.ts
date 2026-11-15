@@ -1,5 +1,6 @@
 import { expect, test } from '@playwright/test';
 import * as path from 'path';
+import { createE2eUser, deleteE2eUsers, getApiAuthHeaders, loginViaUi } from './auth-e2e.helper';
 
 const CAPTURES_DIR = path.resolve(
   __dirname,
@@ -7,23 +8,19 @@ const CAPTURES_DIR = path.resolve(
 );
 
 test.describe('Clients V2 Fluide (E2E & Responsive)', () => {
+  let dirUser = { email: '', password: '' };
+
+  test.beforeAll(() => {
+    dirUser = createE2eUser('DIRECTION');
+  });
+
+  test.afterAll(() => {
+    if (dirUser.email) deleteE2eUsers([dirUser.email]);
+  });
+
   test.beforeEach(async ({ page }) => {
     page.on('pageerror', (err) => console.error('PAGEERROR:', err.message));
-    await page.addInitScript(() => {
-      localStorage.setItem(
-        'residence_blue_auth_session',
-        JSON.stringify({
-          token: 'e2e-token',
-          expiresAt: Date.now() + 86400000,
-          user: {
-            id: 'dir-1',
-            email: 'direction@residenceblue.sn',
-            fullName: 'Aïssatou Ba',
-            role: 'DIRECTION',
-          },
-        }),
-      );
-    });
+    await loginViaUi(page, dirUser.email, dirUser.password);
   });
 
   test('aucun débordement horizontal à 360, 768, 1024 et 1440 px', async ({ page }) => {
@@ -91,7 +88,7 @@ test.describe('Clients V2 Fluide (E2E & Responsive)', () => {
     await expect(page.getByTestId('inline-display-address')).toContainText(updatedCity);
 
     // 3. Rollback sur échec de l'API
-    await page.route(`**/api/guests/${createdId}`, async (route) => {
+    await page.context().route(`**/api/guests/${createdId}`, async (route) => {
       if (route.request().method() === 'PATCH') {
         await route.fulfill({
           status: 500,
@@ -108,7 +105,7 @@ test.describe('Clients V2 Fluide (E2E & Responsive)', () => {
     await page.getByTestId('inline-input-nationality').press('Enter');
     await expect(page.getByTestId('inline-error-banner')).toBeVisible();
     await expect(page.getByTestId('inline-display-nationality')).toContainText('Sénégalaise');
-    await page.unroute(`**/api/guests/${createdId}`);
+    await page.context().unroute(`**/api/guests/${createdId}`);
 
     // 4. Détection de doublon pendant la frappe
     await page.getByTestId('new-client-btn').click();
@@ -144,9 +141,10 @@ test.describe('Clients V2 Fluide (E2E & Responsive)', () => {
     const fullName = `Ibrahima Fall ${suffix}`;
     const phone = `+221 76 701 ${suffix.slice(0, 2)} ${suffix.slice(2, 4)}`;
 
+    const headers = await getApiAuthHeaders(page.request, dirUser.email, dirUser.password);
     // Créer via API pour un test mobile rapide et déterministe
     const createRes = await page.request.post('/api/guests', {
-      headers: { 'x-user-role': 'DIRECTION' },
+      headers,
       data: { fullName, phone },
     });
     expect(createRes.ok()).toBe(true);
@@ -167,9 +165,7 @@ test.describe('Clients V2 Fluide (E2E & Responsive)', () => {
     await expect(page.getByTestId('directory-pane')).toBeVisible();
     await expect(page.getByTestId('directory-search')).toHaveValue(suffix);
 
-    // Nettoyage
-    await page.request.delete(`/api/guests/${created.id}`, {
-      headers: { 'x-user-role': 'DIRECTION' },
-    });
+    // Nettoyage (suppression réservée DIRECTION, ignorer si 403 en session Réception)
+    await page.request.delete(`/api/guests/${created.id}`, { headers }).catch(() => {});
   });
 });

@@ -1,31 +1,27 @@
 import { test, expect } from '@playwright/test';
+import { createE2eUser, deleteE2eUsers, loginViaUi } from './auth-e2e.helper';
 
 test.describe('Persistance de Bout en Bout (chore/audit-persistance)', () => {
   const dummyPngBase64 =
     'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
+
+  let dirUser = { email: '', password: '' };
+
+  test.beforeAll(() => {
+    dirUser = createE2eUser('DIRECTION');
+  });
+
+  test.afterAll(() => {
+    if (dirUser.email) deleteE2eUsers([dirUser.email]);
+  });
 
   test.beforeEach(async ({ page }) => {
     await page.addInitScript(() => {
       try {
         indexedDB.deleteDatabase('residence_blue_db');
       } catch {}
-
-      const session = {
-        user: {
-          id: 'usr-001-ba',
-          email: 'aissatou.ba@residenceblue.sn',
-          fullName: 'Aïssatou Ba',
-          role: 'DIRECTION',
-          jobTitle: "Directrice d'Exploitation",
-        },
-        token: 'mock-jwt-token-direction',
-        expiresAt: Date.now() + 86400000,
-        stayConnected8h: true,
-        lastActivityAt: Date.now(),
-        isLocked: false,
-      };
-      localStorage.setItem('residence_blue_auth_session', JSON.stringify(session));
     });
+    await loginViaUi(page, dirUser.email, dirUser.password);
   });
 
   test('1. Connexion utilisateur, création et modification de chambre avec photo, persistance après rechargement et suppression', async ({

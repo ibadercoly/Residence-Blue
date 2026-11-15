@@ -1,4 +1,5 @@
-import { Injectable, signal } from '@angular/core';
+import { Injectable, inject, signal } from '@angular/core';
+import { AuthService } from './auth.service';
 
 export type GuestDirectoryFilter = 'ALL' | 'IN_STAY' | 'UPCOMING';
 export type GuestStayState = 'IN_STAY' | 'UPCOMING' | 'NONE';
@@ -60,6 +61,7 @@ const IDB_STORE = 'directory_cache';
 
 @Injectable({ providedIn: 'root' })
 export class ClientsService {
+  private readonly authService = inject(AuthService, { optional: true });
   readonly items = signal<GuestDirectoryItem[]>([]);
   readonly total = signal<number>(0);
   readonly nextCursor = signal<string | null>(null);
@@ -94,22 +96,13 @@ export class ClientsService {
   private feedbackTimer: ReturnType<typeof setTimeout> | null = null;
 
   getCurrentRole(): string {
-    try {
-      const raw = localStorage.getItem('residence_blue_auth_session');
-      if (raw) {
-        const parsed = JSON.parse(raw);
-        if (parsed?.user?.role) return parsed.user.role;
-      }
-    } catch {
-      // ignore
-    }
-    return 'DIRECTION';
+    return this.authService?.currentRole() || '';
   }
 
   private headers(): Record<string, string> {
     return {
       'Content-Type': 'application/json',
-      'x-user-role': this.getCurrentRole(),
+      ...(this.authService ? this.authService.getAuthHeaders() : {}),
     };
   }
 

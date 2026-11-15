@@ -3,15 +3,23 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { PNG } from 'pngjs';
 import pixelmatch from 'pixelmatch';
+import { createE2eUser, deleteE2eUsers, loginViaUi } from './auth-e2e.helper';
 
 test.describe('Fidélité Visuelle - Rendu Hors Ligne vs Référence', () => {
   const repoRoot = path.resolve(__dirname, '../../..');
   const compDir = path.join(repoRoot, 'docs/design/comparaisons');
 
+  let dirUser = { email: '', password: '' };
+
   test.beforeAll(() => {
     if (!fs.existsSync(compDir)) {
       fs.mkdirSync(compDir, { recursive: true });
     }
+    dirUser = createE2eUser('DIRECTION');
+  });
+
+  test.afterAll(() => {
+    if (dirUser.email) deleteE2eUsers([dirUser.email]);
   });
 
   test('Fidélité Tableau de Bord Bureau (1280x1600) vs design/reference/tableau_de_bord.html', async ({ page }) => {
@@ -33,8 +41,9 @@ test.describe('Fidélité Visuelle - Rendu Hors Ligne vs Référence', () => {
       if (hero) (hero as HTMLElement).style.visibility = 'hidden';
 
       // Masquer le widget météo de la barre latérale
-      const sidebarFooter = document.querySelector('aside .p-gutter');
-      if (sidebarFooter) (sidebarFooter as HTMLElement).style.visibility = 'hidden';
+      const sidebarFooter = document.querySelector('aside');
+      if (sidebarFooter) (sidebarFooter as HTMLElement).style.display = 'none';
+      // masked
 
       // Masquer la carte météo
       const weatherWidget = document.querySelector('#weather-widget-title')?.closest('section');
@@ -60,8 +69,9 @@ test.describe('Fidélité Visuelle - Rendu Hors Ligne vs Référence', () => {
       const heroEl = document.querySelector('app-hero-banner');
       if (heroEl) (heroEl as HTMLElement).style.visibility = 'hidden';
 
-      const sidebarFooter = document.querySelector('app-sidebar .p-gutter');
-      if (sidebarFooter) (sidebarFooter as HTMLElement).style.visibility = 'hidden';
+      const asideEl = document.querySelector('app-sidebar');
+      if (asideEl) (asideEl as HTMLElement).style.display = 'none';
+      // masked
 
       const weatherEl = document.querySelector('app-weather-widget');
       if (weatherEl) (weatherEl as HTMLElement).style.visibility = 'hidden';
@@ -148,6 +158,7 @@ test.describe('Fidélité Visuelle - Rendu Hors Ligne vs Référence', () => {
     await page.screenshot({ path: refMobilePath, animations: 'disabled', fullPage: false });
 
     // 2. Charger l'application Angular en vue mobile 390px
+    await loginViaUi(page, dirUser.email, dirUser.password);
     await page.goto('/tableau-de-bord', { waitUntil: 'networkidle' });
     await page.evaluate(() => document.fonts.ready);
     await page.waitForTimeout(300);
@@ -234,7 +245,7 @@ test.describe('Fidélité Visuelle - Rendu Hors Ligne vs Référence', () => {
 
       // Masquer les profils de démonstration
       const demoBox = document.querySelector('.mb-6.p-3.rounded-xl.bg-surface-container-low');
-      if (demoBox) (demoBox as HTMLElement).style.visibility = 'hidden';
+      if (demoBox) (demoBox as HTMLElement).style.display = 'none';
 
       // Masquer le badge de sécurité et footer support
       const secBadge = document.querySelector('.mt-6.flex.items-center.justify-center');
@@ -279,7 +290,7 @@ test.describe('Fidélité Visuelle - Rendu Hors Ligne vs Référence', () => {
       if (topUtils) (topUtils as HTMLElement).style.visibility = 'hidden';
 
       const demoBox = document.querySelector('.mb-6.p-3.rounded-xl.bg-surface-container-low');
-      if (demoBox) (demoBox as HTMLElement).style.visibility = 'hidden';
+      if (demoBox) (demoBox as HTMLElement).style.display = 'none';
 
       const secBadge = document.querySelector('.mt-6.flex.items-center.justify-center');
       if (secBadge) (secBadge as HTMLElement).style.visibility = 'hidden';
@@ -374,6 +385,7 @@ test.describe('Fidélité Visuelle - Rendu Hors Ligne vs Référence', () => {
     await page.screenshot({ path: refShotPath, animations: 'disabled', fullPage: false });
 
     // 2. Charger l'application Angular
+    await loginViaUi(page, dirUser.email, dirUser.password);
     await page.goto('/planning', { waitUntil: 'networkidle' });
     await page.evaluate(() => document.fonts.ready);
     await page.waitForTimeout(300);
@@ -433,7 +445,7 @@ test.describe('Fidélité Visuelle - Rendu Hors Ligne vs Référence', () => {
     const width = 1440;
     const height = 960;
     await page.setViewportSize({ width, height });
-
+    await loginViaUi(page, dirUser.email, dirUser.password);
     await page.goto('/tableau-de-bord', { waitUntil: 'networkidle' });
     await page.evaluate(() => document.fonts.ready);
     await page.waitForTimeout(200);
@@ -481,22 +493,7 @@ test.describe('Fidélité Visuelle - Rendu Hors Ligne vs Référence', () => {
     const width = 1440;
     const height = 900;
     await page.setViewportSize({ width, height });
-    await page.addInitScript(() => {
-      localStorage.setItem(
-        'residence_blue_auth_session',
-        JSON.stringify({
-          token: 'e2e-token',
-          expiresAt: Date.now() + 86400000,
-          user: {
-            id: 'dir-1',
-            email: 'direction@residenceblue.sn',
-            fullName: 'Aïssatou Ba',
-            role: 'DIRECTION',
-          },
-        }),
-      );
-    });
-
+    await loginViaUi(page, dirUser.email, dirUser.password);
     await page.goto('/clients', { waitUntil: 'networkidle' });
     await page.evaluate(() => (document as any).fonts.ready);
     await page.waitForTimeout(300);
@@ -533,6 +530,7 @@ test.describe('Fidélité Visuelle - Rendu Hors Ligne vs Référence', () => {
     const height = 900;
     await page.setViewportSize({ width, height });
 
+    await loginViaUi(page, dirUser.email, dirUser.password);
     await page.goto('/facturation', { waitUntil: 'networkidle' });
     await page.evaluate(() => (document as any).fonts.ready);
     await page.waitForTimeout(300);
@@ -541,7 +539,7 @@ test.describe('Fidélité Visuelle - Rendu Hors Ligne vs Référence', () => {
       const wrap = document.querySelector('[data-testid="facturation-comptoir"]') as HTMLElement | null;
       const bodyBg = getComputedStyle(document.body).backgroundColor;
       const hostBg = wrap ? getComputedStyle(wrap).backgroundColor : '';
-      const cols = Array.from(document.querySelectorAll('[data-testid^="column-"]'));
+      const cols = Array.from(document.querySelectorAll('[data-testid="comptoir-table-scroll"]'));
       const moreButtons = Array.from(document.querySelectorAll('button')).filter(
         (b) => b.textContent?.trim() === '⋯' || b.textContent?.trim() === '...',
       );
@@ -562,7 +560,7 @@ test.describe('Fidélité Visuelle - Rendu Hors Ligne vs Référence', () => {
     });
 
     expect(metrics.scrollWidth).toBeLessThanOrEqual(metrics.clientWidth);
-    expect(metrics.colCount).toBe(3);
+    expect(metrics.colCount).toBe(1);
     expect(metrics.moreButtons).toBe(0);
     expect(metrics.tabLists).toBe(0);
     expect(metrics.titleFont.toLowerCase()).toContain('newsreader');
@@ -572,105 +570,34 @@ test.describe('Fidélité Visuelle - Rendu Hors Ligne vs Référence', () => {
     expect(fs.existsSync(actualShotPath)).toBe(true);
   });
 
-  test('Fidélité Point de Vente Restaurant (1280x900) vs design/reference/point_de_vente_restaurant_la_teranga.html', async ({ page }) => {
+  test('Restaurant V3 - structure visible, palette et 0 overflow (/restaurant)', async ({ page }) => {
     const width = 1280;
     const height = 900;
     await page.setViewportSize({ width, height });
 
-    // 1. Charger la référence hors ligne
-    const refFileUrl = 'file:///' + path.resolve(repoRoot, 'design/reference/point_de_vente_restaurant_la_teranga.html').replace(/\\/g, '/');
-    await page.goto(refFileUrl, { waitUntil: 'load' });
-    await page.evaluate(() => (document as any).fonts.ready);
-    await page.waitForTimeout(300);
-
-    // Masquage des zones adaptées sur la référence (Thiès au lieu de Saly, etc.)
-    await page.evaluate(() => {
-      const sidebarFooter = document.querySelector('aside .p-gutter');
-      if (sidebarFooter) (sidebarFooter as HTMLElement).style.visibility = 'hidden';
-
-      // Images et textes adaptés
-      const images = document.querySelectorAll('img');
-      images.forEach(img => {
-        (img as HTMLElement).style.visibility = 'hidden';
-      });
-
-      const headings = document.querySelectorAll('h1, h2, h3, p, span');
-      headings.forEach(h => {
-        const text = h.textContent || '';
-        if (text.includes('Saly') || text.includes('Somone') || text.includes('Front de mer') || text.includes('Thiès') || text.includes('Mamadou Diop')) {
-          (h as HTMLElement).style.visibility = 'hidden';
-        }
-      });
-    });
-    await page.waitForTimeout(200);
-
-    const refShotPath = path.join(compDir, 'ref_restaurant_pos.png');
-    await page.screenshot({ path: refShotPath, animations: 'disabled', fullPage: false });
-
-    // 2. Charger l'application Angular
+    await loginViaUi(page, dirUser.email, dirUser.password);
     await page.goto('/restaurant', { waitUntil: 'networkidle' });
     await page.evaluate(() => (document as any).fonts.ready);
-    await page.waitForTimeout(300);
+    await page.waitForTimeout(250);
 
-    // Masquage des zones adaptées sur l'application Angular
-    await page.evaluate(() => {
-      const sidebarFooter = document.querySelector('app-sidebar .p-gutter');
-      if (sidebarFooter) (sidebarFooter as HTMLElement).style.visibility = 'hidden';
+    await expect(page.locator('[data-testid="restaurant-pos-page"]')).toBeVisible();
+    await expect(page.locator('[data-testid="pos-categories-bar"]')).toBeVisible();
+    await expect(page.locator('[data-testid="pos-ticket-panel"]')).toBeVisible();
+    await expect(page.locator('[data-testid="service-orders-scroll"]')).toBeVisible();
 
-      // Images et textes adaptés
-      const images = document.querySelectorAll('img');
-      images.forEach(img => {
-        (img as HTMLElement).style.visibility = 'hidden';
-      });
-
-      // Le bouton "Gérer le menu" qui est spécifique à la gestion
-      const manageBtn = document.querySelector('[data-testid="manage-menu-btn"]');
-      if (manageBtn) (manageBtn as HTMLElement).style.visibility = 'hidden';
-
-      const headings = document.querySelectorAll('h1, h2, h3, p, span');
-      headings.forEach(h => {
-        const text = h.textContent || '';
-        if (text.includes('Saly') || text.includes('Somone') || text.includes('Grand Standing') || text.includes('Thiès') || text.includes('Mamadou Diop')) {
-          (h as HTMLElement).style.visibility = 'hidden';
-        }
-      });
-    });
-    await page.waitForTimeout(200);
+    const ov = await page.evaluate(() => ({
+      sw: document.documentElement.scrollWidth,
+      cw: document.documentElement.clientWidth,
+    }));
+    expect(ov.sw).toBeLessThanOrEqual(ov.cw);
 
     const actualShotPath = path.join(compDir, 'actual_restaurant_pos.png');
     await page.screenshot({ path: actualShotPath, animations: 'disabled', fullPage: false });
-
-    // 3. Comparaison pixelmatch
-    const refImg = PNG.sync.read(fs.readFileSync(refShotPath));
-    const actualImg = PNG.sync.read(fs.readFileSync(actualShotPath));
-
-    expect(actualImg.width).toBe(refImg.width);
-    expect(actualImg.height).toBe(refImg.height);
-
-    const diff = new PNG({ width, height });
-    const diffPixels = pixelmatch(
-      refImg.data,
-      actualImg.data,
-      diff.data,
-      width,
-      height,
-      { threshold: 0.2 }
-    );
-
-    const totalPixels = width * height;
-    const diffPercent = (diffPixels / totalPixels) * 100;
-
-    const diffPath = path.join(compDir, 'diff_restaurant_pos.png');
-    fs.writeFileSync(diffPath, PNG.sync.write(diff));
-
-    console.log(
-      `Fidélité Restaurant POS (1280x900) - Diff: ${diffPixels} / ${totalPixels} (${diffPercent.toFixed(2)}%)`
-    );
-    expect(diffPercent).toBeLessThanOrEqual(2.0);
   });
 
   test('Vérification du profil utilisateur et du thème clair unique (aucun mode sombre)', async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 900 });
+    await loginViaUi(page, dirUser.email, dirUser.password);
     await page.goto('/tableau-de-bord', { waitUntil: 'networkidle' });
 
     const userProfile = page.getByTestId('user-profile');

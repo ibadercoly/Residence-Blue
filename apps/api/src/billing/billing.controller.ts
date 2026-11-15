@@ -17,6 +17,7 @@ import { Request, Response } from 'express';
 import { BillingService, BillingActorContext } from './billing.service';
 import {
   CheckoutInvoiceDto,
+  ArchivesQueryDto,
   CounterQueryDto,
   CreateCreditNoteDto,
   CreateInvoiceDto,
@@ -34,10 +35,10 @@ export class BillingController {
   constructor(private readonly billingService: BillingService) {}
 
   private extractActor(req: Request, idempotencyKey?: string): BillingActorContext {
-    const rawRole =
-      ((req as any).user?.role as string) ||
-      (req.headers['x-user-role'] as string) ||
-      'RECEPTION';
+    const user = (req as any).user as
+      | { id?: string; role?: string; fullName?: string }
+      | undefined;
+    const rawRole = user?.role || '';
     const actorRole =
       rawRole === 'ADMIN' || rawRole === 'MANAGER'
         ? 'DIRECTION'
@@ -46,11 +47,8 @@ export class BillingController {
           : rawRole === 'RESTAURANT_STAFF'
             ? 'RESTAURANT'
             : rawRole;
-    const actorName =
-      ((req as any).user?.fullName as string) ||
-      (req.headers['x-user-name'] as string) ||
-      `Opérateur (${actorRole})`;
-    const actorId = ((req as any).user?.id as string) || undefined;
+    const actorName = user?.fullName || `Opérateur (${actorRole || 'Inconnu'})`;
+    const actorId = user?.id || undefined;
     const ip =
       (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() ||
       req.ip ||
@@ -69,6 +67,23 @@ export class BillingController {
   @Roles(Role.DIRECTION, Role.RECEPTION, Role.COMPTABLE)
   async getCounter(@Query() query: CounterQueryDto) {
     return this.billingService.getCounterSummary(query);
+  }
+
+  @Get('archives/export')
+  @Roles(Role.DIRECTION, Role.COMPTABLE)
+  async exportArchives(
+    @Query() query: ArchivesQueryDto,
+    @Req() req: Request,
+    @Res() res: Response,
+  ) {
+    const actor = this.extractActor(req);
+    await this.billingService.streamArchivesExport(query, actor, res);
+  }
+
+  @Get('archives')
+  @Roles(Role.DIRECTION, Role.RECEPTION, Role.COMPTABLE)
+  async getArchives(@Query() query: ArchivesQueryDto) {
+    return this.billingService.getArchives(query);
   }
 
   @Get('cash-closure/export')

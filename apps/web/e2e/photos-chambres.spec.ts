@@ -1,6 +1,7 @@
 import { test, expect } from '@playwright/test';
 import * as fs from 'fs';
 import * as path from 'path';
+import { loginViaUi } from './auth-e2e.helper';
 
 test.describe('Photos des 12 Chambres - Affichage, Unicité, Poids et Mode Hors Ligne', () => {
   const imagesChambresDir = path.resolve(
@@ -31,6 +32,7 @@ test.describe('Photos des 12 Chambres - Affichage, Unicité, Poids et Mode Hors 
   test('Écran /chambres : les 12 cartes affichent 12 photos DIFFÉRENTES, chargées et sans erreur', async ({
     page,
   }) => {
+    await loginViaUi(page, 'fatou.ndiaye@residenceblue.sn', 'ThiesTeranga2024!');
     // Écouter les requêtes externes pour prouver qu'aucune ressource distante n'est appelée
     const externalRequests: string[] = [];
     page.on('request', (req) => {
@@ -84,6 +86,7 @@ test.describe('Photos des 12 Chambres - Affichage, Unicité, Poids et Mode Hors 
     context,
   }) => {
     test.slow();
+    await loginViaUi(page, 'fatou.ndiaye@residenceblue.sn', 'ThiesTeranga2024!');
     // 1. Premier chargement en ligne pour charger toutes les photos dans le cache du navigateur
     await page.goto('/chambres', { waitUntil: 'networkidle' });
     const cards = page.locator('app-room-status-card');

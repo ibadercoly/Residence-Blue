@@ -1,4 +1,4 @@
-import { Component, computed, inject, signal } from '@angular/core';
+import { Component, computed, effect, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router, RouterLink } from '@angular/router';
 import { ReservationModalService } from '../../../../core/services/reservation-modal.service';
@@ -6,11 +6,13 @@ import { ModuleConfigService } from '../../../../core/services/module-config.ser
 import { RoomsService } from '../../../../core/services/rooms.service';
 import { PlanningMockService } from '../../../../core/services/planning-mock.service';
 import { FacturationService } from '../../../../facturation-v3/services/facturation.service';
+import { AuthService } from '../../../../core/services/auth.service';
+import { AccueilStatsDuJourComponent } from '../../components/accueil-stats-du-jour/accueil-stats-du-jour.component';
 
 @Component({
   selector: 'app-dashboard-page',
   standalone: true,
-  imports: [CommonModule, RouterLink],
+  imports: [CommonModule, RouterLink, AccueilStatsDuJourComponent],
   host: { class: 'block w-full' },
   template: `
     <div class="p-4 sm:p-6 max-w-7xl mx-auto font-['Manrope'] pb-16 space-y-6">
@@ -204,6 +206,9 @@ import { FacturationService } from '../../../../facturation-v3/services/facturat
         </div>
       </div>
 
+      <!-- 4b. Statistiques du jour (composant dédié) -->
+      <app-accueil-stats-du-jour />
+
       <!-- 5. Dialogue de confirmation Modal / Action Simple -->
       <div
         *ngIf="activeModal()"
@@ -249,6 +254,15 @@ export class DashboardPageComponent {
   readonly roomsService = inject(RoomsService, { optional: true });
   readonly planningService = inject(PlanningMockService, { optional: true });
   readonly facturationService = inject(FacturationService, { optional: true });
+  private readonly authService = inject(AuthService, { optional: true });
+
+  constructor() {
+    effect(() => {
+      if (this.authService?.isAuthenticated()) {
+        void this.facturationService?.loadCounter();
+      }
+    });
+  }
 
   readonly roomsCount = computed(() => (this.roomsService ? this.roomsService.rooms().length : 0));
   readonly occupiedRoomsCount = computed(() =>

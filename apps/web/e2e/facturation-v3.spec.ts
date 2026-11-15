@@ -1,7 +1,8 @@
 import { test, expect } from '@playwright/test';
-import { execFileSync } from 'child_process';
+import { execE2eNodeScript } from './e2e-db.helper';
 import * as fs from 'fs';
 import * as path from 'path';
+import { createE2eUser, deleteE2eUsers, getApiAuthHeaders, loginViaUi } from './auth-e2e.helper';
 
 const repoRoot = path.resolve(__dirname, '../../..');
 const compDir = path.join(repoRoot, 'docs/design/comparaisons');
@@ -24,8 +25,12 @@ test.describe('Facturation V3 — E2E complet, Responsive & Rupture', () => {
   let createdGuestId: string | null = null;
   let targetRoomNumber = '105';
   const createdInvoiceIds: string[] = [];
+  let dirUser = { email: '', password: '' };
 
   test.beforeAll(async ({ request }) => {
+    dirUser = createE2eUser('DIRECTION');
+    const dirHeaders = await getApiAuthHeaders(request, dirUser.email, dirUser.password);
+    const restoHeaders = await getApiAuthHeaders(request, 'teranga.resto@residenceblue.sn');
     if (!fs.existsSync(compDir)) {
       fs.mkdirSync(compDir, { recursive: true });
     }
@@ -37,7 +42,7 @@ test.describe('Facturation V3 — E2E complet, Responsive & Rupture', () => {
     // Trouver une chambre libre pour la période de test
     const availRes = await request.get(
       `/api/rooms/available?checkIn=${fmt(today)}&checkOut=${fmt(checkOut)}`,
-      { headers: { 'x-user-role': 'DIRECTION' } },
+      { headers: dirHeaders },
     );
     if (availRes.ok()) {
       const availJson = await availRes.json();
@@ -48,7 +53,7 @@ test.describe('Facturation V3 — E2E complet, Responsive & Rupture', () => {
 
     // Créer un client et une réservation de test via API réelle
     const guestRes = await request.post('/api/guests', {
-      headers: { 'x-user-role': 'DIRECTION' },
+      headers: dirHeaders,
       data: {
         civility: 'M.',
         firstName: 'Cheikh',
@@ -61,7 +66,7 @@ test.describe('Facturation V3 — E2E complet, Responsive & Rupture', () => {
     createdGuestId = g.id;
 
     const resResp = await request.post('/api/reservations', {
-      headers: { 'x-user-role': 'DIRECTION' },
+      headers: dirHeaders,
       data: {
         roomNumber: targetRoomNumber,
         guestId: createdGuestId,
@@ -84,7 +89,7 @@ test.describe('Facturation V3 — E2E complet, Responsive & Rupture', () => {
     const restoCharge = await request.post(
       `/api/invoices/room/${encodeURIComponent(targetRoomNumber)}/restaurant-charge`,
       {
-        headers: { 'x-user-role': 'RESTAURANT' },
+        headers: restoHeaders,
         data: {
           description: 'Yassa Poulet E2E',
           quantity: 2,
@@ -127,17 +132,24 @@ test.describe('Facturation V3 — E2E complet, Responsive & Rupture', () => {
           await p.$disconnect();
         })().catch((e) => { console.error(e); process.exit(1); });
       `;
-      execFileSync('node', ['--env-file=.env', '-e', cleanupScript], {
-        cwd: repoRoot,
-        stdio: 'inherit',
-      });
+      execE2eNodeScript(cleanupScript);
+      // cleaned old execFileSync
+        // cleaned
+        // cleaned
+      // end */ -> clean
     }
-    await request
-      .patch(`/api/rooms/by-number/${encodeURIComponent(targetRoomNumber)}/status`, {
-        headers: { 'x-user-role': 'DIRECTION' },
-        data: { status: 'FREE' },
-      })
-      .catch(() => {});
+    if (dirUser.email) {
+      const cleanupHeaders = await getApiAuthHeaders(request, dirUser.email, dirUser.password).catch(() => null);
+      if (cleanupHeaders) {
+        await request
+          .patch(`/api/rooms/by-number/${encodeURIComponent(targetRoomNumber)}/status`, {
+            headers: cleanupHeaders,
+            data: { status: 'FREE' },
+          })
+          .catch(() => {});
+      }
+      deleteE2eUsers([dirUser.email]);
+    }
   });
 
   test('Rupture : aucun import hérité de l’ancien module dans facturation-v3', async () => {
@@ -168,6 +180,8 @@ test.describe('Facturation V3 — E2E complet, Responsive & Rupture', () => {
     request,
   }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
+    test.setTimeout(120000);
+    await loginViaUi(page, dirUser.email, dirUser.password);
     await page.goto('/facturation', { waitUntil: 'networkidle' });
 
     // Vérifier absence de menus cachés, onglets et accordéons
@@ -276,8 +290,9 @@ test.describe('Facturation V3 — E2E complet, Responsive & Rupture', () => {
     expect(issuedNumber).toMatch(/^FA-\d{4}-\d{4}$/);
 
     // Vérifier téléchargement PDF côté serveur
+    const dirHeaders = await getApiAuthHeaders(request, dirUser.email, dirUser.password);
     const pdfCheck = await request.get(`/api/invoices/${invoiceId}/pdf`, {
-      headers: { 'x-user-role': 'DIRECTION' },
+      headers: dirHeaders,
     });
     expect(pdfCheck.status()).toBe(200);
     expect(pdfCheck.headers()['content-type']).toContain('application/pdf');

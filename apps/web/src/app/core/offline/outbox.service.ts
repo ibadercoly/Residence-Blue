@@ -1,14 +1,17 @@
-import { Injectable, signal } from '@angular/core';
+import { Injectable, inject, signal } from '@angular/core';
 import { IdbService } from './idb.service';
 import { NetworkService } from './network.service';
+import { AuthService } from '../services/auth.service';
 import { OutboxItem, SyncStatus } from '@residence-blue/shared';
 
 @Injectable({
   providedIn: 'root',
 })
 export class OutboxService {
+  private readonly authService = inject(AuthService, { optional: true });
   readonly pendingCount = signal<number>(0);
   readonly isSyncing = signal<boolean>(false);
+  private activeSyncPromise: Promise<void> | null = null;
 
   constructor(
     private readonly idbService: IdbService,
@@ -59,6 +62,19 @@ export class OutboxService {
    * Synchronise la file d'attente avec le serveur (source de vérité).
    */
   async syncOutbox(): Promise<void> {
+    if (!this.networkService.isOnline()) {
+      return;
+    }
+    if (this.activeSyncPromise) {
+      return this.activeSyncPromise;
+    }
+    this.activeSyncPromise = this.runSyncOutbox().finally(() => {
+      this.activeSyncPromise = null;
+    });
+    return this.activeSyncPromise;
+  }
+
+  private async runSyncOutbox(): Promise<void> {
     if (this.isSyncing() || !this.networkService.isOnline()) {
       return;
     }
@@ -73,14 +89,23 @@ export class OutboxService {
       for (const item of pendingItems) {
         try {
           const method = item.type.startsWith('PATCH') ? 'PATCH' : 'POST';
-          const response = await fetch(item.endpoint, {
-            method,
-            headers: {
-              'Content-Type': 'application/json',
-              'Idempotency-Key': item.idempotencyKey,
-            },
-            body: JSON.stringify(item.payload),
-          });
+          const reqHeaders: Record<string, string> = {
+            'Content-Type': 'application/json',
+            'Idempotency-Key': item.idempotencyKey,
+            ...(this.authService ? this.authService.getAuthHeaders() : {}),
+          };
+          const response = this.authService
+            ? await this.authService.authenticatedFetch(item.endpoint, {
+                method,
+                headers: reqHeaders,
+                body: JSON.stringify(item.payload),
+              })
+            : await fetch(item.endpoint, {
+                method,
+                credentials: 'include',
+                headers: reqHeaders,
+                body: JSON.stringify(item.payload),
+              });
 
           if (response.ok || response.status === 409) {
             // Succès ou déjà traité côté serveur (idempotence)

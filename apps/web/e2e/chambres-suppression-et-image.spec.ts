@@ -1,6 +1,7 @@
 import { test, expect } from '@playwright/test';
 import * as fs from 'fs';
 import * as path from 'path';
+import { createE2eUser, deleteE2eUsers, loginViaUi } from './auth-e2e.helper';
 
 test.describe('Chambres - Suppression et Remplacement d\'Image', () => {
   const capturesDir = path.resolve(__dirname, '../../../docs/design/captures/chambres');
@@ -10,35 +11,26 @@ test.describe('Chambres - Suppression et Remplacement d\'Image', () => {
   const dummyPngBase64 =
     'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
 
+  let dirUser = { email: '', password: '' };
+
   test.beforeAll(() => {
     if (!fs.existsSync(capturesDir)) {
       fs.mkdirSync(capturesDir, { recursive: true });
     }
+    dirUser = createE2eUser('DIRECTION');
+  });
+
+  test.afterAll(() => {
+    if (dirUser.email) deleteE2eUsers([dirUser.email]);
   });
 
   test.beforeEach(async ({ page }) => {
-    // 1. Initialiser la session utilisateur avec le rôle DIRECTION (requis pour modifier/supprimer)
     await page.addInitScript(() => {
       try {
         indexedDB.deleteDatabase('residence_blue_db');
       } catch {}
-
-      const session = {
-        user: {
-          id: 'usr-001-ba',
-          email: 'aissatou.ba@residenceblue.sn',
-          fullName: 'Aïssatou Ba',
-          role: 'DIRECTION',
-          jobTitle: "Directrice d'Exploitation",
-        },
-        token: 'mock-jwt-token-direction',
-        expiresAt: Date.now() + 86400000,
-        stayConnected8h: true,
-        lastActivityAt: Date.now(),
-        isLocked: false,
-      };
-      localStorage.setItem('residence_blue_auth_session', JSON.stringify(session));
     });
+    await loginViaUi(page, dirUser.email, dirUser.password);
   });
 
   test('Remplacer l\'image d\'une chambre : affichage immédiat puis persistance après rechargement', async ({

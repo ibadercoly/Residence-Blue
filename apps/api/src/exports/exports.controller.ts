@@ -22,8 +22,9 @@ export class ExportsController {
     @Req() req: Request,
     @Res() res: Response
   ) {
-    const userRole = ((req.headers['x-user-role'] as string) || (req as any).user?.role || Role.RECEPTION) as Role;
-    const userFullName = (req.headers['x-user-name'] as string) || (req as any).user?.fullName || 'Personnel Résidence Blue';
+    const user = (req as any).user as { id?: string; role: Role; fullName?: string };
+    const userRole = user.role;
+    const userFullName = user.fullName || 'Personnel Résidence Blue';
 
     await this.exportsService.streamExport(
       query,

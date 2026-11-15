@@ -121,10 +121,7 @@ export class RoomsController {
     @UploadedFile() file: UploadedImageFile | undefined,
     @Req() req: Request,
   ) {
-    const userId =
-      (req as any).user?.id ||
-      (req.headers['x-user-id'] as string) ||
-      undefined;
+    const userId = (req as any).user?.id || undefined;
     const ip = req.ip || req.socket.remoteAddress || undefined;
 
     return this.roomsService.createRoom(dto, file, userId, ip);
@@ -142,10 +139,7 @@ export class RoomsController {
     @UploadedFile() file: UploadedImageFile | undefined,
     @Req() req: Request,
   ) {
-    const userId =
-      (req as any).user?.id ||
-      (req.headers['x-user-id'] as string) ||
-      undefined;
+    const userId = (req as any).user?.id || undefined;
     const ip = req.ip || req.socket.remoteAddress || undefined;
 
     return this.roomsService.updateRoom(id, dto, file, userId, ip);
@@ -163,10 +157,7 @@ export class RoomsController {
     @UploadedFile() file: UploadedImageFile | undefined,
     @Req() req: Request,
   ) {
-    const userId =
-      (req as any).user?.id ||
-      (req.headers['x-user-id'] as string) ||
-      undefined;
+    const userId = (req as any).user?.id || undefined;
     const ip = req.ip || req.socket.remoteAddress || undefined;
 
     return this.roomsService.updateRoom(id, dto, file, userId, ip);
@@ -179,10 +170,7 @@ export class RoomsController {
   @Roles(Role.DIRECTION)
   @Delete(':id')
   async delete(@Param('id') id: string, @Req() req: Request) {
-    const userId =
-      (req as any).user?.id ||
-      (req.headers['x-user-id'] as string) ||
-      undefined;
+    const userId = (req as any).user?.id || undefined;
     const ip = req.ip || req.socket.remoteAddress || undefined;
 
     return this.roomsService.deleteRoom(id, userId, ip);
@@ -194,10 +182,7 @@ export class RoomsController {
   @Roles(Role.DIRECTION)
   @Delete(':id/image')
   async removeImage(@Param('id') id: string, @Req() req: Request) {
-    const userId =
-      (req as any).user?.id ||
-      (req.headers['x-user-id'] as string) ||
-      undefined;
+    const userId = (req as any).user?.id || undefined;
     const ip = req.ip || req.socket.remoteAddress || undefined;
 
     return this.roomsService.updateRoom(id, { removeImage: true }, undefined, userId, ip);
@@ -214,14 +199,8 @@ export class RoomsController {
     @Body() dto: UpdateRoomStatusDto,
     @Req() req: Request,
   ) {
-    const userRole =
-      (req as any).user?.role ||
-      (req.headers['x-user-role'] as string) ||
-      '';
-    const userId =
-      (req as any).user?.id ||
-      (req.headers['x-user-id'] as string) ||
-      undefined;
+    const userRole = (req as any).user?.role || '';
+    const userId = (req as any).user?.id || undefined;
     const ip = req.ip || req.socket.remoteAddress || undefined;
 
     return this.roomsService.updateStatus(id, dto, userRole, userId, ip);
@@ -239,10 +218,7 @@ export class RoomTypesController {
   @Roles(Role.DIRECTION)
   @Post()
   async create(@Body() dto: CreateRoomTypeDto, @Req() req: Request) {
-    const userId =
-      (req as any).user?.id ||
-      (req.headers['x-user-id'] as string) ||
-      undefined;
+    const userId = (req as any).user?.id || undefined;
     const ip = req.ip || req.socket.remoteAddress || undefined;
 
     return this.roomsService.createRoomType(dto, userId, ip);
@@ -259,10 +235,7 @@ export class RoomTypesController {
     @Body() dto: UpdateRoomTypeDto,
     @Req() req: Request,
   ) {
-    const userId =
-      (req as any).user?.id ||
-      (req.headers['x-user-id'] as string) ||
-      undefined;
+    const userId = (req as any).user?.id || undefined;
     const ip = req.ip || req.socket.remoteAddress || undefined;
 
     return this.roomsService.updateRoomType(id, dto, userId, ip);

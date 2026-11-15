@@ -45,6 +45,7 @@ export class ServerModuleConfigService {
         restaurant: { id: 'restaurant', name: 'Restaurant', enabled: true, version: 'v1' },
         pool: { id: 'pool', name: 'Piscine', enabled: true, version: 'v1' },
         exports: { id: 'exports', name: 'Exports', enabled: true, version: 'v1' },
+        rapports: { id: 'rapports', name: 'Rapports', enabled: true, version: 'v1' },
         housekeeping: { id: 'housekeeping', name: 'Housekeeping', enabled: false, version: 'v2', status: 'deferred' },
         maintenance: { id: 'maintenance', name: 'Maintenance', enabled: false, version: 'v2', status: 'deferred' },
         inventory: { id: 'inventory', name: 'Stocks', enabled: false, version: 'v2', status: 'deferred' },
@@ -54,13 +55,13 @@ export class ServerModuleConfigService {
         accounting: { id: 'accounting', name: 'Comptabilité', enabled: false, version: 'v3', status: 'deferred' },
       },
       roles: {
-        DIRECTION: { allowedModules: ['dashboard', 'planning', 'rooms', 'clients', 'facturation', 'restaurant', 'pool', 'exports'] },
+        DIRECTION: { allowedModules: ['dashboard', 'planning', 'rooms', 'clients', 'facturation', 'rapports', 'restaurant', 'pool', 'exports'] },
         RECEPTION: { allowedModules: ['dashboard', 'planning', 'rooms', 'clients', 'facturation', 'restaurant', 'pool', 'exports'] },
         SERVEUR: { allowedModules: ['restaurant'] },
         CUISINE: { allowedModules: ['restaurant'] },
         HOUSEKEEPING: { allowedModules: ['housekeeping'], enabled: false },
         MAINTENANCE: { allowedModules: ['maintenance'], enabled: false },
-        COMPTABLE: { allowedModules: ['facturation', 'exports'], enabled: true },
+        COMPTABLE: { allowedModules: ['facturation', 'rapports', 'exports'], enabled: true },
       },
     };
   }

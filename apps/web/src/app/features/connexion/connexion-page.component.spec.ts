@@ -1,4 +1,5 @@
 import { ConnexionPageComponent } from './connexion-page.component';
+import { Role } from '@residence-blue/shared';
 
 describe('ConnexionPageComponent', () => {
   let component: ConnexionPageComponent;
@@ -7,13 +8,16 @@ describe('ConnexionPageComponent', () => {
     if (typeof localStorage !== 'undefined') {
       localStorage.clear();
     }
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ hotelName: 'Résidence Blue' }),
+    }) as any;
     component = new ConnexionPageComponent();
   });
 
   afterEach(() => {
-    if (typeof localStorage !== 'undefined') {
-      localStorage.clear();
-    }
+    component.authService.clearTimersForTest();
+    jest.restoreAllMocks();
   });
 
   it('devrait être initialisé avec les champs vides', () => {
@@ -39,16 +43,13 @@ describe('ConnexionPageComponent', () => {
     expect(component.passwordInvalid()).toBe(true);
   });
 
-  it('devrait préremplir les données lors du clic sur un profil démo', () => {
-    component.fillDemo('aissatou.ba@residenceblue.sn', "Directrice d'Exploitation");
-    expect(component.login()).toBe('aissatou.ba@residenceblue.sn');
-    expect(component.password()).toBe('ThiesTeranga2024!');
-    expect(component.selectedRole()).toBe("Directrice d'Exploitation");
-    expect(component.loginInvalid()).toBe(false);
-    expect(component.passwordInvalid()).toBe(false);
-  });
+  it('devrait afficher une erreur générique si les identifiants sont erronés', async () => {
+    global.fetch = jest.fn().mockResolvedValueOnce({
+      ok: false,
+      status: 401,
+      json: async () => ({ message: 'Identifiants incorrects.' }),
+    }) as any;
 
-  it('devrait afficher une erreur explicite si les identifiants sont erronés', async () => {
     component.login.set('inconnu@residenceblue.sn');
     component.password.set('FauxMotDePasse!');
 
@@ -57,9 +58,54 @@ describe('ConnexionPageComponent', () => {
     expect(component.errorMessage()).toContain('Identifiants incorrects');
   });
 
-  it('devrait réussir la connexion avec des identifiants valides', async () => {
+  it('devrait réussir la connexion directe pour DIRECTION sans 2FA', async () => {
+    global.fetch = jest.fn().mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        status: 'AUTHENTICATED',
+        accessToken: 'access-jwt-token',
+        expiresInSeconds: 900,
+        user: {
+          id: 'dir-1',
+          email: 'aissatou.ba@residenceblue.sn',
+          fullName: 'Aïssatou Ba',
+          role: Role.DIRECTION,
+          jobTitle: 'Directrice',
+          totpEnabled: false,
+          totpRequired: false,
+        },
+      }),
+    }) as any;
+
     component.login.set('aissatou.ba@residenceblue.sn');
-    component.password.set('ThiesTeranga2024!');
+    component.password.set('MotDePasseRobuste2026!');
+
+    await component.handleLogin();
+    expect(component.errorMessage()).toBeNull();
+    expect(component.authService.isAuthenticated()).toBe(true);
+  });
+
+  it('devrait réussir la connexion directe pour un rôle sans 2FA activée', async () => {
+    global.fetch = jest.fn().mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        status: 'AUTHENTICATED',
+        accessToken: 'jwt-reception',
+        expiresInSeconds: 900,
+        user: {
+          id: 'rec-1',
+          email: 'fatou.ndiaye@residenceblue.sn',
+          fullName: 'Fatou Ndiaye',
+          role: Role.RECEPTION,
+          jobTitle: 'Chef de Réception',
+          totpEnabled: false,
+          totpRequired: false,
+        },
+      }),
+    }) as any;
+
+    component.login.set('fatou.ndiaye@residenceblue.sn');
+    component.password.set('MotDePasseRobuste2026!');
 
     await component.handleLogin();
 

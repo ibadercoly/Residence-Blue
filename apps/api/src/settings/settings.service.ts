@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { UpdateHotelSettingsDto } from './dto/settings.dto';
+import { appendChainedAuditLog } from '../common/audit/audit.service';
 
 @Injectable()
 export class SettingsService {
@@ -76,21 +77,19 @@ export class SettingsService {
         },
       });
 
-      await tx.auditLog.create({
-        data: {
-          action: 'SETTINGS_UPDATE',
-          entity: 'HotelSetting',
-          entityId: 'default',
-          before: {
-            hotelName: current.hotelName,
-            vatRatePercent: current.vatRatePercent,
-            tourismTaxPerNightPerPerson: current.tourismTaxPerNightPerPerson,
-          },
-          after: {
-            hotelName: s.hotelName,
-            vatRatePercent: s.vatRatePercent,
-            tourismTaxPerNightPerPerson: s.tourismTaxPerNightPerPerson,
-          },
+      await appendChainedAuditLog(tx, {
+        action: 'SETTINGS_UPDATE',
+        entity: 'HotelSetting',
+        entityId: 'default',
+        before: {
+          hotelName: current.hotelName,
+          vatRatePercent: current.vatRatePercent,
+          tourismTaxPerNightPerPerson: current.tourismTaxPerNightPerPerson,
+        },
+        after: {
+          hotelName: s.hotelName,
+          vatRatePercent: s.vatRatePercent,
+          tourismTaxPerNightPerPerson: s.tourismTaxPerNightPerPerson,
         },
       });
 

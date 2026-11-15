@@ -1,7 +1,19 @@
 import { test, expect } from '@playwright/test';
+import { createE2eUser, deleteE2eUsers, loginViaUi } from './auth-e2e.helper';
 
 test.describe('Écran Exports & Rapports Officiels V1', () => {
+  let dirUser = { email: '', password: '' };
+
+  test.beforeAll(() => {
+    dirUser = createE2eUser('DIRECTION');
+  });
+
+  test.afterAll(() => {
+    if (dirUser.email) deleteE2eUsers([dirUser.email]);
+  });
+
   test.beforeEach(async ({ page }) => {
+    await loginViaUi(page, dirUser.email, dirUser.password);
     await page.goto('/exports');
     await page.waitForLoadState('networkidle');
   });

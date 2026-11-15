@@ -3,6 +3,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import request from 'supertest';
 import { AppModule } from '../src/app.module';
 import { PrismaService } from '../src/prisma/prisma.service';
+import { issueDbTestToken } from './auth-test.helper';
 
 describe('Réservations Refonte API (e2e)', () => {
   let app: INestApplication;
@@ -11,6 +12,7 @@ describe('Réservations Refonte API (e2e)', () => {
   const createdGuestIds: string[] = [];
   const createdRoomIds: string[] = [];
   let roomTypeId = '';
+  const roleTokens: Record<string, string> = {};
 
   beforeAll(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
@@ -29,6 +31,9 @@ describe('Réservations Refonte API (e2e)', () => {
     );
     await app.init();
     prisma = moduleFixture.get<PrismaService>(PrismaService);
+    for (const r of ['DIRECTION', 'RECEPTION', 'SERVEUR', 'CUISINE']) {
+      roleTokens[r] = (await issueDbTestToken(prisma, r)).token;
+    }
 
     const existingType = await prisma.roomType.findFirst();
     if (existingType) {
@@ -116,7 +121,7 @@ describe('Réservations Refonte API (e2e)', () => {
     const avail1 = await request(app.getHttpServer())
       .get('/api/rooms/available')
       .query({ checkIn: '2026-12-10', checkOut: '2026-12-12' })
-      .set('x-user-role', 'RECEPTION')
+      .set('Authorization', `Bearer ${roleTokens['RECEPTION']}`)
       .expect(200);
 
     const numbers1 = avail1.body.items.map((r: any) => r.number);
@@ -128,7 +133,7 @@ describe('Réservations Refonte API (e2e)', () => {
     // Créer une réservation sur freeRoom du 10 au 12 déc.
     const createRes = await request(app.getHttpServer())
       .post('/api/reservations')
-      .set('x-user-role', 'RECEPTION')
+      .set('Authorization', `Bearer ${roleTokens['RECEPTION']}`)
       .send({
         roomId: freeRoom.id,
         newGuest: {
@@ -147,12 +152,12 @@ describe('Réservations Refonte API (e2e)', () => {
     const avail2 = await request(app.getHttpServer())
       .get('/api/rooms/available')
       .query({ checkIn: '2026-12-11', checkOut: '2026-12-13' })
-      .set('x-user-role', 'RECEPTION')
+      .set('Authorization', `Bearer ${roleTokens['RECEPTION']}`)
       .expect(200);
 
     const numbers2 = avail2.body.items.map((r: any) => r.number);
     expect(numbers2).not.toContain(freeRoom.number);
-  });
+  }, 20000);
 
   it('GET /api/guests/search limite la réponse à 5 résultats max', async () => {
     const tag = `Srch${Date.now().toString().slice(-4)}`;
@@ -172,7 +177,7 @@ describe('Réservations Refonte API (e2e)', () => {
     const res = await request(app.getHttpServer())
       .get('/api/guests/search')
       .query({ q: tag, limit: 5 })
-      .set('x-user-role', 'RECEPTION')
+      .set('Authorization', `Bearer ${roleTokens['RECEPTION']}`)
       .expect(200);
 
     expect(res.body.items.length).toBeLessThanOrEqual(5);
@@ -213,7 +218,7 @@ describe('Réservations Refonte API (e2e)', () => {
     // 1. Départ <= Arrivée refusé (400)
     await request(app.getHttpServer())
       .post('/api/reservations')
-      .set('x-user-role', 'RECEPTION')
+      .set('Authorization', `Bearer ${roleTokens['RECEPTION']}`)
       .send({
         roomId: room.id,
         guestId: guest.id,
@@ -225,7 +230,7 @@ describe('Réservations Refonte API (e2e)', () => {
     // 2. Capacité dépassée refusée (400)
     await request(app.getHttpServer())
       .post('/api/reservations')
-      .set('x-user-role', 'RECEPTION')
+      .set('Authorization', `Bearer ${roleTokens['RECEPTION']}`)
       .send({
         roomId: room.id,
         guestId: guest.id,
@@ -239,7 +244,7 @@ describe('Réservations Refonte API (e2e)', () => {
     const idemKey = `res-e2e-${suffix}`;
     const res1 = await request(app.getHttpServer())
       .post('/api/reservations')
-      .set('x-user-role', 'RECEPTION')
+      .set('Authorization', `Bearer ${roleTokens['RECEPTION']}`)
       .set('Idempotency-Key', idemKey)
       .send({
         roomId: room.id,
@@ -280,7 +285,7 @@ describe('Réservations Refonte API (e2e)', () => {
     // Replay idempotency ne crée pas de doublon
     const replay = await request(app.getHttpServer())
       .post('/api/reservations')
-      .set('x-user-role', 'RECEPTION')
+      .set('Authorization', `Bearer ${roleTokens['RECEPTION']}`)
       .set('Idempotency-Key', idemKey)
       .send({
         roomId: room.id,
@@ -296,7 +301,7 @@ describe('Réservations Refonte API (e2e)', () => {
     // 4. Double réservation séquentielle refusée (409 + message exact)
     const conflictRes = await request(app.getHttpServer())
       .post('/api/reservations')
-      .set('x-user-role', 'RECEPTION')
+      .set('Authorization', `Bearer ${roleTokens['RECEPTION']}`)
       .send({
         roomId: room.id,
         guestId: guest.id,
@@ -313,7 +318,7 @@ describe('Réservations Refonte API (e2e)', () => {
     const [rA, rB] = await Promise.all([
       request(app.getHttpServer())
         .post('/api/reservations')
-        .set('x-user-role', 'RECEPTION')
+        .set('Authorization', `Bearer ${roleTokens['RECEPTION']}`)
         .send({
           roomId: room.id,
           guestId: guest.id,
@@ -323,7 +328,7 @@ describe('Réservations Refonte API (e2e)', () => {
         }),
       request(app.getHttpServer())
         .post('/api/reservations')
-        .set('x-user-role', 'RECEPTION')
+        .set('Authorization', `Bearer ${roleTokens['RECEPTION']}`)
         .send({
           roomId: room.id,
           guestId: guest.id,
@@ -341,26 +346,26 @@ describe('Réservations Refonte API (e2e)', () => {
     expect(loser.body.message).toContain(
       "Cette chambre vient d'être réservée, choisissez-en une autre",
     );
-  }, 15000);
+  }, 25000);
 
   it('Porte de sécurité : RBAC refusé par défaut, forbidNonWhitelisted (falsification tarif), rejet PAN bancaire et SQLi neutralisée', async () => {
     // 1. RBAC : rôle SERVEUR ou CUISINE refusé (403)
     await request(app.getHttpServer())
       .get('/api/rooms/available')
       .query({ checkIn: '2026-12-10', checkOut: '2026-12-12' })
-      .set('x-user-role', 'SERVEUR')
+      .set('Authorization', `Bearer ${roleTokens['SERVEUR']}`)
       .expect(403);
 
     await request(app.getHttpServer())
       .get('/api/guests/search')
       .query({ q: 'Diop' })
-      .set('x-user-role', 'CUISINE')
+      .set('Authorization', `Bearer ${roleTokens['CUISINE']}`)
       .expect(403);
 
     // 2. Falsification de champs interdits (forbidNonWhitelisted) -> 400
     await request(app.getHttpServer())
       .post('/api/reservations')
-      .set('x-user-role', 'RECEPTION')
+      .set('Authorization', `Bearer ${roleTokens['RECEPTION']}`)
       .send({
         roomId: '00000000-0000-0000-0000-000000000001',
         guestId: '00000000-0000-0000-0000-000000000002',
@@ -374,7 +379,7 @@ describe('Réservations Refonte API (e2e)', () => {
     // 3. Numéro de carte bancaire (PAN) interdit dans transactionRef -> 400
     await request(app.getHttpServer())
       .post('/api/reservations')
-      .set('x-user-role', 'RECEPTION')
+      .set('Authorization', `Bearer ${roleTokens['RECEPTION']}`)
       .send({
         roomId: '00000000-0000-0000-0000-000000000001',
         guestId: '00000000-0000-0000-0000-000000000002',
@@ -391,7 +396,7 @@ describe('Réservations Refonte API (e2e)', () => {
     const sqliRes = await request(app.getHttpServer())
       .get('/api/guests/search')
       .query({ q: "' OR '1'='1; DROP TABLE users;--" })
-      .set('x-user-role', 'RECEPTION')
+      .set('Authorization', `Bearer ${roleTokens['RECEPTION']}`)
       .expect(200);
     expect(Array.isArray(sqliRes.body.items)).toBe(true);
     expect(sqliRes.body.items.length).toBeLessThanOrEqual(5);

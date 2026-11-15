@@ -2,11 +2,14 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import request from 'supertest';
 import { AppModule } from '../src/app.module';
+import { issueDbTestToken } from './auth-test.helper';
+import { PrismaService } from '../src/prisma/prisma.service';
 import { ServerModuleConfigService } from '../src/common/services/server-module-config.service';
 
 describe('Modules Status & Deferred Routing (API)', () => {
   let app: INestApplication;
   let moduleConfigService: ServerModuleConfigService;
+  const roleTokens: Record<string, string> = {};
 
   beforeAll(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
@@ -25,8 +28,11 @@ describe('Modules Status & Deferred Routing (API)', () => {
     );
 
     moduleConfigService = app.get(ServerModuleConfigService);
+    const prisma = app.get(PrismaService);
+    roleTokens['ADMIN'] = (await issueDbTestToken(prisma, 'DIRECTION')).token;
+    roleTokens['HOUSEKEEPING'] = (await issueDbTestToken(prisma, 'HOUSEKEEPING')).token;
     await app.init();
-  });
+  }, 30000);
 
   afterAll(async () => {
     moduleConfigService.resetOverrides();
@@ -38,7 +44,7 @@ describe('Modules Status & Deferred Routing (API)', () => {
       // Même avec le rôle ADMIN, la route doit renvoyer 404 car le module est reporté
       const res = await request(app.getHttpServer())
         .get('/api/security-test/deferred-housekeeping')
-        .set('x-user-role', 'ADMIN');
+        .set('Authorization', `Bearer ${roleTokens['ADMIN']}`);
 
       expect(res.status).toBe(404);
       expect(res.body.message).toContain('reporté ou désactivé');
@@ -47,7 +53,7 @@ describe('Modules Status & Deferred Routing (API)', () => {
     it('doit renvoyer 404 sur les préfixes de route des modules reportés (/api/housekeeping/*)', async () => {
       const res = await request(app.getHttpServer())
         .get('/api/housekeeping/tasks')
-        .set('x-user-role', 'ADMIN');
+        .set('Authorization', `Bearer ${roleTokens['ADMIN']}`);
 
       expect(res.status).toBe(404);
     });
@@ -55,7 +61,7 @@ describe('Modules Status & Deferred Routing (API)', () => {
     it('doit renvoyer 404 sur les préfixes de route des modules reportés (/api/stocks/*)', async () => {
       const res = await request(app.getHttpServer())
         .get('/api/stocks/items')
-        .set('x-user-role', 'ADMIN');
+        .set('Authorization', `Bearer ${roleTokens['ADMIN']}`);
 
       expect(res.status).toBe(404);
     });
@@ -63,7 +69,7 @@ describe('Modules Status & Deferred Routing (API)', () => {
     it('doit renvoyer 404 sur les préfixes de route des modules reportés (/api/maintenance/*)', async () => {
       const res = await request(app.getHttpServer())
         .get('/api/maintenance/logs')
-        .set('x-user-role', 'ADMIN');
+        .set('Authorization', `Bearer ${roleTokens['ADMIN']}`);
 
       expect(res.status).toBe(404);
     });
@@ -73,7 +79,7 @@ describe('Modules Status & Deferred Routing (API)', () => {
     it('doit refuser l’accès avec un rôle reporté (ex: HOUSEKEEPING) sur une route même si le rôle y est listé', async () => {
       const res = await request(app.getHttpServer())
         .get('/api/security-test/test-staff-role')
-        .set('x-user-role', 'HOUSEKEEPING');
+        .set('Authorization', `Bearer ${roleTokens['HOUSEKEEPING']}`);
 
       // Le rôle HOUSEKEEPING est désactivé en V1 -> 403 Forbidden
       expect(res.status).toBe(403);
@@ -85,7 +91,7 @@ describe('Modules Status & Deferred Routing (API)', () => {
 
       const res = await request(app.getHttpServer())
         .get('/api/security-test/test-staff-role')
-        .set('x-user-role', 'HOUSEKEEPING');
+        .set('Authorization', `Bearer ${roleTokens['HOUSEKEEPING']}`);
 
       expect(res.status).toBe(200);
 
@@ -97,7 +103,7 @@ describe('Modules Status & Deferred Routing (API)', () => {
     it('doit autoriser l’accès aux modules actifs en V1 (Rooms)', async () => {
       const res = await request(app.getHttpServer())
         .get('/api/security-test/active-rooms-module')
-        .set('x-user-role', 'ADMIN');
+        .set('Authorization', `Bearer ${roleTokens['ADMIN']}`);
 
       expect(res.status).toBe(200);
       expect(res.body.message).toBe('Module chambres actif V1');
@@ -111,7 +117,7 @@ describe('Modules Status & Deferred Routing (API)', () => {
 
       const res = await request(app.getHttpServer())
         .get('/api/security-test/deferred-housekeeping')
-        .set('x-user-role', 'ADMIN');
+        .set('Authorization', `Bearer ${roleTokens['ADMIN']}`);
 
       expect(res.status).toBe(200);
       expect(res.body.message).toBe('Données de gouvernance V2');
@@ -122,7 +128,7 @@ describe('Modules Status & Deferred Routing (API)', () => {
       // Vérifier le retour au 404 normal
       const resAfter = await request(app.getHttpServer())
         .get('/api/security-test/deferred-housekeeping')
-        .set('x-user-role', 'ADMIN');
+        .set('Authorization', `Bearer ${roleTokens['ADMIN']}`);
 
       expect(resAfter.status).toBe(404);
     });

@@ -1,4 +1,5 @@
 import { Injectable, Injector, inject, signal } from '@angular/core';
+import { AuthService } from './auth.service';
 import {
   AvailableRoomItem,
   AvailableRoomsResponse,
@@ -46,20 +47,19 @@ export class ReservationModalService {
   private guestAbort: AbortController | null = null;
   private feedbackTimer: ReturnType<typeof setTimeout> | null = null;
 
+  private get authService(): AuthService | null {
+    return this.injector ? this.injector.get(AuthService, null) : null;
+  }
+
   getCurrentRole(): string {
-    try {
-      const raw =
-        typeof localStorage !== 'undefined'
-          ? localStorage.getItem('residence_blue_auth_session')
-          : null;
-      if (raw) {
-        const parsed = JSON.parse(raw);
-        if (parsed?.user?.role) return String(parsed.user.role);
-      }
-    } catch {
-      // Fallback démo Direction
-    }
-    return 'DIRECTION';
+    return this.authService?.currentRole() || '';
+  }
+
+  private buildHeaders(extra?: Record<string, string>): Record<string, string> {
+    return {
+      ...(this.authService ? this.authService.getAuthHeaders() : {}),
+      ...(extra || {}),
+    };
   }
 
   getCachedRates(): HotelRatesConfig {
@@ -136,7 +136,8 @@ export class ReservationModalService {
 
     try {
       const res = await fetch(`/api/rooms/available?${params.toString()}`, {
-        headers: { 'x-user-role': this.getCurrentRole() },
+        credentials: 'include',
+        headers: this.buildHeaders(),
         signal: controller.signal,
       });
       if (!res.ok) {
@@ -238,7 +239,8 @@ export class ReservationModalService {
 
     try {
       const res = await fetch(`/api/guests/search?${params.toString()}`, {
-        headers: { 'x-user-role': this.getCurrentRole() },
+        credentials: 'include',
+        headers: this.buildHeaders(),
         signal: controller.signal,
       });
       if (!res.ok) return [];
@@ -259,7 +261,8 @@ export class ReservationModalService {
   async fetchGuestById(guestId: string): Promise<GuestQuickSearchItem | null> {
     try {
       const res = await fetch(`/api/guests/${encodeURIComponent(guestId)}`, {
-        headers: { 'x-user-role': this.getCurrentRole() },
+        credentials: 'include',
+        headers: this.buildHeaders(),
       });
       if (!res.ok) return null;
       const g = await res.json();
@@ -283,11 +286,11 @@ export class ReservationModalService {
     try {
       const res = await fetch('/api/reservations', {
         method: 'POST',
-        headers: {
+        credentials: 'include',
+        headers: this.buildHeaders({
           'Content-Type': 'application/json',
-          'x-user-role': this.getCurrentRole(),
           'Idempotency-Key': idempotencyKey,
-        },
+        }),
         body: JSON.stringify(payload),
       });
 

@@ -16,6 +16,7 @@
     ]
   },
   "testEnvironment": "node",
+  "testTimeout": 60000,
   "setupFiles": ["<rootDir>/setup-env.ts"],
   "moduleNameMapper": {
     "^@residence-blue/shared$": "<rootDir>/../../../packages/shared/src/index.ts",

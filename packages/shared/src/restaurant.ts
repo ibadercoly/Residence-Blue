@@ -1,7 +1,6 @@
 /**
- * Types et interfaces pour le Point de Vente (POS) Restaurant & Bar « La Teranga »
- * et la gestion du menu.
- * RÈGLE ABSOLUE AGENTS.MD : Les montants sont TOUJOURS stockés en ENTIERS (jamais de décimaux).
+ * Types et interfaces pour la refonte Restaurant & Bar, Cuisine et Carte (« La Teranga »).
+ * RÈGLE ABSOLUE AGENTS.MD : Les montants sont TOUJOURS stockés en ENTIERS FCFA (jamais de décimaux).
  */
 
 export type DishCategoryCode =
@@ -37,7 +36,7 @@ export const DISH_TAG_LABELS: Record<DishTag, string> = {
   VEGETARIAN: 'Végétarien',
   SPICY: 'Épicé',
   SIGNATURE_BAR: 'Signature Bar',
-  NEW: 'Nouveau'
+  NEW: 'Nouveau',
 };
 
 export type Allergen =
@@ -64,7 +63,7 @@ export const ALLERGEN_LABELS: Record<Allergen, string> = {
   NUTS: 'Fruits à coque',
   CELERY: 'Céleri',
   MUSTARD: 'Moutarde',
-  SESAME: 'Sésame'
+  SESAME: 'Sésame',
 };
 
 export type PrepStation = 'CUISINE' | 'BAR' | 'PATISSERIE';
@@ -72,7 +71,7 @@ export type PrepStation = 'CUISINE' | 'BAR' | 'PATISSERIE';
 export const PREP_STATION_LABELS: Record<PrepStation, string> = {
   CUISINE: 'Cuisine',
   BAR: 'Bar',
-  PATISSERIE: 'Pâtisserie'
+  PATISSERIE: 'Pâtisserie',
 };
 
 export type MealSlot = 'BREAKFAST' | 'LUNCH' | 'DINNER';
@@ -80,19 +79,19 @@ export type MealSlot = 'BREAKFAST' | 'LUNCH' | 'DINNER';
 export const MEAL_SLOT_LABELS: Record<MealSlot, string> = {
   BREAKFAST: 'Petit-déjeuner',
   LUNCH: 'Déjeuner',
-  DINNER: 'Dîner'
+  DINNER: 'Dîner',
 };
 
 export interface DishAvailability {
   type: 'ALWAYS' | 'SLOTS';
   slots?: MealSlot[];
-  days?: number[]; // 0 = Dimanche, 1 = Lundi...
+  days?: number[];
 }
 
 export interface DishOption {
   id: string;
   name: string;
-  priceFcfa: number; // 0 ou supplément
+  priceFcfa: number;
 }
 
 export type DishStatus = 'AVAILABLE' | 'SOLD_OUT' | 'ARCHIVED';
@@ -108,13 +107,15 @@ export interface DishItem {
   tags: DishTag[];
   allergens: Allergen[];
   prepTimeMinutes: number;
-  prepStation: PrepStation;
+  prepStation: PrepStation | string;
   availability: DishAvailability;
   options: DishOption[];
   vatRatePercent: number;
   displayOrder: number;
   photoUrl?: string;
+  thumbnailUrl?: string;
   status: DishStatus;
+  orderLinesCount?: number;
 }
 
 export interface OrderTicketItem {
@@ -126,7 +127,7 @@ export interface OrderTicketItem {
   totalPriceFcfa: number;
   selectedOptions?: string[];
   notes?: string;
-  prepStation?: PrepStation;
+  prepStation?: PrepStation | string;
 }
 
 export interface RestaurantTicket {
@@ -134,8 +135,8 @@ export interface RestaurantTicket {
   ticketNumber: string;
   serverName: string;
   time: string;
-  destinationType: 'TABLE' | 'ROOM';
-  destinationValue: string; // Ex: 'T4 (Piscine)' ou '301'
+  destinationType: 'TABLE' | 'ROOM' | 'TAKEAWAY';
+  destinationValue: string;
   guestInfo?: {
     roomNumber: string;
     roomName: string;
@@ -147,5 +148,91 @@ export interface RestaurantTicket {
   vatRatePercent: number;
   vatAmountFcfa: number;
   totalTtcFcfa: number;
-  status: 'OPEN' | 'SENT_TO_KITCHEN' | 'PAID' | 'TRANSFERRED_TO_ROOM';
+  status: 'OPEN' | 'SENT_TO_KITCHEN' | 'PENDING' | 'IN_PREPARATION' | 'READY' | 'SERVED' | 'CANCELLED' | 'PAID' | 'TRANSFERRED_TO_ROOM';
+}
+
+export type RestaurantDestinationType = 'ROOM' | 'TABLE' | 'TAKEAWAY';
+
+export type RestaurantOrderStatus =
+  | 'PENDING'
+  | 'IN_PREPARATION'
+  | 'READY'
+  | 'SERVED'
+  | 'CANCELLED';
+
+export const RESTAURANT_ORDER_STATUS_LABELS: Record<string, string> = {
+  PENDING: 'En attente',
+  SENT_TO_KITCHEN: 'En attente',
+  IN_PREPARATION: 'En préparation',
+  READY: 'Prête',
+  SERVED: 'Servie',
+  CANCELLED: 'Annulée',
+};
+
+export interface RestaurantInStayRoom {
+  roomId: string;
+  roomNumber: string;
+  roomCategory: string;
+  reservationId: string;
+  guestName: string;
+  checkInDate: string;
+  checkOutDate: string;
+}
+
+export interface RestaurantOrderLineV3 {
+  id: string;
+  dishId: string;
+  productId?: string | null;
+  name: string;
+  quantity: number;
+  unitPriceFcfa?: number;
+  totalPriceFcfa?: number;
+  notes?: string;
+  prepStation: string;
+}
+
+export interface RestaurantOrderV3 {
+  id: string;
+  ticketNumber: string;
+  serverName: string;
+  time: string;
+  createdAt: string;
+  updatedAt: string;
+  destinationType: RestaurantDestinationType;
+  destinationValue: string;
+  destinationLabel: string;
+  tableLabel?: string | null;
+  roomId?: string | null;
+  roomNumber?: string | null;
+  reservationId?: string | null;
+  invoiceId?: string | null;
+  guestName: string;
+  status: RestaurantOrderStatus | string;
+  paymentMethod?: string | null;
+  cancellationReason?: string | null;
+  cancelledByName?: string | null;
+  preparingAt?: string | null;
+  readyAt?: string | null;
+  servedAt?: string | null;
+  cancelledAt?: string | null;
+  subtotalHtFcfa?: number;
+  vatRatePercent?: number;
+  vatAmountFcfa?: number;
+  totalTtcFcfa?: number;
+  items: RestaurantOrderLineV3[];
+  syncPending?: boolean;
+}
+
+export interface RestaurantOrdersPage {
+  items: RestaurantOrderV3[];
+  total: number;
+  offset: number;
+  limit: number;
+  hasMore: boolean;
+}
+
+export interface RestaurantMenuCatalog {
+  categories: DishCategory[];
+  products: DishItem[];
+  roomsInStay: RestaurantInStayRoom[];
 }

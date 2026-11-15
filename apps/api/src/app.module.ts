@@ -1,38 +1,42 @@
 import { Module } from '@nestjs/common';
-import { ConfigModule } from '@nestjs/config';
 import { APP_GUARD } from '@nestjs/core';
+import { ConfigModule } from '@nestjs/config';
 import { PrismaModule } from './prisma/prisma.module';
-import { HealthModule } from './health/health.module';
-import { RoomsModule } from './rooms/rooms.module';
-import { ExportsModule } from './exports/exports.module';
 import { AuthModule } from './auth/auth.module';
+import { RoomsModule } from './rooms/rooms.module';
+import { HealthModule } from './health/health.module';
 import { GuestsModule } from './guests/guests.module';
 import { ReservationsModule } from './reservations/reservations.module';
+import { SettingsModule } from './settings/settings.module';
 import { RestaurantModule } from './restaurant/restaurant.module';
 import { BillingModule } from './billing/billing.module';
-import { SettingsModule } from './settings/settings.module';
+import { ExportsModule } from './exports/exports.module';
+import { AccueilModule } from './accueil/accueil.module';
+import { RapportsModule } from './rapports/rapports.module';
+import { AuditModule } from './common/audit/audit.module';
 import { RolesGuard } from './common/guards/roles.guard';
+import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
 import { ModuleStatusGuard } from './common/guards/module-status.guard';
-import { ServerModuleConfigService } from './common/services/server-module-config.service';
-import { CryptoService } from './common/security/crypto.service';
 import { SecurityTestController } from './security-test/security-test.controller';
+import { CryptoService } from './common/security/crypto.service';
+import { ServerModuleConfigService } from './common/services/server-module-config.service';
 
 @Module({
   imports: [
-    ConfigModule.forRoot({
-      isGlobal: true,
-      envFilePath: ['.env.local', '.env'],
-    }),
+    ConfigModule.forRoot({ isGlobal: true }),
     PrismaModule,
-    HealthModule,
+    AuditModule,
     AuthModule,
+    HealthModule,
     RoomsModule,
     GuestsModule,
     ReservationsModule,
+    SettingsModule,
     RestaurantModule,
     BillingModule,
-    SettingsModule,
     ExportsModule,
+    AccueilModule,
+    RapportsModule,
   ],
   controllers: [SecurityTestController],
   providers: [
@@ -44,9 +48,12 @@ import { SecurityTestController } from './security-test/security-test.controller
     },
     {
       provide: APP_GUARD,
+      useClass: JwtAuthGuard,
+    },
+    {
+      provide: APP_GUARD,
       useClass: RolesGuard,
     },
   ],
-  exports: [CryptoService, ServerModuleConfigService],
 })
 export class AppModule {}

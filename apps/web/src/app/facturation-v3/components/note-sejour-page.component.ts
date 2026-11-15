@@ -1046,11 +1046,11 @@ export class NoteSejourPageComponent implements OnInit {
     });
   }
 
-  statusLabel(n: { status: string; documentType: string }): string {
+  statusLabel(n: { status: string; documentType: string; isIssued?: boolean }): string {
     if (n.documentType === 'CREDIT_NOTE') return 'Avoir';
     switch (n.status) {
       case 'PAID':
-        return 'Soldée';
+        return n.isIssued ? 'Soldée (émise)' : 'Soldée à clôturer';
       case 'PARTIAL':
         return 'Partielle';
       case 'CANCELLED':
@@ -1109,8 +1109,7 @@ export class NoteSejourPageComponent implements OnInit {
     try {
       const headers: Record<string, string> = {
         'Content-Type': 'application/json',
-        'x-user-role': this.service.currentRole(),
-        'x-user-name': this.service.currentUserName(),
+        ...(this.service.authHeaderMap ? this.service.authHeaderMap() : {}),
       };
       const res = await fetch(
         `/api/invoices/${encodeURIComponent(n.id)}/lines/${encodeURIComponent(lineId)}`,

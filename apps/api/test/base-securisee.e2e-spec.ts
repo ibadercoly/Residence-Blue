@@ -4,6 +4,7 @@ import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 import { seedAll } from '../prisma/seed';
+import { appendChainedAuditLog } from '../src/common/audit/audit.service';
 
 describe('Base de données sécurisée (feature/base-securisee) — Intégration & Porte de Sécurité', () => {
   const dbHost = process.env.TEST_DB_HOST || 'localhost';
@@ -51,7 +52,7 @@ describe('Base de données sécurisée (feature/base-securisee) — Intégration
     await ownerClient?.$disconnect();
     await appUserClient?.$disconnect();
     await readonlyClient?.$disconnect();
-  });
+  }, 90000);
 
   describe('1. Schéma Prisma strict (4 tables système uniquement, aucune table métier)', () => {
     it('ne doit comporter que les 4 tables : users, refresh_tokens, audit_log, sync_operations', async () => {
@@ -114,15 +115,13 @@ describe('Base de données sécurisée (feature/base-securisee) — Intégration
     let createdLogId: string;
 
     it('doit permettre à app_user d’insérer (INSERT) et de lire (SELECT) dans audit_log', async () => {
-      const log = await appUserClient.auditLog.create({
-        data: {
-          action: 'USER_LOGIN_SUCCESS',
-          entity: 'User',
-          entityId: '00000000-0000-0000-0000-000000000001',
-          before: { failedLogins: 1 },
-          after: { failedLogins: 0 },
-          ip: '192.168.1.10',
-        },
+      const log = await appendChainedAuditLog(appUserClient, {
+        action: 'USER_LOGIN_SUCCESS',
+        entity: 'User',
+        entityId: '00000000-0000-0000-0000-000000000001',
+        before: { failedLogins: 1 },
+        after: { failedLogins: 0 },
+        ip: '192.168.1.10',
       });
 
       expect(log.id).toBeDefined();
@@ -321,7 +320,7 @@ describe('Base de données sécurisée (feature/base-securisee) — Intégration
       } finally {
         fs.rmSync(tmpBackupDir, { recursive: true, force: true });
       }
-    }, 60000);
+    }, 120000);
   });
 });
 

@@ -1,4 +1,5 @@
-import { Injectable, signal } from '@angular/core';
+import { Injectable, effect, inject, signal } from '@angular/core';
+import { AuthService } from './auth.service';
 
 export interface HotelSettings {
   hotelName: string;
@@ -26,6 +27,7 @@ export interface HotelSettings {
   providedIn: 'root'
 })
 export class HotelSettingsService {
+  private readonly authService: AuthService | null;
   // Paramètres par défaut de la Résidence Blue à Grand Standing, Thiès
   // Source de vérité paramétrable (AGENTS.md & ADAPTATION-THIES.md)
   private readonly _settings = signal<HotelSettings>({
@@ -49,8 +51,24 @@ export class HotelSettingsService {
 
   readonly settings = this._settings.asReadonly();
 
-  constructor() {
+  constructor(authServiceOverride?: AuthService) {
+    let injectedAuth: AuthService | null = null;
+    try {
+      injectedAuth = inject(AuthService, { optional: true });
+    } catch {
+      injectedAuth = null;
+    }
+    this.authService = authServiceOverride ?? injectedAuth;
     this.fetchFromServer();
+    try {
+      effect(() => {
+        if (this.authService?.isAuthenticated()) {
+          void this.fetchFromServer();
+        }
+      });
+    } catch {
+      // Hors contexte d'injection Angular (tests unitaires)
+    }
   }
 
   async fetchFromServer(): Promise<void> {
@@ -79,9 +97,10 @@ export class HotelSettingsService {
     if (typeof fetch !== 'undefined') {
       fetch('/api/hotel-settings', {
         method: 'PATCH',
+        credentials: 'include',
         headers: {
           'Content-Type': 'application/json',
-          'x-user-role': 'DIRECTION',
+          ...(this.authService ? this.authService.getAuthHeaders() : {}),
         },
         body: JSON.stringify(partial),
       })

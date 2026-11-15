@@ -3,12 +3,14 @@ import { Test, TestingModule } from '@nestjs/testing';
 import request from 'supertest';
 import { AppModule } from '../src/app.module';
 import { PrismaService } from '../src/prisma/prisma.service';
+import { issueDbTestToken } from './auth-test.helper';
 
 describe('Clients V2 Fluide API (e2e)', () => {
   let app: INestApplication;
   let prisma: PrismaService;
   const createdGuestIds: string[] = [];
   const createdRoomIds: string[] = [];
+  const roleTokens: Record<string, string> = {};
 
   beforeAll(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
@@ -26,6 +28,9 @@ describe('Clients V2 Fluide API (e2e)', () => {
     );
     await app.init();
     prisma = moduleFixture.get<PrismaService>(PrismaService);
+    for (const r of ['DIRECTION', 'RECEPTION', 'CUISINE']) {
+      roleTokens[r] = (await issueDbTestToken(prisma, r)).token;
+    }
   }, 30000);
 
   afterAll(async () => {
@@ -53,7 +58,7 @@ describe('Clients V2 Fluide API (e2e)', () => {
     const suffix = Date.now().toString().slice(-5);
     const g1Res = await request(app.getHttpServer())
       .post('/api/guests')
-      .set('x-user-role', 'RECEPTION')
+      .set('Authorization', `Bearer ${roleTokens['RECEPTION']}`)
       .send({
         fullName: `Awa Ndiaye ${suffix}`,
         phone: `+221 77 310 ${suffix.slice(0, 2)} ${suffix.slice(2, 4)}`,
@@ -67,7 +72,7 @@ describe('Clients V2 Fluide API (e2e)', () => {
 
     const g2Res = await request(app.getHttpServer())
       .post('/api/guests')
-      .set('x-user-role', 'RECEPTION')
+      .set('Authorization', `Bearer ${roleTokens['RECEPTION']}`)
       .send({
         fullName: `Bocar Fall ${suffix}`,
         phone: `+221 78 420 ${suffix.slice(0, 2)} ${suffix.slice(2, 4)}`,
@@ -80,7 +85,7 @@ describe('Clients V2 Fluide API (e2e)', () => {
     const byName = await request(app.getHttpServer())
       .get('/api/guests')
       .query({ search: `Awa Ndiaye ${suffix}` })
-      .set('x-user-role', 'RECEPTION')
+      .set('Authorization', `Bearer ${roleTokens['RECEPTION']}`)
       .expect(200);
     expect(byName.body.items.some((g: any) => g.id === g1Id)).toBe(true);
     expect(byName.body.stats).toBeDefined();
@@ -89,7 +94,7 @@ describe('Clients V2 Fluide API (e2e)', () => {
     const byPhone = await request(app.getHttpServer())
       .get('/api/guests')
       .query({ search: '78 420' })
-      .set('x-user-role', 'RECEPTION')
+      .set('Authorization', `Bearer ${roleTokens['RECEPTION']}`)
       .expect(200);
     expect(byPhone.body.items.some((g: any) => g.id === g2Id)).toBe(true);
 
@@ -97,7 +102,7 @@ describe('Clients V2 Fluide API (e2e)', () => {
     const byDoc = await request(app.getHttpServer())
       .get('/api/guests')
       .query({ search: `CNI-V2-${suffix}` })
-      .set('x-user-role', 'RECEPTION')
+      .set('Authorization', `Bearer ${roleTokens['RECEPTION']}`)
       .expect(200);
     expect(byDoc.body.items.some((g: any) => g.id === g1Id)).toBe(true);
 
@@ -105,7 +110,7 @@ describe('Clients V2 Fluide API (e2e)', () => {
     const page1 = await request(app.getHttpServer())
       .get('/api/guests')
       .query({ search: suffix, limit: 1 })
-      .set('x-user-role', 'RECEPTION')
+      .set('Authorization', `Bearer ${roleTokens['RECEPTION']}`)
       .expect(200);
     expect(page1.body.items.length).toBe(1);
     expect(page1.body.nextCursor).toBeTruthy();
@@ -113,7 +118,7 @@ describe('Clients V2 Fluide API (e2e)', () => {
     const page2 = await request(app.getHttpServer())
       .get('/api/guests')
       .query({ search: suffix, limit: 1, cursor: page1.body.nextCursor })
-      .set('x-user-role', 'RECEPTION')
+      .set('Authorization', `Bearer ${roleTokens['RECEPTION']}`)
       .expect(200);
     expect(page2.body.items.length).toBe(1);
     expect(page2.body.items[0].id).not.toBe(page1.body.items[0].id);
@@ -170,7 +175,7 @@ describe('Clients V2 Fluide API (e2e)', () => {
     const inStayRes = await request(app.getHttpServer())
       .get('/api/guests')
       .query({ filter: 'IN_STAY', search: suffix })
-      .set('x-user-role', 'RECEPTION')
+      .set('Authorization', `Bearer ${roleTokens['RECEPTION']}`)
       .expect(200);
     expect(inStayRes.body.items.map((g: any) => g.id)).toContain(g1Id);
     expect(inStayRes.body.items.map((g: any) => g.id)).not.toContain(g2Id);
@@ -178,7 +183,7 @@ describe('Clients V2 Fluide API (e2e)', () => {
     const upcomingRes = await request(app.getHttpServer())
       .get('/api/guests')
       .query({ filter: 'UPCOMING', search: suffix })
-      .set('x-user-role', 'RECEPTION')
+      .set('Authorization', `Bearer ${roleTokens['RECEPTION']}`)
       .expect(200);
     expect(upcomingRes.body.items.map((g: any) => g.id)).toContain(g2Id);
     expect(upcomingRes.body.items.map((g: any) => g.id)).not.toContain(g1Id);
@@ -186,7 +191,7 @@ describe('Clients V2 Fluide API (e2e)', () => {
     // Suppression refusée car historique présent (409)
     const delConflict = await request(app.getHttpServer())
       .delete(`/api/guests/${g1Id}`)
-      .set('x-user-role', 'DIRECTION')
+      .set('Authorization', `Bearer ${roleTokens['DIRECTION']}`)
       .expect(409);
     expect(delConflict.body.message).toContain('ne peut pas être supprimé');
   });
@@ -195,7 +200,7 @@ describe('Clients V2 Fluide API (e2e)', () => {
     const suffix = Date.now().toString().slice(-5);
     const created = await request(app.getHttpServer())
       .post('/api/guests')
-      .set('x-user-role', 'RECEPTION')
+      .set('Authorization', `Bearer ${roleTokens['RECEPTION']}`)
       .send({
         fullName: `Cheikh Diop ${suffix}`,
         phone: `+221 76 555 ${suffix.slice(0, 2)} ${suffix.slice(2, 4)}`,
@@ -209,14 +214,14 @@ describe('Clients V2 Fluide API (e2e)', () => {
     const dupRes = await request(app.getHttpServer())
       .get('/api/guests/check-duplicate')
       .query({ phone: `76 555 ${suffix.slice(0, 2)} ${suffix.slice(2, 4)}` })
-      .set('x-user-role', 'RECEPTION')
+      .set('Authorization', `Bearer ${roleTokens['RECEPTION']}`)
       .expect(200);
     expect(dupRes.body.duplicate?.id).toBe(guestId);
 
     // Modification partielle d'un seul champ (note interne) avec version=1
     const patchRes = await request(app.getHttpServer())
       .patch(`/api/guests/${guestId}`)
-      .set('x-user-role', 'RECEPTION')
+      .set('Authorization', `Bearer ${roleTokens['RECEPTION']}`)
       .send({ internalNote: 'Client calme', expectedVersion: 1 })
       .expect(200);
     expect(patchRes.body.internalNote).toBe('Client calme');
@@ -225,7 +230,7 @@ describe('Clients V2 Fluide API (e2e)', () => {
     // Conflit de version (expectedVersion obsolète = 1)
     const conflictRes = await request(app.getHttpServer())
       .patch(`/api/guests/${guestId}`)
-      .set('x-user-role', 'RECEPTION')
+      .set('Authorization', `Bearer ${roleTokens['RECEPTION']}`)
       .send({ nationality: 'Malienne', expectedVersion: 1 })
       .expect(409);
     expect(conflictRes.body.code).toBe('VERSION_CONFLICT');
@@ -233,34 +238,34 @@ describe('Clients V2 Fluide API (e2e)', () => {
     // Rôle non autorisé (CUISINE) ne peut ni lire la fiche ni révéler la pièce
     await request(app.getHttpServer())
       .get(`/api/guests/${guestId}`)
-      .set('x-user-role', 'CUISINE')
+      .set('Authorization', `Bearer ${roleTokens['CUISINE']}`)
       .expect(403);
 
     await request(app.getHttpServer())
       .post(`/api/guests/${guestId}/reveal-document`)
-      .set('x-user-role', 'CUISINE')
+      .set('Authorization', `Bearer ${roleTokens['CUISINE']}`)
       .expect(403);
 
     // RECEPTION peut révéler (et c'est journalisé)
     const revealRes = await request(app.getHttpServer())
       .post(`/api/guests/${guestId}/reveal-document`)
-      .set('x-user-role', 'RECEPTION')
+      .set('Authorization', `Bearer ${roleTokens['RECEPTION']}`)
       .expect(200);
     expect(revealRes.body.idDocumentNumber).toBe(`PASS-${suffix}-99`);
 
     // Suppression refusée pour RECEPTION (403)
     await request(app.getHttpServer())
       .delete(`/api/guests/${guestId}`)
-      .set('x-user-role', 'RECEPTION')
+      .set('Authorization', `Bearer ${roleTokens['RECEPTION']}`)
       .expect(403);
 
     // Suppression autorisée pour DIRECTION (sans historique)
     await request(app.getHttpServer())
       .delete(`/api/guests/${guestId}`)
-      .set('x-user-role', 'DIRECTION')
+      .set('Authorization', `Bearer ${roleTokens['DIRECTION']}`)
       .expect(200);
 
     const idx = createdGuestIds.indexOf(guestId);
     if (idx !== -1) createdGuestIds.splice(idx, 1);
-  });
+  }, 20000);
 });

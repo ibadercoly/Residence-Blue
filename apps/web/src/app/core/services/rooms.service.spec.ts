@@ -3,6 +3,7 @@ import { IdbService } from '../offline/idb.service';
 import { OutboxService } from '../offline/outbox.service';
 import { NetworkService } from '../offline/network.service';
 import { RoomStatus, Role } from '@residence-blue/shared';
+import { signal } from '@angular/core';
 
 const TEST_ROOMS: RoomUiItem[] = [
   { id: 'r-101', number: '101', typeId: 't-std', floor: 1, status: RoomStatus.FREE, amenities: [], syncPending: false, type: { id: 't-std', name: 'Standard', pricePerNight: 35000 } },
@@ -24,8 +25,16 @@ describe('RoomsService', () => {
   let mockIdb: jest.Mocked<IdbService>;
   let mockOutbox: jest.Mocked<OutboxService>;
   let mockNetwork: jest.Mocked<NetworkService>;
+  let mockRoleSig = signal<Role | null>(Role.DIRECTION);
+  let mockAuth: any;
 
   beforeEach(() => {
+    mockRoleSig = signal<Role | null>(Role.DIRECTION);
+    mockAuth = {
+      currentRole: mockRoleSig,
+      isAuthenticated: () => true,
+      getAuthHeaders: () => ({ Authorization: 'Bearer test-jwt' }),
+    };
     // Reset fetch
     global.fetch = jest.fn();
 
@@ -60,7 +69,7 @@ describe('RoomsService', () => {
       isOnline: jest.fn().mockReturnValue(true),
     } as unknown as jest.Mocked<NetworkService>;
 
-    service = new RoomsService(mockIdb, mockOutbox, mockNetwork);
+    service = new RoomsService(mockIdb, mockOutbox, mockNetwork, mockAuth);
   });
 
   afterEach(() => {
@@ -149,7 +158,7 @@ describe('RoomsService', () => {
     });
 
     it('doit refuser une transition interdite par la matrice des rôles (ex. HOUSEKEEPING vers OCCUPIED)', async () => {
-      service.setRole(Role.HOUSEKEEPING);
+      mockRoleSig.set(Role.HOUSEKEEPING);
       const room = service.rooms()[0]; // 101 FREE
 
       const success = await service.changeRoomStatus(room.id, RoomStatus.OCCUPIED);
@@ -160,7 +169,7 @@ describe('RoomsService', () => {
 
     it('doit refuser une transition interdite par la machine à états (ex. OCCUPIED vers FREE direct)', async () => {
       // Met d'abord la chambre à OCCUPIED
-      service.setRole(Role.RECEPTION);
+      mockRoleSig.set(Role.RECEPTION);
       const room = service.rooms()[0];
       (global.fetch as jest.Mock).mockResolvedValueOnce({
         ok: true,
@@ -175,7 +184,7 @@ describe('RoomsService', () => {
     });
 
     it('doit réussir un changement de statut en ligne avec appel API réussi', async () => {
-      service.setRole(Role.RECEPTION);
+      mockRoleSig.set(Role.RECEPTION);
       const room = service.rooms()[0]; // 101 FREE
 
       (global.fetch as jest.Mock).mockResolvedValueOnce({
@@ -197,7 +206,7 @@ describe('RoomsService', () => {
 
     it('doit mettre en file d attente hors-ligne (outbox) avec indicateur syncPending si le réseau est coupé', async () => {
       mockNetwork.isOnline.mockReturnValue(false);
-      service.setRole(Role.RECEPTION);
+      mockRoleSig.set(Role.RECEPTION);
       const room = service.rooms()[0]; // 101 FREE
 
       const success = await service.changeRoomStatus(room.id, RoomStatus.OCCUPIED);
@@ -215,7 +224,7 @@ describe('RoomsService', () => {
     });
 
     it('doit annuler la mise à jour optimiste (rollback) si le serveur renvoie 400 ou 403', async () => {
-      service.setRole(Role.RECEPTION);
+      mockRoleSig.set(Role.RECEPTION);
       const room = service.rooms()[0]; // 101 FREE
 
       (global.fetch as jest.Mock).mockResolvedValueOnce({

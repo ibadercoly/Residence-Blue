@@ -3,6 +3,8 @@ import { execFileSync } from 'child_process';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
+import { getApiAuthHeaders, loginViaUi } from './auth-e2e.helper';
+import { getE2eBaseUrl, getE2eEnv } from './e2e-db.helper';
 
 const repoRoot = path.resolve(__dirname, '../../..');
 
@@ -14,7 +16,9 @@ function cleanupEntities(opts: {
 }) {
   const prismaDir = path.join(repoRoot, 'apps/api');
   const script = `
-    import { PrismaClient } from '@prisma/client';
+    import { createRequire } from 'module';
+    const require = createRequire(${JSON.stringify(path.join(prismaDir, 'package.json'))});
+    const { PrismaClient } = require('@prisma/client');
     const prisma = new PrismaClient();
     async function main() {
       const invIds = ${JSON.stringify(opts.invoiceIds)};
@@ -42,7 +46,13 @@ function cleanupEntities(opts: {
     }
     main().finally(() => prisma.$disconnect());
   `;
-  execFileSync('npx', ['tsx', '-e', script], { cwd: prismaDir, stdio: 'inherit', shell: true });
+  const tmpScript = path.join(os.tmpdir(), `rb-cleanup-${Date.now()}-${Math.random().toString(36).slice(2)}.mjs`);
+  fs.writeFileSync(tmpScript, script, 'utf8');
+  try {
+    execFileSync(process.execPath, [tmpScript], { cwd: repoRoot, env: getE2eEnv(), stdio: 'inherit' });
+  } finally {
+    fs.rmSync(tmpScript, { force: true });
+  }
 }
 
 test.describe('Facturation V3 — Stabilité Service Worker (20 reloads) & Hors ligne', () => {
@@ -52,13 +62,14 @@ test.describe('Facturation V3 — Stabilité Service Worker (20 reloads) & Hors 
   let roomNumber = '106';
 
   test.beforeAll(async ({ request }) => {
+    const apiHeaders = await getApiAuthHeaders(request, 'fatou.ndiaye@residenceblue.sn');
     const today = new Date();
     const checkOut = new Date(today.getTime() + 2 * 86400000);
     const fmt = (d: Date) => d.toISOString().slice(0, 10);
 
     const availRes = await request.get(
       `/api/rooms/available?checkIn=${fmt(today)}&checkOut=${fmt(checkOut)}`,
-      { headers: { 'x-user-role': 'DIRECTION' } },
+      { headers: apiHeaders },
     );
     if (availRes.ok()) {
       const json = await availRes.json();
@@ -68,7 +79,7 @@ test.describe('Facturation V3 — Stabilité Service Worker (20 reloads) & Hors 
     }
 
     const gRes = await request.post('/api/guests', {
-      headers: { 'x-user-role': 'DIRECTION' },
+      headers: apiHeaders,
       data: {
         civility: 'Mme',
         firstName: 'Fatou',
@@ -80,7 +91,7 @@ test.describe('Facturation V3 — Stabilité Service Worker (20 reloads) & Hors 
     guestId = (await gRes.json()).id;
 
     const rRes = await request.post('/api/reservations', {
-      headers: { 'x-user-role': 'DIRECTION' },
+      headers: apiHeaders,
       data: {
         roomNumber,
         guestId,
@@ -97,11 +108,11 @@ test.describe('Facturation V3 — Stabilité Service Worker (20 reloads) & Hors 
     reservationId = (await rRes.json()).id;
 
     const cRes = await request.get('/api/invoices/counter?search=NdiayeSW&limit=8', {
-      headers: { 'x-user-role': 'DIRECTION' },
+      headers: apiHeaders,
     });
     expect(cRes.ok()).toBeTruthy();
     const counter = await cRes.json();
-    invoiceId = counter.columns.toPay.items[0]?.id;
+    invoiceId = counter.page.items[0]?.id;
     expect(invoiceId).toBeTruthy();
   });
 
@@ -128,8 +139,13 @@ test.describe('Facturation V3 — Stabilité Service Worker (20 reloads) & Hors 
       }
     });
 
-    await page.goto('/', { waitUntil: 'networkidle' });
-    await page.waitForTimeout(1500);
+    await loginViaUi(page, 'fatou.ndiaye@residenceblue.sn', 'ThiesTeranga2024!');
+    await expect
+      .poll(
+        () => page.evaluate(async () => (await navigator.serviceWorker.getRegistrations()).length),
+        { timeout: 10000 },
+      )
+      .toBeGreaterThanOrEqual(1);
     const swRegs = await page.evaluate(async () => {
       const regs = await navigator.serviceWorker.getRegistrations();
       return regs.length;
@@ -171,7 +187,7 @@ test.describe('Facturation V3 — Stabilité Service Worker (20 reloads) & Hors 
         headless: true,
         executablePath: 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
         serviceWorkers: 'allow',
-        baseURL: 'http://localhost:4200',
+        baseURL: getE2eBaseUrl(),
       });
 
       const page = ctx.pages()[0] || (await ctx.newPage());
@@ -179,7 +195,7 @@ test.describe('Facturation V3 — Stabilité Service Worker (20 reloads) & Hors 
       page.on('crash', () => crashes.push(page.url()));
 
       // 1. Préparer un profil rempli : charger le site (SW + IDB initialisés) puis injecter une entrée sentinelle dans IndexedDB
-      await page.goto('/', { waitUntil: 'networkidle' });
+      await loginViaUi(page, 'fatou.ndiaye@residenceblue.sn', 'ThiesTeranga2024!');
       await page.waitForTimeout(1500);
 
       const seeded = await page.evaluate(async (id) => {
@@ -264,7 +280,11 @@ test.describe('Facturation V3 — Stabilité Service Worker (20 reloads) & Hors 
 
       await ctx.close();
     } finally {
-      fs.rmSync(userDataDir, { recursive: true, force: true });
+      try {
+        fs.rmSync(userDataDir, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
+      } catch {
+        // Ignorer un verrou Windows transitoire sur le profil temporaire après fermeture de Chromium
+      }
     }
   });
 
@@ -274,11 +294,13 @@ test.describe('Facturation V3 — Stabilité Service Worker (20 reloads) & Hors 
     request,
   }) => {
     await page.setViewportSize({ width: 1280, height: 800 });
+    await loginViaUi(page, 'fatou.ndiaye@residenceblue.sn', 'ThiesTeranga2024!');
     await page.goto(`/facturation/${invoiceId}`, { waitUntil: 'networkidle' });
     await expect(page.locator('[data-testid="note-display-number"]')).toBeVisible();
 
+    const apiHeaders = await getApiAuthHeaders(request, 'fatou.ndiaye@residenceblue.sn');
     const beforeRes = await request.get(`/api/invoices/${invoiceId}`, {
-      headers: { 'x-user-role': 'DIRECTION' },
+      headers: apiHeaders,
     });
     const beforeNote = await beforeRes.json();
     const initialPaymentsCount = beforeNote.payments.length;
@@ -330,7 +352,7 @@ test.describe('Facturation V3 — Stabilité Service Worker (20 reloads) & Hors 
 
     // Vérifier en base (via API) qu'il y a exactement +1 paiement
     const afterRes = await request.get(`/api/invoices/${invoiceId}`, {
-      headers: { 'x-user-role': 'DIRECTION' },
+      headers: apiHeaders,
     });
     const afterNote = await afterRes.json();
     expect(afterNote.payments.length).toBe(initialPaymentsCount + 1);
@@ -340,7 +362,7 @@ test.describe('Facturation V3 — Stabilité Service Worker (20 reloads) & Hors 
     // Rejouer exactement la même Idempotency-Key vers l'API et vérifier aucune duplication
     const replayRes = await request.post(`/api/invoices/${invoiceId}/payments`, {
       headers: {
-        'x-user-role': 'DIRECTION',
+        ...(await getApiAuthHeaders(request, 'fatou.ndiaye@residenceblue.sn')),
         'Idempotency-Key': idempotencyKey,
       },
       data: {
@@ -351,7 +373,7 @@ test.describe('Facturation V3 — Stabilité Service Worker (20 reloads) & Hors 
     expect(replayRes.ok()).toBeTruthy();
 
     const afterReplayRes = await request.get(`/api/invoices/${invoiceId}`, {
-      headers: { 'x-user-role': 'DIRECTION' },
+      headers: apiHeaders,
     });
     const afterReplayNote = await afterReplayRes.json();
     expect(afterReplayNote.payments.length).toBe(initialPaymentsCount + 1);
