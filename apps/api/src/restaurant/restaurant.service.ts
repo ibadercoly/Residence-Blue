@@ -4,12 +4,14 @@ import {
   ForbiddenException,
   Injectable,
   NotFoundException,
+  Optional,
 } from '@nestjs/common';
 import { InvoiceDocumentType, InvoiceStatus, PaymentMethod, Prisma, ReservationStatus } from '@prisma/client';
 import { Observable, Subject, concat, from, map } from 'rxjs';
 import { PrismaService } from '../prisma/prisma.service';
 import { appendChainedAuditLog } from '../common/audit/audit.service';
 import { recalculateInvoiceTotalsInTx } from '../billing/billing-totals.helper';
+import { NotificationOrderContext, NotificationsService } from '../notifications/notifications.service';
 import {
   CancelRestaurantOrderDto,
   CreateRestaurantOrderDto,
@@ -60,7 +62,10 @@ export class RestaurantService {
   private readonly recentEventsBuffer: BufferedRestaurantOrderEvent[] = [];
   private nextEventId = 1;
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    @Optional() private readonly notificationsService?: NotificationsService,
+  ) {}
 
   private isKitchenRole(role?: string | null): boolean {
     return role === 'CUISINIER' || role === 'CUISINE';
@@ -213,6 +218,22 @@ export class RestaurantService {
       return 'À emporter';
     }
     return o.tableLabel || 'Table 1';
+  }
+
+  private toNotificationOrderContext(o: any): NotificationOrderContext {
+    return {
+      id: o.id,
+      ticketNumber: o.ticketNumber,
+      destinationType: o.destinationType,
+      roomNumber: o.room?.number || null,
+      tableLabel: o.tableLabel || null,
+      guestName: o.guestName || o.reservation?.guest?.fullName || null,
+      items: (o.lines || []).map((l: any) => ({
+        name: l.name,
+        quantity: l.quantity,
+        isUnavailable: Boolean(l.isUnavailable),
+      })),
+    };
   }
 
   private formatOrder(o: any, hideAmounts = false) {
@@ -849,6 +870,10 @@ export class RestaurantService {
     });
 
     this.emitOrderEvent('ORDER_CANCELLED', id, closed);
+    await this.notificationsService?.notifyOrderCancelled(
+      this.toNotificationOrderContext(closed),
+      reason,
+    );
     return this.formatOrder(closed, false);
   }
 
@@ -1498,6 +1523,13 @@ export class RestaurantService {
       }
     }
 
+    const notifState: {
+      unavailable: { dishNames: string[]; reason: string } | null;
+      confirmedPrep: { prepMinutes: number; heureFinPrevue: Date } | null;
+      addedTime: { previousFinPrevue: Date | null; nextFinPrevue: Date } | null;
+      ready: boolean;
+    } = { unavailable: null, confirmedPrep: null, addedTime: null, ready: false };
+
     const updated = await this.prisma.$transaction(async (tx) => {
       if (hasUnavailableUpdate) {
         const targetLineIds = dto.unavailableLineIds || [];
@@ -1519,6 +1551,7 @@ export class RestaurantService {
           },
         });
 
+        notifState.unavailable = { dishNames, reason: reasonText };
         await tx.restaurantOrderEvent.create({
           data: {
             orderId: id,
@@ -1556,7 +1589,7 @@ export class RestaurantService {
           data: {
             orderId: id,
             type: 'CONFIRMEE',
-            detail: 'La cuisine a confirmé : tous les plats existent',
+            detail: 'Commande prise en charge par la cuisine',
             userId: actor?.userId || null,
             userName: actor?.actorName || 'Cuisinier',
             createdAt: now,
@@ -1595,19 +1628,7 @@ export class RestaurantService {
           );
         }
 
-        if (currentStatus === 'PENDING' && !hasUnavailableUpdate) {
-          await tx.restaurantOrderEvent.create({
-            data: {
-              orderId: id,
-              type: 'CONFIRMEE',
-              detail: 'La cuisine a confirmé : tous les plats existent',
-              userId: actor?.userId || null,
-              userName: actor?.actorName || 'Cuisinier',
-              createdAt: new Date(now.getTime() - 100),
-            },
-          });
-        }
-
+        notifState.confirmedPrep = { prepMinutes, heureFinPrevue };
         await tx.restaurantOrderEvent.create({
           data: {
             orderId: id,
@@ -1652,6 +1673,12 @@ export class RestaurantService {
           );
         }
 
+        const previousFin = existing.heureFinPrevue ? new Date(existing.heureFinPrevue) : null;
+        if (requestedAddMin !== undefined) {
+          notifState.addedTime = { previousFinPrevue: previousFin, nextFinPrevue };
+        } else {
+          notifState.confirmedPrep = { prepMinutes: nextPrepMinutes, heureFinPrevue: nextFinPrevue };
+        }
         const addMinVal = requestedAddMin ?? nextPrepMinutes;
         await tx.restaurantOrderEvent.create({
           data: {
@@ -1689,6 +1716,7 @@ export class RestaurantService {
         const destFull = this.resolveDestinationLabel(existing, true);
         const readyVerb = totalQty > 1 ? 'prêts à servir' : 'prêt à servir';
 
+        notifState.ready = true;
         await tx.restaurantOrderEvent.create({
           data: {
             orderId: id,
@@ -1794,6 +1822,31 @@ export class RestaurantService {
 
     const formatted = this.formatOrder(updated, isKitchen);
     this.emitOrderEvent('ORDER_UPDATED', id, updated);
+    const notifCtx = this.toNotificationOrderContext(updated);
+    if (notifState.unavailable) {
+      await this.notificationsService?.notifyUnavailableDishes(
+        notifCtx,
+        notifState.unavailable.dishNames,
+        notifState.unavailable.reason,
+      );
+    }
+    if (notifState.confirmedPrep) {
+      await this.notificationsService?.notifyConfirmedWithPrepTime(
+        notifCtx,
+        notifState.confirmedPrep.prepMinutes,
+        notifState.confirmedPrep.heureFinPrevue,
+      );
+    }
+    if (notifState.addedTime) {
+      await this.notificationsService?.notifyAddedPrepTime(
+        notifCtx,
+        notifState.addedTime.previousFinPrevue,
+        notifState.addedTime.nextFinPrevue,
+      );
+    }
+    if (notifState.ready) {
+      await this.notificationsService?.notifyOrderReady(notifCtx);
+    }
     return formatted;
   }
 
@@ -2062,6 +2115,10 @@ export class RestaurantService {
     });
 
     this.emitOrderEvent('ORDER_CANCELLED', id, cancelled);
+    await this.notificationsService?.notifyOrderCancelled(
+      this.toNotificationOrderContext(cancelled),
+      reason,
+    );
     return this.formatOrder(cancelled);
   }
 }

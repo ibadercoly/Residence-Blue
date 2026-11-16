@@ -85,6 +85,7 @@ model User {
   syncOps                    SyncOperation[]
   createdReservations        Reservation[]   @relation("CreatedReservations")
   receivedPayments           Payment[]       @relation("ReceivedPayments")
+  notificationReads          NotificationRead[]
 
   @@map("users")
 }
@@ -539,4 +540,38 @@ model SyncOperation {
 
   @@index([userId])
   @@map("sync_operations")
+}
+
+model NotificationMessage {
+  id               String             @id @default(uuid()) @db.Uuid
+  category         String             @default("RESTAURANT")
+  type             String
+  severity         String             @default("INFO")
+  orderId          String?            @map("order_id") @db.Uuid
+  destinationType  String?            @map("destination_type")
+  roomNumber       String?            @map("room_number")
+  destinationLabel String             @map("destination_label")
+  guestName        String?            @map("guest_name")
+  title            String             @db.Text
+  link             String
+  importantAlert   Boolean            @default(false) @map("important_alert")
+  createdAt        DateTime           @default(now()) @map("created_at")
+  reads            NotificationRead[]
+
+  @@index([createdAt])
+  @@index([orderId, type])
+  @@index([category, createdAt])
+  @@map("notification_messages")
+}
+
+model NotificationRead {
+  notificationId String              @map("notification_id") @db.Uuid
+  notification   NotificationMessage @relation(fields: [notificationId], references: [id], onDelete: Cascade)
+  userId         String              @map("user_id") @db.Uuid
+  user           User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  readAt         DateTime            @default(now()) @map("read_at")
+
+  @@id([notificationId, userId])
+  @@index([userId, readAt])
+  @@map("notification_reads")
 }

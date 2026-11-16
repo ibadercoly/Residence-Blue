@@ -11,3 +11,4 @@ export * from './modules';
 export * from './accueil';
 export * from './rapports';
 export * from './access';
+export * from './notifications';
