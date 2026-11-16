@@ -6,7 +6,6 @@ import { AppModule } from '../src/app.module';
 import { PrismaService } from '../src/prisma/prisma.service';
 import { NotificationsService } from '../src/notifications/notifications.service';
 import { issueDbTestToken } from './auth-test.helper';
-import { randomUUID } from 'crypto';
 
 describe('Notifications dans la cloche — API, Sécurité & Temps Réel (e2e)', () => {
   let app: INestApplication;
