@@ -268,7 +268,7 @@ interface FilterPill {
                         class="inline-flex min-h-[48px] w-full items-center justify-center gap-2 rounded-xl border border-[#005e6a]/35 bg-[#005e6a]/5 px-4 py-2 text-center text-base font-semibold leading-snug text-[#005e6a] whitespace-normal hover:bg-[#005e6a]/10 focus:outline-none focus:ring-2 focus:ring-[#005e6a]"
                       >
                         <span class="material-symbols-outlined text-[20px] shrink-0" aria-hidden="true">key</span>
-                        <span>Modifier mon e-mail et mot de passe</span>
+                        <span>Modifier mon nom, e-mail et mot de passe</span>
                       </a>
                     } @else {
                       <div class="grid grid-cols-2 gap-3">

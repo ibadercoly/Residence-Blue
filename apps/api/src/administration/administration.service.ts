@@ -313,6 +313,10 @@ export class AdministrationService {
       );
     }
 
+    if (!dto.fullName || dto.fullName.trim().length < 2) {
+      throw new BadRequestException('Le nom complet est obligatoire (2 caractères minimum).');
+    }
+
     const cleanEmail = dto.email.trim().toLowerCase();
     const existingEmail = await this.prisma.user.findUnique({
       where: { email: cleanEmail },
@@ -782,9 +786,10 @@ export class AdministrationService {
       false,
     );
 
-    if (!dto.email && !dto.newPassword) {
+    const nextFullName = dto.fullName?.trim();
+    if (!nextFullName && !dto.email && !dto.newPassword) {
       throw new BadRequestException(
-        'Renseignez une nouvelle adresse e-mail ou un nouveau mot de passe.',
+        'Renseignez un nouveau nom, une nouvelle adresse e-mail ou un nouveau mot de passe.',
       );
     }
 
@@ -826,6 +831,9 @@ export class AdministrationService {
     this.clearRateBucket(this.passwordFailureBuckets, `dir:${actorId}`);
 
     const updateData: Record<string, unknown> = {};
+    if (nextFullName && nextFullName !== director.fullName) {
+      updateData.fullName = nextFullName;
+    }
     if (dto.email && dto.email.trim().toLowerCase() !== director.email) {
       const cleanEmail = dto.email.trim().toLowerCase();
       const conflict = await this.prisma.user.findUnique({
@@ -854,24 +862,28 @@ export class AdministrationService {
         data: updateData,
       });
 
-      const revRes = await tx.refreshToken.updateMany({
-        where: {
-          userId: director.id,
-          revokedAt: null,
-          ...(currentSid ? { familyId: { not: currentSid } } : {}),
-        },
-        data: {
-          revokedAt: new Date(),
-          revokedReason: 'DIRECTOR_CREDENTIALS_CHANGED',
-        },
-      });
-      revokedCount = revRes.count;
+      if (updateData.email || updateData.passwordHash) {
+        const revRes = await tx.refreshToken.updateMany({
+          where: {
+            userId: director.id,
+            revokedAt: null,
+            ...(currentSid ? { familyId: { not: currentSid } } : {}),
+          },
+          data: {
+            revokedAt: new Date(),
+            revokedReason: 'DIRECTOR_CREDENTIALS_CHANGED',
+          },
+        });
+        revokedCount = revRes.count;
+      }
 
       await this.logAudit(
         director.id,
         'ADMIN_DIRECTEUR_IDENTIFIANTS_MODIFIES',
         director.id,
         {
+          fullNameChanged: Boolean(updateData.fullName),
+          fullName: u.fullName,
           emailChanged: Boolean(updateData.email),
           email: u.email,
           passwordChanged: Boolean(updateData.passwordHash),

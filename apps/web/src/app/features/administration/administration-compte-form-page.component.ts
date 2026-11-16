@@ -173,7 +173,7 @@ import { AdministrationService, ManagedAccount } from './administration.service'
                 <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
                   <div class="space-y-1.5">
                     <label for="account-fullname" class="block text-base font-semibold text-[#0A2540]">
-                      Nom complet
+                      Nom complet <span class="text-rose-600" aria-hidden="true">*</span>
                     </label>
                     <input
                       id="account-fullname"
@@ -182,13 +182,15 @@ import { AdministrationService, ManagedAccount } from './administration.service'
                       [value]="fullName()"
                       (input)="fullName.set($any($event.target).value)"
                       placeholder="Ex. Aminata Diop"
+                      minlength="2"
+                      maxlength="120"
                       class="min-h-[48px] w-full rounded-xl border border-slate-300 px-3.5 py-2 text-base text-[#0A2540] focus:border-[#005e6a] focus:outline-none focus:ring-2 focus:ring-[#005e6a]/20"
                       required
                     />
                   </div>
                   <div class="space-y-1.5">
                     <label for="account-email" class="block text-base font-semibold text-[#0A2540]">
-                      Adresse e-mail
+                      Adresse e-mail <span class="text-rose-600" aria-hidden="true">*</span>
                     </label>
                     <input
                       id="account-email"
@@ -677,14 +679,22 @@ export class AdministrationCompteFormPageComponent implements OnInit {
     try {
       const id = this.accountId();
       if (id) {
-        await this.adminService.updateAccount(id, {
+        const updated = await this.adminService.updateAccount(id, {
           fullName: this.fullName().trim(),
           email: this.email().trim().toLowerCase(),
           starterProfile: this.starterProfile(),
           screenAccess: this.screenAccess(),
           specialPermissions: this.specialPermissions(),
         });
-        this.successMessage.set('Accès enregistrés. Les changements s’appliquent immédiatement.');
+        this.fullName.set(updated.fullName);
+        this.email.set(updated.email);
+        if (updated.id === this.authService.currentUser()?.id) {
+          this.authService.updateLocalUser({
+            fullName: updated.fullName,
+            email: updated.email,
+          });
+        }
+        this.successMessage.set('Compte et accès enregistrés. Les changements s’appliquent immédiatement.');
       } else {
         const res = await this.adminService.createAccount({
           fullName: this.fullName().trim(),

@@ -261,4 +261,56 @@ test.describe('Administration — Liste des comptes en cartes (anti-régression)
     await expect(page).toHaveURL(/\/administration\/comptes/);
     await expect(page.locator(`[data-testid="account-card-${longEmail}"]`)).toHaveCount(0);
   });
+
+  test('nom obligatoire à la création et modification du nom pour le directeur (ibader) comme pour tout autre compte', async ({
+    page,
+  }) => {
+    test.setTimeout(180000);
+    const dir2 = createE2eUser('DIRECTION');
+    const collabEmail = `collab-nom-ui-${Date.now()}@residenceblue.sn`;
+    createdEmails.push(dir2.email, collabEmail);
+
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await loginViaUi(page, dir2.email, dir2.password);
+
+    // 1. Création : le nom est obligatoire (un nom vide ou uniquement d'espaces bloque la création)
+    await page.goto('/administration/comptes/nouveau');
+    await page.locator('[data-testid="input-account-email"]').fill(collabEmail);
+    await page.locator('[data-testid="input-account-fullname"]').fill('   ');
+    await page.locator('[data-testid="btn-save-account"]').click();
+    await expect(page.locator('[data-testid="account-form-error"]')).toBeVisible();
+    await expect(page).toHaveURL(/\/administration\/comptes\/nouveau/);
+
+    // Avec un nom renseigné, la création réussit
+    await page.locator('[data-testid="input-account-fullname"]').fill('Fatoumata Binetou');
+    await page.locator('[data-testid="btn-save-account"]').click();
+    await expect(page.locator('[data-testid="provisional-password-card"]')).toBeVisible();
+
+    // 2. Compte administrateur : modifier le nom (ex. -> ibader) via /administration/directeur
+    await page.goto('/administration/directeur');
+    await expect(page.locator('[data-testid="director-fullname-input"]')).toHaveValue('E2E Testeur');
+    await page.locator('[data-testid="director-fullname-input"]').fill('ibader');
+    await page.locator('[data-testid="director-current-password-input"]').fill(dir2.password);
+    await page.locator('[data-testid="btn-save-director-credentials"]').click();
+    await expect(page.locator('[data-testid="director-success"]')).toBeVisible();
+    await expect(page.locator('header[role="banner"]').first()).toContainText('ibader');
+
+    await page.goto('/administration/comptes');
+    await expect(page.locator(`[data-testid="account-card-${dir2.email}"]`)).toContainText('ibader');
+
+    // 3. Autre compte : modifier son nom via la page Modifier et vérifier l'affichage sur sa carte
+    await page.locator('[data-testid="admin-search-input"]').fill(collabEmail);
+    const collabCard = page.locator(`[data-testid="account-card-${collabEmail}"]`);
+    await expect(collabCard).toContainText('Fatoumata Binetou');
+    await collabCard.getByRole('link', { name: 'Modifier' }).click();
+    await expect(page).toHaveURL(/\/administration\/comptes\/[0-9a-f-]+$/i);
+
+    await page.locator('[data-testid="input-account-fullname"]').fill('Fatoumata Ndiaye');
+    await page.locator('[data-testid="btn-save-account"]').click();
+    await expect(page.locator('[data-testid="account-form-success"]')).toBeVisible();
+
+    await page.goto('/administration/comptes');
+    await page.locator('[data-testid="admin-search-input"]').fill(collabEmail);
+    await expect(page.locator(`[data-testid="account-card-${collabEmail}"]`)).toContainText('Fatoumata Ndiaye');
+  });
 });

@@ -2,6 +2,7 @@ import { CommonModule } from '@angular/common';
 import {
   ChangeDetectionStrategy,
   Component,
+  OnInit,
   computed,
   inject,
   signal,
@@ -46,11 +47,11 @@ import { AdministrationService } from './administration.service';
           <div class="mt-2 flex items-center gap-2.5">
             <span class="material-symbols-outlined text-[26px] text-amber-600" aria-hidden="true">lock</span>
             <h1 class="font-headline text-2xl sm:text-3xl font-bold text-[#0A2540]">
-              E-mail et mot de passe du directeur
+              Nom, e-mail et mot de passe du directeur
             </h1>
           </div>
           <p class="mt-1 text-base text-slate-600">
-            Ce compte administrateur principal est protégé. Vous pouvez uniquement mettre à jour votre e-mail et votre mot de passe.
+            Ce compte administrateur principal est protégé. Vous pouvez modifier votre nom, votre e-mail et votre mot de passe.
           </p>
         </header>
 
@@ -68,8 +69,26 @@ import { AdministrationService } from './administration.service';
 
         <form (submit)="handleSave($event)" class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm space-y-5">
           <div class="space-y-1.5">
+            <label for="director-fullname" class="block text-base font-semibold text-[#0A2540]">
+              Nom complet <span class="text-rose-600" aria-hidden="true">*</span>
+            </label>
+            <input
+              id="director-fullname"
+              data-testid="director-fullname-input"
+              type="text"
+              [value]="fullName()"
+              (input)="fullName.set($any($event.target).value)"
+              placeholder="Ex. Ibader Coly"
+              minlength="2"
+              maxlength="120"
+              required
+              class="min-h-[48px] w-full rounded-xl border border-slate-300 px-3.5 py-2 text-base text-[#0A2540] focus:border-[#005e6a] focus:outline-none focus:ring-2 focus:ring-[#005e6a]/20"
+            />
+          </div>
+
+          <div class="space-y-1.5">
             <label for="director-email" class="block text-base font-semibold text-[#0A2540]">
-              Nouvelle adresse e-mail (ou actuelle)
+              Adresse e-mail
             </label>
             <input
               id="director-email"
@@ -174,7 +193,7 @@ import { AdministrationService } from './administration.service';
     }
   `,
 })
-export class AdministrationDirecteurPageComponent {
+export class AdministrationDirecteurPageComponent implements OnInit {
   private readonly authService = inject(AuthService);
   private readonly adminService = inject(AdministrationService);
 
@@ -182,6 +201,7 @@ export class AdministrationDirecteurPageComponent {
   readonly isDirector = computed(() => this.authService.isDirector());
   readonly firstAuthorizedRoute = computed(() => this.authService.getFirstAuthorizedRoute());
 
+  readonly fullName = signal<string>(this.authService.currentUser()?.fullName || '');
   readonly email = signal<string>(this.authService.currentUser()?.email || '');
   readonly newPassword = signal<string>('');
   readonly confirmPassword = signal<string>('');
@@ -192,18 +212,37 @@ export class AdministrationDirecteurPageComponent {
   readonly errorMessage = signal<string | null>(null);
   readonly successMessage = signal<string | null>(null);
 
+  ngOnInit(): void {
+    const cur = this.authService.currentUser();
+    if (cur) {
+      if (!this.fullName().trim() && cur.fullName) {
+        this.fullName.set(cur.fullName);
+      }
+      if (!this.email().trim() && cur.email) {
+        this.email.set(cur.email);
+      }
+    }
+  }
+
   async handleSave(event: Event): Promise<void> {
     event.preventDefault();
     this.errorMessage.set(null);
     this.successMessage.set(null);
 
+    const nextFullName = this.fullName().trim();
+    const currentFullName = (this.authService.currentUser()?.fullName || '').trim();
+    const fullNameChanged = nextFullName !== currentFullName;
     const nextEmail = this.email().trim().toLowerCase();
     const currentEmail = this.authService.currentUser()?.email || '';
     const emailChanged = nextEmail !== currentEmail;
     const pwd = this.newPassword();
 
-    if (!emailChanged && !pwd) {
-      this.errorMessage.set('Modifiez l’e-mail ou saisissez un nouveau mot de passe.');
+    if (nextFullName.length < 2) {
+      this.errorMessage.set('Saisissez un nom complet d’au moins 2 caractères.');
+      return;
+    }
+    if (!fullNameChanged && !emailChanged && !pwd) {
+      this.errorMessage.set('Modifiez votre nom, l’e-mail ou saisissez un nouveau mot de passe.');
       return;
     }
     if (pwd && pwd.length < 10) {
@@ -224,16 +263,22 @@ export class AdministrationDirecteurPageComponent {
       const res = await this.adminService.updateDirectorCredentials({
         currentPassword: this.currentPassword(),
         ...(this.totpCode().trim() ? { totpCode: this.totpCode().trim() } : {}),
+        ...(fullNameChanged ? { fullName: nextFullName } : {}),
         ...(emailChanged ? { email: nextEmail } : {}),
         ...(pwd ? { newPassword: pwd } : {}),
       });
-      this.authService.updateLocalUser({ email: res.user.email });
+      this.fullName.set(res.user.fullName);
+      this.email.set(res.user.email);
+      this.authService.updateLocalUser({
+        fullName: res.user.fullName,
+        email: res.user.email,
+      });
       this.newPassword.set('');
       this.confirmPassword.set('');
       this.currentPassword.set('');
       this.totpCode.set('');
       this.successMessage.set(
-        `Identifiants mis à jour (${res.otherSessionsRevoked} autre(s) session(s) fermée(s)).`,
+        `Profil mis à jour (${res.otherSessionsRevoked} autre(s) session(s) fermée(s)).`,
       );
     } catch (err) {
       this.errorMessage.set(

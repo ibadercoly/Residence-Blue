@@ -699,4 +699,113 @@ describe('Administration des comptes et modèle d’accès (e2e)', () => {
       .send({ login: nextEmail, password: nextPwd })
       .expect(200);
   });
+
+  it('exige le nom à la création et permet de modifier le nom du directeur ainsi que de tout autre compte', async () => {
+    const dirEmail = `dir-name-${Date.now()}@residenceblue.sn`;
+    const dirPwd = 'DirNamePass!2026';
+
+    const dirUser = await prisma.user.create({
+      data: {
+        email: dirEmail,
+        fullName: 'Aïssatou Ba',
+        role: Role.DIRECTION,
+        isActive: true,
+        passwordHash: await hashPassword(dirPwd),
+      },
+    });
+    createdUserIds.push(dirUser.id);
+
+    const dirLogin = await request(app.getHttpServer())
+      .post('/api/auth/login')
+      .send({ login: dirEmail, password: dirPwd })
+      .expect(200);
+
+    // Création sans nom ou nom blanc -> 400
+    await request(app.getHttpServer())
+      .post('/api/administration/comptes')
+      .set('Authorization', `Bearer ${dirLogin.body.accessToken}`)
+      .send({
+        fullName: '   ',
+        email: `noname-${Date.now()}@residenceblue.sn`,
+        starterProfile: 'ASSISTANT_RECEPTION',
+        screenAccess: {
+          accueil: 'ECRITURE',
+          planning: 'ECRITURE',
+          chambres: 'ECRITURE',
+          clients: 'ECRITURE',
+          facturation: 'LECTURE',
+          restaurant: 'LECTURE',
+          cuisine: 'AUCUN',
+          rapports: 'AUCUN',
+        },
+        specialPermissions: {
+          voir_montants: true,
+          encaisser_paiement: true,
+          changer_etat_chambre: true,
+          annuler_commande_ou_reservation: false,
+        },
+      })
+      .expect(400);
+
+    // Création valide avec nom -> 201
+    const collabEmail = `collab-name-${Date.now()}@residenceblue.sn`;
+    const createdCollab = await request(app.getHttpServer())
+      .post('/api/administration/comptes')
+      .set('Authorization', `Bearer ${dirLogin.body.accessToken}`)
+      .send({
+        fullName: 'Aminata Diop',
+        email: collabEmail,
+        starterProfile: 'ASSISTANT_RECEPTION',
+        screenAccess: {
+          accueil: 'ECRITURE',
+          planning: 'ECRITURE',
+          chambres: 'ECRITURE',
+          clients: 'ECRITURE',
+          facturation: 'LECTURE',
+          restaurant: 'LECTURE',
+          cuisine: 'AUCUN',
+          rapports: 'AUCUN',
+        },
+        specialPermissions: {
+          voir_montants: true,
+          encaisser_paiement: true,
+          changer_etat_chambre: true,
+          annuler_commande_ou_reservation: false,
+        },
+      })
+      .expect(201);
+    createdUserIds.push(createdCollab.body.account.id);
+    expect(createdCollab.body.account.fullName).toBe('Aminata Diop');
+
+    // Modification du nom du collaborateur -> 200 (et refus si blanc -> 400)
+    await request(app.getHttpServer())
+      .patch(`/api/administration/comptes/${createdCollab.body.account.id}`)
+      .set('Authorization', `Bearer ${dirLogin.body.accessToken}`)
+      .send({ fullName: '  ' })
+      .expect(400);
+
+    const updCollab = await request(app.getHttpServer())
+      .patch(`/api/administration/comptes/${createdCollab.body.account.id}`)
+      .set('Authorization', `Bearer ${dirLogin.body.accessToken}`)
+      .send({ fullName: 'Aminata Sarr' })
+      .expect(200);
+    expect(updCollab.body.fullName).toBe('Aminata Sarr');
+
+    // Modification du nom du directeur avec mauvais mot de passe -> 403
+    await request(app.getHttpServer())
+      .patch('/api/administration/directeur/identifiants')
+      .set('Authorization', `Bearer ${dirLogin.body.accessToken}`)
+      .send({ currentPassword: 'WrongPassword!', fullName: 'ibader' })
+      .expect(403);
+
+    // Modification du nom du directeur avec mot de passe actuel -> 200 sans perte de rôle
+    const updDir = await request(app.getHttpServer())
+      .patch('/api/administration/directeur/identifiants')
+      .set('Authorization', `Bearer ${dirLogin.body.accessToken}`)
+      .send({ currentPassword: dirPwd, fullName: 'ibader' })
+      .expect(200);
+    expect(updDir.body.user.fullName).toBe('ibader');
+    expect(updDir.body.user.role).toBe('DIRECTION');
+    expect(updDir.body.otherSessionsRevoked).toBe(0);
+  });
 });

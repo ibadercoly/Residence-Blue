@@ -11,6 +11,7 @@ import {
 
 export class CreateManagedAccountDto {
   @IsString({ message: 'Le nom complet est requis.' })
+  @IsNotEmpty({ message: 'Le nom complet est obligatoire.' })
   @MinLength(2, { message: 'Le nom doit contenir au moins 2 caractères.' })
   @MaxLength(120)
   @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
@@ -35,6 +36,7 @@ export class CreateManagedAccountDto {
 export class UpdateManagedAccountDto {
   @IsOptional()
   @IsString()
+  @IsNotEmpty({ message: 'Le nom complet est obligatoire.' })
   @MinLength(2, { message: 'Le nom doit contenir au moins 2 caractères.' })
   @MaxLength(120)
   @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
@@ -82,6 +84,14 @@ export class UpdateDirectorCredentialsDto {
   @IsString()
   @MaxLength(16)
   totpCode?: string;
+
+  @IsOptional()
+  @IsString()
+  @IsNotEmpty({ message: 'Le nom complet est obligatoire.' })
+  @MinLength(2, { message: 'Le nom doit contenir au moins 2 caractères.' })
+  @MaxLength(120)
+  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
+  fullName?: string;
 
   @IsOptional()
   @IsEmail({}, { message: 'Adresse e-mail invalide.' })

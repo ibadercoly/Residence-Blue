@@ -174,6 +174,7 @@ export class AdministrationService {
   async updateDirectorCredentials(payload: {
     currentPassword: string;
     totpCode?: string;
+    fullName?: string;
     email?: string;
     newPassword?: string;
   }): Promise<{ user: ManagedAccount; otherSessionsRevoked: number }> {
