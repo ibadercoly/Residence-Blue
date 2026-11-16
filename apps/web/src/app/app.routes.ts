@@ -41,8 +41,8 @@ export const routes: Routes = [
     path: 'administration/comptes',
     canActivate: [authGuard],
     loadComponent: () =>
-      import('./features/administration/administration-comptes-page.component').then(
-        (m) => m.AdministrationComptesPageComponent,
+      import('./features/administration/administration-liste-comptes-page.component').then(
+        (m) => m.AdministrationListeComptesPageComponent,
       ),
   },
   {

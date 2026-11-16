@@ -11,12 +11,13 @@ export interface ManagedAccount {
   id: string;
   email: string;
   fullName: string;
+  jobTitle?: string;
   role: Role;
   isActive: boolean;
   isPrimaryAdmin: boolean;
   isProtectedDirector: boolean;
   mustChangePassword: boolean;
-  starterProfile: StarterProfileKey;
+  starterProfile: StarterProfileKey | string;
   screenAccess: ScreenAccessMap;
   specialPermissions: SpecialPermissionsMap;
   totpEnabled: boolean;

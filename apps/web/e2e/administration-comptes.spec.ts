@@ -108,7 +108,7 @@ test.describe('Administration des comptes et droits d’accès (E2E)', () => {
 
     await navLinks.last().click();
     await expect(page).toHaveURL(/\/administration\/comptes/);
-    await expect(page.locator('[data-testid="accounts-table-container"]')).toBeVisible();
+    await expect(page.locator('[data-testid="accounts-scroll-zone"]')).toBeVisible();
 
     // Vérifier scrollWidth <= clientWidth et tailles >= 44px/16px aux 4 largeurs
     for (const width of [360, 768, 1024, 1440]) {
@@ -215,16 +215,19 @@ test.describe('Administration des comptes et droits d’accès (E2E)', () => {
     await expect(page2.locator('[data-testid="nav-planning"]')).toBeVisible();
     await context2.close();
 
-    // Retour à la liste, suppression sécurisée avec nom exact + mot de passe directeur
+    // Retour à la liste, puis ouvrir Modifier et utiliser « Supprimer ce compte » en bas de la page Modifier
     await page.goto('/administration/comptes');
-    const row = page.locator(`[data-testid="account-row-${newEmail}"]`);
-    await expect(row).toBeVisible();
-    await row.getByRole('button', { name: 'Supprimer' }).click();
+    const card = page.locator(`[data-testid="account-card-${newEmail}"]`);
+    await expect(card).toBeVisible();
+    await card.getByRole('link', { name: 'Modifier' }).click();
+    await expect(page).toHaveURL(/\/administration\/comptes\/[0-9a-f-]+$/i);
 
+    await page.locator('[data-testid="btn-delete-account"]').click();
     await page.locator('[data-testid="delete-confirm-name"]').fill(newFullName);
     await page.locator('[data-testid="delete-director-password"]').fill(dir.password);
     await page.locator('[data-testid="confirm-delete-btn"]').click();
 
-    await expect(page.locator(`[data-testid="account-row-${newEmail}"]`)).toHaveCount(0);
+    await expect(page).toHaveURL(/\/administration\/comptes/);
+    await expect(page.locator(`[data-testid="account-card-${newEmail}"]`)).toHaveCount(0);
   });
 });

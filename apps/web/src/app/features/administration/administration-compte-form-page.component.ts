@@ -23,12 +23,13 @@ import {
   createEmptySpecialPermissions,
 } from '@residence-blue/shared';
 import { AuthService } from '../../core/services/auth.service';
+import { ModalShellComponent } from '../../shared/components/modal-shell/modal-shell.component';
 import { AdministrationService, ManagedAccount } from './administration.service';
 
 @Component({
   selector: 'app-administration-compte-form-page',
   standalone: true,
-  imports: [CommonModule, RouterLink],
+  imports: [CommonModule, RouterLink, ModalShellComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: 'block w-full min-w-0' },
   template: `
@@ -370,6 +371,39 @@ import { AdministrationService, ManagedAccount } from './administration.service'
                   </span>
                 </button>
               </div>
+
+              @if (isEditMode() && !loadedIsProtectedDirector()) {
+                <section
+                  data-testid="danger-delete-account-section"
+                  class="rounded-2xl border-2 border-rose-300 bg-rose-50/70 p-5 sm:p-6 shadow-sm space-y-3"
+                >
+                  <div class="flex items-start gap-3">
+                    <span class="material-symbols-outlined mt-0.5 text-[22px] text-rose-700 shrink-0" aria-hidden="true">
+                      warning
+                    </span>
+                    <div class="min-w-0 space-y-1">
+                      <h2 class="font-headline text-xl font-bold text-rose-900">
+                        Supprimer ce compte
+                      </h2>
+                      <p class="text-base text-rose-900/85">
+                        Action irréversible : ce collaborateur perdra définitivement son accès.
+                        Les écritures passées (factures, réservations, journal) restent conservées.
+                      </p>
+                    </div>
+                  </div>
+                  <div class="pt-1 flex justify-end">
+                    <button
+                      type="button"
+                      data-testid="btn-delete-account"
+                      (click)="openDeleteModal()"
+                      class="inline-flex min-h-[48px] items-center justify-center gap-2 rounded-xl border border-rose-300 bg-rose-700 px-5 py-2.5 text-base font-bold text-white shadow-sm hover:bg-rose-800 focus:outline-none focus:ring-2 focus:ring-rose-600 focus:ring-offset-2"
+                    >
+                      <span class="material-symbols-outlined text-[20px]" aria-hidden="true">delete_forever</span>
+                      <span>Supprimer ce compte</span>
+                    </button>
+                  </div>
+                </section>
+              }
             </form>
 
             <!-- (e) Aperçu en direct à droite : Ce que cette personne verra -->
@@ -438,6 +472,73 @@ import { AdministrationService, ManagedAccount } from './administration.service'
             </aside>
           </div>
         }
+
+        <app-modal-shell
+          [isOpen]="showDeleteModal()"
+          title="Supprimer ce compte définitivement ?"
+          subtitle="Double vérification requise pour éviter toute erreur"
+          icon="delete_forever"
+          maxWidth="560px"
+          testId="modal-delete-account"
+          (closed)="closeDeleteModal()"
+        >
+          <div modal-body class="space-y-4 text-base text-slate-700">
+            <p class="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-rose-800">
+              Attention : le compte de
+              <strong>{{ expectedDeleteConfirmName() }}</strong>
+              sera supprimé définitivement (ses factures et écritures restent en base pour l’audit).
+            </p>
+            <div class="space-y-1.5">
+              <label for="delete-confirm-name" class="block font-semibold text-[#0A2540]">
+                Recopiez exactement : <span class="text-rose-700">{{ expectedDeleteConfirmName() }}</span>
+              </label>
+              <input
+                id="delete-confirm-name"
+                data-testid="delete-confirm-name"
+                type="text"
+                [value]="deleteConfirmName()"
+                (input)="deleteConfirmName.set($any($event.target).value)"
+                class="min-h-[48px] w-full rounded-xl border border-slate-300 px-3.5 py-2 text-base text-[#0A2540] focus:border-rose-600 focus:outline-none focus:ring-2 focus:ring-rose-600/20"
+              />
+            </div>
+            <div class="space-y-1.5">
+              <label for="delete-director-password" class="block font-semibold text-[#0A2540]">
+                Votre mot de passe directeur
+              </label>
+              <input
+                id="delete-director-password"
+                data-testid="delete-director-password"
+                type="password"
+                [value]="deleteDirectorPassword()"
+                (input)="deleteDirectorPassword.set($any($event.target).value)"
+                class="min-h-[48px] w-full rounded-xl border border-slate-300 px-3.5 py-2 text-base text-[#0A2540] focus:border-rose-600 focus:outline-none focus:ring-2 focus:ring-rose-600/20"
+              />
+            </div>
+            @if (deleteModalError()) {
+              <p class="rounded-lg bg-rose-50 px-3 py-2 text-base font-medium text-rose-700">
+                {{ deleteModalError() }}
+              </p>
+            }
+          </div>
+          <div modal-footer class="flex w-full flex-wrap items-center justify-end gap-3">
+            <button
+              type="button"
+              (click)="closeDeleteModal()"
+              class="min-h-[44px] rounded-xl border border-slate-300 bg-white px-4 py-2 text-base font-semibold text-slate-700 hover:bg-slate-50"
+            >
+              Annuler
+            </button>
+            <button
+              type="button"
+              [disabled]="deleting()"
+              data-testid="confirm-delete-btn"
+              (click)="confirmDelete()"
+              class="min-h-[44px] rounded-xl bg-rose-700 px-5 py-2 text-base font-bold text-white hover:bg-rose-800 disabled:opacity-60"
+            >
+              {{ deleting() ? 'Suppression...' : 'Supprimer définitivement' }}
+            </button>
+          </div>
+        </app-modal-shell>
       </div>
     }
   `,
@@ -474,6 +575,16 @@ export class AdministrationCompteFormPageComponent implements OnInit {
   readonly successMessage = signal<string | null>(null);
   readonly provisionalPassword = signal<string | null>(null);
   readonly copied = signal<boolean>(false);
+  readonly loadedIsProtectedDirector = signal<boolean>(false);
+
+  readonly showDeleteModal = signal<boolean>(false);
+  readonly deleteConfirmName = signal<string>('');
+  readonly deleteDirectorPassword = signal<string>('');
+  readonly deleteModalError = signal<string | null>(null);
+  readonly deleting = signal<boolean>(false);
+  readonly expectedDeleteConfirmName = computed(
+    () => this.fullName().trim() || this.email().trim(),
+  );
 
   readonly fullName = signal<string>('');
   readonly email = signal<string>('');
@@ -506,12 +617,15 @@ export class AdministrationCompteFormPageComponent implements OnInit {
     try {
       const acc: ManagedAccount = await this.adminService.getAccount(id);
       if (acc.isProtectedDirector) {
+        this.loadedIsProtectedDirector.set(true);
         await this.router.navigate(['/administration/directeur']);
         return;
       }
+      this.loadedIsProtectedDirector.set(false);
       this.fullName.set(acc.fullName);
       this.email.set(acc.email);
-      this.starterProfile.set(acc.starterProfile);
+      const validProfile = STARTER_PROFILES.find((p) => p.key === acc.starterProfile)?.key;
+      this.starterProfile.set(validProfile ?? 'ASSISTANT_RECEPTION');
       this.screenAccess.set({ ...createEmptyScreenAccess(), ...acc.screenAccess });
       this.specialPermissions.set({
         ...createEmptySpecialPermissions(),
@@ -627,6 +741,53 @@ export class AdministrationCompteFormPageComponent implements OnInit {
   printCredentialSheet(): void {
     if (typeof window !== 'undefined') {
       window.print();
+    }
+  }
+
+  openDeleteModal(): void {
+    if (!this.isEditMode() || this.loadedIsProtectedDirector()) return;
+    this.deleteConfirmName.set('');
+    this.deleteDirectorPassword.set('');
+    this.deleteModalError.set(null);
+    this.showDeleteModal.set(true);
+  }
+
+  closeDeleteModal(): void {
+    this.showDeleteModal.set(false);
+    this.deleteModalError.set(null);
+  }
+
+  async confirmDelete(): Promise<void> {
+    const id = this.accountId();
+    if (!id || this.loadedIsProtectedDirector()) return;
+    const expectedName = this.expectedDeleteConfirmName();
+    if (this.deleteConfirmName().trim() !== expectedName) {
+      this.deleteModalError.set(`Saisissez exactement « ${expectedName} » pour confirmer.`);
+      return;
+    }
+    if (!this.deleteDirectorPassword().trim()) {
+      this.deleteModalError.set('Saisissez votre mot de passe directeur.');
+      return;
+    }
+
+    this.deleting.set(true);
+    this.deleteModalError.set(null);
+    try {
+      const res = await this.adminService.deleteAccount(
+        id,
+        this.deleteConfirmName().trim(),
+        this.deleteDirectorPassword(),
+      );
+      this.closeDeleteModal();
+      await this.router.navigate(['/administration/comptes'], {
+        queryParams: { deleted: res.deletedDisplayName },
+      });
+    } catch (err) {
+      this.deleteModalError.set(
+        err instanceof Error ? err.message : 'Impossible de supprimer ce compte.',
+      );
+    } finally {
+      this.deleting.set(false);
     }
   }
 }

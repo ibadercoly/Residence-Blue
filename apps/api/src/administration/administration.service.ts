@@ -210,8 +210,9 @@ export class AdministrationService {
     return found.key;
   }
 
-  private formatManagedUser(u: any) {
-    const isDirector = isDirectorAccount(u);
+  private formatManagedUser(u: any, hasPrimaryAdminInDb = true) {
+    const isPrimary = Boolean(u.isPrimaryAdmin);
+    const isDirector = isPrimary || (!hasPrimaryAdminInDb && u.role === Role.DIRECTION);
     const defaults = resolveDefaultAccessForRole(u.role, isDirector);
     const screenAccess = isDirector
       ? defaults.screenAccess
@@ -220,18 +221,25 @@ export class AdministrationService {
       ? defaults.specialPermissions
       : sanitizeSpecialPermissions(u.specialPermissions, defaults.specialPermissions);
 
+    const resolvedStarter = isDirector
+      ? 'DIRECTEUR'
+      : u.role === Role.DIRECTION && !isPrimary
+        ? (u.starterProfile && u.starterProfile !== 'DIRECTEUR'
+            ? u.starterProfile
+            : 'NON_PRINCIPAL_DIRECTION')
+        : u.starterProfile || defaults.starterProfile;
+
     return {
       id: u.id,
       email: u.email,
-      fullName: u.fullName || u.email,
+      fullName: (u.fullName || '').trim(),
+      jobTitle: u.jobTitle || '',
       role: u.role,
       isActive: Boolean(u.isActive),
-      isPrimaryAdmin: Boolean(u.isPrimaryAdmin),
+      isPrimaryAdmin: isPrimary,
       isProtectedDirector: isDirector,
       mustChangePassword: Boolean(u.mustChangePassword),
-      starterProfile: (isDirector
-        ? 'DIRECTEUR'
-        : u.starterProfile || defaults.starterProfile) as StarterProfileKey,
+      starterProfile: resolvedStarter as StarterProfileKey,
       screenAccess,
       specialPermissions,
       totpEnabled: Boolean(u.totpEnabled),
@@ -251,31 +259,41 @@ export class AdministrationService {
 
   async listAccounts(search?: string) {
     const q = search?.trim();
-    const users = await this.prisma.user.findMany({
-      where: {
-        deletedAt: null,
-        ...(q
-          ? {
-              OR: [
-                { fullName: { contains: q, mode: 'insensitive' } },
-                { email: { contains: q, mode: 'insensitive' } },
-              ],
-            }
-          : {}),
-      },
-      orderBy: [{ isPrimaryAdmin: 'desc' }, { createdAt: 'asc' }],
-    });
-    return users.map((u) => this.formatManagedUser(u));
+    const [users, primaryCount] = await Promise.all([
+      this.prisma.user.findMany({
+        where: {
+          deletedAt: null,
+          ...(q
+            ? {
+                OR: [
+                  { fullName: { contains: q, mode: 'insensitive' } },
+                  { email: { contains: q, mode: 'insensitive' } },
+                ],
+              }
+            : {}),
+        },
+        orderBy: [{ isPrimaryAdmin: 'desc' }, { createdAt: 'asc' }],
+      }),
+      this.prisma.user.count({
+        where: { isPrimaryAdmin: true, deletedAt: null },
+      }),
+    ]);
+    return users.map((u) => this.formatManagedUser(u, primaryCount > 0));
   }
 
   async getAccount(id: string) {
-    const user = await this.prisma.user.findFirst({
-      where: { id, deletedAt: null },
-    });
+    const [user, primaryCount] = await Promise.all([
+      this.prisma.user.findFirst({
+        where: { id, deletedAt: null },
+      }),
+      this.prisma.user.count({
+        where: { isPrimaryAdmin: true, deletedAt: null },
+      }),
+    ]);
     if (!user) {
       throw new NotFoundException('Compte introuvable.');
     }
-    return this.formatManagedUser(user);
+    return this.formatManagedUser(user, primaryCount > 0);
   }
 
   async createAccount(
