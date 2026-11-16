@@ -40,8 +40,8 @@ import { AdministrationService, ManagedAccount } from './administration.service'
       }
 
       .accounts-scroll-box {
-        height: 760px;
-        max-height: 760px;
+        height: 820px;
+        max-height: 820px;
         overflow-y: scroll;
         overflow-x: hidden;
         scrollbar-gutter: stable;
@@ -284,25 +284,25 @@ import { AdministrationService, ManagedAccount } from './administration.service'
                         {{ formatShortLastLogin(acc.lastLoginAt) }}
                       </td>
 
-                      <!-- 5. Actions (18%) : 3 boutons visibles min-h 44px, icône + mot, alignés à gauche -->
-                      <td class="px-3 py-2.5 align-middle">
-                        <div class="flex flex-wrap items-center justify-start gap-1.5">
+                      <!-- 5. Actions (18%) : 3 boutons visibles min-h 44px, icône + mot, max 2 lignes alignées à gauche -->
+                      <td class="px-1.5 py-2 align-middle">
+                        <div class="flex flex-wrap items-center justify-start gap-1">
                           @if (acc.isProtectedDirector) {
                             <a
                               routerLink="/administration/directeur"
                               data-testid="btn-edit-director-credentials"
-                              class="inline-flex min-h-[44px] max-w-full items-center gap-1.5 rounded-xl border border-[#005e6a]/35 bg-[#005e6a]/5 px-2.5 py-1.5 text-base font-semibold text-[#005e6a] leading-tight hover:bg-[#005e6a]/10 focus:outline-none focus:ring-2 focus:ring-[#005e6a]"
+                              class="inline-flex min-h-[44px] max-w-full items-center gap-1.5 rounded-xl border border-[#005e6a]/35 bg-[#005e6a]/5 px-2.5 py-1 text-[14px] font-semibold text-[#005e6a] leading-tight hover:bg-[#005e6a]/10 focus:outline-none focus:ring-2 focus:ring-[#005e6a]"
                             >
-                              <span class="material-symbols-outlined text-[18px] shrink-0" aria-hidden="true">key</span>
+                              <span class="material-symbols-outlined text-[16px] shrink-0" aria-hidden="true">key</span>
                               <span class="break-words">Modifier l’e-mail et le mot de passe</span>
                             </a>
                           } @else {
                             <a
                               [routerLink]="['/administration/comptes', acc.id]"
                               [attr.data-testid]="'btn-edit-' + acc.id"
-                              class="inline-flex min-h-[44px] items-center gap-1 rounded-xl border border-slate-300 bg-white px-2.5 py-1.5 text-base font-semibold text-[#0A2540] whitespace-nowrap hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-[#005e6a]"
+                              class="inline-flex min-h-[44px] items-center gap-1 rounded-xl border border-slate-300 bg-white px-1.5 py-1 text-[13px] font-semibold text-[#0A2540] whitespace-nowrap hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-[#005e6a]"
                             >
-                              <span class="material-symbols-outlined text-[18px] shrink-0" aria-hidden="true">edit</span>
+                              <span class="material-symbols-outlined text-[16px] shrink-0" aria-hidden="true">edit</span>
                               <span>Modifier</span>
                             </a>
                             @if (acc.isActive) {
@@ -310,9 +310,9 @@ import { AdministrationService, ManagedAccount } from './administration.service'
                                 type="button"
                                 (click)="openDeactivateModal(acc)"
                                 [attr.data-testid]="'btn-deactivate-' + acc.id"
-                                class="inline-flex min-h-[44px] items-center gap-1 rounded-xl border border-amber-300 bg-amber-50 px-2.5 py-1.5 text-base font-semibold text-amber-900 whitespace-nowrap hover:bg-amber-100 focus:outline-none focus:ring-2 focus:ring-amber-600"
+                                class="inline-flex min-h-[44px] items-center gap-1 rounded-xl border border-amber-300 bg-amber-50 px-1.5 py-1 text-[13px] font-semibold text-amber-900 whitespace-nowrap hover:bg-amber-100 focus:outline-none focus:ring-2 focus:ring-amber-600"
                               >
-                                <span class="material-symbols-outlined text-[18px] shrink-0" aria-hidden="true">person_off</span>
+                                <span class="material-symbols-outlined text-[16px] shrink-0" aria-hidden="true">person_off</span>
                                 <span>Désactiver</span>
                               </button>
                             } @else {
@@ -320,9 +320,9 @@ import { AdministrationService, ManagedAccount } from './administration.service'
                                 type="button"
                                 (click)="reactivateAccount(acc)"
                                 [attr.data-testid]="'btn-reactivate-' + acc.id"
-                                class="inline-flex min-h-[44px] items-center gap-1 rounded-xl border border-emerald-300 bg-emerald-50 px-2.5 py-1.5 text-base font-semibold text-emerald-900 whitespace-nowrap hover:bg-emerald-100 focus:outline-none focus:ring-2 focus:ring-emerald-600"
+                                class="inline-flex min-h-[44px] items-center gap-1 rounded-xl border border-emerald-300 bg-emerald-50 px-1.5 py-1 text-[13px] font-semibold text-emerald-900 whitespace-nowrap hover:bg-emerald-100 focus:outline-none focus:ring-2 focus:ring-emerald-600"
                               >
-                                <span class="material-symbols-outlined text-[18px] shrink-0" aria-hidden="true">person_check</span>
+                                <span class="material-symbols-outlined text-[16px] shrink-0" aria-hidden="true">person_check</span>
                                 <span>Réactiver</span>
                               </button>
                             }
@@ -330,9 +330,9 @@ import { AdministrationService, ManagedAccount } from './administration.service'
                               type="button"
                               (click)="openDeleteModal(acc)"
                               [attr.data-testid]="'btn-delete-' + acc.id"
-                              class="inline-flex min-h-[44px] items-center gap-1 rounded-xl border border-rose-300 bg-rose-50 px-2.5 py-1.5 text-base font-semibold text-rose-800 whitespace-nowrap hover:bg-rose-100 focus:outline-none focus:ring-2 focus:ring-rose-600"
+                              class="inline-flex min-h-[44px] items-center gap-1 rounded-xl border border-rose-300 bg-rose-50 px-1.5 py-1 text-[13px] font-semibold text-rose-800 whitespace-nowrap hover:bg-rose-100 focus:outline-none focus:ring-2 focus:ring-rose-600"
                             >
-                              <span class="material-symbols-outlined text-[18px] shrink-0" aria-hidden="true">delete</span>
+                              <span class="material-symbols-outlined text-[16px] shrink-0" aria-hidden="true">delete</span>
                               <span>Supprimer</span>
                             </button>
                           }
