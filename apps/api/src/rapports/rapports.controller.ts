@@ -1,6 +1,6 @@
-import { Controller, Get, Query, Req, Res } from '@nestjs/common';
+import { Controller, ForbiddenException, Get, Query, Req, Res } from '@nestjs/common';
 import { Request, Response } from 'express';
-import { hasSpecialPermission } from '@residence-blue/shared';
+import { hasSpecialPermission, isReportsAllowedForAccount } from '@residence-blue/shared';
 import { Acces } from '../common/decorators/acces.decorator';
 import { RequireModule } from '../common/decorators/module.decorator';
 import { maskAmountsInPayload } from '../common/utils/mask-amounts.util';
@@ -29,8 +29,9 @@ export class RapportsController {
   }
 
   @Get()
-  @Acces('rapports', 'LECTURE')
+  @Acces({ screen: 'rapports', level: 'LECTURE', specialPermission: 'voir_montants' })
   async getReport(@Query() query: RapportsQueryDto, @Req() req: Request) {
+    if (!isReportsAllowedForAccount((req as any)?.user)) { throw new ForbiddenException('Seul le comptable peut voir les rapports'); }
     const report = await this.rapportsService.getReport(query.periode);
     const user = (req as any)?.user;
     return hasSpecialPermission(user, 'voir_montants') ? report : maskAmountsInPayload(report);
@@ -65,6 +66,7 @@ export class RapportsController {
     @Req() req: Request,
     @Res() res: Response,
   ) {
+    if (!isReportsAllowedForAccount((req as any)?.user)) { throw new ForbiddenException('Seul le comptable peut voir les rapports'); }
     const compare = query.comparer !== 'false' && query.comparer !== '0';
     const file = await this.exportService.generatePdf(
       query.periode,
@@ -81,6 +83,7 @@ export class RapportsController {
     @Req() req: Request,
     @Res() res: Response,
   ) {
+    if (!isReportsAllowedForAccount((req as any)?.user)) { throw new ForbiddenException('Seul le comptable peut voir les rapports'); }
     const file = await this.exportService.generateExcel(
       query.periode,
       this.extractActor(req),

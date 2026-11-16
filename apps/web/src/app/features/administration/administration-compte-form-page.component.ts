@@ -253,12 +253,22 @@ import { AdministrationService, ManagedAccount } from './administration.service'
 
                 <div class="divide-y divide-slate-200 border border-slate-200 rounded-xl overflow-x-hidden">
                   @for (scr of screens; track scr.key) {
-                    <div class="flex flex-wrap items-center justify-between gap-3 p-4 bg-white min-w-0">
+                    <div
+                      [attr.data-testid]="'screen-row-' + scr.key"
+                      [class]="scr.key === 'rapports' && isReportsLockedForProfile()
+                        ? 'flex flex-wrap items-center justify-between gap-3 p-4 bg-slate-50 opacity-60 min-w-0'
+                        : 'flex flex-wrap items-center justify-between gap-3 p-4 bg-white min-w-0'"
+                    >
                       <div class="min-w-0 shrink-0">
                         <div class="text-base font-bold text-[#0A2540]">{{ scr.label }}</div>
                         @if (scr.key === 'cuisine' && isRestaurantLockedOutOfKitchen()) {
                           <p class="text-base text-amber-800">
                             Toujours bloqué pour un(e) assistant(e) du restaurant.
+                          </p>
+                        }
+                        @if (scr.key === 'rapports' && isReportsLockedForProfile()) {
+                          <p data-testid="rapports-locked-hint" class="text-base text-slate-600">
+                            Seul le comptable peut voir les rapports
                           </p>
                         }
                       </div>
@@ -270,7 +280,10 @@ import { AdministrationService, ManagedAccount } from './administration.service'
                         @for (lvl of accessLevels; track lvl.value) {
                           <button
                             type="button"
-                            [disabled]="scr.key === 'cuisine' && isRestaurantLockedOutOfKitchen() && lvl.value !== 'AUCUN'"
+                            [disabled]="
+                              (scr.key === 'cuisine' && isRestaurantLockedOutOfKitchen() && lvl.value !== 'AUCUN') ||
+                              (scr.key === 'rapports' && isReportsLockedForProfile() && lvl.value !== 'AUCUN')
+                            "
                             [attr.data-testid]="'screen-' + scr.key + '-' + lvl.value"
                             [attr.aria-pressed]="screenAccess()[scr.key] === lvl.value"
                             (click)="setScreenLevel(scr.key, lvl.value)"
@@ -600,6 +613,10 @@ export class AdministrationCompteFormPageComponent implements OnInit {
     () => this.starterProfile() === 'ASSISTANT_RESTAURANT',
   );
 
+  readonly isReportsLockedForProfile = computed(
+    () => this.starterProfile() !== 'COMPTABLE',
+  );
+
   readonly previewScreens = computed(() =>
     SCREEN_DEFINITIONS.filter((s) => this.screenAccess()[s.key] !== 'AUCUN'),
   );
@@ -627,8 +644,13 @@ export class AdministrationCompteFormPageComponent implements OnInit {
       this.fullName.set(acc.fullName);
       this.email.set(acc.email);
       const validProfile = STARTER_PROFILES.find((p) => p.key === acc.starterProfile)?.key;
-      this.starterProfile.set(validProfile ?? 'ASSISTANT_RECEPTION');
-      this.screenAccess.set({ ...createEmptyScreenAccess(), ...acc.screenAccess });
+      const nextProfile = validProfile ?? 'ASSISTANT_RECEPTION';
+      this.starterProfile.set(nextProfile);
+      const loadedScreens = { ...createEmptyScreenAccess(), ...acc.screenAccess };
+      if (nextProfile !== 'COMPTABLE') {
+        loadedScreens.rapports = 'AUCUN';
+      }
+      this.screenAccess.set(loadedScreens);
       this.specialPermissions.set({
         ...createEmptySpecialPermissions(),
         ...acc.specialPermissions,
@@ -652,6 +674,9 @@ export class AdministrationCompteFormPageComponent implements OnInit {
 
   setScreenLevel(screen: ScreenKey, level: AccessLevel): void {
     if (screen === 'cuisine' && this.isRestaurantLockedOutOfKitchen()) {
+      return;
+    }
+    if (screen === 'rapports' && this.isReportsLockedForProfile() && level !== 'AUCUN') {
       return;
     }
     this.screenAccess.update((curr) => ({ ...curr, [screen]: level }));
