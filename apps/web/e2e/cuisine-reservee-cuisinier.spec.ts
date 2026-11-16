@@ -76,13 +76,19 @@ test.describe('Cuisine strictement réservée au Cuisinier (UI, API, SSE & Admin
         await p.$disconnect();
       })();
     `);
-    for (const id of createdOrderIds) {
-      await request
-        .post(`/api/restaurant/orders/${id}/cancel`, {
-          headers: dirHeaders,
-          data: { reason: 'Nettoyage E2E cuisine-reservee-cuisinier' },
-        })
-        .catch(() => {});
+    if (createdOrderIds.length > 0) {
+      execE2eNodeScript(`
+        const { PrismaClient } = require('@prisma/client');
+        (async () => {
+          const p = new PrismaClient();
+          const ids = ${JSON.stringify(createdOrderIds)};
+          await p.notificationMessage.deleteMany({ where: { orderId: { in: ids } } });
+          await p.restaurantOrderEvent.deleteMany({ where: { orderId: { in: ids } } });
+          await p.restaurantOrderLine.deleteMany({ where: { orderId: { in: ids } } });
+          await p.restaurantOrder.deleteMany({ where: { id: { in: ids } } });
+          await p.\$disconnect();
+        })();
+      `);
     }
     deleteE2eUsers(createdEmails);
   });

@@ -231,7 +231,7 @@ export class NotificationsService {
           if (this.canReceiveOrderNotifications() && this.authService?.isAuthenticated()) {
             this.connectStream();
           }
-        }, 2000);
+        }, 4000);
       }
       if (!this.fallbackPollTimer) {
         this.fallbackPollTimer = setInterval(() => {

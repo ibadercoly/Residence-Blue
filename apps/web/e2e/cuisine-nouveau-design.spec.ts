@@ -1,6 +1,7 @@
 import { test, expect, APIRequestContext } from '@playwright/test';
 import * as path from 'path';
 import { createE2eUser, deleteE2eUsers, getApiAuthHeaders } from './auth-e2e.helper';
+import { execE2eNodeScript } from './e2e-db.helper';
 
 const COMP_DIR = path.resolve(__dirname, '../../../docs/design/comparaisons');
 
@@ -64,13 +65,19 @@ test.describe('Cuisine — Nouveau design tablette sans défilement', () => {
   });
 
   test.afterAll(async ({ request }) => {
-    for (const id of createdOrderIds) {
-      await request
-        .patch(`/api/restaurant/orders/${id}/cancel`, {
-          headers: dirHeaders,
-          data: { reason: 'Nettoyage E2E cuisine-nouveau-design' },
-        })
-        .catch(() => {});
+    if (createdOrderIds.length > 0) {
+      execE2eNodeScript(`
+        const { PrismaClient } = require('@prisma/client');
+        (async () => {
+          const p = new PrismaClient();
+          const ids = ${JSON.stringify(createdOrderIds)};
+          await p.notificationMessage.deleteMany({ where: { orderId: { in: ids } } });
+          await p.restaurantOrderEvent.deleteMany({ where: { orderId: { in: ids } } });
+          await p.restaurantOrderLine.deleteMany({ where: { orderId: { in: ids } } });
+          await p.restaurantOrder.deleteMany({ where: { id: { in: ids } } });
+          await p.\$disconnect();
+        })();
+      `);
     }
     if (createdEmails.length > 0) {
       deleteE2eUsers(createdEmails);
