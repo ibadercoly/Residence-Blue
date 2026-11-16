@@ -3,7 +3,9 @@ import {
   Controller,
   Delete,
   Get,
+  MessageEvent,
   NotFoundException,
+  Optional,
   Param,
   Patch,
   Post,
@@ -11,11 +13,13 @@ import {
   Query,
   Req,
   Res,
+  Sse,
   UploadedFile,
   UseInterceptors,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { Request, Response } from 'express';
+import { map, merge, Observable, takeUntil, timer } from 'rxjs';
 import * as fs from 'fs';
 import * as path from 'path';
 import { RoomsService } from './rooms.service';
@@ -25,14 +29,18 @@ import { CreateRoomDto } from './dto/create-room.dto';
 import { UpdateRoomDto } from './dto/update-room.dto';
 import { CreateRoomTypeDto, UpdateRoomTypeDto } from './dto/create-room-type.dto';
 import { Acces } from '../common/decorators/acces.decorator';
-import { Public } from '../common/decorators/roles.decorator';
-import { hasSpecialPermission, isHousekeepingAccount } from '@residence-blue/shared';
+import { Public, Roles } from '../common/decorators/roles.decorator';
+import { SessionRevocationService } from '../auth/session-revocation.service';
+import { hasSpecialPermission, isHousekeepingAccount, Role } from '@residence-blue/shared';
 import { maskAmountsInPayload } from '../common/utils/mask-amounts.util';
 import { getUploadsDir, UploadedImageFile } from './rooms-image.util';
 
 @Controller('rooms')
 export class RoomsController {
-  constructor(private readonly roomsService: RoomsService) {}
+  constructor(
+    private readonly roomsService: RoomsService,
+    @Optional() private readonly sessionRevocation?: SessionRevocationService,
+  ) {}
 
   /**
    * Consultation du catalogue et des statuts des chambres.
@@ -103,6 +111,43 @@ export class RoomsController {
 
     const stream = fs.createReadStream(filePath);
     stream.pipe(res);
+  }
+
+  /**
+   * Flux temps réel SSE des changements de statut des chambres.
+   * Réservé strictement à RECEPTION, DIRECTION et MAINTENANCE (Technique).
+   */
+  @Get('stream')
+  @Sse()
+  @Roles(Role.DIRECTION, Role.RECEPTION, Role.MAINTENANCE)
+  streamRoomStatus(@Req() req: Request): Observable<MessageEvent> {
+    const user = (req as any)?.user;
+    const rawLastId =
+      (req.headers['last-event-id'] as string | undefined) ||
+      (req.query?.lastEventId as string | undefined);
+    const lastEventId = rawLastId ? Number(rawLastId) : undefined;
+
+    const updates$ = this.roomsService.getRoomEventStream(lastEventId).pipe(
+      map(
+        (evt) =>
+          ({
+            id: String(evt.eventId),
+            data: evt,
+          }) as MessageEvent,
+      ),
+    );
+    const heartbeat$ = timer(0, 25000).pipe(
+      map(
+        () =>
+          ({
+            data: { type: 'HEARTBEAT', timestamp: new Date().toISOString() },
+          }) as MessageEvent,
+      ),
+    );
+    const stream$ = merge(updates$, heartbeat$);
+    return this.sessionRevocation && user?.id
+      ? stream$.pipe(takeUntil(this.sessionRevocation.onUserRevoked(user.id)))
+      : stream$;
   }
 
   /**

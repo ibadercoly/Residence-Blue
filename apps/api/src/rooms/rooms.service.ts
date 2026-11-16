@@ -10,7 +10,9 @@ import { appendChainedAuditLog } from '../common/audit/audit.service';
 import {
   isRoomStatusTransitionAllowed,
   RoomStatus as SharedRoomStatus,
+  RoomStatusStreamEvent,
 } from '@residence-blue/shared';
+import { Observable, Subject, concat, from } from 'rxjs';
 import { ReservationStatus, RoomStatus } from '@prisma/client';
 import { UpdateRoomStatusDto } from './dto/update-room-status.dto';
 import { AvailableRoomsQueryDto } from './dto/available-rooms-query.dto';
@@ -24,7 +26,48 @@ const UUID_REGEX =
 
 @Injectable()
 export class RoomsService {
+  private readonly roomEvents$ = new Subject<RoomStatusStreamEvent>();
+  private readonly recentRoomEventsBuffer: RoomStatusStreamEvent[] = [];
+  private nextEventId = 1;
+
   constructor(private readonly prisma: PrismaService) {}
+
+  /**
+   * Retourne le flux SSE des changements de statut de chambre avec reprise par Last-Event-ID.
+   * Aucun montant ni nom de client n'y est jamais inclus.
+   */
+  getRoomEventStream(lastEventId?: number): Observable<RoomStatusStreamEvent> {
+    const replayEvents =
+      typeof lastEventId === 'number' && !Number.isNaN(lastEventId)
+        ? this.recentRoomEventsBuffer.filter((evt) => evt.eventId > lastEventId)
+        : [];
+    const live$ = this.roomEvents$.asObservable();
+    return replayEvents.length > 0 ? concat(from(replayEvents), live$) : live$;
+  }
+
+  private emitRoomStatusEvent(params: {
+    roomId: string;
+    roomNumber: string;
+    status: SharedRoomStatus;
+    previousStatus: SharedRoomStatus;
+    reason?: string | null;
+  }): void {
+    const evt: RoomStatusStreamEvent = {
+      eventId: this.nextEventId++,
+      type: 'ROOM_STATUS_UPDATED',
+      roomId: params.roomId,
+      roomNumber: params.roomNumber,
+      status: params.status,
+      previousStatus: params.previousStatus,
+      reason: params.reason ?? null,
+      timestamp: new Date().toISOString(),
+    };
+    this.recentRoomEventsBuffer.push(evt);
+    if (this.recentRoomEventsBuffer.length > 100) {
+      this.recentRoomEventsBuffer.shift();
+    }
+    this.roomEvents$.next(evt);
+  }
 
   /**
    * Retourne la liste complète des chambres avec leur catégorie et tarif,
@@ -612,6 +655,14 @@ export class RoomsService {
       });
 
       return updated;
+    });
+
+    this.emitRoomStatusEvent({
+      roomId: updatedRoom.id,
+      roomNumber: updatedRoom.number,
+      status: targetStatus,
+      previousStatus: currentStatus,
+      reason: targetStatus === SharedRoomStatus.MAINTENANCE ? nextMaintenanceReason ?? null : null,
     });
 
     return updatedRoom;

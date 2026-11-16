@@ -191,6 +191,15 @@ export interface NavItem {
                     {{ pendingKitchenOrdersCount() }}
                   </span>
                 }
+                @if (item.id === 'planning' && unreadRoomAlertsCount() > 0) {
+                  <span
+                    data-testid="nav-planning-alert-badge"
+                    class="ml-auto inline-flex min-w-[22px] h-[22px] items-center justify-center rounded-full bg-emerald-500 px-1.5 text-[11px] font-extrabold text-white shadow-sm"
+                    [attr.aria-label]="unreadRoomAlertsCount() + ' alerte(s) chambre'"
+                  >
+                    {{ unreadRoomAlertsCount() }}
+                  </span>
+                }
               </a>
             }
           </nav>
@@ -261,6 +270,11 @@ export class SidebarComponent {
   );
   readonly pendingKitchenOrdersCount = computed(() =>
     this.restaurantService ? this.restaurantService.pendingKitchenOrdersCount() : 0,
+  );
+  readonly unreadRoomAlertsCount = computed(() =>
+    this.roomsService && this.roomsService.canReceiveRoomAlerts()
+      ? this.roomsService.unreadAlertsCount()
+      : 0,
   );
 
   async logout(): Promise<void> {

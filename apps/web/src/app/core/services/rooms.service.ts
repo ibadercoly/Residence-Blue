@@ -7,6 +7,7 @@ import {
   CreateRoomDto,
   UpdateRoomDto,
   RoomStatus,
+  RoomStatusStreamEvent,
   SEED_ROOMS,
   Role,
   isRoomStatusTransitionAllowed,
@@ -23,6 +24,41 @@ export interface RoomUiItem extends RoomDto {
   imageUrl?: string;
   imageAlt?: string;
   category?: string;
+}
+
+export interface RoomAlertItem {
+  id: string;
+  roomId: string;
+  roomNumber: string;
+  status: RoomStatus;
+  previousStatus?: RoomStatus | null;
+  reason?: string | null;
+  message: string;
+  timestamp: string;
+  read: boolean;
+}
+
+export function formatRoomAlertMessage(
+  roomNumber: string,
+  status: RoomStatus,
+  reason?: string | null,
+): string {
+  if (status === RoomStatus.FREE) {
+    return `Chambre ${roomNumber} : propre, pr\u00eate \u00e0 louer`;
+  }
+  if (status === RoomStatus.MAINTENANCE) {
+    const cleanReason = typeof reason === 'string' ? reason.trim() : '';
+    return cleanReason
+      ? `Chambre ${roomNumber} : probl\u00e8me signal\u00e9 (${cleanReason})`
+      : `Chambre ${roomNumber} : probl\u00e8me signal\u00e9`;
+  }
+  if (status === RoomStatus.CLEANING) {
+    return `Chambre ${roomNumber} : \u00e0 nettoyer`;
+  }
+  if (status === RoomStatus.OCCUPIED) {
+    return `Chambre ${roomNumber} : occup\u00e9e`;
+  }
+  return `Chambre ${roomNumber} : \u00e9tat mis \u00e0 jour`;
 }
 
 @Injectable({
@@ -54,6 +90,29 @@ export class RoomsService {
 
   readonly errorMessage = signal<string | null>(null);
   readonly successMessage = signal<string | null>(null);
+
+  /** Alertes temps réel d'état des chambres (RECEPTION, DIRECTION, TECHNIQUE) */
+  private readonly alertSoundStorageKey = 'residence_blue_room_alerts_sound';
+  readonly roomAlerts = signal<RoomAlertItem[]>([]);
+  readonly unreadAlertsCount = computed(() => this.roomAlerts().filter((a) => !a.read).length);
+  readonly soundEnabled = signal<boolean>(this.readSoundPreference());
+  readonly sseConnected = signal<boolean>(false);
+  readonly latestLiveAlert = computed(() => this.roomAlerts()[0] ?? null);
+  readonly canReceiveRoomAlerts = computed<boolean>(() => {
+    const auth = this.authService as unknown as {
+      currentUser?: () => { role?: Role } | null;
+      currentRole?: () => Role | null;
+    } | undefined;
+    const role = auth?.currentUser?.()?.role ?? auth?.currentRole?.() ?? null;
+    return role === Role.RECEPTION || role === Role.DIRECTION || role === Role.MAINTENANCE;
+  });
+
+  private roomSseAbort: AbortController | null = null;
+  private roomSseReconnectTimer: ReturnType<typeof setTimeout> | null = null;
+  private roomSseStartTimer: ReturnType<typeof setTimeout> | null = null;
+  private roomPollingTimer: ReturnType<typeof setInterval> | null = null;
+  private lastRoomEventId: number | null = null;
+  private readonly recentAlertTimestamps = new Map<string, number>();
 
   /** Chambres actives (exclut les chambres inactives) */
   readonly activeRooms = computed(() => {
@@ -165,8 +224,20 @@ export class RoomsService {
     this.initRooms();
     try {
       effect(() => {
-        if (this.authService?.isAuthenticated()) {
+        const authenticated = Boolean(this.authService?.isAuthenticated());
+        const allowed = this.canReceiveRoomAlerts();
+        if (authenticated) {
           void this.fetchFromServer();
+        }
+        if (authenticated && allowed) {
+          this.startLiveAlerts();
+        } else {
+          this.stopLiveAlerts();
+          if (!authenticated) {
+            this.roomAlerts.set([]);
+            this.recentAlertTimestamps.clear();
+            this.lastRoomEventId = null;
+          }
         }
       });
     } catch {
@@ -229,14 +300,27 @@ export class RoomsService {
 
       if (response.ok) {
         const serverRooms: RoomDto[] = await response.json();
+        const previousById = new Map(this.rooms().map((r) => [r.id, r]));
+        const hasInitialSnapshot = previousById.size > 0;
+        const detectedChanges: Array<{ previous: RoomUiItem; next: RoomUiItem }> = [];
+
         const merged: RoomUiItem[] = serverRooms.map((sr) => {
-          const currentLocal = this.rooms().find((r) => r.id === sr.id || r.number === sr.number);
+          const currentLocal = previousById.get(sr.id) ?? this.rooms().find((r) => r.number === sr.number);
           const normalized = this.normalizeRoom({
             ...sr,
             syncPending: currentLocal?.syncPending || false,
             status: currentLocal?.syncPending ? currentLocal.status : sr.status,
             isActive: sr.isActive !== undefined ? sr.isActive : (currentLocal?.isActive ?? true),
           });
+          if (
+            hasInitialSnapshot &&
+            currentLocal &&
+            !currentLocal.syncPending &&
+            (currentLocal.status !== normalized.status ||
+              (currentLocal.maintenanceReason ?? null) !== (normalized.maintenanceReason ?? null))
+          ) {
+            detectedChanges.push({ previous: currentLocal, next: normalized });
+          }
           return normalized;
         });
 
@@ -246,6 +330,19 @@ export class RoomsService {
         }
         const uniqueMerged = Array.from(dedup.values());
         this.rooms.set(this.sortRooms(uniqueMerged));
+
+        if (this.canReceiveRoomAlerts()) {
+          for (const change of detectedChanges) {
+            this.pushRoomAlert({
+              roomId: change.next.id,
+              roomNumber: change.next.number,
+              status: change.next.status,
+              previousStatus: change.previous.status,
+              reason: change.next.maintenanceReason ?? null,
+              timestamp: new Date().toISOString(),
+            });
+          }
+        }
         try {
           const validIds = new Set(uniqueMerged.map((r) => r.id));
           const existingInIdb = await this.idb.getAll<RoomUiItem>('rooms');
@@ -934,6 +1031,258 @@ export class RoomsService {
       isActive: r.isActive !== false,
       syncPending: Boolean(r.syncPending),
     };
+  }
+
+  toggleAlertSound(): void {
+    const next = !this.soundEnabled();
+    this.soundEnabled.set(next);
+    try {
+      if (typeof localStorage !== 'undefined') {
+        localStorage.setItem(this.alertSoundStorageKey, next ? '1' : '0');
+      }
+    } catch {}
+  }
+
+  markAllAlertsRead(): void {
+    this.roomAlerts.update((list) => list.map((a) => (a.read ? a : { ...a, read: true })));
+  }
+
+  markAlertRead(alertId: string): void {
+    this.roomAlerts.update((list) =>
+      list.map((a) => (a.id === alertId ? { ...a, read: true } : a)),
+    );
+  }
+
+  dismissAlert(alertId: string): void {
+    this.roomAlerts.update((list) => list.filter((a) => a.id !== alertId));
+  }
+
+  startLiveAlerts(): void {
+    if (!this.canReceiveRoomAlerts()) return;
+    if (!this.roomSseAbort && !this.roomSseStartTimer && typeof window !== 'undefined') {
+      this.roomSseStartTimer = setTimeout(() => {
+        this.roomSseStartTimer = null;
+        if (this.canReceiveRoomAlerts() && this.authService?.isAuthenticated()) {
+          this.connectRoomStream();
+        }
+      }, 4000);
+    }
+    if (!this.roomPollingTimer && typeof window !== 'undefined') {
+      this.roomPollingTimer = setInterval(() => {
+        if (this.network.isOnline() && this.authService?.isAuthenticated()) {
+          void this.fetchFromServer();
+        }
+      }, 10000);
+    }
+  }
+
+  stopLiveAlerts(): void {
+    if (this.roomSseStartTimer) {
+      clearTimeout(this.roomSseStartTimer);
+      this.roomSseStartTimer = null;
+    }
+    this.disconnectRoomStream();
+    if (this.roomPollingTimer) {
+      clearInterval(this.roomPollingTimer);
+      this.roomPollingTimer = null;
+    }
+  }
+
+  connectRoomStream(): void {
+    this.disconnectRoomStream();
+    if (!this.canReceiveRoomAlerts()) return;
+    if (!this.network.isOnline() || typeof fetch === 'undefined') return;
+    if (this.authService && !this.authService.isAuthenticated()) return;
+
+    const controller = new AbortController();
+    this.roomSseAbort = controller;
+
+    const connectLoop = async () => {
+      if (controller.signal.aborted) return;
+      try {
+        const extraHeaders: Record<string, string> = { Accept: 'text/event-stream' };
+        if (this.lastRoomEventId !== null) {
+          extraHeaders['Last-Event-ID'] = String(this.lastRoomEventId);
+        }
+        const res = await fetch('/api/rooms/stream', {
+          method: 'GET',
+          credentials: 'include',
+          headers: this.getAuthHeaders(extraHeaders),
+          signal: controller.signal,
+        });
+
+        if (res.status === 401 || res.status === 403) {
+          this.sseConnected.set(false);
+          return;
+        }
+        if (!res.ok || !res.body) {
+          this.sseConnected.set(false);
+          this.scheduleRoomSseReconnect(controller, connectLoop);
+          return;
+        }
+
+        this.sseConnected.set(true);
+        const reader = res.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = '';
+
+        while (!controller.signal.aborted) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          buffer += decoder.decode(value, { stream: true }).replace(/\r\n/g, '\n');
+          const frames = buffer.split('\n\n');
+          buffer = frames.pop() || '';
+          for (const frame of frames) {
+            const idMatch = frame.match(/^id:\s*(\d+)/m);
+            if (idMatch) {
+              const parsedId = Number(idMatch[1]);
+              if (!Number.isNaN(parsedId)) {
+                this.lastRoomEventId = parsedId;
+              }
+            }
+            const dataMatch = frame.match(/^data:\s*(.+)$/m);
+            if (!dataMatch) continue;
+            try {
+              const parsed = JSON.parse(dataMatch[1]) as Partial<RoomStatusStreamEvent>;
+              if (typeof parsed.eventId === 'number') {
+                this.lastRoomEventId = parsed.eventId;
+              }
+              if (parsed.type === 'ROOM_STATUS_UPDATED' && parsed.roomId && parsed.roomNumber && parsed.status) {
+                this.handleRoomStreamEvent(parsed as RoomStatusStreamEvent);
+              }
+            } catch {
+              // Trame SSE ignorée (battement de coeur ou JSON incomplet)
+            }
+          }
+        }
+      } catch {
+        // Baisse propre sur le polling de secours 10 s et reconnexion auto
+      } finally {
+        if (this.roomSseAbort === controller && !controller.signal.aborted) {
+          this.sseConnected.set(false);
+          this.scheduleRoomSseReconnect(controller, connectLoop);
+        }
+      }
+    };
+
+    void connectLoop();
+  }
+
+  disconnectRoomStream(): void {
+    if (this.roomSseReconnectTimer) {
+      clearTimeout(this.roomSseReconnectTimer);
+      this.roomSseReconnectTimer = null;
+    }
+    this.roomSseAbort?.abort();
+    this.roomSseAbort = null;
+    this.sseConnected.set(false);
+  }
+
+  private scheduleRoomSseReconnect(controller: AbortController, retryFn: () => Promise<void>): void {
+    if (controller.signal.aborted) return;
+    if (this.roomSseReconnectTimer) clearTimeout(this.roomSseReconnectTimer);
+    this.roomSseReconnectTimer = setTimeout(() => {
+      if (!controller.signal.aborted && this.roomSseAbort === controller) {
+        void retryFn();
+      }
+    }, 3000);
+  }
+
+  private handleRoomStreamEvent(evt: RoomStatusStreamEvent): void {
+    const { roomId, roomNumber, status } = evt;
+    if (!roomId || !roomNumber || !status) return;
+
+    this.rooms.update((list) =>
+      list.map((room) => {
+        if (room.id !== roomId && room.number !== roomNumber) return room;
+        return this.normalizeRoom({
+          ...room,
+          status,
+          maintenanceReason: status === RoomStatus.MAINTENANCE ? (evt.reason ?? null) : null,
+          syncPending: false,
+        });
+      }),
+    );
+
+    if (this.canReceiveRoomAlerts()) {
+      this.pushRoomAlert({
+        eventId: evt.eventId,
+        roomId,
+        roomNumber,
+        status,
+        previousStatus: evt.previousStatus ?? null,
+        reason: evt.reason ?? null,
+        timestamp: evt.timestamp || new Date().toISOString(),
+      });
+    }
+  }
+
+  private pushRoomAlert(input: {
+    eventId?: number;
+    roomId: string;
+    roomNumber: string;
+    status: RoomStatus;
+    previousStatus?: RoomStatus | null;
+    reason?: string | null;
+    timestamp: string;
+  }): void {
+    const dedupKey = `${input.roomId}:${input.status}:${input.reason ?? ''}`;
+    const now = Date.now();
+    const lastTs = this.recentAlertTimestamps.get(dedupKey);
+    if (lastTs !== undefined && now - lastTs < 3000) {
+      return;
+    }
+    if (input.eventId !== undefined && this.roomAlerts().some((a) => a.id === `sse-${input.eventId}`)) {
+      return;
+    }
+    this.recentAlertTimestamps.set(dedupKey, now);
+
+    const item: RoomAlertItem = {
+      id: input.eventId !== undefined ? `sse-${input.eventId}` : `poll-${input.roomId}-${now}`,
+      roomId: input.roomId,
+      roomNumber: input.roomNumber,
+      status: input.status,
+      previousStatus: input.previousStatus ?? null,
+      reason: input.reason ?? null,
+      message: formatRoomAlertMessage(input.roomNumber, input.status, input.reason),
+      timestamp: input.timestamp,
+      read: false,
+    };
+
+    this.roomAlerts.update((list) => [item, ...list].slice(0, 25));
+    this.playRoomAlertTone();
+  }
+
+  private readSoundPreference(): boolean {
+    try {
+      if (typeof localStorage === 'undefined') return false;
+      return localStorage.getItem(this.alertSoundStorageKey) === '1';
+    } catch {
+      return false;
+    }
+  }
+
+  private playRoomAlertTone(): void {
+    if (!this.soundEnabled() || typeof window === 'undefined') return;
+    try {
+      const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+      if (!AudioCtx) return;
+      const ctx = new AudioCtx();
+      const now = ctx.currentTime;
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(587.33, now);
+      osc.frequency.setValueAtTime(880, now + 0.08);
+      gain.gain.setValueAtTime(0.05, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.22);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(now);
+      osc.stop(now + 0.23);
+    } catch {
+      // Lecture audio bloqu\u00e9e par le navigateur
+    }
   }
 
   private buildInitialRooms(): RoomUiItem[] {

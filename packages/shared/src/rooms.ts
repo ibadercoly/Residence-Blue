@@ -92,6 +92,17 @@ export interface UpdateRoomStatusDto {
   reason?: string;
 }
 
+export interface RoomStatusStreamEvent {
+  eventId: number;
+  type: 'ROOM_STATUS_UPDATED' | 'HEARTBEAT';
+  roomId?: string;
+  roomNumber?: string;
+  status?: RoomStatus;
+  previousStatus?: RoomStatus;
+  reason?: string | null;
+  timestamp: string;
+}
+
 export interface CreateRoomTypeDto {
   name: string;
   pricePerNight: number; // ENTIER strict en FCFA

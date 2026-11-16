@@ -1,4 +1,4 @@
-import { RoomsService, RoomUiItem } from './rooms.service';
+import { RoomsService, RoomUiItem, formatRoomAlertMessage } from './rooms.service';
 import { IdbService } from '../offline/idb.service';
 import { OutboxService } from '../offline/outbox.service';
 import { NetworkService } from '../offline/network.service';
@@ -73,6 +73,7 @@ describe('RoomsService', () => {
   });
 
   afterEach(() => {
+    service?.stopLiveAlerts();
     jest.clearAllMocks();
   });
 
@@ -271,6 +272,59 @@ describe('RoomsService', () => {
       expect(loaded).toHaveLength(2);
       expect(loaded[0].type?.pricePerNight).toBeNull();
       expect(loaded[1].type?.pricePerNight).toBeNull();
+    });
+  });
+
+  describe('Alertes temps r\u00e9el et formatage', () => {
+    it('formate les messages courts attendus pour propre et probl\u00e8me signal\u00e9', () => {
+      expect(formatRoomAlertMessage('204', RoomStatus.FREE)).toBe(
+        'Chambre 204 : propre, pr\u00eate \u00e0 louer',
+      );
+      expect(formatRoomAlertMessage('204', RoomStatus.MAINTENANCE, "fuite d'eau")).toBe(
+        "Chambre 204 : probl\u00e8me signal\u00e9 (fuite d'eau)",
+      );
+    });
+
+    it("n'autorise les alertes que pour RECEPTION, DIRECTION et Technique (MAINTENANCE)", () => {
+      for (const allowed of [Role.RECEPTION, Role.DIRECTION, Role.MAINTENANCE]) {
+        mockRoleSig.set(allowed);
+        expect(service.canReceiveRoomAlerts()).toBe(true);
+      }
+      for (const denied of [Role.HOUSEKEEPING, Role.RESTAURANT, Role.CUISINIER, Role.COMPTABLE]) {
+        mockRoleSig.set(denied);
+        expect(service.canReceiveRoomAlerts()).toBe(false);
+      }
+    });
+
+    it('bascule le son optionnel et marque les alertes comme lues', async () => {
+      expect(service.soundEnabled()).toBe(false);
+      service.toggleAlertSound();
+      expect(service.soundEnabled()).toBe(true);
+      service.toggleAlertSound();
+      expect(service.soundEnabled()).toBe(false);
+
+      mockRoleSig.set(Role.RECEPTION);
+      (global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: true,
+        json: async () => [
+          { id: 'r-204', number: '204', floor: 2, status: RoomStatus.CLEANING, category: 'Deluxe', amenities: [], type: { id: 't2', name: 'Deluxe', pricePerNight: 55000 } },
+        ],
+      });
+      await service.fetchFromServer();
+      expect(service.unreadAlertsCount()).toBe(0);
+
+      (global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: true,
+        json: async () => [
+          { id: 'r-204', number: '204', floor: 2, status: RoomStatus.FREE, category: 'Deluxe', amenities: [], type: { id: 't2', name: 'Deluxe', pricePerNight: 55000 } },
+        ],
+      });
+      await service.fetchFromServer();
+      expect(service.unreadAlertsCount()).toBe(1);
+      expect(service.roomAlerts()[0].message).toBe('Chambre 204 : propre, pr\u00eate \u00e0 louer');
+
+      service.markAllAlertsRead();
+      expect(service.unreadAlertsCount()).toBe(0);
     });
   });
 });

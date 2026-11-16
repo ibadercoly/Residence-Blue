@@ -2,6 +2,7 @@ import { Component, HostListener, computed, inject, signal } from '@angular/core
 import { CommonModule } from '@angular/common';
 import { PlanningMockService } from '../../core/services/planning-mock.service';
 import { ReservationModalService } from '../../core/services/reservation-modal.service';
+import { RoomsService } from '../../core/services/rooms.service';
 import { ReservationStatusType } from '../../core/models/planning.model';
 import { formatFcfa } from '@residence-blue/shared';
 import { StatusBadgeComponent } from '../../shared/components/status-badge/status-badge.component';
@@ -22,6 +23,17 @@ import { ActionButtonComponent } from '../../shared/components/action-button/act
           <p class="font-body-sm text-xs sm:text-sm text-outline mt-0.5">
             Occupation des {{ planningService.catalogRooms.length }} chambres • Résidence Blue Thiès
           </p>
+          @if (roomAlertsCount() > 0 && latestRoomAlert(); as latestAlert) {
+            <button
+              type="button"
+              (click)="acknowledgePlanningAlerts()"
+              data-testid="planning-live-alert-badge"
+              class="mt-2 inline-flex items-center gap-2 min-h-[36px] px-3 py-1 rounded-full bg-emerald-50 border border-emerald-300 text-emerald-900 text-xs font-bold shadow-xs hover:bg-emerald-100 transition-colors cursor-pointer"
+            >
+              <span class="w-2 h-2 rounded-full bg-emerald-500 shrink-0" aria-hidden="true"></span>
+              <span>{{ roomAlertsCount() }} alerte(s) • {{ latestAlert.message }}</span>
+            </button>
+          }
         </div>
         <button
           type="button"
@@ -601,12 +613,37 @@ export class PlanningPageComponent {
   readonly planningService: PlanningMockService;
   readonly modalService: ReservationModalService;
 
+  private readonly roomsService: RoomsService | null = null;
+
   constructor(
     planningService?: PlanningMockService,
-    modalService?: ReservationModalService
+    modalService?: ReservationModalService,
+    roomsService?: RoomsService
   ) {
     this.planningService = planningService ?? inject(PlanningMockService);
     this.modalService = modalService ?? inject(ReservationModalService);
+    if (roomsService) {
+      this.roomsService = roomsService;
+    } else {
+      try {
+        this.roomsService = inject(RoomsService, { optional: true });
+      } catch {
+        this.roomsService = null;
+      }
+    }
+  }
+
+  readonly roomAlertsCount = computed(() =>
+    this.roomsService?.canReceiveRoomAlerts() ? (this.roomsService?.unreadAlertsCount() ?? 0) : 0,
+  );
+  readonly latestRoomAlert = computed(() =>
+    this.roomsService?.canReceiveRoomAlerts()
+      ? (this.roomsService?.roomAlerts().find((a) => !a.read) ?? null)
+      : null,
+  );
+
+  acknowledgePlanningAlerts(): void {
+    this.roomsService?.markAllAlertsRead();
   }
 
   /** Index du jour actif sur mobile (0 à 6) */

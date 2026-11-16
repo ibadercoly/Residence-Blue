@@ -2,6 +2,7 @@ import { Component, EventEmitter, Output, inject, signal, computed, HostListener
 import { CommonModule } from '@angular/common';
 import { ReservationModalService } from '../../../core/services/reservation-modal.service';
 import { AuthService, ConnectedSessionItem } from '../../../core/services/auth.service';
+import { RoomsService } from '../../../core/services/rooms.service';
 import { ModalShellComponent } from '../modal-shell/modal-shell.component';
 import { Role, getAuthorizedScreens } from '@residence-blue/shared';
 
@@ -18,7 +19,7 @@ import { Role, getAuthorizedScreens } from '@residence-blue/shared';
     >
       @if (canUseGlobalSearch()) {
         <!-- Global Search -->
-        <div class="flex items-center gap-gutter flex-1 max-w-xl">
+        <div class="flex items-center gap-gutter flex-1 max-w-xl min-w-0">
           <div class="relative w-full">
             <label for="global-search" class="sr-only">Rechercher une réservation, client, chambre</label>
             <span class="material-symbols-outlined absolute left-space-md top-1/2 -translate-y-1/2 text-outline text-[20px] pointer-events-none" aria-hidden="true">
@@ -52,14 +53,120 @@ import { Role, getAuthorizedScreens } from '@residence-blue/shared';
           </button>
         }
 
-        <!-- Notifications button -->
-        <button
-          type="button"
-          class="relative w-11 h-11 rounded-xl bg-surface-container-lowest flex items-center justify-center text-on-surface-variant hover:text-on-surface shadow-[0_2px_8px_rgba(10,37,64,0.04)] transition-colors focus-visible:ring-2 focus-visible:ring-primary"
-          aria-label="Notifications"
-        >
-          <span class="material-symbols-outlined text-[22px]" aria-hidden="true">notifications</span>
-        </button>
+        <!-- Alertes chambres & Notifications -->
+        @if (canReceiveRoomAlerts()) {
+          <div class="relative flex items-center gap-2" data-testid="header-notifications-wrapper">
+            @if (latestUnreadAlert(); as latestAlert) {
+              <button
+                type="button"
+                (click)="toggleNotifications($event)"
+                data-testid="header-live-room-alert"
+                class="hidden lg:inline-flex items-center gap-2 max-w-[220px] h-10 px-3 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-900 text-xs font-semibold shadow-sm hover:bg-emerald-100 transition-colors cursor-pointer"
+              >
+                <span class="w-2 h-2 rounded-full bg-emerald-500 shrink-0" aria-hidden="true"></span>
+                <span class="truncate">{{ latestAlert.message }}</span>
+              </button>
+            }
+
+            <button
+              type="button"
+              (click)="toggleNotifications($event)"
+              data-testid="header-notifications-btn"
+              class="relative w-11 h-11 rounded-xl bg-surface-container-lowest flex items-center justify-center text-on-surface-variant hover:text-on-surface shadow-[0_2px_8px_rgba(10,37,64,0.04)] transition-colors focus-visible:ring-2 focus-visible:ring-primary cursor-pointer"
+              aria-label="Notifications chambres"
+              aria-haspopup="menu"
+              [attr.aria-expanded]="isNotificationsOpen()"
+            >
+              <span class="material-symbols-outlined text-[22px]" aria-hidden="true">notifications</span>
+              @if (unreadRoomAlertsCount() > 0) {
+                <span
+                  data-testid="header-notifications-badge"
+                  class="absolute -top-1 -right-1 min-w-[20px] h-5 px-1 rounded-full bg-[#e11d48] text-white text-[11px] font-bold flex items-center justify-center shadow-sm"
+                >
+                  {{ unreadRoomAlertsCount() }}
+                </span>
+              }
+            </button>
+
+            @if (isNotificationsOpen()) {
+              <div
+                data-testid="header-notifications-dropdown"
+                role="menu"
+                (click)="$event.stopPropagation()"
+                class="absolute right-0 top-full mt-2 w-80 bg-surface-container-lowest rounded-2xl shadow-2xl border border-outline-variant/60 py-2 z-50"
+              >
+                <div class="px-4 py-2.5 border-b border-outline-variant/40 flex items-center justify-between gap-2">
+                  <span class="font-title-sm text-sm font-bold text-on-surface">Alertes chambres</span>
+                  @if (unreadRoomAlertsCount() > 0) {
+                    <button
+                      type="button"
+                      (click)="markAllRoomAlertsRead($event)"
+                      data-testid="notifications-mark-read-btn"
+                      class="text-xs font-semibold text-primary hover:underline cursor-pointer min-h-[32px] px-1.5"
+                    >
+                      Tout marquer lu
+                    </button>
+                  }
+                </div>
+
+                <div class="px-4 py-2.5 border-b border-outline-variant/40 flex items-center justify-between gap-3 bg-surface-container-low/40">
+                  <div class="flex items-center gap-2 text-xs font-medium text-on-surface">
+                    <span class="material-symbols-outlined text-[18px] text-primary" aria-hidden="true">
+                      {{ soundEnabled() ? 'volume_up' : 'volume_off' }}
+                    </span>
+                    <span>Son des alertes</span>
+                  </div>
+                  <button
+                    type="button"
+                    role="switch"
+                    [attr.aria-checked]="soundEnabled()"
+                    (click)="toggleAlertSound($event)"
+                    data-testid="notifications-sound-toggle"
+                    class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold transition-colors cursor-pointer min-h-[32px]"
+                    [ngClass]="soundEnabled() ? 'bg-primary text-on-primary' : 'bg-surface-container text-on-surface-variant'"
+                  >
+                    <span>{{ soundEnabled() ? 'Activé' : 'Coupé' }}</span>
+                  </button>
+                </div>
+
+                <div class="max-h-72 overflow-y-auto divide-y divide-outline-variant/30">
+                  @if (roomAlerts().length === 0) {
+                    <div class="px-4 py-6 text-center text-xs text-outline" data-testid="notifications-empty">
+                      Aucune nouvelle alerte chambre.
+                    </div>
+                  } @else {
+                    @for (alert of roomAlerts(); track alert.id) {
+                      <button
+                        type="button"
+                        (click)="markRoomAlertRead(alert.id)"
+                        data-testid="room-alert-item"
+                        class="w-full px-4 py-3 text-left hover:bg-surface-container-low/60 transition-colors flex items-start gap-2.5 cursor-pointer"
+                      >
+                        <span
+                          class="mt-1.5 w-2 h-2 rounded-full shrink-0"
+                          [ngClass]="alert.read ? 'bg-outline-variant' : 'bg-emerald-500'"
+                          aria-hidden="true"
+                        ></span>
+                        <div class="flex-1 min-w-0">
+                          <p class="text-xs font-semibold text-on-surface leading-snug">{{ alert.message }}</p>
+                          <p class="text-[11px] text-outline mt-0.5">{{ alert.timestamp | date:'HH:mm' }}</p>
+                        </div>
+                      </button>
+                    }
+                  }
+                </div>
+              </div>
+            }
+          </div>
+        } @else if (!isSingleScreenProfile()) {
+          <button
+            type="button"
+            class="relative w-11 h-11 rounded-xl bg-surface-container-lowest flex items-center justify-center text-on-surface-variant hover:text-on-surface shadow-[0_2px_8px_rgba(10,37,64,0.04)] transition-colors focus-visible:ring-2 focus-visible:ring-primary"
+            aria-label="Notifications"
+          >
+            <span class="material-symbols-outlined text-[22px]" aria-hidden="true">notifications</span>
+          </button>
+        }
 
         <div class="h-8 w-px bg-surface-variant/60" aria-hidden="true"></div>
 
@@ -190,6 +297,25 @@ import { Role, getAuthorizedScreens } from '@residence-blue/shared';
               </button>
             }
           }
+          @if (canReceiveRoomAlerts()) {
+            <button
+              type="button"
+              (click)="toggleNotifications($event)"
+              data-testid="header-notifications-mobile-btn"
+              class="relative w-11 h-11 rounded-xl bg-surface-container-lowest flex items-center justify-center text-on-surface shadow-sm cursor-pointer min-h-[44px] min-w-[44px]"
+              aria-label="Notifications chambres"
+            >
+              <span class="material-symbols-outlined text-[20px]" aria-hidden="true">notifications</span>
+              @if (unreadRoomAlertsCount() > 0) {
+                <span
+                  data-testid="header-notifications-mobile-badge"
+                  class="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-[#e11d48] text-white text-[10px] font-bold flex items-center justify-center"
+                >
+                  {{ unreadRoomAlertsCount() }}
+                </span>
+              }
+            </button>
+          }
           <div class="relative" data-testid="user-profile-mobile">
             <button
               type="button"
@@ -302,8 +428,17 @@ export class HeaderComponent {
   @Output() menuToggle = new EventEmitter<void>();
   readonly modalService = inject(ReservationModalService);
   readonly authService = inject(AuthService);
+  readonly roomsService = inject(RoomsService, { optional: true });
 
   readonly isMenuOpen = signal<boolean>(false);
+  readonly isNotificationsOpen = signal<boolean>(false);
+  readonly canReceiveRoomAlerts = computed(() =>
+    Boolean(!this.isSingleScreenProfile() && this.roomsService?.canReceiveRoomAlerts()),
+  );
+  readonly roomAlerts = computed(() => this.roomsService?.roomAlerts() ?? []);
+  readonly unreadRoomAlertsCount = computed(() => this.roomsService?.unreadAlertsCount() ?? 0);
+  readonly latestUnreadAlert = computed(() => this.roomAlerts().find((a) => !a.read) ?? null);
+  readonly soundEnabled = computed(() => this.roomsService?.soundEnabled() ?? false);
   readonly currentUser = this.authService.currentUser;
 
   readonly isSessionsModalOpen = signal<boolean>(false);
@@ -336,11 +471,39 @@ export class HeaderComponent {
     if (this.isMenuOpen()) {
       this.closeMenu();
     }
+    if (this.isNotificationsOpen()) {
+      this.closeNotifications();
+    }
   }
 
   toggleMenu(event?: MouseEvent): void {
     if (event) event.stopPropagation();
+    if (this.isNotificationsOpen()) this.closeNotifications();
     this.isMenuOpen.update((v) => !v);
+  }
+
+  toggleNotifications(event?: MouseEvent): void {
+    if (event) event.stopPropagation();
+    if (this.isMenuOpen()) this.closeMenu();
+    this.isNotificationsOpen.update((v) => !v);
+  }
+
+  closeNotifications(): void {
+    this.isNotificationsOpen.set(false);
+  }
+
+  toggleAlertSound(event?: Event): void {
+    if (event) event.stopPropagation();
+    this.roomsService?.toggleAlertSound();
+  }
+
+  markAllRoomAlertsRead(event?: Event): void {
+    if (event) event.stopPropagation();
+    this.roomsService?.markAllAlertsRead();
+  }
+
+  markRoomAlertRead(alertId: string): void {
+    this.roomsService?.markAlertRead(alertId);
   }
 
   closeMenu(): void {
