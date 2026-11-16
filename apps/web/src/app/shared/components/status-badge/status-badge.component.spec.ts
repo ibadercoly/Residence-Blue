@@ -20,10 +20,10 @@ describe('StatusBadgeComponent', () => {
     expect(component.displayLabel()).toBe('Occupée');
   });
 
-  it('devrait normaliser le statut CLEANING avec le libellé Ménage', () => {
+  it('devrait normaliser le statut CLEANING avec le libellé À nettoyer', () => {
     (component as any).status = () => RoomStatus.CLEANING;
     expect(component.normalizedVariant()).toBe('CLEANING');
-    expect(component.displayLabel()).toBe('Ménage');
+    expect(component.displayLabel()).toBe('À nettoyer');
   });
 
   it('devrait normaliser le statut MAINTENANCE avec le libellé Maintenance sans préfixe EN', () => {

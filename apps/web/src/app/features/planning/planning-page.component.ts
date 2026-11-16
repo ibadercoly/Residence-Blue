@@ -245,7 +245,7 @@ import { ActionButtonComponent } from '../../shared/components/action-button/act
         <div class="flex flex-col divide-y divide-outline-variant/15" data-testid="grid-body">
           @for (room of planningService.filteredRooms(); track room.number) {
             <div
-              class="grid grid-cols-[8rem_repeat(7,minmax(0,1fr))] relative h-14 items-stretch group hover:bg-surface-container-low/30 transition-colors"
+              class="grid grid-cols-[8rem_repeat(7,minmax(0,1fr))] relative min-h-14 items-stretch group hover:bg-surface-container-low/30 transition-colors"
               [attr.data-testid]="'room-row-' + room.number"
             >
               <!-- 1ère colonne = numéro + catégorie de la chambre -->
@@ -259,6 +259,15 @@ import { ActionButtonComponent } from '../../shared/components/action-button/act
                 <span class="font-label-md text-[10px] text-outline uppercase tracking-wider truncate">
                   {{ room.category }}
                 </span>
+                @if (room.status === 'MAINTENANCE') {
+                  <span
+                    class="mt-0.5 inline-flex items-center gap-1 text-[10px] font-bold text-rose-800 bg-rose-50 border border-rose-200 rounded px-1 py-0.5 leading-tight break-words [overflow-wrap:anywhere]"
+                    [attr.data-testid]="'planning-maintenance-badge-' + room.number"
+                    [title]="'Hors service : ' + (room.maintenanceReason || 'Problème signalé')"
+                  >
+                    Hors service : {{ room.maintenanceReason || 'Problème signalé' }}
+                  </span>
+                }
               </div>
 
               <!-- 7 cases de jours vides (clic sur une case vide : ouvre Nouvelle réservation) -->

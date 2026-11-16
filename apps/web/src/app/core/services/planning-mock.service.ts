@@ -279,6 +279,8 @@ export class PlanningMockService {
         category: (r.category || r.type?.name || 'Standard') as any,
         typeLabel: `${r.category || r.type?.name || 'Standard'} ${r.view || ''}`.trim(),
         description: r.description || `Étage ${r.floor}`,
+        status: r.status,
+        maintenanceReason: r.status === 'MAINTENANCE' ? (r.maintenanceReason || 'Problème signalé') : null,
       }));
     }
     return [];

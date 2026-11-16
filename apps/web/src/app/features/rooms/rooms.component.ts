@@ -6,16 +6,21 @@ import { ReservationModalService } from '../../core/services/reservation-modal.s
 import { RoomCategoryType } from '../../core/models/reservation-modal.model';
 import { NetworkService } from '../../core/offline/network.service';
 import { OutboxService } from '../../core/offline/outbox.service';
-import { RoomStatus, Role, CreateRoomDto, UpdateRoomDto } from '@residence-blue/shared';
+import { RoomStatus, Role, CreateRoomDto, UpdateRoomDto, isHousekeepingAccount } from '@residence-blue/shared';
+import { AuthService } from '../../core/services/auth.service';
+import { MenageChambresComponent } from './menage-chambres.component';
 import { RoomStatusCardComponent } from '../../shared/components/room-status-card/room-status-card.component';
 import { ModalShellComponent } from '../../shared/components/modal-shell/modal-shell.component';
 
 @Component({
   selector: 'app-rooms',
   standalone: true,
-  imports: [CommonModule, FormsModule, RoomStatusCardComponent, ModalShellComponent],
+  imports: [CommonModule, FormsModule, RoomStatusCardComponent, ModalShellComponent, MenageChambresComponent],
   host: { class: 'block w-full max-w-full overflow-x-hidden' },
   template: `
+    @if (isHousekeepingProfile()) {
+      <app-menage-chambres></app-menage-chambres>
+    } @else {
     <div class="rooms-page flex flex-col gap-6 pb-16 w-full max-w-full overflow-x-hidden" data-testid="rooms-page">
       <!-- 2. NOUVEL EN-TÊTE DE L'ÉCRAN CHAMBRES -->
       <header class="rooms-header bg-surface-container-lowest rounded-2xl border border-outline-variant/60 p-4 sm:p-5 md:p-6 shadow-sm flex flex-col gap-4 w-full max-w-full" data-testid="rooms-header">
@@ -128,7 +133,7 @@ import { ModalShellComponent } from '../../shared/components/modal-shell/modal-s
               data-testid="filter-pill-cleaning"
             >
               <span class="w-2 h-2 rounded-full bg-amber-500"></span>
-              <span>Ménage</span>
+              <span>À nettoyer</span>
               <span class="pill-badge"> ({{ roomsService.counts().cleaning }})</span>
             </button>
 
@@ -910,6 +915,7 @@ import { ModalShellComponent } from '../../shared/components/modal-shell/modal-s
         </app-modal-shell>
       }
     </div>
+    }
   `,
   styles: [`
     :host {
@@ -1007,6 +1013,19 @@ export class RoomsComponent {
   readonly drawerTitle = computed(() => {
     const editing = this.roomsService.editingRoom();
     return editing ? `Modifier la chambre ${editing.number}` : 'Ajouter une chambre';
+  });
+
+  private readonly authService: AuthService | null = (() => {
+    try {
+      return inject(AuthService, { optional: true });
+    } catch {
+      return null;
+    }
+  })();
+
+  readonly isHousekeepingProfile = computed(() => {
+    const user = this.authService?.currentUser();
+    return Boolean(user && !this.authService?.isDirector() && isHousekeepingAccount(user));
   });
 
   private readonly reservationModal: ReservationModalService | null = (() => {

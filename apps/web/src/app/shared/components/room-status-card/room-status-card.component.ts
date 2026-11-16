@@ -199,6 +199,18 @@ import { AuthService } from '../../../core/services/auth.service';
               }
             </div>
 
+            <!-- Badge motif de panne / hors service (visible pour Réception / Direction / Technique) -->
+            @if (room.status === RoomStatus.MAINTENANCE) {
+              <div
+                class="maintenance-reason-badge flex items-start gap-1.5 px-2.5 py-1.5 bg-rose-50 border border-rose-200 text-rose-900 text-xs rounded-lg mb-2 font-semibold break-words [overflow-wrap:anywhere]"
+                [attr.data-testid]="'room-card-maintenance-reason-' + room.number"
+                data-testid="room-card-maintenance-reason"
+              >
+                <span class="material-symbols-outlined text-[15px] text-rose-600 shrink-0 mt-0.5">warning</span>
+                <span>Hors service : {{ room.maintenanceReason || 'Problème signalé' }}</span>
+              </div>
+            }
+
             <!-- Alerte modification hors ligne -->
             @if (room.syncPending) {
               <div class="sync-pending-card-alert flex items-center gap-1.5 p-1.5 bg-amber-50 text-amber-800 text-xs rounded-lg mb-2 font-medium">
@@ -290,25 +302,32 @@ import { AuthService } from '../../../core/services/auth.service';
                 }
 
                 @case (RoomStatus.MAINTENANCE) {
-                  <!-- Action principale : Remettre en service -->
-                  <app-action-button
-                    label="Remettre en service"
-                    icon="check_circle"
-                    variant="solid"
-                    color="primary"
-                    [attr.data-action]="'restore-' + room.number"
-                    [testId]="'action-btn-restore-' + room.number"
-                    (action)="onStatusChange.emit({ status: RoomStatus.FREE, reason: 'Petite intervention validée' })"
-                  ></app-action-button>
-                  <!-- Action secondaire : Ménage -->
-                  <app-action-button
-                    label="Ménage"
-                    icon="cleaning_services"
-                    variant="outline"
-                    [attr.data-action]="'cleaning-' + room.number"
-                    [testId]="'action-btn-cleaning-' + room.number"
-                    (action)="onStatusChange.emit({ status: RoomStatus.CLEANING, reason: 'Travaux achevés, ménage requis' })"
-                  ></app-action-button>
+                  @if (canRestoreFromMaintenance) {
+                    <app-action-button
+                      label="Remettre en service"
+                      icon="check_circle"
+                      variant="solid"
+                      color="primary"
+                      [attr.data-action]="'restore-' + room.number"
+                      [testId]="'action-btn-restore-' + room.number"
+                      (action)="onStatusChange.emit({ status: RoomStatus.FREE, reason: 'Petite intervention validée' })"
+                    ></app-action-button>
+                    <app-action-button
+                      label="À nettoyer"
+                      icon="cleaning_services"
+                      variant="outline"
+                      [attr.data-action]="'cleaning-' + room.number"
+                      [testId]="'action-btn-cleaning-' + room.number"
+                      (action)="onStatusChange.emit({ status: RoomStatus.CLEANING, reason: 'Travaux achevés, nettoyage requis' })"
+                    ></app-action-button>
+                  } @else {
+                    <div
+                      class="col-span-full text-center text-xs font-semibold text-rose-800 bg-rose-50 border border-rose-200 rounded-xl py-2 px-3"
+                      data-testid="maintenance-restricted-notice"
+                    >
+                      Remise en service réservée au directeur ou au service technique
+                    </div>
+                  }
                 }
               }
             </div>
@@ -519,6 +538,10 @@ export class RoomStatusCardComponent {
   onActionDelete(): void {
     this.closeMenu(true);
     this.onDelete.emit(this.room);
+  }
+
+  get canRestoreFromMaintenance(): boolean {
+    return this.currentRole === Role.DIRECTION || this.currentRole === Role.MAINTENANCE;
   }
 
   get displayedPrice(): number | null {

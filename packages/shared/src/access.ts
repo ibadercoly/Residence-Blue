@@ -296,7 +296,12 @@ export const STARTER_PROFILES: readonly StarterProfileDefinition[] = [
       cuisine: 'AUCUN',
       rapports: 'AUCUN',
     },
-    specialPermissions: createEmptySpecialPermissions(),
+    specialPermissions: {
+      voir_montants: false,
+      encaisser_paiement: false,
+      changer_etat_chambre: true,
+      annuler_commande_ou_reservation: false,
+    },
   },
   {
     key: 'COMPTABLE',

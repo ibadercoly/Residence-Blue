@@ -278,7 +278,7 @@ interface GroupedCategoryLines {
                   class="rb-btn rb-btn-primary"
                   [title]="
                     n.canCheckout
-                      ? 'Émettre la facture, clôturer le séjour et passer la chambre en Ménage'
+                      ? 'Émettre la facture, clôturer le séjour et passer la chambre à nettoyer'
                       : 'Reste à payer non nul : soldez la note avant le check-out'
                   "
                 >

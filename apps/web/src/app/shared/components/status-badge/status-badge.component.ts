@@ -132,7 +132,7 @@ export class StatusBadgeComponent {
       case 'OCCUPIED':
         return 'Occupée';
       case 'CLEANING':
-        return 'Ménage';
+        return 'À nettoyer';
       case 'MAINTENANCE':
         return 'Maintenance';
       case 'INACTIVE':

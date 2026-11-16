@@ -14,7 +14,7 @@ async function loginExpectUrl(
   await page.locator('#user-login').fill(email);
   await page.locator('#user-password').fill(password);
   await page.locator('#login-btn').click();
-  await page.waitForURL(expectedUrlRegex, { timeout: 25000 });
+  await expect(page).toHaveURL(expectedUrlRegex, { timeout: 25000 });
 }
 
 test.describe('Commit 1 : Verrouillage du profil Ménage, navigation et masquage des prix', () => {
@@ -109,6 +109,12 @@ test.describe('Commit 1 : Verrouillage du profil Ménage, navigation et masquage
     ]) {
       // Clear browser session between accounts
       await page.context().clearCookies();
+      await page.evaluate(() => {
+        try {
+          localStorage.clear();
+          sessionStorage.clear();
+        } catch {}
+      });
 
       // Ordinateur 1280px
       await page.setViewportSize({ width: 1280, height: 900 });

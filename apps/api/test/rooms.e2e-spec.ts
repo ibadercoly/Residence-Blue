@@ -184,6 +184,83 @@ describe('API Chambres & Porte de Sécurité (E2E & Intégration)', () => {
       expect(response.body.status).toBe(RoomStatus.FREE);
     });
 
+    it('doit interdire à HOUSEKEEPING et RECEPTION de remettre une chambre MAINTENANCE en service (403) mais l’autoriser à DIRECTION et MAINTENANCE avec motif persisté', async () => {
+      // 1. Ménage signale une fuite d'eau depuis CLEANING -> MAINTENANCE avec motif
+      await prisma.room.update({
+        where: { id: testRoomId },
+        data: { status: 'CLEANING', maintenanceReason: null },
+      });
+
+      const reportRes = await request(app.getHttpServer())
+        .patch(`/api/rooms/${testRoomId}/status`)
+        .set('Authorization', `Bearer ${roleTokens[Role.HOUSEKEEPING]}`)
+        .send({ status: RoomStatus.MAINTENANCE, reason: "Fuite d'eau — lavabo" })
+        .expect(200);
+      expect(reportRes.body.status).toBe(RoomStatus.MAINTENANCE);
+      expect(reportRes.body.maintenanceReason).toBe("Fuite d'eau — lavabo");
+
+      // Réception & Ménage voient le motif dans GET /api/rooms
+      const listRec = await request(app.getHttpServer())
+        .get('/api/rooms')
+        .set('Authorization', `Bearer ${roleTokens[Role.RECEPTION]}`)
+        .expect(200);
+      const roomRec = listRec.body.find((r: any) => r.id === testRoomId);
+      expect(roomRec.maintenanceReason).toBe("Fuite d'eau — lavabo");
+
+      // 2. HOUSEKEEPING et RECEPTION ne peuvent PAS remettre en service (403)
+      const hkForbid = await request(app.getHttpServer())
+        .patch(`/api/rooms/${testRoomId}/status`)
+        .set('Authorization', `Bearer ${roleTokens[Role.HOUSEKEEPING]}`)
+        .send({ status: RoomStatus.FREE })
+        .expect(403);
+      expect(hkForbid.body.message).toContain('Seul le directeur ou le service technique');
+
+      await request(app.getHttpServer())
+        .patch(`/api/rooms/${testRoomId}/status`)
+        .set('Authorization', `Bearer ${roleTokens[Role.HOUSEKEEPING]}`)
+        .send({ status: RoomStatus.CLEANING })
+        .expect(403);
+
+      const recForbid = await request(app.getHttpServer())
+        .patch(`/api/rooms/${testRoomId}/status`)
+        .set('Authorization', `Bearer ${roleTokens[Role.RECEPTION]}`)
+        .send({ status: RoomStatus.FREE })
+        .expect(403);
+      expect(recForbid.body.message).toContain('Seul le directeur ou le service technique');
+
+      await request(app.getHttpServer())
+        .patch(`/api/rooms/${testRoomId}/status`)
+        .set('Authorization', `Bearer ${roleTokens[Role.RECEPTION]}`)
+        .send({ status: RoomStatus.CLEANING })
+        .expect(403);
+
+      // 3. Profil Technique (MAINTENANCE) peut remettre en service et réinitialiser le motif
+      const techRestore = await request(app.getHttpServer())
+        .patch(`/api/rooms/${testRoomId}/status`)
+        .set('Authorization', `Bearer ${roleTokens[Role.MAINTENANCE]}`)
+        .send({ status: RoomStatus.CLEANING, reason: 'Réparé' })
+        .expect(200);
+      expect(techRestore.body.status).toBe(RoomStatus.CLEANING);
+      expect(techRestore.body.maintenanceReason).toBeNull();
+
+      // 4. HOUSEKEEPING peut signaler un problème même depuis OCCUPIED
+      await prisma.room.update({ where: { id: testRoomId }, data: { status: 'OCCUPIED', maintenanceReason: null } });
+      await request(app.getHttpServer())
+        .patch(`/api/rooms/${testRoomId}/status`)
+        .set('Authorization', `Bearer ${roleTokens[Role.HOUSEKEEPING]}`)
+        .send({ status: RoomStatus.MAINTENANCE, reason: 'Climatisation' })
+        .expect(200);
+
+      // 5. DIRECTION peut remettre en service directement en FREE
+      const dirRestore = await request(app.getHttpServer())
+        .patch(`/api/rooms/${testRoomId}/status`)
+        .set('Authorization', `Bearer ${roleTokens[Role.DIRECTION]}`)
+        .send({ status: RoomStatus.FREE })
+        .expect(200);
+      expect(dirRestore.body.status).toBe(RoomStatus.FREE);
+      expect(dirRestore.body.maintenanceReason).toBeNull();
+    });
+
     it('doit interdire à RESTAURANT de modifier le statut d’une chambre (403 Forbidden)', async () => {
       await request(app.getHttpServer())
         .patch(`/api/rooms/${testRoomId}/status`)

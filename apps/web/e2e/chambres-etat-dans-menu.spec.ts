@@ -160,7 +160,7 @@ test.describe('Chambres - État dans menu ⋯ et titre non tronqué', () => {
     const statuses: { num: string; expectedStatus: string }[] = [
       { num: '101', expectedStatus: 'Libre' },
       { num: '102', expectedStatus: 'Occupée' },
-      { num: '103', expectedStatus: 'Ménage' },
+      { num: '103', expectedStatus: 'À nettoyer' },
       { num: '104', expectedStatus: 'Maintenance' },
     ];
 

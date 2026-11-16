@@ -7,7 +7,7 @@ interface MobileRoomCard {
   number: string;
   name: string;
   nameColorClass: string;
-  status: 'Occupée' | 'Libre' | 'Ménage' | 'Maint.';
+  status: 'Occupée' | 'Libre' | 'À nettoyer' | 'Maint.';
   footerText: string;
   footerType: 'guest' | 'ready-gold' | 'ready-teal' | 'cleaning' | 'maintenance';
   footerIcon: string;
@@ -212,7 +212,7 @@ interface MobileRoomCard {
           </div>
           <div class="flex items-center gap-1.5 flex-shrink-0">
             <span class="w-2.5 h-2.5 rounded-full bg-amber-500 shadow-sm"></span>
-            <span class="text-on-surface-variant font-medium">Ménage (1)</span>
+            <span class="text-on-surface-variant font-medium">À nettoyer (1)</span>
           </div>
           <div class="flex items-center gap-1.5 flex-shrink-0">
             <span class="w-2.5 h-2.5 rounded-full bg-slate-500 shadow-sm"></span>
@@ -252,9 +252,9 @@ interface MobileRoomCard {
                       <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span> Libre
                     </span>
                   }
-                  @case ('Ménage') {
+                  @case ('À nettoyer') {
                     <span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-amber-50 text-amber-800 text-[10px] font-bold">
-                      <span class="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse"></span> Ménage
+                      <span class="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse"></span> À nettoyer
                     </span>
                   }
                   @case ('Maint.') {
@@ -455,8 +455,8 @@ export class MobileDashboardComponent {
       number: `Ch. ${r.number}`,
       name: r.category || r.type?.name || 'Chambre',
       nameColorClass: 'text-primary',
-      status: r.status === 'OCCUPIED' ? 'Occupée' : r.status === 'CLEANING' ? 'Ménage' : r.status === 'MAINTENANCE' ? 'Maint.' : 'Libre',
-      footerText: r.status === 'FREE' ? 'Prête' : r.status === 'CLEANING' ? 'Ménage' : r.status === 'MAINTENANCE' ? 'Maintenance' : 'Occupée',
+      status: r.status === 'OCCUPIED' ? 'Occupée' : r.status === 'CLEANING' ? 'À nettoyer' : r.status === 'MAINTENANCE' ? 'Maint.' : 'Libre',
+      footerText: r.status === 'FREE' ? 'Prête' : r.status === 'CLEANING' ? 'À nettoyer' : r.status === 'MAINTENANCE' ? 'Maintenance' : 'Occupée',
       footerType: r.status === 'CLEANING' ? 'cleaning' : r.status === 'MAINTENANCE' ? 'maintenance' : r.status === 'FREE' ? 'ready-teal' : 'guest',
       footerIcon: r.status === 'CLEANING' ? 'mop' : r.status === 'MAINTENANCE' ? 'build' : 'chevron_right',
       imageUrl: r.imageUrl || 'assets/images/chambres/chambre-101-standard.jpg',

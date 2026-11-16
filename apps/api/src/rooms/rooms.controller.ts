@@ -26,7 +26,7 @@ import { UpdateRoomDto } from './dto/update-room.dto';
 import { CreateRoomTypeDto, UpdateRoomTypeDto } from './dto/create-room-type.dto';
 import { Acces } from '../common/decorators/acces.decorator';
 import { Public } from '../common/decorators/roles.decorator';
-import { hasSpecialPermission } from '@residence-blue/shared';
+import { hasSpecialPermission, isHousekeepingAccount } from '@residence-blue/shared';
 import { maskAmountsInPayload } from '../common/utils/mask-amounts.util';
 import { getUploadsDir, UploadedImageFile } from './rooms-image.util';
 
@@ -211,10 +211,17 @@ export class RoomsController {
     @Req() req: Request,
   ) {
     const user = (req as any).user;
-    const rawRole = user?.role || '';
-    const effectiveRole = ['DIRECTION', 'RECEPTION', 'HOUSEKEEPING', 'MAINTENANCE'].includes(rawRole)
-      ? rawRole
-      : 'HOUSEKEEPING';
+    const rawRole = String(user?.role || '').toUpperCase();
+    const effectiveRole =
+      rawRole === 'ADMIN' || rawRole === 'MANAGER'
+        ? 'DIRECTION'
+        : rawRole === 'RECEPTIONIST'
+          ? 'RECEPTION'
+          : ['DIRECTION', 'RECEPTION', 'HOUSEKEEPING', 'MAINTENANCE'].includes(rawRole)
+            ? rawRole
+            : isHousekeepingAccount(user)
+              ? 'HOUSEKEEPING'
+              : rawRole;
     const userId = user?.id || undefined;
     const ip = req.ip || req.socket.remoteAddress || undefined;
 

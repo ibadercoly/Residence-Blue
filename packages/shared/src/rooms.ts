@@ -52,6 +52,7 @@ export interface RoomDto {
   breakfastIncluded?: boolean;
   description?: string;
   internalNote?: string;
+  maintenanceReason?: string | null;
   isActive?: boolean;
   createdAt?: string | Date;
   updatedAt?: string | Date;
@@ -78,6 +79,7 @@ export interface CreateRoomDto {
   imageUrl?: string;
   description?: string;
   internalNote?: string;
+  maintenanceReason?: string | null;
 }
 
 export interface UpdateRoomDto extends Partial<CreateRoomDto> {
@@ -110,7 +112,7 @@ export function isRoomStatusTransitionAllowed(
   from: RoomStatus,
   to: RoomStatus,
   role: Role | string,
-): { allowed: boolean; reason?: string } {
+): { allowed: boolean; forbidden?: boolean; reason?: string } {
   // Même statut : opération neutre
   if (from === to) {
     return { allowed: true };
@@ -148,7 +150,8 @@ export function isRoomStatusTransitionAllowed(
       if (from === RoomStatus.CLEANING && to === RoomStatus.FREE) return { allowed: true };
       return {
         allowed: false,
-        reason: `Rôle RECEPTION non habilité pour la transition ${from} -> ${to}.`,
+        forbidden: true,
+        reason: from === RoomStatus.MAINTENANCE && (to === RoomStatus.CLEANING || to === RoomStatus.FREE) ? 'Seul le directeur ou le service technique peut remettre cette chambre en service.' : `Rôle RECEPTION non habilité pour la transition ${from} -> ${to}.`,
       };
 
     case Role.HOUSEKEEPING:
@@ -158,7 +161,8 @@ export function isRoomStatusTransitionAllowed(
       if (to === RoomStatus.MAINTENANCE) return { allowed: true };
       return {
         allowed: false,
-        reason: `Rôle HOUSEKEEPING non habilité pour la transition ${from} -> ${to}.`,
+        forbidden: true,
+        reason: from === RoomStatus.MAINTENANCE ? 'Seul le directeur ou le service technique peut remettre cette chambre en service.' : `Rôle HOUSEKEEPING non habilité pour la transition ${from} -> ${to}.`,
       };
 
     case Role.MAINTENANCE:

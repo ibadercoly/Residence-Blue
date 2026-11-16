@@ -654,7 +654,7 @@ export class FacturationService {
       const updated = (await res.json()) as BillingNoteDetail;
       this.currentNote.set(updated);
       this.successMessage.set(
-        `Check-out effectué — Facture ${updated.displayNumber} émise, chambre passée en Ménage.`,
+        `Check-out effectué — Facture ${updated.displayNumber} émise, chambre à nettoyer.`,
       );
       this.roomsService?.fetchFromServer?.().catch(() => {});
       this.planningService?.fetchFromServer?.().catch(() => {});

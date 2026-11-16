@@ -14,7 +14,7 @@ test.describe('Chambres - Boutons d\'action et Pastilles d\'état réutilisables
   });
 
   test.beforeEach(async ({ page }) => {
-    await loginViaUi(page, 'fatou.ndiaye@residenceblue.sn', 'ThiesTeranga2024!');
+    await loginViaUi(page, 'aissatou.ba@residenceblue.sn', 'ThiesTeranga2024!');
     page.on('console', (msg) => console.log('PAGE LOG:', msg.text()));
     page.on('pageerror', (err) => console.log('PAGE ERROR:', err.message));
 
@@ -235,7 +235,7 @@ test.describe('Chambres - Boutons d\'action et Pastilles d\'état réutilisables
     const states = [
       { num: '101', name: 'carte_etat_free.png', expectedBtn: 'Check-in', badgeText: 'Libre' },
       { num: '102', name: 'carte_etat_occupied.png', expectedBtn: 'Check-out', badgeText: 'Occupée' },
-      { num: '103', name: 'carte_etat_cleaning.png', expectedBtn: 'Marquer propre', badgeText: 'Ménage' },
+      { num: '103', name: 'carte_etat_cleaning.png', expectedBtn: 'Marquer propre', badgeText: 'À nettoyer' },
       { num: '104', name: 'carte_etat_maintenance.png', expectedBtn: 'Remettre en service', badgeText: 'Maintenance' },
     ];
 

@@ -786,9 +786,14 @@ export class RoomsService {
     }
 
     const previousStatus = room.status;
+    const previousReason = room.maintenanceReason ?? null;
+    const nextReason =
+      targetStatus === RoomStatus.MAINTENANCE
+        ? (reason?.trim() || 'Problème signalé')
+        : (room.status === RoomStatus.MAINTENANCE || targetStatus === RoomStatus.FREE ? null : previousReason);
 
     this.rooms.update((list) =>
-      list.map((r) => (r.id === roomId ? { ...r, status: targetStatus, syncPending: true } : r))
+      list.map((r) => (r.id === roomId ? { ...r, status: targetStatus, maintenanceReason: nextReason, syncPending: true } : r))
     );
 
     const updatedRoom = this.rooms().find((r) => r.id === roomId)!;
@@ -819,7 +824,7 @@ export class RoomsService {
         const errorData = await response.json().catch(() => ({}));
         this.errorMessage.set(errorData.message || `Erreur serveur (${response.status}).`);
         if (response.status === 400 || response.status === 403) {
-          const rollbackRoom: RoomUiItem = { ...room, status: previousStatus, syncPending: false };
+          const rollbackRoom: RoomUiItem = { ...room, status: previousStatus, maintenanceReason: previousReason, syncPending: false };
           this.rooms.update((list) =>
             list.map((r) => (r.id === roomId ? rollbackRoom : r))
           );
@@ -835,7 +840,13 @@ export class RoomsService {
       const syncedRoom = this.rooms().find((r) => r.id === roomId)!;
       await this.idb.put('rooms', syncedRoom);
 
-      this.successMessage.set(`Chambre ${room.number} : statut mis à jour (${targetStatus}).`);
+      const statusLabels: Record<string, string> = {
+        FREE: 'Propre',
+        CLEANING: 'À nettoyer',
+        OCCUPIED: 'Occupée',
+        MAINTENANCE: 'Hors service',
+      };
+      this.successMessage.set(`Chambre ${room.number} : ${statusLabels[targetStatus] || targetStatus}.`);
       return true;
     } catch {
       await this.outbox.enqueue('PATCH_ROOM_STATUS', `/api/rooms/${roomId}/status`, {
@@ -919,6 +930,7 @@ export class RoomsService {
       breakfastIncluded: r.breakfastIncluded ?? true,
       description: r.description || '',
       internalNote: r.internalNote || '',
+      maintenanceReason: r.status === RoomStatus.MAINTENANCE ? (r.maintenanceReason ?? null) : null,
       isActive: r.isActive !== false,
       syncPending: Boolean(r.syncPending),
     };

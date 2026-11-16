@@ -79,7 +79,27 @@ describe('Règles métier des chambres & Machine à états', () => {
         Role.HOUSEKEEPING,
       );
       expect(result.allowed).toBe(false);
+      expect(result.forbidden).toBe(true);
       expect(result.reason).toMatch(/non habilité/i);
+    });
+
+    it('doit interdire la sortie de MAINTENANCE à HOUSEKEEPING et RECEPTION (DIRECTION et MAINTENANCE uniquement)', () => {
+      const hkRestore = isRoomStatusTransitionAllowed(RoomStatus.MAINTENANCE, RoomStatus.FREE, Role.HOUSEKEEPING);
+      expect(hkRestore.allowed).toBe(false);
+      expect(hkRestore.forbidden).toBe(true);
+      expect(hkRestore.reason).toContain('Seul le directeur ou le service technique');
+
+      const recRestore = isRoomStatusTransitionAllowed(RoomStatus.MAINTENANCE, RoomStatus.FREE, Role.RECEPTION);
+      expect(recRestore.allowed).toBe(false);
+      expect(recRestore.forbidden).toBe(true);
+      expect(recRestore.reason).toContain('Seul le directeur ou le service technique');
+
+      const recClean = isRoomStatusTransitionAllowed(RoomStatus.MAINTENANCE, RoomStatus.CLEANING, Role.RECEPTION);
+      expect(recClean.allowed).toBe(false);
+      expect(recClean.forbidden).toBe(true);
+
+      expect(isRoomStatusTransitionAllowed(RoomStatus.MAINTENANCE, RoomStatus.FREE, Role.DIRECTION).allowed).toBe(true);
+      expect(isRoomStatusTransitionAllowed(RoomStatus.MAINTENANCE, RoomStatus.FREE, Role.MAINTENANCE).allowed).toBe(true);
     });
   });
 

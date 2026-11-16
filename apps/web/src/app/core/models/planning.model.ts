@@ -59,6 +59,8 @@ export interface PlanningRoom {
   category: 'Standard' | 'Deluxe' | 'Suite';
   typeLabel: string;
   description: string;
+  status?: string;
+  maintenanceReason?: string | null;
   isConflict?: boolean;
   isHighlighted?: boolean;
   isSelected?: boolean;

@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   ConflictException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -547,14 +548,27 @@ export class RoomsService {
     );
 
     if (!transitionCheck.allowed) {
-      throw new BadRequestException(
+      const msg =
         transitionCheck.reason ||
-          `Transition non autorisée de ${currentStatus} vers ${targetStatus} pour le rôle ${userRole}.`,
-      );
+        `Transition non autorisée de ${currentStatus} vers ${targetStatus} pour le rôle ${userRole}.`;
+      if (transitionCheck.forbidden) {
+        throw new ForbiddenException(msg);
+      }
+      throw new BadRequestException(msg);
     }
 
-    // Si le statut est identique, aucun changement nécessaire
-    if (currentStatus === targetStatus) {
+    const trimmedReason = dto.reason?.trim();
+    const nextMaintenanceReason: string | null | undefined =
+      targetStatus === SharedRoomStatus.MAINTENANCE
+        ? trimmedReason || 'Problème signalé'
+        : currentStatus === SharedRoomStatus.MAINTENANCE || targetStatus === SharedRoomStatus.FREE
+          ? null
+          : undefined;
+
+    if (
+      currentStatus === targetStatus &&
+      (nextMaintenanceReason === undefined || nextMaintenanceReason === room.maintenanceReason)
+    ) {
       return room;
     }
 
@@ -573,6 +587,7 @@ export class RoomsService {
         where: { id },
         data: {
           status: dto.status as unknown as RoomStatus,
+          ...(nextMaintenanceReason !== undefined ? { maintenanceReason: nextMaintenanceReason } : {}),
         },
         include: {
           type: true,
