@@ -1,6 +1,6 @@
 import { Controller, Get, Query, Req, Res } from '@nestjs/common';
 import { Request, Response } from 'express';
-import { Roles } from '../common/decorators/roles.decorator';
+import { Acces } from '../common/decorators/acces.decorator';
 import { Role } from '@residence-blue/shared';
 import { ExportsService } from './exports.service';
 import { ExportQueryDto } from './dto/export-query.dto';
@@ -10,13 +10,13 @@ export class ExportsController {
   constructor(private readonly exportsService: ExportsService) {}
 
   @Get('audit')
-  @Roles(Role.DIRECTION)
+  @Acces({ directorOnly: true })
   getAuditLogs() {
     return this.exportsService.getAuditLogs();
   }
 
   @Get('download')
-  @Roles(Role.DIRECTION, Role.RECEPTION)
+  @Acces({ anyScreens: [{ screen: 'rapports', level: 'LECTURE' }, { screen: 'planning', level: 'LECTURE' }] })
   async downloadExport(
     @Query() query: ExportQueryDto,
     @Req() req: Request,

@@ -7,7 +7,12 @@ import {
   Role,
   RoomStatus,
 } from '@prisma/client';
-import { SEED_ROOM_TYPES, SEED_ROOMS, getRoomImageUrl } from '@residence-blue/shared';
+import {
+  SEED_ROOM_TYPES,
+  SEED_ROOMS,
+  getRoomImageUrl,
+  resolveDefaultAccessForRole,
+} from '@residence-blue/shared';
 import { hashPassword, isArgon2idHash, isValidPasswordHash } from '../src/auth/password-hash.util';
 import { CryptoService } from '../src/common/security/crypto.service';
 
@@ -79,6 +84,11 @@ export async function seedAll(customPrisma: PrismaClient = prisma) {
 
   const defaultPasswordHash = await hashPassword('ThiesTeranga2024!');
 
+  const existingPrimary = await customPrisma.user.findFirst({
+    where: { isPrimaryAdmin: true },
+    select: { id: true },
+  });
+  const directorAccess = resolveDefaultAccessForRole(Role.DIRECTION, true);
   await customPrisma.user.upsert({
     where: { email: 'aissatou.ba@residenceblue.sn' },
     update: {
@@ -86,6 +96,10 @@ export async function seedAll(customPrisma: PrismaClient = prisma) {
       jobTitle: "Directrice d'Exploitation",
       role: Role.DIRECTION,
       isActive: true,
+      isPrimaryAdmin: existingPrimary ? undefined : true,
+      starterProfile: directorAccess.starterProfile,
+      screenAccess: directorAccess.screenAccess as any,
+      specialPermissions: directorAccess.specialPermissions as any,
       passwordHash: defaultPasswordHash,
     },
     create: {
@@ -94,6 +108,10 @@ export async function seedAll(customPrisma: PrismaClient = prisma) {
       jobTitle: "Directrice d'Exploitation",
       role: Role.DIRECTION,
       isActive: true,
+      isPrimaryAdmin: !existingPrimary,
+      starterProfile: directorAccess.starterProfile,
+      screenAccess: directorAccess.screenAccess as any,
+      specialPermissions: directorAccess.specialPermissions as any,
       passwordHash: defaultPasswordHash,
     },
   });
@@ -132,7 +150,7 @@ export async function seedAll(customPrisma: PrismaClient = prisma) {
       email: 'moussa.fall@residenceblue.sn',
       fullName: 'Moussa Fall',
       jobTitle: 'Serveur Salle & Piscine',
-      role: Role.SERVEUR,
+      role: Role.RESTAURANT,
     },
     {
       email: 'cheikh.sow@residenceblue.sn',
@@ -155,6 +173,7 @@ export async function seedAll(customPrisma: PrismaClient = prisma) {
   ];
 
   for (const acc of roleAccounts) {
+    const resolvedAccess = resolveDefaultAccessForRole(acc.role, false);
     await customPrisma.user.upsert({
       where: { email: acc.email },
       update: {
@@ -162,6 +181,9 @@ export async function seedAll(customPrisma: PrismaClient = prisma) {
         jobTitle: acc.jobTitle,
         role: acc.role,
         isActive: true,
+        starterProfile: resolvedAccess.starterProfile,
+        screenAccess: resolvedAccess.screenAccess as any,
+        specialPermissions: resolvedAccess.specialPermissions as any,
         passwordHash: defaultPasswordHash,
       },
       create: {
@@ -170,6 +192,9 @@ export async function seedAll(customPrisma: PrismaClient = prisma) {
         jobTitle: acc.jobTitle,
         role: acc.role,
         isActive: true,
+        starterProfile: resolvedAccess.starterProfile,
+        screenAccess: resolvedAccess.screenAccess as any,
+        specialPermissions: resolvedAccess.specialPermissions as any,
         passwordHash: defaultPasswordHash,
       },
     });

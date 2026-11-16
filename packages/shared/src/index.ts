@@ -10,3 +10,4 @@ export * from './exports';
 export * from './modules';
 export * from './accueil';
 export * from './rapports';
+export * from './access';

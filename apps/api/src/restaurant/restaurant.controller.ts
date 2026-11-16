@@ -23,9 +23,11 @@ import {
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { Request, Response } from 'express';
-import { interval, map, merge, Observable } from 'rxjs';
-import { Role } from '@residence-blue/shared';
-import { Public, Roles } from '../common/decorators/roles.decorator';
+import { map, merge, Observable, takeUntil, timer } from 'rxjs';
+import { hasScreenAccess, hasSpecialPermission } from '@residence-blue/shared';
+import { Acces } from '../common/decorators/acces.decorator';
+import { Public } from '../common/decorators/roles.decorator';
+import { SessionRevocationService } from '../auth/session-revocation.service';
 import { RestaurantActorContext, RestaurantService } from './restaurant.service';
 import {
   CancelRestaurantOrderDto,
@@ -45,36 +47,49 @@ import {
 
 @Controller('restaurant')
 export class RestaurantController {
-  constructor(private readonly restaurantService: RestaurantService) {}
+  constructor(
+    private readonly restaurantService: RestaurantService,
+    private readonly sessionRevocation: SessionRevocationService,
+  ) {}
+
+  private getAccessFlags(req?: Request) {
+    const user = (req as any)?.user;
+    const role = user?.role as string | undefined;
+    const canRestaurant = hasScreenAccess(user, 'restaurant', 'LECTURE');
+    const canCuisine = hasScreenAccess(user, 'cuisine', 'LECTURE');
+    const isKitchenOnly = role === 'CUISINIER' || role === 'CUISINE' || (!canRestaurant && canCuisine);
+    const hideAmounts = isKitchenOnly || !hasSpecialPermission(user, 'voir_montants');
+    return { user, role, isKitchenOnly, hideAmounts };
+  }
 
   private extractActor(req?: Request, idempotencyKey?: string): RestaurantActorContext {
-    const user = (req as any)?.user as
-      | { id?: string; fullName?: string; role?: string }
-      | undefined;
+    const { user, isKitchenOnly, hideAmounts } = this.getAccessFlags(req);
     return {
       idempotencyKey: idempotencyKey?.trim() || undefined,
       userId: user?.id,
       actorName: user?.fullName,
       actorRole: user?.role,
+      hideAmounts,
+      kitchenOnly: isKitchenOnly,
       ip: req?.ip || req?.socket?.remoteAddress || undefined,
     };
   }
 
   @Get('catalog')
-  @Roles(Role.DIRECTION, Role.RECEPTION, Role.RESTAURANT, Role.SERVEUR, Role.COMPTABLE)
+  @Acces({ anyScreens: [{ screen: 'restaurant', level: 'LECTURE' }, { screen: 'rapports', level: 'LECTURE' }] })
   async getCatalog(@Req() req: Request) {
-    const role = (req as any)?.user?.role as string | undefined;
-    return this.restaurantService.getCatalog(role);
+    const { role, isKitchenOnly, hideAmounts } = this.getAccessFlags(req);
+    return this.restaurantService.getCatalog(role, { hideAmounts, kitchenOnly: isKitchenOnly });
   }
 
   @Get('categories')
-  @Roles(Role.DIRECTION, Role.RECEPTION, Role.RESTAURANT, Role.SERVEUR, Role.COMPTABLE)
+  @Acces({ anyScreens: [{ screen: 'restaurant', level: 'LECTURE' }, { screen: 'rapports', level: 'LECTURE' }] })
   async findAllCategories() {
     return this.restaurantService.findAllCategories();
   }
 
   @Get('rooms-in-stay')
-  @Roles(Role.DIRECTION, Role.RECEPTION, Role.RESTAURANT, Role.SERVEUR, Role.COMPTABLE)
+  @Acces('restaurant', 'LECTURE')
   async findRoomsInStay() {
     return this.restaurantService.findRoomsInStay();
   }
@@ -97,19 +112,20 @@ export class RestaurantController {
   }
 
   @Get('products')
-  @Roles(Role.DIRECTION, Role.RECEPTION, Role.RESTAURANT, Role.SERVEUR, Role.COMPTABLE)
-  async findAllProducts() {
-    return this.restaurantService.findAllProducts();
+  @Acces({ anyScreens: [{ screen: 'restaurant', level: 'LECTURE' }, { screen: 'rapports', level: 'LECTURE' }] })
+  async findAllProducts(@Req() req: Request) {
+    const { hideAmounts } = this.getAccessFlags(req);
+    return this.restaurantService.findAllProducts(true, hideAmounts);
   }
 
   @Post('products')
-  @Roles(Role.DIRECTION)
+  @Acces({ directorOnly: true })
   async createProduct(@Body() dto: CreateRestaurantProductDto, @Req() req: Request) {
     return this.restaurantService.createProduct(dto, this.extractActor(req));
   }
 
   @Post('products/:id/image')
-  @Roles(Role.DIRECTION)
+  @Acces({ directorOnly: true })
   @UseInterceptors(
     FileInterceptor('image', { limits: { fileSize: MAX_PRODUCT_IMAGE_SIZE_BYTES } }),
   )
@@ -125,14 +141,14 @@ export class RestaurantController {
   }
 
   @Delete('products/:id/image')
-  @Roles(Role.DIRECTION)
+  @Acces({ directorOnly: true })
   @HttpCode(HttpStatus.OK)
   async deleteProductImage(@Param('id') id: string, @Req() req: Request) {
     return this.restaurantService.removeProductImage(id, this.extractActor(req));
   }
 
   @Patch('products/:id')
-  @Roles(Role.DIRECTION)
+  @Acces({ directorOnly: true })
   async updateProduct(
     @Param('id') id: string,
     @Body() dto: UpdateRestaurantProductDto,
@@ -142,7 +158,7 @@ export class RestaurantController {
   }
 
   @Delete('products/:id')
-  @Roles(Role.DIRECTION)
+  @Acces({ directorOnly: true })
   @HttpCode(HttpStatus.OK)
   async deleteProduct(@Param('id') id: string, @Req() req: Request) {
     return this.restaurantService.deleteOrArchiveProduct(id, this.extractActor(req));
@@ -150,23 +166,16 @@ export class RestaurantController {
 
   @Get('orders/stream')
   @Sse()
-  @Roles(
-    Role.DIRECTION,
-    Role.RECEPTION,
-    Role.RESTAURANT,
-    Role.SERVEUR,
-    Role.CUISINE,
-    Role.CUISINIER,
-  )
+  @Acces({ anyScreens: [{ screen: 'restaurant', level: 'LECTURE' }, { screen: 'cuisine', level: 'LECTURE' }] })
   streamOrders(@Req() req: Request): Observable<MessageEvent> {
-    const role = (req as any)?.user?.role as string | undefined;
+    const { user, role, isKitchenOnly, hideAmounts } = this.getAccessFlags(req);
     const rawLastId =
       (req.headers['last-event-id'] as string | undefined) ||
       (req.query?.lastEventId as string | undefined);
     const lastEventId = rawLastId ? Number(rawLastId) : undefined;
 
     const updates$ = this.restaurantService
-      .getRoleFilteredOrderEventStream(role, lastEventId)
+      .getRoleFilteredOrderEventStream(role, lastEventId, hideAmounts || isKitchenOnly)
       .pipe(
         map(
           (evt) =>
@@ -176,7 +185,7 @@ export class RestaurantController {
             }) as MessageEvent,
         ),
       );
-    const heartbeat$ = interval(25000).pipe(
+    const heartbeat$ = timer(0, 25000).pipe(
       map(
         () =>
           ({
@@ -184,17 +193,20 @@ export class RestaurantController {
           }) as MessageEvent,
       ),
     );
-    return merge(updates$, heartbeat$);
+    const stream$ = merge(updates$, heartbeat$);
+    return user?.id
+      ? stream$.pipe(takeUntil(this.sessionRevocation.onUserRevoked(user.id)))
+      : stream$;
   }
 
   @Get('orders/stale')
-  @Roles(Role.DIRECTION, Role.RECEPTION)
+  @Acces('restaurant', 'ECRITURE')
   async findStaleOrders() {
     return this.restaurantService.findStaleOrders();
   }
 
   @Post('orders/:id/close-stale')
-  @Roles(Role.DIRECTION, Role.RECEPTION)
+  @Acces('restaurant', 'ECRITURE')
   @HttpCode(HttpStatus.OK)
   async closeStaleOrder(
     @Param('id') id: string,
@@ -205,36 +217,34 @@ export class RestaurantController {
   }
 
   @Get('orders/page')
-  @Roles(
-    Role.DIRECTION,
-    Role.RECEPTION,
-    Role.RESTAURANT,
-    Role.SERVEUR,
-    Role.CUISINE,
-    Role.CUISINIER,
-    Role.COMPTABLE,
-  )
+  @Acces({
+    anyScreens: [
+      { screen: 'restaurant', level: 'LECTURE' },
+      { screen: 'cuisine', level: 'LECTURE' },
+      { screen: 'facturation', level: 'LECTURE' },
+    ],
+  })
   async findOrdersPage(@Query() query: RestaurantOrdersQueryDto, @Req() req: Request) {
-    const role = (req as any)?.user?.role as string | undefined;
-    return this.restaurantService.findOrdersPage(query, role);
+    const { role, isKitchenOnly, hideAmounts } = this.getAccessFlags(req);
+    return this.restaurantService.findOrdersPage(query, role, hideAmounts || isKitchenOnly);
   }
 
   @Get('kitchen/orders')
-  @Roles(Role.DIRECTION, Role.CUISINE, Role.CUISINIER)
+  @Acces('cuisine', 'LECTURE')
   async findKitchenOrders(@Req() req: Request) {
-    const role = (req as any)?.user?.role as string | undefined;
-    return this.restaurantService.findAllOrders(role);
+    const { role, isKitchenOnly, hideAmounts } = this.getAccessFlags(req);
+    return this.restaurantService.findAllOrders(role, hideAmounts || isKitchenOnly);
   }
 
   @Get('orders')
-  @Roles(Role.DIRECTION, Role.CUISINE, Role.CUISINIER)
+  @Acces('cuisine', 'LECTURE')
   async findAllOrders(@Req() req: Request) {
-    const role = (req as any)?.user?.role as string | undefined;
-    return this.restaurantService.findAllOrders(role);
+    const { role, isKitchenOnly, hideAmounts } = this.getAccessFlags(req);
+    return this.restaurantService.findAllOrders(role, hideAmounts || isKitchenOnly);
   }
 
   @Post('orders')
-  @Roles(Role.DIRECTION, Role.RECEPTION, Role.RESTAURANT, Role.SERVEUR)
+  @Acces('restaurant', 'ECRITURE')
   async createOrder(
     @Body() dto: CreateRestaurantOrderDto,
     @Headers('idempotency-key') idempotencyKey?: string,
@@ -244,7 +254,7 @@ export class RestaurantController {
   }
 
   @Post('orders/:id/pay')
-  @Roles(Role.DIRECTION, Role.RECEPTION, Role.RESTAURANT, Role.SERVEUR)
+  @Acces({ screen: 'restaurant', level: 'ECRITURE', specialPermission: 'encaisser_paiement' })
   @HttpCode(HttpStatus.OK)
   async payOrder(
     @Param('id') id: string,
@@ -256,7 +266,7 @@ export class RestaurantController {
   }
 
   @Post('orders/:id/cancel')
-  @Roles(Role.DIRECTION, Role.RECEPTION, Role.RESTAURANT, Role.SERVEUR)
+  @Acces({ screen: 'restaurant', level: 'ECRITURE', specialPermission: 'annuler_commande_ou_reservation' })
   @HttpCode(HttpStatus.OK)
   async cancelOrder(
     @Param('id') id: string,
@@ -267,7 +277,7 @@ export class RestaurantController {
   }
 
   @Patch('orders/:id/items')
-  @Roles(Role.DIRECTION, Role.RECEPTION, Role.RESTAURANT, Role.SERVEUR)
+  @Acces('restaurant', 'ECRITURE')
   async modifyOrderItems(
     @Param('id') id: string,
     @Body() dto: ModifyRestaurantOrderItemsDto,
@@ -277,14 +287,7 @@ export class RestaurantController {
   }
 
   @Patch('orders/:id/status')
-  @Roles(
-    Role.DIRECTION,
-    Role.RECEPTION,
-    Role.RESTAURANT,
-    Role.SERVEUR,
-    Role.CUISINE,
-    Role.CUISINIER,
-  )
+  @Acces({ anyScreens: [{ screen: 'cuisine', level: 'ECRITURE' }, { screen: 'restaurant', level: 'ECRITURE' }] })
   async updateOrderStatus(
     @Param('id') id: string,
     @Body() dto: UpdateRestaurantOrderDto,
@@ -294,14 +297,7 @@ export class RestaurantController {
   }
 
   @Patch('orders/:id')
-  @Roles(
-    Role.DIRECTION,
-    Role.RECEPTION,
-    Role.RESTAURANT,
-    Role.SERVEUR,
-    Role.CUISINE,
-    Role.CUISINIER,
-  )
+  @Acces({ anyScreens: [{ screen: 'cuisine', level: 'ECRITURE' }, { screen: 'restaurant', level: 'ECRITURE' }] })
   async updateOrder(
     @Param('id') id: string,
     @Body() dto: UpdateRestaurantOrderDto,
@@ -316,16 +312,28 @@ export class CuisineController {
   constructor(private readonly restaurantService: RestaurantService) {}
 
   @Get('orders')
-  @Roles(Role.DIRECTION, Role.CUISINE, Role.CUISINIER)
+  @Acces('cuisine', 'LECTURE')
   async findCuisineOrders(@Req() req: Request) {
-    const role = (req as any)?.user?.role as string | undefined;
-    return this.restaurantService.findAllOrders(role);
+    const user = (req as any)?.user;
+    const role = user?.role as string | undefined;
+    const hideAmounts =
+      role === 'CUISINIER' ||
+      role === 'CUISINE' ||
+      !hasScreenAccess(user, 'restaurant', 'LECTURE') ||
+      !hasSpecialPermission(user, 'voir_montants');
+    return this.restaurantService.findAllOrders(role, hideAmounts);
   }
 
   @Get('*')
-  @Roles(Role.DIRECTION, Role.CUISINE, Role.CUISINIER)
+  @Acces('cuisine', 'LECTURE')
   async findCuisineRoot(@Req() req: Request) {
-    const role = (req as any)?.user?.role as string | undefined;
-    return this.restaurantService.findAllOrders(role);
+    const user = (req as any)?.user;
+    const role = user?.role as string | undefined;
+    const hideAmounts =
+      role === 'CUISINIER' ||
+      role === 'CUISINE' ||
+      !hasScreenAccess(user, 'restaurant', 'LECTURE') ||
+      !hasSpecialPermission(user, 'voir_montants');
+    return this.restaurantService.findAllOrders(role, hideAmounts);
   }
 }

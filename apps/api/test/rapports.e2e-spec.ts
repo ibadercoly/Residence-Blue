@@ -241,7 +241,18 @@ describe('Rapports — GET /api/rapports (e2e sur base de test séparée)', () =
       dakarStartOfDay(addDakarDays(todayIso, -29)).getTime() - 1000,
     ); // 23:59:59 UTC la veille du début de la fenêtre 30j
 
-    const room = await prisma.room.findFirstOrThrow({ where: { isActive: true } });
+    const room = await prisma.room.findFirstOrThrow({
+      where: {
+        isActive: true,
+        reservations: {
+          none: {
+            checkInDate: { lt: dakarStartOfDay(twoDaysAgoIso) },
+            checkOutDate: { gt: dakarStartOfDay(fiveDaysAgoIso) },
+            status: { notIn: ['CANCELLED', 'NO_SHOW'] },
+          },
+        },
+      },
+    });
     const guest = await prisma.guest.create({
       data: {
         firstName: 'Awa',

@@ -1,7 +1,8 @@
 import { Controller, Get, Req } from '@nestjs/common';
 import { Request } from 'express';
-import { Role } from '@residence-blue/shared';
-import { AllowDeferredRoles, Roles } from '../common/decorators/roles.decorator';
+import { hasSpecialPermission } from '@residence-blue/shared';
+import { Acces } from '../common/decorators/acces.decorator';
+import { AllowDeferredRoles } from '../common/decorators/roles.decorator';
 import { AccueilService } from './accueil.service';
 
 @Controller('accueil')
@@ -10,17 +11,14 @@ export class AccueilController {
 
   @Get('jour')
   @AllowDeferredRoles()
-  @Roles(
-    Role.DIRECTION,
-    Role.COMPTABLE,
-    Role.RECEPTION,
-    Role.RESTAURANT,
-    Role.SERVEUR,
-    Role.HOUSEKEEPING,
-    Role.MAINTENANCE,
-  )
+  @Acces('accueil', 'LECTURE')
   async getDailyStats(@Req() req: Request) {
-    const role = (req as any)?.user?.role as string | undefined;
-    return this.accueilService.getDailyStats(role);
+    const user = (req as any)?.user;
+    return this.accueilService.getDailyStats(
+      user?.role,
+      new Date(),
+      hasSpecialPermission(user, 'voir_montants'),
+      Boolean(user?.hasExplicitAccess),
+    );
   }
 }

@@ -15,10 +15,12 @@ import {
 import { Request, Response } from 'express';
 import { AuthService, IssuedAuthResult, RequestMeta } from './auth.service';
 import {
+  ChangeInitialPasswordDto,
   CreateUserDto,
   LoginDto,
   UpdateUserDto,
 } from './dto/auth.dto';
+import { Acces } from '../common/decorators/acces.decorator';
 import { Public, Roles } from '../common/decorators/roles.decorator';
 import { ALL_ROLES, Role } from '@residence-blue/shared';
 import { parseCookieHeader, REFRESH_COOKIE_NAME } from './jwt.util';
@@ -115,6 +117,22 @@ export class AuthController {
   async getMe(@Req() req: Request) {
     const actor = (req as any).user as { id: string; sid?: string };
     return this.authService.getMe(actor.id, actor.sid);
+  }
+
+  @Post('auth/change-initial-password')
+  @Acces({ allowAuthenticated: true })
+  @HttpCode(HttpStatus.OK)
+  async changeInitialPassword(
+    @Body() dto: ChangeInitialPasswordDto,
+    @Req() req: Request,
+  ) {
+    const actor = (req as any).user as { id: string; sid?: string };
+    return this.authService.changeInitialPassword(
+      actor.id,
+      dto,
+      actor.sid,
+      this.extractMeta(req).ip,
+    );
   }
 
   @Get('auth/sessions')

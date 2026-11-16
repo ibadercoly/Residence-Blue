@@ -30,6 +30,8 @@ export interface RestaurantActorContext {
   userId?: string;
   actorName?: string;
   actorRole?: string;
+  hideAmounts?: boolean;
+  kitchenOnly?: boolean;
   ip?: string;
 }
 
@@ -71,8 +73,9 @@ export class RestaurantService {
   getRoleFilteredOrderEventStream(
     role?: string,
     lastEventId?: number,
+    explicitHideAmounts?: boolean,
   ): Observable<RestaurantOrderStreamEvent> {
-    const isKitchen = this.isKitchenRole(role);
+    const isKitchen = Boolean(explicitHideAmounts) || this.isKitchenRole(role);
     const replayEvents =
       typeof lastEventId === 'number' && !Number.isNaN(lastEventId)
         ? this.recentEventsBuffer.filter((evt) => evt.eventId > lastEventId)
@@ -401,7 +404,7 @@ export class RestaurantService {
     }));
   }
 
-  async findAllProducts(includeOrderCounts = true) {
+  async findAllProducts(includeOrderCounts = true, hideAmounts = false) {
     const products = await this.prisma.restaurantProduct.findMany({
       include: {
         category: true,
@@ -409,7 +412,15 @@ export class RestaurantService {
       },
       orderBy: [{ displayOrder: 'asc' }, { name: 'asc' }],
     });
-    return products.map((p) => this.formatProduct(p));
+    return products.map((p) => {
+      const formatted = this.formatProduct(p);
+      if (hideAmounts) {
+        const withoutPrice = { ...(formatted as any) };
+        delete withoutPrice.priceFcfa;
+        return withoutPrice;
+      }
+      return formatted;
+    });
   }
 
   async findRoomsInStay() {
@@ -433,11 +444,16 @@ export class RestaurantService {
     }));
   }
 
-  async getCatalog(actorRole?: string) {
+  async getCatalog(
+    actorRole?: string,
+    options?: { hideAmounts?: boolean; kitchenOnly?: boolean },
+  ) {
+    const hideRooms = Boolean(options?.kitchenOnly) || this.isKitchenRole(actorRole);
+    const hidePrices = Boolean(options?.hideAmounts) || hideRooms;
     const [categories, products, roomsInStay] = await Promise.all([
       this.findAllCategories(),
-      this.findAllProducts(false),
-      this.isKitchenRole(actorRole) ? Promise.resolve([]) : this.findRoomsInStay(),
+      this.findAllProducts(false, hidePrices),
+      hideRooms ? Promise.resolve([]) : this.findRoomsInStay(),
     ]);
     return { categories, products, roomsInStay };
   }
@@ -689,8 +705,8 @@ export class RestaurantService {
     return { deleted: true, id };
   }
 
-  async findAllOrders(actorRole?: string) {
-    const hideAmounts = this.isKitchenRole(actorRole);
+  async findAllOrders(actorRole?: string, explicitHideAmounts?: boolean) {
+    const hideAmounts = Boolean(explicitHideAmounts) || this.isKitchenRole(actorRole);
     const now = new Date();
     const serviceStart = this.getServiceStart04hDakar(now);
     const twelveHoursAgo = new Date(now.getTime() - TWELVE_HOURS_MS);
@@ -821,10 +837,14 @@ export class RestaurantService {
     return this.formatOrder(closed, false);
   }
 
-  async findOrdersPage(query: RestaurantOrdersQueryDto, actorRole?: string) {
+  async findOrdersPage(
+    query: RestaurantOrdersQueryDto,
+    actorRole?: string,
+    explicitHideAmounts?: boolean,
+  ) {
     const offset = Math.max(0, Math.round(query.offset || 0));
     const limit = Math.min(50, Math.max(1, Math.round(query.limit || 50)));
-    const hideAmounts = this.isKitchenRole(actorRole);
+    const hideAmounts = Boolean(explicitHideAmounts) || this.isKitchenRole(actorRole);
 
     const where: Prisma.RestaurantOrderWhereInput = {};
     if (query.destinationType) {
@@ -872,7 +892,7 @@ export class RestaurantService {
 
     this.assertNoCardPan(dto.paymentRef);
 
-    const hideAmounts = this.isKitchenRole(ctx?.actorRole);
+    const hideAmounts = Boolean(ctx?.hideAmounts) || this.isKitchenRole(ctx?.actorRole);
     const idempotencyKey = ctx?.idempotencyKey?.trim() || undefined;
     if (idempotencyKey) {
       const existingByKey = await this.prisma.restaurantOrder.findUnique({
@@ -1380,7 +1400,7 @@ export class RestaurantService {
     const currentStatus = this.normalizeOrderStatus(existing.status);
     const rawRequested = dto.status || dto.statut;
     const requestedStatus = rawRequested ? this.normalizeOrderStatus(rawRequested) : undefined;
-    const isKitchen = this.isKitchenRole(actor?.actorRole);
+    const isKitchen = Boolean(actor?.kitchenOnly) || this.isKitchenRole(actor?.actorRole);
 
     if (requestedStatus === 'CANCELLED') {
       if (isKitchen) {

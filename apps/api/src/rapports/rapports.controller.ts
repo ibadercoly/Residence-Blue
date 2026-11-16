@@ -1,8 +1,9 @@
 import { Controller, Get, Query, Req, Res } from '@nestjs/common';
 import { Request, Response } from 'express';
-import { Role } from '@residence-blue/shared';
+import { hasSpecialPermission } from '@residence-blue/shared';
+import { Acces } from '../common/decorators/acces.decorator';
 import { RequireModule } from '../common/decorators/module.decorator';
-import { Roles } from '../common/decorators/roles.decorator';
+import { maskAmountsInPayload } from '../common/utils/mask-amounts.util';
 import { RapportsQueryDto } from './dto/rapports-query.dto';
 import { RapportsExportActor, RapportsExportService } from './rapports-export.service';
 import { RapportsService } from './rapports.service';
@@ -28,9 +29,11 @@ export class RapportsController {
   }
 
   @Get()
-  @Roles(Role.DIRECTION, Role.COMPTABLE)
-  async getReport(@Query() query: RapportsQueryDto) {
-    return this.rapportsService.getReport(query.periode);
+  @Acces('rapports', 'LECTURE')
+  async getReport(@Query() query: RapportsQueryDto, @Req() req: Request) {
+    const report = await this.rapportsService.getReport(query.periode);
+    const user = (req as any)?.user;
+    return hasSpecialPermission(user, 'voir_montants') ? report : maskAmountsInPayload(report);
   }
 
   private sendExportResponse(
@@ -56,7 +59,7 @@ export class RapportsController {
   }
 
   @Get('export/pdf')
-  @Roles(Role.DIRECTION, Role.COMPTABLE)
+  @Acces({ screen: 'rapports', level: 'LECTURE', specialPermission: 'voir_montants' })
   async exportPdf(
     @Query() query: RapportsQueryDto,
     @Req() req: Request,
@@ -72,7 +75,7 @@ export class RapportsController {
   }
 
   @Get('export/excel')
-  @Roles(Role.DIRECTION, Role.COMPTABLE)
+  @Acces({ screen: 'rapports', level: 'LECTURE', specialPermission: 'voir_montants' })
   async exportExcel(
     @Query() query: RapportsQueryDto,
     @Req() req: Request,

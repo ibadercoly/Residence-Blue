@@ -149,6 +149,12 @@ export interface NavItem {
                       <rect x="16" y="4.5" width="3.5" height="15" rx="1" stroke="currentColor" stroke-width="1.8" />
                       <line x1="3" y1="19.5" x2="21" y2="19.5" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" />
                     }
+                    @case ('administration') {
+                      <!-- Administration : bouclier sécurisé avec badge en accent -->
+                      <path class="accent" d="M12 3.5 5 6.5v5.3c0 4.5 3 8.5 7 9.7 4-1.2 7-5.2 7-9.7V6.5l-7-3Z" />
+                      <path d="M12 3.5 5 6.5v5.3c0 4.5 3 8.5 7 9.7 4-1.2 7-5.2 7-9.7V6.5l-7-3Z" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round" />
+                      <circle cx="12" cy="11.5" r="2.2" stroke="currentColor" stroke-width="1.8" />
+                    }
                     @case ('cuisine') {
                       <!-- Cuisine : toque de chef avec dôme en accent -->
                       <path class="accent" d="M6 10.5a3.5 3.5 0 0 1 2.2-6.2A4 4 0 0 1 15.8 4.3 3.5 3.5 0 0 1 18 10.5V15H6v-4.5Z" />

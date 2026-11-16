@@ -77,18 +77,24 @@ export class AccueilService {
   async getDailyStats(
     role: string | undefined,
     referenceDate: Date = new Date(),
+    canViewAmounts = true,
+    allowCustomFallback = false,
   ): Promise<AccueilJourResponse> {
-    const visibleBlocks = resolveVisibleAccueilBlocks(role);
-    if (visibleBlocks.length === 0) {
+    const rawBlocks = resolveVisibleAccueilBlocks(role);
+    if (rawBlocks.length === 0 && !allowCustomFallback) {
       throw new ForbiddenException(
         'Votre rôle ne permet pas de consulter les statistiques de la journée.',
       );
     }
+    const visibleBlocks: AccueilBlocKey[] = rawBlocks.length > 0 ? rawBlocks : ['CLIENTS'];
+    const filteredBlocks = canViewAmounts
+      ? visibleBlocks
+      : visibleBlocks.filter((b) => b !== 'BILLING');
 
     const bounds = getDakarDayBounds(referenceDate);
-    const includeClients = visibleBlocks.includes('CLIENTS');
-    const includeBilling = visibleBlocks.includes('BILLING');
-    const includeRestaurant = visibleBlocks.includes('RESTAURANT');
+    const includeClients = filteredBlocks.includes('CLIENTS');
+    const includeBilling = canViewAmounts && filteredBlocks.includes('BILLING');
+    const includeRestaurant = filteredBlocks.includes('RESTAURANT');
 
     const [clients, billing, restaurant] = await Promise.all([
       includeClients ? this.computeClientsStats(bounds) : Promise.resolve(undefined),
@@ -100,7 +106,7 @@ export class AccueilService {
       dateDakarIso: bounds.dateDakarIso,
       timezone: 'Africa/Dakar',
       generatedAt: referenceDate.toISOString(),
-      visibleBlocks,
+      visibleBlocks: filteredBlocks,
     };
 
     if (includeClients && clients) {
@@ -110,7 +116,9 @@ export class AccueilService {
       response.billing = billing;
     }
     if (includeRestaurant && restaurant) {
-      response.restaurant = restaurant;
+      response.restaurant = canViewAmounts
+        ? restaurant
+        : ({ ordersCount: restaurant.ordersCount, topDish: restaurant.topDish ? { name: restaurant.topDish.name, quantity: restaurant.topDish.quantity } : null, topDishes: restaurant.topDishes.map((d) => ({ name: d.name, quantity: d.quantity })) } as any);
     }
 
     return response;

@@ -13,6 +13,7 @@ import { BillingModule } from './billing/billing.module';
 import { ExportsModule } from './exports/exports.module';
 import { AccueilModule } from './accueil/accueil.module';
 import { RapportsModule } from './rapports/rapports.module';
+import { AdministrationModule } from './administration/administration.module';
 import { AuditModule } from './common/audit/audit.module';
 import { RolesGuard } from './common/guards/roles.guard';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
@@ -37,6 +38,7 @@ import { ServerModuleConfigService } from './common/services/server-module-confi
     ExportsModule,
     AccueilModule,
     RapportsModule,
+    AdministrationModule,
   ],
   controllers: [SecurityTestController],
   providers: [

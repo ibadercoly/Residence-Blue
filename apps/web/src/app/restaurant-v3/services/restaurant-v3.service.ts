@@ -91,11 +91,28 @@ export class RestaurantV3Service {
   readonly assistantNotifications = signal<AssistantNotificationBanner[]>([]);
 
   readonly currentRole = computed<string>(() => this.authService?.currentRole() || '');
-  readonly isDirection = computed<boolean>(() => this.currentRole() === Role.DIRECTION);
-  readonly isKitchenOnly = computed<boolean>(() => isKitchenOnlyRole(this.currentRole()));
+  readonly isDirection = computed<boolean>(() => Boolean(this.authService?.isDirector()));
+  readonly isKitchenOnly = computed<boolean>(() => {
+    const u = this.authService?.currentUser();
+    if (!u) return false;
+    if (isKitchenOnlyRole(u.role)) return true;
+    return (
+      !this.authService?.hasScreen('restaurant', 'LECTURE') &&
+      Boolean(this.authService?.hasScreen('cuisine', 'LECTURE'))
+    );
+  });
+  readonly canViewAmounts = computed<boolean>(
+    () => this.authService?.hasPermission('voir_montants') ?? true,
+  );
+  readonly canPayOrders = computed<boolean>(
+    () => this.authService?.hasPermission('encaisser_paiement') ?? true,
+  );
   canCancelOrder(order?: RestaurantOrderV3): boolean {
+    if (this.authService && !this.authService.hasPermission('annuler_commande_ou_reservation')) {
+      return false;
+    }
     const role = this.currentRole();
-    const isDirOrRec = role === Role.DIRECTION || role === Role.RECEPTION;
+    const isDirOrRec = Boolean(this.authService?.isDirector()) || role === Role.RECEPTION;
     if (!order) {
       return isDirOrRec;
     }
@@ -108,26 +125,23 @@ export class RestaurantV3Service {
       st === 'IN_PREPARATION' ||
       st === 'EN_PREPARATION';
     if (isPending) {
-      return isDirOrRec || role === Role.RESTAURANT || role === Role.SERVEUR;
+      return Boolean(this.authService?.hasScreen('restaurant', 'ECRITURE'));
     }
     if (isAccepted) {
       return (
         isDirOrRec ||
-        ((role === Role.RESTAURANT || role === Role.SERVEUR) && Boolean(order.hasUnavailableItems))
+        (Boolean(this.authService?.hasScreen('restaurant', 'ECRITURE')) &&
+          Boolean(order.hasUnavailableItems))
       );
     }
     return false;
   }
-  readonly canReadOnly = computed<boolean>(() => this.currentRole() === Role.COMPTABLE);
-  readonly canTakeOrders = computed<boolean>(() => {
-    const role = this.currentRole();
-    return (
-      role === Role.DIRECTION ||
-      role === Role.RECEPTION ||
-      role === Role.RESTAURANT ||
-      role === Role.SERVEUR
-    );
-  });
+  readonly canReadOnly = computed<boolean>(
+    () => (!this.authService?.currentUser() ? false : !this.authService.hasScreen('restaurant', 'ECRITURE')),
+  );
+  readonly canTakeOrders = computed<boolean>(
+    () => (!this.authService?.currentUser() ? true : this.authService.hasScreen('restaurant', 'ECRITURE')),
+  );
   readonly isOnline = computed<boolean>(() => (this.network ? this.network.isOnline() : true));
 
   readonly readyOrdersList = computed<RestaurantOrderV3[]>(() => {

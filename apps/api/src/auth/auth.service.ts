@@ -10,11 +10,22 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import * as crypto from 'crypto';
-import { Role } from '@residence-blue/shared';
+import {
+  Role,
+  isDirectorAccount,
+  resolveDefaultAccessForRole,
+  sanitizeScreenAccess,
+  sanitizeSpecialPermissions,
+  ScreenAccessMap,
+  SpecialPermissionsMap,
+  StarterProfileKey,
+} from '@residence-blue/shared';
+import { SessionRevocationService } from './session-revocation.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { CryptoService } from '../common/security/crypto.service';
 import { AuditService, appendChainedAuditLog } from '../common/audit/audit.service';
 import {
+  ChangeInitialPasswordDto,
   CreateUserDto,
   LoginDto,
   UpdateUserDto,
@@ -49,6 +60,11 @@ export interface IssuedAuthResult {
     fullName: string;
     jobTitle: string;
     role: string;
+    isPrimaryAdmin: boolean;
+    mustChangePassword: boolean;
+    starterProfile: StarterProfileKey;
+    screenAccess: ScreenAccessMap;
+    specialPermissions: SpecialPermissionsMap;
     totpEnabled: boolean;
     totpRequired: boolean;
   };
@@ -81,6 +97,7 @@ export class AuthService {
     private readonly prisma: PrismaService,
     private readonly cryptoService: CryptoService,
     @Optional() private readonly auditService?: AuditService,
+    @Optional() private readonly sessionRevocation?: SessionRevocationService,
   ) {}
 
   isTotpMandatory(_role: string): boolean {
@@ -88,14 +105,27 @@ export class AuthService {
   }
 
   private sanitizeUser(u: any) {
+    const isDirector = isDirectorAccount(u);
+    const defaults = resolveDefaultAccessForRole(u.role, isDirector);
+    const screenAccess = isDirector
+      ? defaults.screenAccess
+      : sanitizeScreenAccess(u.screenAccess, defaults.screenAccess);
+    const specialPermissions = isDirector
+      ? defaults.specialPermissions
+      : sanitizeSpecialPermissions(u.specialPermissions, defaults.specialPermissions);
     return {
       id: u.id,
       email: u.email,
-      fullName: u.fullName,
+      fullName: u.fullName || u.email,
       jobTitle: u.jobTitle || '',
       role: u.role,
       isActive: u.isActive,
-      totpEnabled: false,
+      isPrimaryAdmin: Boolean(u.isPrimaryAdmin),
+      mustChangePassword: Boolean(u.mustChangePassword),
+      starterProfile: (u.starterProfile || defaults.starterProfile) as StarterProfileKey,
+      screenAccess,
+      specialPermissions,
+      totpEnabled: Boolean(u.totpEnabled),
       totpRequired: false,
       lastLoginAt: u.lastLoginAt || null,
       createdAt: u.createdAt,
@@ -198,6 +228,9 @@ export class AuthService {
       where: { userId, revokedAt: null },
       data: { revokedAt: new Date(), revokedReason: reason },
     });
+    if (!txClient) {
+      this.sessionRevocation?.notifyUserRevoked(userId);
+    }
   }
 
   private async issueSession(
@@ -273,15 +306,7 @@ export class AuthService {
       accessToken,
       expiresInSeconds: ACCESS_TOKEN_TTL_SECONDS,
       inactivityTimeoutSeconds: Math.floor(INACTIVITY_TIMEOUT_MS / 1000),
-      user: {
-        id: user.id,
-        email: user.email,
-        fullName: user.fullName || user.email,
-        jobTitle: user.jobTitle || '',
-        role: user.role,
-        totpEnabled: false,
-        totpRequired: false,
-      },
+      user: this.sanitizeUser(user),
       refreshTokenRaw: rawRefresh,
       refreshMaxAgeMs,
     };
@@ -310,8 +335,8 @@ export class AuthService {
       throw new HttpException(GENERIC_LOCKED_MSG, HttpStatus.TOO_MANY_REQUESTS);
     }
 
-    // 2. Compte absent ou désactivé : on applique exactement la même logique de comptage et le même message
-    if (!user || !user.isActive) {
+    // 2. Compte absent, supprimé ou désactivé : même logique de comptage et même message
+    if (!user || !user.isActive || user.deletedAt) {
       const accLocked = this.recordBucketFailure(this.accountBuckets, loginNormalized);
       const ipLocked = this.recordBucketFailure(this.ipBuckets, ipKey);
       if (accLocked || ipLocked) {
@@ -407,7 +432,7 @@ export class AuthService {
       );
     }
 
-    if (!existing.user || !existing.user.isActive) {
+    if (!existing.user || !existing.user.isActive || existing.user.deletedAt) {
       await this.prisma.refreshToken.updateMany({
         where: { familyId: existing.familyId, revokedAt: null },
         data: { revokedAt: now, revokedReason: 'ACCOUNT_DEACTIVATED' },
@@ -489,15 +514,7 @@ export class AuthService {
       accessToken,
       expiresInSeconds: ACCESS_TOKEN_TTL_SECONDS,
       inactivityTimeoutSeconds: Math.floor(INACTIVITY_TIMEOUT_MS / 1000),
-      user: {
-        id: existing.user.id,
-        email: existing.user.email,
-        fullName: existing.user.fullName || existing.user.email,
-        jobTitle: existing.user.jobTitle || '',
-        role: existing.user.role,
-        totpEnabled: Boolean(existing.user.totpEnabled),
-        totpRequired: this.isTotpMandatory(existing.user.role),
-      },
+      user: this.sanitizeUser(existing.user),
       refreshTokenRaw: nextRawRefresh,
       refreshMaxAgeMs: remainingLifetimeMs,
     };
@@ -626,7 +643,7 @@ export class AuthService {
 
   async getMe(userId: string, sid?: string) {
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
-    if (!user || !user.isActive) {
+    if (!user || !user.isActive || user.deletedAt) {
       throw new UnauthorizedException('Compte introuvable ou désactivé.');
     }
     return {
@@ -637,18 +654,24 @@ export class AuthService {
 
   async findAllUsers() {
     const users = await this.prisma.user.findMany({
+      where: { deletedAt: null },
       orderBy: [{ createdAt: 'asc' }],
     });
     return users.map((u) => this.sanitizeUser(u));
   }
 
   async findOneUser(id: string) {
-    const user = await this.prisma.user.findUnique({ where: { id } });
+    const user = await this.prisma.user.findFirst({ where: { id, deletedAt: null } });
     if (!user) throw new NotFoundException(`Utilisateur "${id}" introuvable.`);
     return this.sanitizeUser(user);
   }
 
   async createUser(dto: CreateUserDto, actor?: { id?: string; ip?: string }) {
+    if (dto.role === Role.DIRECTION) {
+      throw new ForbiddenException(
+        'Il n’existe qu’un seul compte directeur ; impossible d’en créer un second.',
+      );
+    }
     const cleanEmail = dto.email.trim().toLowerCase();
     const existing = await this.prisma.user.findUnique({ where: { email: cleanEmail } });
     if (existing) {
@@ -661,6 +684,7 @@ export class AuthService {
     }
 
     const passwordHash = await hashPassword(dto.password);
+    const resolvedAccess = resolveDefaultAccessForRole(dto.role);
 
     const created = await this.prisma.$transaction(async (tx) => {
       const user = await tx.user.create({
@@ -671,6 +695,9 @@ export class AuthService {
           passwordHash,
           role: dto.role as any,
           isActive: dto.isActive ?? true,
+          starterProfile: resolvedAccess.starterProfile,
+          screenAccess: resolvedAccess.screenAccess as any,
+          specialPermissions: resolvedAccess.specialPermissions as any,
         },
       });
 
@@ -697,7 +724,10 @@ export class AuthService {
 
   async updateUser(id: string, dto: UpdateUserDto, actor?: { id?: string; ip?: string }) {
     const existing = await this.prisma.user.findUnique({ where: { id } });
-    if (!existing) throw new NotFoundException(`Utilisateur "${id}" introuvable.`);
+    if (!existing || existing.deletedAt) throw new NotFoundException(`Utilisateur "${id}" introuvable.`);
+    if (existing.isPrimaryAdmin || existing.role === Role.DIRECTION || dto.role === Role.DIRECTION) {
+      throw new ForbiddenException('Le compte directeur principal est protégé.');
+    }
 
     const updateData: Record<string, any> = {};
     if (dto.email) updateData.email = dto.email.trim().toLowerCase();
@@ -751,6 +781,9 @@ export class AuthService {
       return u;
     });
 
+    if (shouldRevokeSessions) {
+      this.sessionRevocation?.notifyUserRevoked(id);
+    }
     return this.sanitizeUser(updated);
   }
 
@@ -767,7 +800,12 @@ export class AuthService {
         },
       },
     });
-    if (!existing) throw new NotFoundException(`Utilisateur "${id}" introuvable.`);
+    if (!existing || existing.deletedAt) throw new NotFoundException(`Utilisateur "${id}" introuvable.`);
+    if (existing.isPrimaryAdmin || existing.role === Role.DIRECTION) {
+      throw new ForbiddenException(
+        'Le compte directeur principal ne peut ni être supprimé ni être désactivé.',
+      );
+    }
 
     const auditCount = await this.prisma.auditLog.count({
       where: { userId: id },
@@ -795,6 +833,7 @@ export class AuthService {
           tx,
         );
       });
+      this.sessionRevocation?.notifyUserRevoked(id);
       return {
         deleted: false,
         deactivated: true,
@@ -816,6 +855,60 @@ export class AuthService {
       );
     });
     return { deleted: true, deactivated: false };
+  }
+
+  async changeInitialPassword(
+    userId: string,
+    dto: ChangeInitialPasswordDto,
+    currentSid?: string,
+    ip?: string,
+  ) {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user || !user.isActive || user.deletedAt) {
+      throw new UnauthorizedException('Compte introuvable ou désactivé.');
+    }
+    if (dto.currentPassword) {
+      const ok = await verifyPassword(dto.currentPassword, user.passwordHash);
+      if (!ok) {
+        throw new UnauthorizedException('Mot de passe provisoire incorrect.');
+      }
+    }
+    const sameAsProvisional = await verifyPassword(dto.newPassword, user.passwordHash);
+    if (sameAsProvisional) {
+      throw new BadRequestException(
+        'Choisissez un mot de passe différent du mot de passe provisoire.',
+      );
+    }
+    const policy = validatePasswordPolicy(dto.newPassword);
+    if (!policy.valid) {
+      throw new BadRequestException(policy.reason);
+    }
+    const newHash = await hashPassword(dto.newPassword);
+    const updated = await this.prisma.$transaction(async (tx) => {
+      const u = await tx.user.update({
+        where: { id: userId },
+        data: { passwordHash: newHash, mustChangePassword: false },
+      });
+      await tx.refreshToken.updateMany({
+        where: {
+          userId,
+          revokedAt: null,
+          ...(currentSid ? { familyId: { not: currentSid } } : {}),
+        },
+        data: { revokedAt: new Date(), revokedReason: 'INITIAL_PASSWORD_CHANGED' },
+      });
+      await this.logAudit(
+        userId,
+        'USER_INITIAL_PASSWORD_CHANGED',
+        'User',
+        userId,
+        { mustChangePassword: false },
+        ip,
+        tx,
+      );
+      return u;
+    });
+    return this.sanitizeUser(updated);
   }
 
   static getCookieName(): string {

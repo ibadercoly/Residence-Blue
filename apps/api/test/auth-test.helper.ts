@@ -49,10 +49,18 @@ export async function issueDbTestToken(
         passwordHash: pwdHash,
       },
     });
-  } else if (!user.isActive || user.role !== role) {
+  } else {
     user = await prisma.user.update({
       where: { id: user.id },
-      data: { isActive: true, role: role as any },
+      data: {
+        isActive: true,
+        role: role as any,
+        deletedAt: null,
+        mustChangePassword: false,
+        screenAccess: null as any,
+        specialPermissions: null as any,
+        starterProfile: null,
+      },
     });
   }
 

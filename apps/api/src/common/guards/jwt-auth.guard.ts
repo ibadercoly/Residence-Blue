@@ -6,6 +6,11 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
+import {
+  resolveDefaultAccessForRole,
+  sanitizeScreenAccess,
+  sanitizeSpecialPermissions,
+} from '@residence-blue/shared';
 import { IS_PUBLIC_KEY } from '../decorators/roles.decorator';
 import { PrismaService } from '../../prisma/prisma.service';
 import {
@@ -39,12 +44,22 @@ export class JwtAuthGuard implements CanActivate {
       if (bearerToken) {
         const verified = verifyJwt<AccessTokenPayload>(bearerToken, 'access');
         if (verified?.sub && verified.role) {
+          const defaults = resolveDefaultAccessForRole(
+            verified.role,
+            verified.role === 'DIRECTION',
+          );
           request.user = {
             id: verified.sub,
             email: verified.email,
             fullName: verified.fullName,
             role: verified.role,
             sid: verified.sid,
+            isPrimaryAdmin: verified.role === 'DIRECTION',
+            mustChangePassword: false,
+            starterProfile: defaults.starterProfile,
+            screenAccess: defaults.screenAccess,
+            specialPermissions: defaults.specialPermissions,
+            hasExplicitAccess: false,
           };
         }
       }
@@ -64,7 +79,7 @@ export class JwtAuthGuard implements CanActivate {
       );
     }
 
-    // Vérification stricte en base : compte actif + session non révoquée + inactivité <= 30 min
+    // Vérification stricte en base : compte actif/non supprimé + session non révoquée + inactivité <= 30 min
     if (this.prisma && typeof (this.prisma as any).user?.findUnique === 'function') {
       const user = await this.prisma.user.findUnique({
         where: { id: payload.sub },
@@ -74,10 +89,16 @@ export class JwtAuthGuard implements CanActivate {
           fullName: true,
           role: true,
           isActive: true,
+          deletedAt: true,
+          isPrimaryAdmin: true,
+          mustChangePassword: true,
+          starterProfile: true,
+          screenAccess: true,
+          specialPermissions: true,
         },
       });
 
-      if (!user || !user.isActive) {
+      if (!user || !user.isActive || user.deletedAt) {
         throw new UnauthorizedException('Compte introuvable ou désactivé.');
       }
 
@@ -118,22 +139,51 @@ export class JwtAuthGuard implements CanActivate {
         }
       }
 
+      const isDirector = Boolean(user.isPrimaryAdmin) || user.role === 'DIRECTION';
+      const defaults = resolveDefaultAccessForRole(user.role, isDirector);
+      const hasExplicitAccess = Boolean(
+        user.screenAccess && typeof user.screenAccess === 'object',
+      );
+      const screenAccess = isDirector
+        ? defaults.screenAccess
+        : sanitizeScreenAccess(user.screenAccess as Record<string, unknown>, defaults.screenAccess);
+      const specialPermissions = isDirector
+        ? defaults.specialPermissions
+        : sanitizeSpecialPermissions(
+            user.specialPermissions as Record<string, unknown>,
+            defaults.specialPermissions,
+          );
+
       request.user = {
         id: user.id,
         email: user.email,
         fullName: user.fullName || user.email,
         role: user.role,
         sid: payload.sid,
+        isPrimaryAdmin: Boolean(user.isPrimaryAdmin),
+        mustChangePassword: Boolean(user.mustChangePassword),
+        starterProfile: user.starterProfile ?? defaults.starterProfile,
+        screenAccess,
+        specialPermissions,
+        hasExplicitAccess,
       };
       return true;
     }
 
+    const isDirector = payload.role === 'DIRECTION';
+    const defaults = resolveDefaultAccessForRole(payload.role, isDirector);
     request.user = {
       id: payload.sub,
       email: payload.email,
       fullName: payload.fullName,
       role: payload.role,
       sid: payload.sid,
+      isPrimaryAdmin: isDirector,
+      mustChangePassword: false,
+      starterProfile: defaults.starterProfile,
+      screenAccess: defaults.screenAccess,
+      specialPermissions: defaults.specialPermissions,
+      hasExplicitAccess: false,
     };
     return true;
   }

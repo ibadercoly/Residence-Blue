@@ -127,3 +127,15 @@ export class UpdateUserDto {
   @IsBoolean()
   isActive?: boolean;
 }
+
+export class ChangeInitialPasswordDto {
+  @IsOptional()
+  @IsString()
+  @MaxLength(200)
+  currentPassword?: string;
+
+  @IsString()
+  @MinLength(10, { message: 'Le nouveau mot de passe doit contenir au moins 10 caractères.' })
+  @MaxLength(200)
+  newPassword!: string;
+}

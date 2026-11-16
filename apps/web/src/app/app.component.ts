@@ -20,7 +20,10 @@ export class AppComponent {
   private readonly router = inject(Router);
 
   readonly isConnexion = signal<boolean>(
-    typeof window !== 'undefined' ? window.location.pathname.startsWith('/connexion') : false
+    typeof window !== 'undefined'
+      ? window.location.pathname.startsWith('/connexion') ||
+          window.location.pathname.startsWith('/changer-mot-de-passe')
+      : false
   );
 
   constructor() {
@@ -28,7 +31,7 @@ export class AppComponent {
       this.router.events.subscribe((event: unknown) => {
         if (event instanceof NavigationEnd) {
           const url = event.urlAfterRedirects || event.url || '';
-          this.isConnexion.set(url.startsWith('/connexion'));
+          this.isConnexion.set(url.startsWith('/connexion') || url.startsWith('/changer-mot-de-passe'));
         }
       });
     }

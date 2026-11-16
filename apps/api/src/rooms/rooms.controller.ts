@@ -24,8 +24,10 @@ import { UpdateRoomStatusDto } from './dto/update-room-status.dto';
 import { CreateRoomDto } from './dto/create-room.dto';
 import { UpdateRoomDto } from './dto/update-room.dto';
 import { CreateRoomTypeDto, UpdateRoomTypeDto } from './dto/create-room-type.dto';
-import { Public, Roles } from '../common/decorators/roles.decorator';
-import { Role } from '@residence-blue/shared';
+import { Acces } from '../common/decorators/acces.decorator';
+import { Public } from '../common/decorators/roles.decorator';
+import { hasSpecialPermission } from '@residence-blue/shared';
+import { maskAmountsInPayload } from '../common/utils/mask-amounts.util';
 import { getUploadsDir, UploadedImageFile } from './rooms-image.util';
 
 @Controller('rooms')
@@ -36,24 +38,31 @@ export class RoomsController {
    * Consultation du catalogue et des statuts des chambres.
    * Accessible à tous les rôles autorisés de l'hôtel.
    */
-  @Roles(
-    Role.DIRECTION,
-    Role.RECEPTION,
-    Role.HOUSEKEEPING,
-    Role.MAINTENANCE,
-    Role.RESTAURANT,
-    Role.COMPTABLE,
-  )
+  @Acces({
+    anyScreens: [
+      { screen: 'chambres', level: 'LECTURE' },
+      { screen: 'planning', level: 'LECTURE' },
+      // accueil non inclus : /rooms est dédié Chambres, Planning et Facturation
+      { screen: 'facturation', level: 'LECTURE' },
+    ],
+  })
   @Get()
-  async findAll() {
-    return this.roomsService.findAll();
+  async findAll(@Req() req: Request) {
+    const rooms = await this.roomsService.findAll();
+    const user = (req as any)?.user;
+    return hasSpecialPermission(user, 'voir_montants') ? rooms : maskAmountsInPayload(rooms);
   }
 
   /**
    * Retourne uniquement les chambres disponibles (actives, hors Maintenance, sans chevauchement)
    * sur une période [checkIn, checkOut[.
    */
-  @Roles(Role.DIRECTION, Role.RECEPTION)
+  @Acces({
+    anyScreens: [
+      { screen: 'chambres', level: 'LECTURE' },
+      { screen: 'planning', level: 'LECTURE' },
+    ],
+  })
   @Get('available')
   async findAvailable(@Query() query: AvailableRoomsQueryDto) {
     return this.roomsService.findAvailable(query);
@@ -97,23 +106,23 @@ export class RoomsController {
   /**
    * Détail d'une chambre par identifiant.
    */
-  @Roles(
-    Role.DIRECTION,
-    Role.RECEPTION,
-    Role.HOUSEKEEPING,
-    Role.MAINTENANCE,
-    Role.RESTAURANT,
-    Role.COMPTABLE,
-  )
+  @Acces({
+    anyScreens: [
+      { screen: 'chambres', level: 'LECTURE' },
+      { screen: 'planning', level: 'LECTURE' },
+    ],
+  })
   @Get(':id')
-  async findOne(@Param('id') id: string) {
-    return this.roomsService.findOne(id);
+  async findOne(@Param('id') id: string, @Req() req: Request) {
+    const room = await this.roomsService.findOne(id);
+    const user = (req as any)?.user;
+    return hasSpecialPermission(user, 'voir_montants') ? room : maskAmountsInPayload(room);
   }
 
   /**
    * Création d'une nouvelle chambre avec image optionnelle (Réservé DIRECTION).
    */
-  @Roles(Role.DIRECTION)
+  @Acces({ directorOnly: true })
   @Post()
   @UseInterceptors(FileInterceptor('image', { limits: { fileSize: 2 * 1024 * 1024 } }))
   async create(
@@ -130,7 +139,7 @@ export class RoomsController {
   /**
    * Modification d'une chambre via PATCH (Réservé DIRECTION).
    */
-  @Roles(Role.DIRECTION)
+  @Acces('chambres', 'ECRITURE')
   @Patch(':id')
   @UseInterceptors(FileInterceptor('image', { limits: { fileSize: 2 * 1024 * 1024 } }))
   async updatePatch(
@@ -148,7 +157,7 @@ export class RoomsController {
   /**
    * Modification d'une chambre via PUT (Réservé DIRECTION).
    */
-  @Roles(Role.DIRECTION)
+  @Acces('chambres', 'ECRITURE')
   @Put(':id')
   @UseInterceptors(FileInterceptor('image', { limits: { fileSize: 2 * 1024 * 1024 } }))
   async updatePut(
@@ -167,7 +176,7 @@ export class RoomsController {
    * Suppression définitive d'une chambre (Réservé DIRECTION).
    * Refus 409 si historique présent (réservations / factures).
    */
-  @Roles(Role.DIRECTION)
+  @Acces({ directorOnly: true })
   @Delete(':id')
   async delete(@Param('id') id: string, @Req() req: Request) {
     const userId = (req as any).user?.id || undefined;
@@ -179,7 +188,7 @@ export class RoomsController {
   /**
    * Retrait de la photo d'une chambre (Réservé DIRECTION).
    */
-  @Roles(Role.DIRECTION)
+  @Acces({ directorOnly: true })
   @Delete(':id/image')
   async removeImage(@Param('id') id: string, @Req() req: Request) {
     const userId = (req as any).user?.id || undefined;
@@ -192,18 +201,22 @@ export class RoomsController {
    * Modification du statut d'une chambre selon la matrice des rôles et la machine à états.
    * Habilité pour DIRECTION, RECEPTION, HOUSEKEEPING et MAINTENANCE.
    */
-  @Roles(Role.DIRECTION, Role.RECEPTION, Role.HOUSEKEEPING, Role.MAINTENANCE)
+  @Acces({ screen: 'chambres', level: 'LECTURE', specialPermission: 'changer_etat_chambre' })
   @Patch(':id/status')
   async updateStatus(
     @Param('id') id: string,
     @Body() dto: UpdateRoomStatusDto,
     @Req() req: Request,
   ) {
-    const userRole = (req as any).user?.role || '';
-    const userId = (req as any).user?.id || undefined;
+    const user = (req as any).user;
+    const rawRole = user?.role || '';
+    const effectiveRole = ['DIRECTION', 'RECEPTION', 'HOUSEKEEPING', 'MAINTENANCE'].includes(rawRole)
+      ? rawRole
+      : 'HOUSEKEEPING';
+    const userId = user?.id || undefined;
     const ip = req.ip || req.socket.remoteAddress || undefined;
 
-    return this.roomsService.updateStatus(id, dto, userRole, userId, ip);
+    return this.roomsService.updateStatus(id, dto, effectiveRole, userId, ip);
   }
 }
 
@@ -215,7 +228,7 @@ export class RoomTypesController {
    * Création d'une catégorie et définition de son tarif.
    * Réservé exclusivement à la DIRECTION.
    */
-  @Roles(Role.DIRECTION)
+  @Acces({ directorOnly: true })
   @Post()
   async create(@Body() dto: CreateRoomTypeDto, @Req() req: Request) {
     const userId = (req as any).user?.id || undefined;
@@ -228,7 +241,7 @@ export class RoomTypesController {
    * Mise à jour du tarif d'une catégorie de chambre.
    * Réservé exclusivement à la DIRECTION.
    */
-  @Roles(Role.DIRECTION)
+  @Acces({ directorOnly: true })
   @Patch(':id')
   async update(
     @Param('id') id: string,

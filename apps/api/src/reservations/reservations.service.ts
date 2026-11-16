@@ -20,6 +20,7 @@ export interface CreateReservationContext {
   idempotencyKey?: string;
   actorRole?: string;
   userId?: string;
+  actorName?: string;
   ip?: string;
 }
 
@@ -358,6 +359,8 @@ export class ReservationsService {
               depositFcfa,
               totalFcfa,
               notes: dto.notes?.trim() || null,
+              createdById: ctx?.userId || null,
+              createdByName: ctx?.actorName || null,
               checkedInAt: status === ReservationStatus.CHECKED_IN ? new Date() : null,
             },
             include: { guest: true, room: true },

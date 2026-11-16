@@ -1,8 +1,8 @@
 import { Body, Controller, Get, Patch } from '@nestjs/common';
 import { SettingsService } from './settings.service';
 import { UpdateHotelSettingsDto } from './dto/settings.dto';
-import { Public, Roles } from '../common/decorators/roles.decorator';
-import { Role } from '@residence-blue/shared';
+import { Acces } from '../common/decorators/acces.decorator';
+import { Public } from '../common/decorators/roles.decorator';
 
 @Controller('hotel-settings')
 export class SettingsController {
@@ -15,7 +15,7 @@ export class SettingsController {
   }
 
   @Patch()
-  @Roles(Role.DIRECTION)
+  @Acces({ directorOnly: true })
   async updateSettings(@Body() dto: UpdateHotelSettingsDto) {
     return this.settingsService.updateSettings(dto);
   }

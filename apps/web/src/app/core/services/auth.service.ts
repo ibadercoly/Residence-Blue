@@ -1,6 +1,18 @@
 import { Injectable, NgZone, computed, inject, signal } from '@angular/core';
 import { Router } from '@angular/router';
-import { Role } from '@residence-blue/shared';
+import {
+  AccessLevel,
+  Role,
+  SCREEN_DEFINITIONS,
+  ScreenAccessMap,
+  ScreenKey,
+  SpecialPermissionKey,
+  SpecialPermissionsMap,
+  StarterProfileKey,
+  hasScreenAccess,
+  hasSpecialPermission,
+  isDirectorAccount,
+} from '@residence-blue/shared';
 
 export interface AuthUser {
   id: string;
@@ -8,6 +20,11 @@ export interface AuthUser {
   fullName: string;
   role: Role;
   jobTitle: string;
+  isPrimaryAdmin?: boolean;
+  mustChangePassword?: boolean;
+  starterProfile?: StarterProfileKey;
+  screenAccess?: ScreenAccessMap;
+  specialPermissions?: SpecialPermissionsMap;
   totpEnabled: boolean;
   totpRequired: boolean;
 }
@@ -64,6 +81,10 @@ export class AuthService {
   readonly currentUser = this._user.asReadonly();
   readonly isAuthenticated = computed(() => this._user() !== null && this.accessToken !== null);
   readonly currentRole = computed<Role | null>(() => this._user()?.role ?? null);
+  readonly isDirector = computed(() => {
+    const u = this._user();
+    return Boolean(u && isDirectorAccount(u));
+  });
   readonly isLoading = this._isLoading.asReadonly();
   readonly error = this._error.asReadonly();
   readonly inactivityExpired = this._inactivityExpired.asReadonly();
@@ -389,6 +410,83 @@ export class AuthService {
       credentials: 'include',
       headers: retryHeaders,
     });
+  }
+
+  hasScreen(screen: ScreenKey, level: Exclude<AccessLevel, 'AUCUN'> = 'LECTURE'): boolean {
+    return hasScreenAccess(this._user(), screen, level);
+  }
+
+  hasPermission(permission: SpecialPermissionKey): boolean {
+    return hasSpecialPermission(this._user(), permission);
+  }
+
+  getFirstAuthorizedRoute(): string {
+    const u = this._user();
+    if (!u) return '/connexion';
+    if (u.mustChangePassword) return '/changer-mot-de-passe';
+    if (isDirectorAccount(u)) return '/tableau-de-bord';
+    for (const def of SCREEN_DEFINITIONS) {
+      if (hasScreenAccess(u, def.key, 'LECTURE')) {
+        return def.key === 'accueil' ? '/tableau-de-bord' : def.route;
+      }
+    }
+    return '/connexion';
+  }
+
+  updateLocalUser(partial: Partial<AuthUser>): void {
+    const cur = this._user();
+    if (cur) {
+      this._user.set({ ...cur, ...partial });
+    }
+  }
+
+  async syncUserFromMe(): Promise<boolean> {
+    if (!this.accessToken || typeof fetch === 'undefined') return this.isAuthenticated();
+    if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+      return this.isAuthenticated();
+    }
+    try {
+      const res = await fetch('/api/auth/me', {
+        method: 'GET',
+        credentials: 'include',
+        headers: { Authorization: `Bearer ${this.accessToken}` },
+      });
+      if (res.status === 401) {
+        const refreshed = await this.refreshToken();
+        if (!refreshed) {
+          this.clearInMemorySession();
+          return false;
+        }
+        return true;
+      }
+      if (!res.ok) {
+        return this.isAuthenticated();
+      }
+      const user = (await res.json().catch(() => null)) as AuthUser | null;
+      if (user?.id) {
+        this._user.set(user);
+      }
+      return true;
+    } catch {
+      return this.isAuthenticated();
+    }
+  }
+
+  async changeInitialPassword(newPassword: string, currentPassword?: string): Promise<AuthUser> {
+    const res = await this.authenticatedFetch('/api/auth/change-initial-password', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        newPassword,
+        ...(currentPassword ? { currentPassword } : {}),
+      }),
+    });
+    const body = await res.json().catch(() => null);
+    if (!res.ok) {
+      throw new Error(body?.message || 'Impossible de modifier le mot de passe.');
+    }
+    this._user.set(body as AuthUser);
+    return body as AuthUser;
   }
 
   async listConnectedSessions(): Promise<ConnectedSessionItem[]> {

@@ -27,8 +27,10 @@ import {
   RoomRestaurantChargeDto,
   UpdateDiscountDto,
 } from './dto/billing.dto';
-import { Roles } from '../common/decorators/roles.decorator';
-import { Role } from '@residence-blue/shared';
+import { ForbiddenException } from '@nestjs/common';
+import { Acces } from '../common/decorators/acces.decorator';
+import { Role, hasSpecialPermission, isDirectorAccount } from '@residence-blue/shared';
+import { maskAmountsInPayload } from '../common/utils/mask-amounts.util';
 
 @Controller('invoices')
 export class BillingController {
@@ -64,13 +66,21 @@ export class BillingController {
   }
 
   @Get('counter')
-  @Roles(Role.DIRECTION, Role.RECEPTION, Role.COMPTABLE)
-  async getCounter(@Query() query: CounterQueryDto) {
-    return this.billingService.getCounterSummary(query);
+  @Acces('facturation', 'LECTURE')
+  async getCounter(@Query() query: CounterQueryDto, @Req() req: Request) {
+    const res = await this.billingService.getCounterSummary(query);
+    const user = (req as any)?.user;
+    return hasSpecialPermission(user, 'voir_montants') ? res : maskAmountsInPayload(res);
   }
 
   @Get('archives/export')
-  @Roles(Role.DIRECTION, Role.COMPTABLE)
+  @Acces({
+    allScreens: [
+      { screen: 'facturation', level: 'LECTURE' },
+      { screen: 'rapports', level: 'LECTURE' },
+    ],
+    specialPermission: 'voir_montants',
+  })
   async exportArchives(
     @Query() query: ArchivesQueryDto,
     @Req() req: Request,
@@ -81,13 +91,21 @@ export class BillingController {
   }
 
   @Get('archives')
-  @Roles(Role.DIRECTION, Role.RECEPTION, Role.COMPTABLE)
-  async getArchives(@Query() query: ArchivesQueryDto) {
-    return this.billingService.getArchives(query);
+  @Acces('facturation', 'LECTURE')
+  async getArchives(@Query() query: ArchivesQueryDto, @Req() req: Request) {
+    const res = await this.billingService.getArchives(query);
+    const user = (req as any)?.user;
+    return hasSpecialPermission(user, 'voir_montants') ? res : maskAmountsInPayload(res);
   }
 
   @Get('cash-closure/export')
-  @Roles(Role.DIRECTION, Role.COMPTABLE)
+  @Acces({
+    allScreens: [
+      { screen: 'facturation', level: 'LECTURE' },
+      { screen: 'rapports', level: 'LECTURE' },
+    ],
+    specialPermission: 'voir_montants',
+  })
   async exportCashClosure(
     @Query('format') format: string | undefined,
     @Req() req: Request,
@@ -99,13 +117,15 @@ export class BillingController {
   }
 
   @Get()
-  @Roles(Role.DIRECTION, Role.RECEPTION, Role.COMPTABLE)
-  async findAll() {
-    return this.billingService.findAll();
+  @Acces('facturation', 'LECTURE')
+  async findAll(@Req() req: Request) {
+    const res = await this.billingService.findAll();
+    const user = (req as any)?.user;
+    return hasSpecialPermission(user, 'voir_montants') ? res : maskAmountsInPayload(res);
   }
 
   @Get(':id/pdf')
-  @Roles(Role.DIRECTION, Role.RECEPTION, Role.COMPTABLE)
+  @Acces({ screen: 'facturation', level: 'LECTURE', specialPermission: 'voir_montants' })
   async downloadPdf(
     @Param('id') id: string,
     @Req() req: Request,
@@ -116,20 +136,22 @@ export class BillingController {
   }
 
   @Get(':id')
-  @Roles(Role.DIRECTION, Role.RECEPTION, Role.COMPTABLE)
-  async findOne(@Param('id') id: string) {
-    return this.billingService.findOne(id);
+  @Acces('facturation', 'LECTURE')
+  async findOne(@Param('id') id: string, @Req() req: Request) {
+    const res = await this.billingService.findOne(id);
+    const user = (req as any)?.user;
+    return hasSpecialPermission(user, 'voir_montants') ? res : maskAmountsInPayload(res);
   }
 
   @Post()
-  @Roles(Role.DIRECTION, Role.RECEPTION)
+  @Acces('facturation', 'ECRITURE')
   async create(@Body() dto: CreateInvoiceDto, @Req() req: Request) {
     const actor = this.extractActor(req);
     return this.billingService.create(dto, actor);
   }
 
   @Post('room/:roomNumber/restaurant-charge')
-  @Roles(Role.DIRECTION, Role.RECEPTION, Role.RESTAURANT)
+  @Acces({ anyScreens: [{ screen: 'facturation', level: 'ECRITURE' }, { screen: 'restaurant', level: 'ECRITURE' }] })
   async addRoomRestaurantCharge(
     @Param('roomNumber') roomNumber: string,
     @Body() dto: RoomRestaurantChargeDto,
@@ -140,7 +162,7 @@ export class BillingController {
   }
 
   @Post(':id/lines')
-  @Roles(Role.DIRECTION, Role.RECEPTION, Role.RESTAURANT)
+  @Acces({ anyScreens: [{ screen: 'facturation', level: 'ECRITURE' }, { screen: 'restaurant', level: 'ECRITURE' }] })
   async addLine(
     @Param('id') id: string,
     @Body() dto: CreateInvoiceLineDto,
@@ -151,7 +173,7 @@ export class BillingController {
   }
 
   @Patch(':id/discount')
-  @Roles(Role.DIRECTION, Role.RECEPTION)
+  @Acces('facturation', 'ECRITURE')
   async updateDiscount(
     @Param('id') id: string,
     @Body() dto: UpdateDiscountDto,
@@ -162,7 +184,7 @@ export class BillingController {
   }
 
   @Post(':id/payments')
-  @Roles(Role.DIRECTION, Role.RECEPTION)
+  @Acces({ screen: 'facturation', level: 'ECRITURE', specialPermission: 'encaisser_paiement' })
   async addPayment(
     @Param('id') id: string,
     @Body() dto: CreatePaymentDto,
@@ -174,7 +196,7 @@ export class BillingController {
   }
 
   @Post(':id/payments/:paymentId/reverse')
-  @Roles(Role.DIRECTION)
+  @Acces({ directorOnly: true })
   @HttpCode(HttpStatus.CREATED)
   async reversePayment(
     @Param('id') id: string,
@@ -187,7 +209,7 @@ export class BillingController {
   }
 
   @Post(':id/checkout')
-  @Roles(Role.DIRECTION, Role.RECEPTION)
+  @Acces('facturation', 'ECRITURE')
   @HttpCode(HttpStatus.OK)
   async checkoutInvoice(
     @Param('id') id: string,
@@ -199,7 +221,7 @@ export class BillingController {
   }
 
   @Post(':id/issue')
-  @Roles(Role.DIRECTION, Role.RECEPTION)
+  @Acces('facturation', 'ECRITURE')
   @HttpCode(HttpStatus.OK)
   async issueInvoice(
     @Param('id') id: string,
@@ -211,18 +233,22 @@ export class BillingController {
   }
 
   @Post(':id/credit-notes')
-  @Roles(Role.DIRECTION, Role.COMPTABLE)
+  @Acces('facturation', 'LECTURE')
   async createCreditNote(
     @Param('id') id: string,
     @Body() dto: CreateCreditNoteDto,
     @Req() req: Request,
   ) {
+    const user = (req as any)?.user;
+    if (!isDirectorAccount(user) && !(user?.role === Role.COMPTABLE && !user?.hasExplicitAccess)) {
+      throw new ForbiddenException('La création d’un avoir est réservée au directeur.');
+    }
     const actor = this.extractActor(req);
     return this.billingService.createCreditNote(id, dto, actor);
   }
 
   @Delete(':id/lines/:lineId')
-  @Roles(Role.DIRECTION, Role.RECEPTION)
+  @Acces('facturation', 'ECRITURE')
   @HttpCode(HttpStatus.OK)
   async removeLine(
     @Param('id') id: string,
@@ -234,7 +260,7 @@ export class BillingController {
   }
 
   @Delete(':id')
-  @Roles(Role.DIRECTION)
+  @Acces({ directorOnly: true })
   @HttpCode(HttpStatus.OK)
   async remove(@Param('id') id: string, @Req() req: Request) {
     const actor = this.extractActor(req);

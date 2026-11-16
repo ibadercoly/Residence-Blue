@@ -63,6 +63,13 @@ model User {
   jobTitle                   String?         @map("job_title")
   passwordHash               String          @map("password_hash")
   role                       Role
+  isPrimaryAdmin             Boolean         @default(false) @map("is_primary_admin")
+  mustChangePassword         Boolean         @default(false) @map("must_change_password")
+  starterProfile             String?         @map("starter_profile")
+  screenAccess               Json?           @map("screen_access") @db.JsonB
+  specialPermissions         Json?           @map("special_permissions") @db.JsonB
+  deletedAt                  DateTime?       @map("deleted_at")
+  deletedDisplayName         String?         @map("deleted_display_name")
   isActive                   Boolean         @default(true) @map("is_active")
   failedLogins               Int             @default(0) @map("failed_logins")
   lockedUntil                DateTime?       @map("locked_until")
@@ -212,6 +219,7 @@ model Reservation {
   checkedOutAt  DateTime?         @map("checked_out_at")
   notes         String?           @db.Text
   createdById   String?           @map("created_by_id") @db.Uuid
+  createdByName String?           @map("created_by_name")
   createdBy     User?             @relation("CreatedReservations", fields: [createdById], references: [id], onDelete: SetNull)
   createdAt     DateTime          @default(now()) @map("created_at")
   updatedAt     DateTime          @updatedAt @map("updated_at")

@@ -14,6 +14,51 @@ export const routes: Routes = [
       import('./features/connexion/connexion-page.component').then((m) => m.ConnexionPageComponent),
   },
   {
+    path: 'changer-mot-de-passe',
+    canActivate: [authGuard],
+    loadComponent: () =>
+      import('./features/administration/changer-mot-de-passe-page.component').then(
+        (m) => m.ChangerMotDePassePageComponent,
+      ),
+  },
+  {
+    path: 'administration/comptes/nouveau',
+    canActivate: [authGuard],
+    loadComponent: () =>
+      import('./features/administration/administration-compte-form-page.component').then(
+        (m) => m.AdministrationCompteFormPageComponent,
+      ),
+  },
+  {
+    path: 'administration/comptes/:id',
+    canActivate: [authGuard],
+    loadComponent: () =>
+      import('./features/administration/administration-compte-form-page.component').then(
+        (m) => m.AdministrationCompteFormPageComponent,
+      ),
+  },
+  {
+    path: 'administration/comptes',
+    canActivate: [authGuard],
+    loadComponent: () =>
+      import('./features/administration/administration-comptes-page.component').then(
+        (m) => m.AdministrationComptesPageComponent,
+      ),
+  },
+  {
+    path: 'administration/directeur',
+    canActivate: [authGuard],
+    loadComponent: () =>
+      import('./features/administration/administration-directeur-page.component').then(
+        (m) => m.AdministrationDirecteurPageComponent,
+      ),
+  },
+  {
+    path: 'administration',
+    pathMatch: 'full',
+    redirectTo: 'administration/comptes',
+  },
+  {
     path: 'accueil',
     canActivate: [authGuard],
     loadComponent: () =>

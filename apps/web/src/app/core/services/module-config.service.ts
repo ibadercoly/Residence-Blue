@@ -457,35 +457,36 @@ export class ModuleConfigService {
    * Liste épurée des entrées de menu (7 entrées maximum, conforme à l'exigence de simplicité pour une directrice).
    */
   readonly menuItems = computed<NavMenuItem[]>(() => {
-    const role = this.authService.currentUser()?.role || Role.DIRECTION;
-
-    if (role === Role.CUISINE || role === Role.CUISINIER) {
-      return [
-        { id: 'cuisine', label: 'Cuisine', route: '/cuisine', icon: 'chef_hat' }
-      ];
+    const user = this.authService.currentUser();
+    if (!user || user.mustChangePassword) {
+      return [];
     }
 
-    if (role === Role.SERVEUR || role === Role.RESTAURANT) {
-      return [
-        { id: 'restaurant', label: 'Restaurant & Bar', route: '/restaurant', icon: 'restaurant' }
-      ];
-    }
-
-    // Pour DIRECTION et RECEPTION : exactement les modules actifs
-    const items: NavMenuItem[] = [
-      { id: 'dashboard', label: 'Accueil', route: '/tableau-de-bord', icon: 'dashboard' },
-      { id: 'planning', label: 'Planning', route: '/planning', icon: 'calendar_month' },
-      { id: 'rooms', label: 'Chambres', route: '/chambres', icon: 'bed' },
-      { id: 'clients', label: 'Clients', route: '/clients', icon: 'group' },
-      { id: 'facturation', label: 'Facturation', route: '/facturation', icon: 'receipt_long' },
-      { id: 'rapports', label: 'Rapports', route: '/rapports', icon: 'analytics' },
-      { id: 'restaurant', label: 'Restaurant & Bar', route: '/restaurant', icon: 'restaurant' },
-      ...(role === Role.DIRECTION
-        ? [{ id: 'cuisine', label: 'Cuisine', route: '/cuisine', icon: 'chef_hat' }]
-        : []),
+    const candidates: Array<{ key: any; item: NavMenuItem }> = [
+      { key: 'accueil', item: { id: 'dashboard', label: 'Accueil', route: '/tableau-de-bord', icon: 'dashboard' } },
+      { key: 'planning', item: { id: 'planning', label: 'Planning', route: '/planning', icon: 'calendar_month' } },
+      { key: 'chambres', item: { id: 'rooms', label: 'Chambres', route: '/chambres', icon: 'bed' } },
+      { key: 'clients', item: { id: 'clients', label: 'Clients', route: '/clients', icon: 'group' } },
+      { key: 'facturation', item: { id: 'facturation', label: 'Facturation', route: '/facturation', icon: 'receipt_long' } },
+      { key: 'rapports', item: { id: 'rapports', label: 'Rapports', route: '/rapports', icon: 'analytics' } },
+      { key: 'restaurant', item: { id: 'restaurant', label: 'Restaurant & Bar', route: '/restaurant', icon: 'restaurant' } },
+      { key: 'cuisine', item: { id: 'cuisine', label: 'Cuisine', route: '/cuisine', icon: 'chef_hat' } },
     ];
 
-    return items.filter(item => item.id === 'cuisine' || this.canAccessModule(item.id, role));
+    const visible = candidates
+      .filter((c) => this.authService.hasScreen(c.key, 'LECTURE'))
+      .map((c) => c.item);
+
+    if (this.authService.isDirector()) {
+      visible.push({
+        id: 'administration',
+        label: 'Administration',
+        route: '/administration',
+        icon: 'admin_panel_settings',
+      });
+    }
+
+    return visible;
   });
 
   /**
