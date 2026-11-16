@@ -56,4 +56,50 @@ describe('access model (@residence-blue/shared)', () => {
     expect(hasSpecialPermission(user, 'voir_montants')).toBe(false);
     expect(getFirstAuthorizedRoute(user)).toBe('/chambres');
   });
+
+  it('refuse toujours rapports pour tout profil autre que Directeur ou Comptable même avec JSON périmé ou voir_montants', () => {
+    for (const role of [
+      Role.RECEPTION,
+      Role.RESTAURANT,
+      Role.CUISINIER,
+      Role.HOUSEKEEPING,
+      Role.MAINTENANCE,
+    ]) {
+      const stale = {
+        role,
+        isPrimaryAdmin: false,
+        screenAccess: {
+          accueil: 'ECRITURE' as const,
+          planning: 'ECRITURE' as const,
+          chambres: 'ECRITURE' as const,
+          clients: 'ECRITURE' as const,
+          facturation: 'ECRITURE' as const,
+          restaurant: 'ECRITURE' as const,
+          cuisine: 'AUCUN' as const,
+          rapports: 'ECRITURE' as const,
+        },
+        specialPermissions: {
+          voir_montants: true,
+          encaisser_paiement: true,
+          changer_etat_chambre: true,
+          annuler_commande_ou_reservation: true,
+        },
+      };
+      expect(hasScreenAccess(stale, 'rapports', 'LECTURE')).toBe(false);
+    }
+
+    const comptable = resolveDefaultAccessForRole(Role.COMPTABLE);
+    expect(
+      hasScreenAccess(
+        {
+          role: Role.COMPTABLE,
+          isPrimaryAdmin: false,
+          starterProfile: 'COMPTABLE',
+          screenAccess: comptable.screenAccess,
+        },
+        'rapports',
+        'LECTURE',
+      ),
+    ).toBe(true);
+  });
 });

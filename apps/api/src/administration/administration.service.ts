@@ -312,6 +312,12 @@ export class AdministrationService {
         'L’assistant(e) du restaurant ne peut jamais accéder à l’écran Cuisine.',
       );
     }
+    if (starterProfile !== 'COMPTABLE') {
+      if (dto.screenAccess && screenAccess.rapports !== 'AUCUN') {
+        throw new ForbiddenException('Seul le comptable peut voir les rapports');
+      }
+      screenAccess.rapports = 'AUCUN';
+    }
 
     if (!dto.fullName || dto.fullName.trim().length < 2) {
       throw new BadRequestException('Le nom complet est obligatoire (2 caractères minimum).');
@@ -411,6 +417,12 @@ export class AdministrationService {
       throw new ForbiddenException(
         'L’assistant(e) du restaurant ne peut jamais accéder à l’écran Cuisine.',
       );
+    }
+    if (starterProfile !== 'COMPTABLE') {
+      if (dto.screenAccess && screenAccess.rapports !== 'AUCUN') {
+        throw new ForbiddenException('Seul le comptable peut voir les rapports');
+      }
+      screenAccess.rapports = 'AUCUN';
     }
 
     let nextEmail = existing.email;

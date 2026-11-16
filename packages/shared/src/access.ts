@@ -403,7 +403,10 @@ export function inferRoleFromScreenAccess(
   ) {
     return Role.RESTAURANT;
   }
-  if (screenAccess.facturation !== 'AUCUN' || screenAccess.rapports !== 'AUCUN') {
+  if (screenAccess.rapports !== 'AUCUN') {
+    return Role.COMPTABLE;
+  }
+  if (screenAccess.facturation !== 'AUCUN') {
     return screenAccess.planning !== 'AUCUN' ? Role.RECEPTION : Role.COMPTABLE;
   }
   if (screenAccess.chambres !== 'AUCUN') {
@@ -525,10 +528,27 @@ export function isDirectorAccount(user: {
   return Boolean(user.isPrimaryAdmin) || user.role === Role.DIRECTION;
 }
 
+export function isAccountantAccount(user: {
+  role?: Role | string | null;
+  starterProfile?: StarterProfileKey | string | null;
+}): boolean {
+  const normalized = user.role ? normalizeLegacyRole(user.role) : undefined;
+  return user.starterProfile === 'COMPTABLE' || normalized === Role.COMPTABLE;
+}
+
+export function isReportsAllowedForAccount(user: {
+  role?: Role | string | null;
+  isPrimaryAdmin?: boolean | null;
+  starterProfile?: StarterProfileKey | string | null;
+}): boolean {
+  return isDirectorAccount(user) || isAccountantAccount(user);
+}
+
 export function hasScreenAccess(
   user: {
     role?: Role | string | null;
     isPrimaryAdmin?: boolean | null;
+    starterProfile?: StarterProfileKey | string | null;
     screenAccess?: ScreenAccessMap | null;
   } | null | undefined,
   screen: ScreenKey,
@@ -536,6 +556,9 @@ export function hasScreenAccess(
 ): boolean {
   if (!user) return false;
   if (isDirectorAccount(user)) return true;
+  if (screen === 'rapports' && !isAccountantAccount(user)) {
+    return false;
+  }
   const map = user.screenAccess ?? resolveDefaultAccessForRole(user.role ?? '').screenAccess;
   const current = map[screen] ?? 'AUCUN';
   if (required === 'LECTURE') {

@@ -80,3 +80,21 @@ Ces actions restent strictement bloquées (`403`) pour tout autre compte :
 | **Ménage** | `HOUSEKEEPING` | `chambres` en `LECTURE` ; tous les autres en `AUCUN` | `changer_etat_chambre` |
 | **Technique** | `MAINTENANCE` | `chambres` en `LECTURE` ; tous les autres en `AUCUN` | Aucun |
 | **Comptable** | `COMPTABLE` | `facturation` et `rapports` en `LECTURE` ; tous les autres en `AUCUN` | `voir_montants` |
+
+---
+
+## 7. Restriction stricte de l’écran `Rapports` (`fix/rapports-acces-restreint`)
+
+### Règle absolue
+Seuls le compte **Directeur (administrateur principal)** et les comptes de profil **Comptable** ont accès à l’écran **Rapports**, à `GET /api/rapports`, aux exports PDF/Excel et aux agrégats associés. Le droit particulier `voir_montants` ne donne jamais accès à `Rapports`.
+
+### Diagnostic des causes corrigées
+1. **Attribution non verrouillée dans la gestion des comptes** : `AdministrationService` et la matrice UI « 3. Accès par écran » ne bloquaient que `cuisine` pour `ASSISTANT_RESTAURANT`, laissant la possibilité d’attribuer `rapports: 'LECTURE' | 'ECRITURE'` à un profil `ASSISTANT_RECEPTION` (ou tout autre profil) via l’interface ou un appel direct API.
+2. **Contrôle serveur fondé uniquement sur le JSON `screenAccess.rapports`** : `GET /api/rapports` ne vérifiait que `@Acces('rapports', 'LECTURE')` (sans exiger `voir_montants` ni que le compte soit Directeur ou Comptable) et `hasScreenAccess` ne rejetait pas `rapports` pour les autres profils ayant reçu ou conservé une valeur non nulle en base.
+3. **Inférence de rôle ambiguë** : `inferRoleFromScreenAccess` associait `rapports !== 'AUCUN'` combiné à `planning !== 'AUCUN'` au rôle `RECEPTION` lorsque le profil de départ n’était pas précisé.
+4. **Exports financiers dépréciés et données agrégées ailleurs** : dans l’ancien module `/api/exports/download`, `EXPORT_DEFINITIONS` (`DAILY_SALES_CLOSURE_PDF`, `DAILY_SALES_CLOSURE_EXCEL`, `RESTAURANT_POOL_SALES_EXCEL`) mentionnait encore `Role.RECEPTION` ; sur l’écran Accueil (`GET /api/accueil/jour`) et Le Comptoir (`GET /api/invoices/counter`, `GET /api/invoices/archives`), les montants d’ensemble sont filtrés côté serveur par `voir_montants`, droit qui est activé par défaut pour `ASSISTANT_RECEPTION` (et sur les ventes restaurant pour `ASSISTANT_RESTAURANT`).
+
+### Correctif appliqué
+- Verrou côté serveur (`403 Forbidden`, message `« Seul le comptable peut voir les rapports »`) à la création/modification d’un compte non-Comptable avec `rapports !== 'AUCUN'` et dans `RapportsController` + `hasScreenAccess`.
+- Option `Rapports` grisée et désactivée dans la fiche compte avec la mention `« Seul le comptable peut voir les rapports »` pour tout profil autre que `COMPTABLE`.
+- Migration Prisma sans perte retirant l’accès `rapports` à tout compte ni Directeur ni Comptable sans modifier ses autres permissions, avec écriture dans `audit_log`.
