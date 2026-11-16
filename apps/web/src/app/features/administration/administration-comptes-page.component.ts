@@ -19,6 +19,63 @@ import { AdministrationService, ManagedAccount } from './administration.service'
   imports: [CommonModule, RouterLink, ModalShellComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: 'block w-full min-w-0' },
+  styles: [
+    `
+      .accounts-table-view {
+        display: none;
+      }
+
+      .accounts-cards-view {
+        display: block;
+      }
+
+      @media (min-width: 1180px) {
+        .accounts-table-view {
+          display: block;
+        }
+
+        .accounts-cards-view {
+          display: none;
+        }
+      }
+
+      .accounts-scroll-box {
+        height: 760px;
+        max-height: 760px;
+        overflow-y: scroll;
+        overflow-x: hidden;
+        scrollbar-gutter: stable;
+      }
+
+      .accounts-fixed-table {
+        table-layout: fixed;
+        width: 100%;
+        border-collapse: collapse;
+      }
+
+      .accounts-fixed-table thead,
+      .accounts-fixed-table thead th {
+        position: sticky;
+        top: 0;
+        z-index: 10;
+        background-color: #f1f5f9;
+        white-space: nowrap;
+      }
+
+      .accounts-fixed-table tbody tr {
+        min-height: 72px;
+      }
+
+      .clamp-2-anywhere {
+        overflow-wrap: anywhere;
+        word-break: break-word;
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+      }
+    `,
+  ],
   template: `
     @if (!isDirector()) {
       <section
@@ -41,7 +98,7 @@ import { AdministrationService, ManagedAccount } from './administration.service'
         </a>
       </section>
     } @else {
-      <div class="mx-auto w-full max-w-[1380px] space-y-6 overflow-x-hidden">
+      <div class="mx-auto w-full max-w-[1380px] min-w-0 space-y-5 overflow-x-hidden">
         <!-- En-tête -->
         <header class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div class="min-w-0">
@@ -93,8 +150,11 @@ import { AdministrationService, ManagedAccount } from './administration.service'
           </div>
         }
 
-        <!-- Barre de recherche -->
-        <div class="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between">
+        <!-- Barre de recherche et compteur (hors de la zone qui défile) -->
+        <div
+          data-testid="accounts-search-bar"
+          class="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between"
+        >
           <div class="relative flex-1 min-w-0">
             <label for="search-accounts" class="sr-only">Rechercher un compte par nom ou e-mail</label>
             <span
@@ -113,7 +173,10 @@ import { AdministrationService, ManagedAccount } from './administration.service'
               class="min-h-[44px] w-full rounded-xl border border-slate-300 bg-slate-50/70 pl-11 pr-4 py-2 text-base text-[#0A2540] placeholder:text-slate-400 focus:border-[#005e6a] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#005e6a]/20"
             />
           </div>
-          <div class="text-base font-medium text-slate-600 shrink-0">
+          <div
+            data-testid="accounts-count"
+            class="text-base font-semibold text-slate-700 shrink-0 whitespace-nowrap"
+          >
             {{ filteredAccounts().length }} compte(s)
           </div>
         </div>
@@ -127,110 +190,150 @@ import { AdministrationService, ManagedAccount } from './administration.service'
             Aucun compte ne correspond à votre recherche.
           </div>
         } @else {
-          <!-- Tableau Desktop & Tablette (>= 768 px) : défilement vertical interne 15 lignes visibles, en-tête collant -->
+          <!-- Tableau (>= 1180 px) : table-layout fixed, 5 colonnes, scrollbar verticale visible, en-tête collant -->
           <div
             data-testid="accounts-table-container"
-            class="hidden md:block rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden"
+            class="accounts-table-view w-full min-w-0 rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden"
           >
-            <div class="max-h-[840px] overflow-y-auto [scrollbar-gutter:stable]">
-              <table class="w-full border-collapse text-left">
-                <thead class="sticky top-0 z-10 bg-slate-100 border-b border-slate-200">
+            <div class="accounts-scroll-box w-full" data-testid="accounts-scroll-box">
+              <table class="accounts-fixed-table text-left">
+                <colgroup>
+                  <col style="width: 40%" />
+                  <col style="width: 18%" />
+                  <col style="width: 10%" />
+                  <col style="width: 14%" />
+                  <col style="width: 18%" />
+                </colgroup>
+                <thead class="border-b border-slate-200">
                   <tr>
-                    <th scope="col" class="px-4 py-3.5 text-base font-bold text-[#0A2540]">Nom</th>
-                    <th scope="col" class="px-4 py-3.5 text-base font-bold text-[#0A2540]">E-mail</th>
-                    <th scope="col" class="px-4 py-3.5 text-base font-bold text-[#0A2540]">Profil</th>
-                    <th scope="col" class="px-4 py-3.5 text-base font-bold text-[#0A2540]">État</th>
-                    <th scope="col" class="px-4 py-3.5 text-base font-bold text-[#0A2540]">Dernière connexion</th>
-                    <th scope="col" class="px-4 py-3.5 text-base font-bold text-[#0A2540] text-right">Actions</th>
+                    <th scope="col" class="px-3.5 py-3 text-base font-bold text-[#0A2540]">Compte</th>
+                    <th scope="col" class="px-3 py-3 text-base font-bold text-[#0A2540]">Profil</th>
+                    <th scope="col" class="px-3 py-3 text-base font-bold text-[#0A2540]">État</th>
+                    <th scope="col" class="px-3 py-3 text-base font-bold text-[#0A2540]">Connexion</th>
+                    <th scope="col" class="px-3 py-3 text-base font-bold text-[#0A2540]">Actions</th>
                   </tr>
                 </thead>
                 <tbody class="divide-y divide-slate-100">
                   @for (acc of filteredAccounts(); track acc.id) {
                     <tr
                       [attr.data-testid]="'account-row-' + acc.email"
-                      class="hover:bg-slate-50/80 transition-colors"
+                      class="hover:bg-slate-50/80 transition-colors align-middle"
                     >
-                      <td class="px-4 py-3.5 text-base font-semibold text-[#0A2540]">
-                        <div class="flex items-center gap-2">
+                      <!-- 1. Compte (40%) : nom en gras + e-mail en dessous -->
+                      <td class="px-3.5 py-2.5 align-middle min-w-0">
+                        <div class="flex items-start gap-2 min-w-0">
                           @if (acc.isProtectedDirector) {
                             <span
-                              class="material-symbols-outlined text-[20px] text-amber-600 shrink-0"
+                              class="material-symbols-outlined mt-0.5 text-[20px] text-amber-600 shrink-0"
                               title="Compte directeur protégé"
                               aria-label="Compte directeur protégé"
                             >
                               lock
                             </span>
                           }
-                          <span>{{ acc.fullName }}</span>
+                          <div class="min-w-0 flex-1">
+                            <div
+                              tabindex="0"
+                              [title]="acc.fullName"
+                              [attr.aria-label]="acc.fullName"
+                              class="clamp-2-anywhere text-base font-bold text-[#0A2540] leading-snug focus:outline-none focus:ring-2 focus:ring-[#005e6a]/40 rounded"
+                            >
+                              {{ acc.fullName }}
+                            </div>
+                            <div
+                              tabindex="0"
+                              [title]="acc.email"
+                              [attr.aria-label]="acc.email"
+                              class="clamp-2-anywhere mt-0.5 text-base text-slate-600 leading-snug focus:outline-none focus:ring-2 focus:ring-[#005e6a]/40 rounded"
+                            >
+                              {{ acc.email }}
+                            </div>
+                          </div>
                         </div>
                       </td>
-                      <td class="px-4 py-3.5 text-base text-slate-700">
-                        {{ acc.email }}
+
+                      <!-- 2. Profil (18%) : pastille compacte sur 1 ligne, nom complet en infobulle -->
+                      <td class="px-3 py-2.5 align-middle">
+                        <span
+                          tabindex="0"
+                          [title]="profileLabel(acc)"
+                          [attr.aria-label]="profileLabel(acc)"
+                          class="inline-flex max-w-full items-center whitespace-nowrap rounded-full border border-slate-200 bg-slate-100 px-2.5 py-1 text-base font-semibold text-[#0A2540] focus:outline-none focus:ring-2 focus:ring-[#005e6a]/40"
+                        >
+                          {{ compactProfileLabel(acc) }}
+                        </span>
                       </td>
-                      <td class="px-4 py-3.5 text-base text-slate-700">
-                        {{ profileLabel(acc) }}
-                      </td>
-                      <td class="px-4 py-3.5 text-base">
+
+                      <!-- 3. État (10%) -->
+                      <td class="px-3 py-2.5 align-middle">
                         @if (acc.isActive) {
-                          <span class="inline-flex items-center gap-1.5 rounded-full bg-emerald-100 px-3 py-1 text-base font-semibold text-emerald-800">
-                            <span class="h-2 w-2 rounded-full bg-emerald-600"></span>
-                            Actif
+                          <span class="inline-flex items-center gap-1.5 whitespace-nowrap rounded-full bg-emerald-100 px-2.5 py-1 text-base font-semibold text-emerald-800">
+                            <span class="h-2 w-2 rounded-full bg-emerald-600 shrink-0"></span>
+                            <span>Actif</span>
                           </span>
                         } @else {
-                          <span class="inline-flex items-center gap-1.5 rounded-full bg-slate-200 px-3 py-1 text-base font-semibold text-slate-700">
-                            <span class="h-2 w-2 rounded-full bg-slate-500"></span>
-                            Désactivé
+                          <span class="inline-flex items-center gap-1.5 whitespace-nowrap rounded-full bg-slate-200 px-2.5 py-1 text-base font-semibold text-slate-700">
+                            <span class="h-2 w-2 rounded-full bg-slate-500 shrink-0"></span>
+                            <span>Désactivé</span>
                           </span>
                         }
                       </td>
-                      <td class="px-4 py-3.5 text-base text-slate-600">
-                        {{ formatLastLogin(acc.lastLoginAt) }}
+
+                      <!-- 4. Connexion (14%) : format court sur 1 ligne -->
+                      <td class="px-3 py-2.5 align-middle text-base text-slate-700 whitespace-nowrap">
+                        {{ formatShortLastLogin(acc.lastLoginAt) }}
                       </td>
-                      <td class="px-4 py-3.5">
-                        <div class="flex flex-wrap items-center justify-end gap-2">
+
+                      <!-- 5. Actions (18%) : 3 boutons visibles min-h 44px, icône + mot, alignés à gauche -->
+                      <td class="px-3 py-2.5 align-middle">
+                        <div class="flex flex-wrap items-center justify-start gap-1.5">
                           @if (acc.isProtectedDirector) {
                             <a
                               routerLink="/administration/directeur"
                               data-testid="btn-edit-director-credentials"
-                              class="inline-flex min-h-[44px] items-center gap-1.5 rounded-xl border border-[#005e6a]/30 bg-[#005e6a]/5 px-3.5 py-2 text-base font-semibold text-[#005e6a] hover:bg-[#005e6a]/10"
+                              class="inline-flex min-h-[44px] max-w-full items-center gap-1.5 rounded-xl border border-[#005e6a]/35 bg-[#005e6a]/5 px-2.5 py-1.5 text-base font-semibold text-[#005e6a] leading-tight hover:bg-[#005e6a]/10 focus:outline-none focus:ring-2 focus:ring-[#005e6a]"
                             >
-                              <span class="material-symbols-outlined text-[18px]" aria-hidden="true">key</span>
-                              <span>Modifier l’e-mail et le mot de passe</span>
+                              <span class="material-symbols-outlined text-[18px] shrink-0" aria-hidden="true">key</span>
+                              <span class="break-words">Modifier l’e-mail et le mot de passe</span>
                             </a>
                           } @else {
                             <a
                               [routerLink]="['/administration/comptes', acc.id]"
                               [attr.data-testid]="'btn-edit-' + acc.id"
-                              class="inline-flex min-h-[44px] items-center rounded-xl border border-slate-300 bg-white px-3.5 py-2 text-base font-semibold text-[#0A2540] hover:bg-slate-50"
+                              class="inline-flex min-h-[44px] items-center gap-1 rounded-xl border border-slate-300 bg-white px-2.5 py-1.5 text-base font-semibold text-[#0A2540] whitespace-nowrap hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-[#005e6a]"
                             >
-                              Modifier
+                              <span class="material-symbols-outlined text-[18px] shrink-0" aria-hidden="true">edit</span>
+                              <span>Modifier</span>
                             </a>
                             @if (acc.isActive) {
                               <button
                                 type="button"
                                 (click)="openDeactivateModal(acc)"
                                 [attr.data-testid]="'btn-deactivate-' + acc.id"
-                                class="inline-flex min-h-[44px] items-center rounded-xl border border-amber-300 bg-amber-50 px-3.5 py-2 text-base font-semibold text-amber-900 hover:bg-amber-100"
+                                class="inline-flex min-h-[44px] items-center gap-1 rounded-xl border border-amber-300 bg-amber-50 px-2.5 py-1.5 text-base font-semibold text-amber-900 whitespace-nowrap hover:bg-amber-100 focus:outline-none focus:ring-2 focus:ring-amber-600"
                               >
-                                Désactiver
+                                <span class="material-symbols-outlined text-[18px] shrink-0" aria-hidden="true">person_off</span>
+                                <span>Désactiver</span>
                               </button>
                             } @else {
                               <button
                                 type="button"
                                 (click)="reactivateAccount(acc)"
                                 [attr.data-testid]="'btn-reactivate-' + acc.id"
-                                class="inline-flex min-h-[44px] items-center rounded-xl border border-emerald-300 bg-emerald-50 px-3.5 py-2 text-base font-semibold text-emerald-900 hover:bg-emerald-100"
+                                class="inline-flex min-h-[44px] items-center gap-1 rounded-xl border border-emerald-300 bg-emerald-50 px-2.5 py-1.5 text-base font-semibold text-emerald-900 whitespace-nowrap hover:bg-emerald-100 focus:outline-none focus:ring-2 focus:ring-emerald-600"
                               >
-                                Réactiver
+                                <span class="material-symbols-outlined text-[18px] shrink-0" aria-hidden="true">person_check</span>
+                                <span>Réactiver</span>
                               </button>
                             }
                             <button
                               type="button"
                               (click)="openDeleteModal(acc)"
                               [attr.data-testid]="'btn-delete-' + acc.id"
-                              class="inline-flex min-h-[44px] items-center rounded-xl border border-rose-300 bg-rose-50 px-3.5 py-2 text-base font-semibold text-rose-800 hover:bg-rose-100"
+                              class="inline-flex min-h-[44px] items-center gap-1 rounded-xl border border-rose-300 bg-rose-50 px-2.5 py-1.5 text-base font-semibold text-rose-800 whitespace-nowrap hover:bg-rose-100 focus:outline-none focus:ring-2 focus:ring-rose-600"
                             >
-                              Supprimer
+                              <span class="material-symbols-outlined text-[18px] shrink-0" aria-hidden="true">delete</span>
+                              <span>Supprimer</span>
                             </button>
                           }
                         </div>
@@ -242,74 +345,102 @@ import { AdministrationService, ManagedAccount } from './administration.service'
             </div>
           </div>
 
-          <!-- Cartes Mobile (< 768 px) -->
-          <div class="md:hidden space-y-4" data-testid="accounts-mobile-cards">
+          <!-- Cartes (< 1180 px) : nom/e-mail + profil + état sur 1re ligne, connexion, puis 3 boutons visibles -->
+          <div class="accounts-cards-view space-y-3.5" data-testid="accounts-mobile-cards">
             @for (acc of filteredAccounts(); track acc.id) {
-              <article class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm space-y-3">
-                <div class="flex items-start justify-between gap-2">
-                  <div class="min-w-0">
-                    <div class="flex items-center gap-2">
+              <article
+                [attr.data-testid]="'account-card-' + acc.email"
+                class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm space-y-3 min-w-0"
+              >
+                <div class="flex flex-wrap items-start justify-between gap-2.5 min-w-0">
+                  <div class="min-w-0 flex-1">
+                    <div class="flex items-start gap-2 min-w-0">
                       @if (acc.isProtectedDirector) {
-                        <span class="material-symbols-outlined text-[20px] text-amber-600" aria-hidden="true">lock</span>
+                        <span class="material-symbols-outlined mt-0.5 text-[20px] text-amber-600 shrink-0" aria-hidden="true">lock</span>
                       }
-                      <h2 class="text-base font-bold text-[#0A2540] truncate">{{ acc.fullName }}</h2>
+                      <h2
+                        [title]="acc.fullName"
+                        class="clamp-2-anywhere text-base font-bold text-[#0A2540]"
+                      >
+                        {{ acc.fullName }}
+                      </h2>
                     </div>
-                    <p class="mt-0.5 text-base text-slate-600 break-all">{{ acc.email }}</p>
+                    <p
+                      [title]="acc.email"
+                      class="clamp-2-anywhere mt-0.5 text-base text-slate-600"
+                    >
+                      {{ acc.email }}
+                    </p>
                   </div>
-                  @if (acc.isActive) {
-                    <span class="shrink-0 rounded-full bg-emerald-100 px-3 py-1 text-base font-semibold text-emerald-800">
-                      Actif
+
+                  <div class="flex flex-wrap items-center gap-2 shrink-0">
+                    <span
+                      [title]="profileLabel(acc)"
+                      class="inline-flex items-center whitespace-nowrap rounded-full border border-slate-200 bg-slate-100 px-2.5 py-1 text-base font-semibold text-[#0A2540]"
+                    >
+                      {{ compactProfileLabel(acc) }}
                     </span>
-                  } @else {
-                    <span class="shrink-0 rounded-full bg-slate-200 px-3 py-1 text-base font-semibold text-slate-700">
-                      Désactivé
-                    </span>
-                  }
+                    @if (acc.isActive) {
+                      <span class="inline-flex items-center gap-1.5 whitespace-nowrap rounded-full bg-emerald-100 px-2.5 py-1 text-base font-semibold text-emerald-800">
+                        <span class="h-2 w-2 rounded-full bg-emerald-600"></span>
+                        Actif
+                      </span>
+                    } @else {
+                      <span class="inline-flex items-center gap-1.5 whitespace-nowrap rounded-full bg-slate-200 px-2.5 py-1 text-base font-semibold text-slate-700">
+                        <span class="h-2 w-2 rounded-full bg-slate-500"></span>
+                        Désactivé
+                      </span>
+                    }
+                  </div>
                 </div>
 
-                <div class="text-base text-slate-700 space-y-1">
-                  <p><span class="font-semibold">Profil :</span> {{ profileLabel(acc) }}</p>
-                  <p><span class="font-semibold">Dernière connexion :</span> {{ formatLastLogin(acc.lastLoginAt) }}</p>
+                <div class="text-base text-slate-700">
+                  <span class="font-semibold">Connexion :</span> {{ formatShortLastLogin(acc.lastLoginAt) }}
                 </div>
 
-                <div class="flex flex-col gap-2 pt-2 border-t border-slate-100">
+                <div class="flex flex-wrap items-center gap-2 pt-2 border-t border-slate-100">
                   @if (acc.isProtectedDirector) {
                     <a
                       routerLink="/administration/directeur"
-                      class="inline-flex min-h-[44px] w-full items-center justify-center rounded-xl border border-[#005e6a]/30 bg-[#005e6a]/5 px-4 py-2 text-base font-semibold text-[#005e6a]"
+                      class="inline-flex min-h-[44px] items-center gap-1.5 rounded-xl border border-[#005e6a]/30 bg-[#005e6a]/5 px-3.5 py-2 text-base font-semibold text-[#005e6a]"
                     >
-                      Modifier l’e-mail et le mot de passe
+                      <span class="material-symbols-outlined text-[18px]" aria-hidden="true">key</span>
+                      <span>Modifier l’e-mail et le mot de passe</span>
                     </a>
                   } @else {
                     <a
                       [routerLink]="['/administration/comptes', acc.id]"
-                      class="inline-flex min-h-[44px] w-full items-center justify-center rounded-xl border border-slate-300 bg-white px-4 py-2 text-base font-semibold text-[#0A2540]"
+                      class="inline-flex min-h-[44px] items-center gap-1.5 rounded-xl border border-slate-300 bg-white px-3.5 py-2 text-base font-semibold text-[#0A2540]"
                     >
-                      Modifier
+                      <span class="material-symbols-outlined text-[18px]" aria-hidden="true">edit</span>
+                      <span>Modifier</span>
                     </a>
                     @if (acc.isActive) {
                       <button
                         type="button"
                         (click)="openDeactivateModal(acc)"
-                        class="inline-flex min-h-[44px] w-full items-center justify-center rounded-xl border border-amber-300 bg-amber-50 px-4 py-2 text-base font-semibold text-amber-900"
+                        class="inline-flex min-h-[44px] items-center gap-1.5 rounded-xl border border-amber-300 bg-amber-50 px-3.5 py-2 text-base font-semibold text-amber-900"
                       >
-                        Désactiver
+                        <span class="material-symbols-outlined text-[18px]" aria-hidden="true">person_off</span>
+                        <span>Désactiver</span>
                       </button>
                     } @else {
                       <button
                         type="button"
                         (click)="reactivateAccount(acc)"
-                        class="inline-flex min-h-[44px] w-full items-center justify-center rounded-xl border border-emerald-300 bg-emerald-50 px-4 py-2 text-base font-semibold text-emerald-900"
+                        class="inline-flex min-h-[44px] items-center gap-1.5 rounded-xl border border-emerald-300 bg-emerald-50 px-3.5 py-2 text-base font-semibold text-emerald-900"
                       >
-                        Réactiver
+                        <span class="material-symbols-outlined text-[18px]" aria-hidden="true">person_check</span>
+                        <span>Réactiver</span>
                       </button>
                     }
                     <button
                       type="button"
                       (click)="openDeleteModal(acc)"
-                      class="inline-flex min-h-[44px] w-full items-center justify-center rounded-xl border border-rose-300 bg-rose-50 px-4 py-2 text-base font-semibold text-rose-800"
+                      class="inline-flex min-h-[44px] items-center gap-1.5 rounded-xl border border-rose-300 bg-rose-50 px-3.5 py-2 text-base font-semibold text-rose-800"
                     >
-                      Supprimer
+                      <span class="material-symbols-outlined text-[18px]" aria-hidden="true">delete</span>
+                      <span>Supprimer</span>
                     </button>
                   }
                 </div>
@@ -492,13 +623,46 @@ export class AdministrationComptesPageComponent implements OnInit {
     return getStarterProfileLabel(acc.starterProfile, acc.role);
   }
 
-  formatLastLogin(iso: string | null): string {
+  compactProfileLabel(acc: ManagedAccount): string {
+    if (acc.isProtectedDirector || acc.role === 'DIRECTION') return 'Directeur';
+    switch (acc.starterProfile) {
+      case 'ASSISTANT_RECEPTION':
+        return 'Réception';
+      case 'ASSISTANT_RESTAURANT':
+        return 'Restaurant';
+      case 'CUISINIER':
+        return 'Cuisinier';
+      case 'MENAGE':
+        return 'Ménage';
+      case 'TECHNIQUE':
+        return 'Technique';
+      case 'COMPTABLE':
+        return 'Comptable';
+      default: {
+        const full = this.profileLabel(acc);
+        if (full.includes('réception')) return 'Réception';
+        if (full.includes('restaurant')) return 'Restaurant';
+        return full;
+      }
+    }
+  }
+
+  formatShortLastLogin(iso: string | null): string {
     if (!iso) return 'Jamais connecté';
     try {
-      return new Intl.DateTimeFormat('fr-FR', {
-        dateStyle: 'medium',
-        timeStyle: 'short',
-      }).format(new Date(iso));
+      const d = new Date(iso);
+      const dayMonth = new Intl.DateTimeFormat('fr-FR', {
+        day: 'numeric',
+        month: 'short',
+        timeZone: 'Africa/Dakar',
+      }).format(d);
+      const time = new Intl.DateTimeFormat('fr-FR', {
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false,
+        timeZone: 'Africa/Dakar',
+      }).format(d);
+      return `${dayMonth} ${time}`;
     } catch {
       return iso;
     }
