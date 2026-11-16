@@ -434,7 +434,8 @@ model RestaurantOrder {
   createdAt       DateTime              @default(now()) @map("created_at")
   updatedAt       DateTime              @updatedAt @map("updated_at")
   lines           RestaurantOrderLine[]
-  events          RestaurantOrderEvent[]
+  events               RestaurantOrderEvent[]
+  notificationMessages NotificationMessage[]
 
   @@index([roomId])
   @@index([reservationId])
@@ -548,6 +549,7 @@ model NotificationMessage {
   type             String
   severity         String             @default("INFO")
   orderId          String?            @map("order_id") @db.Uuid
+  order            RestaurantOrder?   @relation(fields: [orderId], references: [id], onDelete: Cascade)
   destinationType  String?            @map("destination_type")
   roomNumber       String?            @map("room_number")
   destinationLabel String             @map("destination_label")

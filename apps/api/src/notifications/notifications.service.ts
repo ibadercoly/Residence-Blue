@@ -354,10 +354,11 @@ export class NotificationsService implements OnModuleInit, OnModuleDestroy {
 
   async checkOverdueOrders(now = new Date()): Promise<number> {
     const cutoff = new Date(now.getTime() - LATE_THRESHOLD_MS);
+    const staleWindowStart = new Date(now.getTime() - 12 * 60 * 60 * 1000);
     const overdueOrders = await this.prisma.restaurantOrder.findMany({
       where: {
         status: { in: ['IN_PREPARATION', 'EN_PREPARATION'] },
-        heureFinPrevue: { not: null, lte: cutoff },
+        heureFinPrevue: { not: null, lte: cutoff, gte: staleWindowStart },
       },
       include: {
         lines: true,

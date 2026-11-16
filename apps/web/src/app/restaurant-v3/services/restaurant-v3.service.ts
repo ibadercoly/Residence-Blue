@@ -17,15 +17,6 @@ import { IdbService } from '../../core/offline/idb.service';
 import { NetworkService } from '../../core/offline/network.service';
 import { OutboxService } from '../../core/offline/outbox.service';
 
-export interface AssistantNotificationBanner {
-  id: string;
-  orderId: string;
-  type: string;
-  title: string;
-  message: string;
-  createdAt: string;
-}
-
 export interface CreateOrderRequestPayload {
   ticketNumber: string;
   destinationType: RestaurantDestinationType;
@@ -62,8 +53,6 @@ export class RestaurantV3Service {
   private syncingOutbox = false;
   private lastSseEventId: number | null = null;
   private userInteracted = false;
-  private initialOrderEventsLoaded = false;
-  private readonly seenOrderEventIds = new Set<string>();
 
   readonly categories = signal<DishCategory[]>([]);
   readonly products = signal<DishItem[]>([]);
@@ -89,7 +78,6 @@ export class RestaurantV3Service {
   readonly activeCooksCount = signal<number | null>(null);
   readonly soundEnabled = signal<boolean>(true);
   readonly kitchenNewOrderNotice = signal<string | null>(null);
-  readonly assistantNotifications = signal<AssistantNotificationBanner[]>([]);
 
   readonly currentRole = computed<string>(() => this.authService?.currentRole() || '');
   readonly isDirection = computed<boolean>(() => Boolean(this.authService?.isDirector()));
@@ -191,63 +179,6 @@ export class RestaurantV3Service {
   toggleSound(): void {
     this.userInteracted = true;
     this.soundEnabled.update((v) => !v);
-  }
-
-  dismissAssistantNotification(id: string): void {
-    this.assistantNotifications.update((list) => list.filter((n) => n.id !== id));
-  }
-
-  private pushAssistantNotificationsForOrder(order?: RestaurantOrderV3): void {
-    if (!order || this.isKitchenOnly()) return;
-    const events = order.events || [];
-    if (events.length === 0) return;
-
-    const dest =
-      order.destinationType === 'ROOM' && order.roomNumber
-        ? `Chambre ${order.roomNumber}`
-        : order.destinationLabel || 'Table 1';
-    const guest = order.guestName || '';
-    const targetTitle = guest ? `${dest}, ${guest}` : dest;
-
-    const notifiableTypes = new Set([
-      'CONFIRMEE',
-      'TEMPS_PREPARATION',
-      'TEMPS_AJOUTE',
-      'PLAT_INDISPONIBLE',
-      'PRETE',
-    ]);
-
-    const newBanners: AssistantNotificationBanner[] = [];
-    for (const ev of events) {
-      if (!ev.id || this.seenOrderEventIds.has(ev.id)) continue;
-      this.seenOrderEventIds.add(ev.id);
-      if (!notifiableTypes.has(ev.type)) continue;
-
-      let message = ev.detail;
-      if (ev.type === 'PRETE') {
-        const activeItems = (order.items || []).filter((i) => !i.isUnavailable);
-        const itemsForMsg = activeItems.length > 0 ? activeItems : order.items || [];
-        const dishes = itemsForMsg.map((i) => `${i.quantity} ${i.name}`).join(', ');
-        const totalQty = itemsForMsg.reduce((s, i) => s + (i.quantity || 1), 0);
-        const verb = totalQty > 1 ? 'prêts à servir' : 'prêt à servir';
-        message = `${dishes} ${verb} : ${targetTitle}`;
-      }
-
-      newBanners.push({
-        id: ev.id,
-        orderId: order.id,
-        type: ev.type,
-        title: targetTitle,
-        message,
-        createdAt: ev.createdAt,
-      });
-    }
-
-    if (newBanners.length > 0) {
-      this.assistantNotifications.update((prev) => [...newBanners, ...prev].slice(0, 15));
-      const hasReady = newBanners.some((b) => b.type === 'PRETE');
-      this.playNotificationTone(hasReady ? 'ORDER_READY' : 'NEW_ORDER');
-    }
   }
 
   playNotificationTone(kind: 'NEW_ORDER' | 'ORDER_READY' = 'NEW_ORDER'): void {
@@ -499,18 +430,6 @@ export class RestaurantV3Service {
         return;
       }
       const data = (await res.json()) as RestaurantOrdersPage;
-      if (!this.initialOrderEventsLoaded) {
-        this.initialOrderEventsLoaded = true;
-        for (const ord of data.items || []) {
-          for (const ev of ord.events || []) {
-            if (ev.id) this.seenOrderEventIds.add(ev.id);
-          }
-        }
-      } else {
-        for (const ord of data.items || []) {
-          this.pushAssistantNotificationsForOrder(ord);
-        }
-      }
       this.ordersPage.set(data);
       if ((params.offset ?? 0) === 0 && !params.search && !params.status && !params.destinationType) {
         void this.putCache({ id: 'orders-page', ...data });
@@ -913,8 +832,6 @@ export class RestaurantV3Service {
                 const dest = parsedEvt?.order?.destinationLabel || 'Nouveau ticket';
                 this.kitchenNewOrderNotice.set(`Nouvelle commande • ${dest}`);
                 this.playNotificationTone('NEW_ORDER');
-              } else if (parsedEvt?.type === 'ORDER_UPDATED' && parsedEvt?.order) {
-                this.pushAssistantNotificationsForOrder(parsedEvt.order);
               }
               onEvent?.(parsedEvt);
             }

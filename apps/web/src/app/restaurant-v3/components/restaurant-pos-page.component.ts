@@ -10,7 +10,9 @@ import {
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { RouterLink } from '@angular/router';
+import { ActivatedRoute, RouterLink } from '@angular/router';
+import { Subscription } from 'rxjs';
+import { NotificationsService } from '../../core/services/notifications.service';
 import {
   DishItem,
   RestaurantDestinationType,
@@ -73,14 +75,14 @@ import {
             <button
               type="button"
               data-testid="pos-sound-toggle"
-              (click)="service.toggleSound()"
+              (click)="togglePosSound()"
               class="rb-btn rb-btn-sm rb-btn-outline"
-              [attr.aria-pressed]="service.soundEnabled()"
+              [attr.aria-pressed]="posSoundEnabled()"
             >
               <span class="material-symbols-outlined text-[18px]" aria-hidden="true">
-                {{ service.soundEnabled() ? 'volume_up' : 'volume_off' }}
+                {{ posSoundEnabled() ? 'volume_up' : 'volume_off' }}
               </span>
-              <span>Son : {{ service.soundEnabled() ? 'Activé' : 'Coupé' }}</span>
+              <span>Son : {{ posSoundEnabled() ? 'Activé' : 'Coupé' }}</span>
             </button>
             @if (service.isDirection()) {
               <a
@@ -135,52 +137,6 @@ import {
               OK
             </button>
           </div>
-        }
-
-        <!-- 4. BANDEAUX DE NOTIFICATIONS ASSISTANT (persistants jusqu'au clic « Compris ») -->
-        @if (service.assistantNotifications().length > 0) {
-          <section
-            aria-label="Notifications de la cuisine"
-            data-testid="pos-assistant-notifications"
-            class="space-y-2.5"
-          >
-            @for (notif of service.assistantNotifications(); track notif.id) {
-              <div
-                role="alert"
-                [attr.data-testid]="'pos-notif-banner-' + notif.id"
-                [attr.data-notif-type]="notif.type"
-                [attr.data-order-id]="notif.orderId"
-                [class]="
-                  notif.type === 'PRETE'
-                    ? 'flex flex-wrap items-center justify-between gap-3 rounded-xl border-2 border-[#116b41] bg-[#e3f5ec] px-4 py-3 text-base font-extrabold text-[#116b41] shadow-sm'
-                    : notif.type === 'PLAT_INDISPONIBLE'
-                      ? 'flex flex-wrap items-center justify-between gap-3 rounded-xl border-2 border-[#b81d1d] bg-[#fde8e8] px-4 py-3 text-base font-extrabold text-[#9b1c1c] shadow-sm'
-                      : 'flex flex-wrap items-center justify-between gap-3 rounded-xl border-2 border-[#006875] bg-[#e0f2fe] px-4 py-3 text-base font-extrabold text-[#075985] shadow-sm'
-                "
-              >
-                <div class="flex items-center gap-2.5 min-w-0">
-                  <span class="material-symbols-outlined text-[22px] shrink-0" aria-hidden="true">
-                    {{
-                      notif.type === 'PRETE'
-                        ? 'room_service'
-                        : notif.type === 'PLAT_INDISPONIBLE'
-                          ? 'warning'
-                          : 'notifications_active'
-                    }}
-                  </span>
-                  <span class="break-words">{{ notif.message }}</span>
-                </div>
-                <button
-                  type="button"
-                  [attr.data-testid]="'btn-notif-understood-' + notif.id"
-                  (click)="service.dismissAssistantNotification(notif.id)"
-                  class="rb-btn rb-btn-sm rb-btn-primary shrink-0"
-                >
-                  Compris
-                </button>
-              </div>
-            }
-          </section>
         }
 
         <!-- Barre supérieure : pastilles de catégories qui passent à la ligne + recherche -->
@@ -698,9 +654,14 @@ import {
                   <div
                     role="row"
                     [attr.data-testid]="'service-order-row-' + ord.id"
+                    [attr.data-highlighted]="highlightedOrderId() === ord.id ? 'true' : null"
                     [class]="
-                      'hidden lg:grid rb-orders-grid rb-orders-row border-b border-[#e6f0f2] text-sm ' +
-                      (ord.status === 'READY' ? 'bg-[#e3f5ec]/75 hover:bg-[#e3f5ec]' : 'hover:bg-[#f8fbfc]')
+                      'hidden lg:grid rb-orders-grid rb-orders-row border-b border-[#e6f0f2] text-sm transition-colors ' +
+                      (highlightedOrderId() === ord.id
+                        ? 'bg-[#e0f2fe]/80 ring-2 ring-inset ring-[#006875] border-l-4 border-l-[#006875]'
+                        : ord.status === 'READY'
+                          ? 'bg-[#e3f5ec]/75 hover:bg-[#e3f5ec]'
+                          : 'hover:bg-[#f8fbfc]')
                     "
                   >
                     <div class="font-bold text-[#161d20] break-words">
@@ -804,9 +765,14 @@ import {
                   <!-- Carte compacte mobile / tablette (< 1024 px) dans la même zone défilante -->
                   <div
                     [class]="
-                      'lg:hidden border-b border-[#e6f0f2] p-3 space-y-2 ' +
-                      (ord.status === 'READY' ? 'bg-[#e3f5ec]/75' : '')
+                      'lg:hidden border-b border-[#e6f0f2] p-3 space-y-2 transition-colors ' +
+                      (highlightedOrderId() === ord.id
+                        ? 'bg-[#e0f2fe]/80 ring-2 ring-inset ring-[#006875] border-l-4 border-l-[#006875]'
+                        : ord.status === 'READY'
+                          ? 'bg-[#e3f5ec]/75'
+                          : '')
                     "
+                    [attr.data-highlighted]="highlightedOrderId() === ord.id ? 'true' : null"
                     [attr.data-testid]="'service-order-mobile-' + ord.id"
                   >
                     <div class="flex items-start justify-between gap-2">
@@ -964,7 +930,15 @@ import {
 })
 export class RestaurantPosPageComponent implements OnInit, OnDestroy {
   readonly service = inject(RestaurantV3Service);
+  private readonly route = inject(ActivatedRoute, { optional: true });
+  private readonly notificationsService = inject(NotificationsService, { optional: true });
   readonly nowMs = signal<number>(Date.now());
+  readonly highlightedOrderId = signal<string | null>(null);
+  readonly posSoundEnabled = computed<boolean>(() =>
+    this.notificationsService ? this.notificationsService.soundEnabled() : this.service.soundEnabled(),
+  );
+  private queryParamsSub: Subscription | null = null;
+  private highlightClearTimer: ReturnType<typeof setTimeout> | null = null;
 
   readonly selectedCategoryId = signal<string>('ALL');
   readonly productSearch = signal<string>('');
@@ -1078,6 +1052,15 @@ export class RestaurantPosPageComponent implements OnInit, OnDestroy {
       this.selectedReservationId.set(stays[0].reservationId);
     }
 
+    if (this.route?.queryParams) {
+      this.queryParamsSub = this.route.queryParams.subscribe((qp) => {
+        const targetId = typeof qp?.['highlightOrder'] === 'string' ? qp['highlightOrder'].trim() : '';
+        if (targetId) {
+          this.applyOrderHighlight(targetId);
+        }
+      });
+    }
+
     // Démarrer le flux SSE après 1 500 ms pour laisser l'état networkidle se stabiliser à l'arrivée sur /restaurant
     this.sseDelayTimer = setTimeout(() => {
       this.service.connectKitchenStream(() => {
@@ -1097,6 +1080,12 @@ export class RestaurantPosPageComponent implements OnInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
+    this.queryParamsSub?.unsubscribe();
+    this.queryParamsSub = null;
+    if (this.highlightClearTimer) {
+      clearTimeout(this.highlightClearTimer);
+      this.highlightClearTimer = null;
+    }
     if (this.sseDelayTimer) {
       clearTimeout(this.sseDelayTimer);
       this.sseDelayTimer = null;
@@ -1350,6 +1339,39 @@ export class RestaurantPosPageComponent implements OnInit, OnDestroy {
     const ok = await this.service.cancelOrder(ord.id, this.cancelReason());
     if (ok) {
       this.closeCancelPrompt();
+    }
+  }
+
+  togglePosSound(): void {
+    if (this.notificationsService) {
+      this.notificationsService.toggleSound();
+    } else {
+      this.service.toggleSound();
+    }
+  }
+
+  private applyOrderHighlight(orderId: string): void {
+    this.highlightedOrderId.set(orderId);
+    if (this.highlightClearTimer) {
+      clearTimeout(this.highlightClearTimer);
+    }
+    this.highlightClearTimer = setTimeout(() => {
+      this.highlightClearTimer = null;
+      this.highlightedOrderId.set(null);
+    }, 10_000);
+
+    if (typeof document !== 'undefined') {
+      setTimeout(() => {
+        const candidates = document.querySelectorAll(
+          `[data-testid="service-order-row-${orderId}"], [data-testid="service-order-mobile-${orderId}"]`,
+        );
+        for (const el of Array.from(candidates)) {
+          if ((el as HTMLElement).offsetParent !== null) {
+            el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            break;
+          }
+        }
+      }, 150);
     }
   }
 
