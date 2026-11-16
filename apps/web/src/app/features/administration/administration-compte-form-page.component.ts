@@ -248,10 +248,10 @@ import { AdministrationService, ManagedAccount } from './administration.service'
                   </p>
                 </div>
 
-                <div class="divide-y divide-slate-200 border border-slate-200 rounded-xl overflow-hidden">
+                <div class="divide-y divide-slate-200 border border-slate-200 rounded-xl overflow-x-hidden">
                   @for (scr of screens; track scr.key) {
-                    <div class="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between bg-white">
-                      <div class="min-w-0">
+                    <div class="flex flex-wrap items-center justify-between gap-3 p-4 bg-white min-w-0">
+                      <div class="min-w-0 shrink-0">
                         <div class="text-base font-bold text-[#0A2540]">{{ scr.label }}</div>
                         @if (scr.key === 'cuisine' && isRestaurantLockedOutOfKitchen()) {
                           <p class="text-base text-amber-800">
@@ -260,7 +260,7 @@ import { AdministrationService, ManagedAccount } from './administration.service'
                         }
                       </div>
                       <div
-                        class="grid grid-cols-3 gap-1.5 rounded-xl bg-slate-100 p-1 shrink-0"
+                        class="flex flex-wrap items-center gap-1.5 rounded-xl bg-slate-100 p-1 min-w-0 max-w-full"
                         role="group"
                         [attr.aria-label]="'Niveau d’accès pour ' + scr.label"
                       >
@@ -272,8 +272,8 @@ import { AdministrationService, ManagedAccount } from './administration.service'
                             [attr.aria-pressed]="screenAccess()[scr.key] === lvl.value"
                             (click)="setScreenLevel(scr.key, lvl.value)"
                             [class]="screenAccess()[scr.key] === lvl.value
-                              ? 'min-h-[44px] rounded-lg px-3 py-1.5 text-base font-bold shadow-sm transition-colors ' + lvl.activeClass
-                              : 'min-h-[44px] rounded-lg px-3 py-1.5 text-base font-medium text-slate-700 hover:bg-white/70 transition-colors disabled:opacity-40 disabled:cursor-not-allowed'"
+                              ? 'min-h-[44px] rounded-lg px-3 py-1.5 text-base font-bold shadow-sm transition-colors whitespace-nowrap ' + lvl.activeClass
+                              : 'min-h-[44px] rounded-lg px-3 py-1.5 text-base font-medium text-slate-700 hover:bg-white/70 transition-colors whitespace-nowrap disabled:opacity-40 disabled:cursor-not-allowed'"
                           >
                             {{ lvl.label }}
                           </button>

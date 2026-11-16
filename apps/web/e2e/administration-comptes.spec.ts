@@ -140,6 +140,24 @@ test.describe('Administration des comptes et droits d’accès (E2E)', () => {
     await expect(page.locator('[data-testid="preview-menu-planning"]')).toHaveCount(0);
     await expect(page.locator('[data-testid="preview-menu-accueil"]')).toBeVisible();
 
+    // Vérifier qu'aucun bouton ni libellé de la matrice "3. Accès par écran" n'est coupé à 1280px et 1440px
+    for (const testW of [1280, 1440]) {
+      await page.setViewportSize({ width: testW, height: 900 });
+      const formAudit = await page.evaluate(() => {
+        const docClip = document.documentElement.scrollWidth <= document.documentElement.clientWidth;
+        const buttons = Array.from(document.querySelectorAll('[data-testid^="screen-"]')) as HTMLElement[];
+        const clipped = buttons.filter((b) => {
+          const r = b.getBoundingClientRect();
+          const sec = b.closest('section')!.getBoundingClientRect();
+          return r.right > sec.right + 1 || r.left < sec.left - 1 || b.scrollWidth > b.clientWidth + 1;
+        });
+        return { docClip, totalButtons: buttons.length, clippedCount: clipped.length };
+      });
+      expect(formAudit.docClip).toBe(true);
+      expect(formAudit.totalButtons).toBe(24);
+      expect(formAudit.clippedCount).toBe(0);
+    }
+
     await page.screenshot({
       path: path.join(capturesDir, 'administration-creation-compte-1440px.png'),
       fullPage: true,
