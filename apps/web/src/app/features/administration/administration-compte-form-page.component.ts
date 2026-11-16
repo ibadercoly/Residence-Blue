@@ -254,7 +254,7 @@ import { AdministrationService, ManagedAccount } from './administration.service'
                 <div class="divide-y divide-slate-200 border border-slate-200 rounded-xl overflow-x-hidden">
                   @for (scr of screens; track scr.key) {
                     <div
-                      [attr.data-testid]="'screen-row-' + scr.key"
+                      [attr.data-testid]="'row-screen-' + scr.key"
                       [class]="scr.key === 'rapports' && isReportsLockedForProfile()
                         ? 'flex flex-wrap items-center justify-between gap-3 p-4 bg-slate-50 opacity-60 min-w-0'
                         : 'flex flex-wrap items-center justify-between gap-3 p-4 bg-white min-w-0'"

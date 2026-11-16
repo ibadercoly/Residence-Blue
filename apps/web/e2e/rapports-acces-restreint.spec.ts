@@ -1,6 +1,19 @@
-import { expect, test } from '@playwright/test';
+import { expect, Page, test } from '@playwright/test';
 import { STARTER_PROFILES } from '@residence-blue/shared';
-import { createE2eUser, deleteE2eUsers, loginViaUi } from './auth-e2e.helper';
+import { createE2eUser, deleteE2eUsers } from './auth-e2e.helper';
+
+async function loginAsRoleViaUi(
+  page: Page,
+  email: string,
+  password: string,
+  expectedLandingUrl: RegExp,
+): Promise<void> {
+  await page.goto('/connexion');
+  await page.locator('#user-login').fill(email);
+  await page.locator('#user-password').fill(password);
+  await page.locator('#login-btn').click();
+  await expect(page).toHaveURL(expectedLandingUrl, { timeout: 25000 });
+}
 
 test.describe('Rapports — Accès strict Directeur & Comptable uniquement (E2E)', () => {
   const createdEmails: string[] = [];
@@ -23,7 +36,8 @@ test.describe('Rapports — Accès strict Directeur & Comptable uniquement (E2E)
       createdEmails.push(u.email);
 
       await page.setViewportSize({ width: 1440, height: 900 });
-      await loginViaUi(page, u.email, u.password);
+      const landingPattern = prof.key === 'CUISINIER' ? /\/cuisine/ : /\/tableau-de-bord/;
+      await loginAsRoleViaUi(page, u.email, u.password, landingPattern);
 
       await expect(page.locator('[data-testid="nav-rapports"]')).toHaveCount(0);
       await expect(page.locator('a[href="/rapports"]')).toHaveCount(0);
@@ -54,7 +68,7 @@ test.describe('Rapports — Accès strict Directeur & Comptable uniquement (E2E)
     // Comptable : entrée Rapports présente et accès normal à /rapports
     const comptable = createE2eUser('COMPTABLE');
     createdEmails.push(comptable.email);
-    await loginViaUi(page, comptable.email, comptable.password);
+    await loginAsRoleViaUi(page, comptable.email, comptable.password, /\/tableau-de-bord/);
     await expect(page.locator('[data-testid="nav-rapports"]')).toBeVisible();
     await page.locator('[data-testid="nav-rapports"]').click();
     await expect(page).toHaveURL(/\/rapports$/);
@@ -63,7 +77,7 @@ test.describe('Rapports — Accès strict Directeur & Comptable uniquement (E2E)
     // Directeur : accès normal à /rapports et option Rapports grisée pour non-Comptable en création de compte
     const dir = createE2eUser('DIRECTION');
     createdEmails.push(dir.email);
-    await loginViaUi(page, dir.email, dir.password);
+    await loginAsRoleViaUi(page, dir.email, dir.password, /\/tableau-de-bord/);
     await expect(page.locator('[data-testid="nav-rapports"]')).toBeVisible();
     await page.locator('[data-testid="nav-rapports"]').click();
     await expect(page).toHaveURL(/\/rapports$/);
