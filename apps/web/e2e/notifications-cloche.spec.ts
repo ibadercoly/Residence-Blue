@@ -1,7 +1,7 @@
 import { test, expect, Page } from '@playwright/test';
 import * as fs from 'fs';
 import * as path from 'path';
-import { createE2eUser, deleteE2eUsers, getApiAuthHeaders, loginViaUi } from './auth-e2e.helper';
+import { createE2eUser, deleteE2eUsers, getApiAuthHeaders } from './auth-e2e.helper';
 import { execE2eNodeScript } from './e2e-db.helper';
 
 const repoRoot = path.resolve(__dirname, '../../..');
@@ -213,8 +213,16 @@ test.describe('Notifications dans la cloche (deux navigateurs, temps réel, acce
       const cookNotifRes = await request.get('/api/notifications', { headers: cookHeaders });
       expect(cookNotifRes.status()).toBe(403);
 
+      const loginUi = async (pg: Page, email: string, password: string, urlRegex: RegExp) => {
+        await pg.goto('/connexion', { waitUntil: 'domcontentloaded' });
+        await pg.locator('#user-login').fill(email);
+        await pg.locator('#user-password').fill(password);
+        await pg.locator('#login-btn').click();
+        await expect(pg).toHaveURL(urlRegex, { timeout: 25000 });
+      };
+
       // Connecter Assistant (Navigateur 1), Device 2 (Navigateur 2 même compte), Cuisinier (Navigateur 3)
-      await loginViaUi(assistantPage, assistantUser.email, assistantUser.password);
+      await loginUi(assistantPage, assistantUser.email, assistantUser.password, /\/(restaurant|tableau-de-bord)/);
       const streamPromise1 = assistantPage.waitForResponse(
         (r) => r.url().includes('/api/notifications/stream') && r.status() === 200,
         { timeout: 15000 },
@@ -223,7 +231,7 @@ test.describe('Notifications dans la cloche (deux navigateurs, temps réel, acce
       await expect(assistantPage.getByTestId('restaurant-pos-page')).toBeVisible({ timeout: 15000 });
       await streamPromise1;
 
-      await loginViaUi(device2Page, assistantUser.email, assistantUser.password);
+      await loginUi(device2Page, assistantUser.email, assistantUser.password, /\/(restaurant|tableau-de-bord)/);
       const streamPromise2 = device2Page.waitForResponse(
         (r) => r.url().includes('/api/notifications/stream') && r.status() === 200,
         { timeout: 15000 },
@@ -253,11 +261,7 @@ test.describe('Notifications dans la cloche (deux navigateurs, temps réel, acce
       });
 
       // Cuisinier se connecte sur /cuisine (sans cloche)
-      await cookPage.goto('/connexion');
-      await cookPage.locator('#user-login').fill(cookUser.email);
-      await cookPage.locator('#user-password').fill(cookUser.password);
-      await cookPage.locator('#login-btn').click();
-      await cookPage.waitForURL('**/cuisine', { timeout: 25000 });
+      await loginUi(cookPage, cookUser.email, cookUser.password, /\/cuisine$/);
       await expect(cookPage.getByTestId('cuisine-ecran-root')).toBeVisible({ timeout: 15000 });
       await expect(cookPage.getByTestId('header-notifications-btn')).toHaveCount(0);
 
