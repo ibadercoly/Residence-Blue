@@ -106,6 +106,9 @@ export class RolesGuard implements CanActivate {
       if (accesRequirement.screen) {
         const needed = accesRequirement.level ?? 'LECTURE';
         if (!hasScreenAccess(user, accesRequirement.screen, needed)) {
+          if (accesRequirement.screen === 'cuisine') {
+            throw new ForbiddenException('Cet écran est réservé au cuisinier');
+          }
           throw new ForbiddenException(
             'Vous n’avez pas l’autorisation d’accéder à cet écran.',
           );

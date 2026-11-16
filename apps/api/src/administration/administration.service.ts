@@ -20,6 +20,7 @@ import {
   getStarterProfileByKey,
   inferRoleFromScreenAccess,
   isDirectorAccount,
+  isKitchenAccount,
   resolveDefaultAccessForRole,
   sanitizeScreenAccess,
   sanitizeSpecialPermissions,
@@ -197,6 +198,82 @@ export class AdministrationService {
     return sanitizeSpecialPermissions(raw);
   }
 
+  private enforceProfileAccessRules(
+    starterProfile: StarterProfileKey,
+    screenAccess: ScreenAccessMap,
+    specialPermissions: SpecialPermissionsMap,
+    explicitScreensPassed: boolean,
+    explicitSpecialsPassed: boolean,
+  ): void {
+    if (starterProfile === 'MENAGE') {
+      const forbiddenMenageScreens: Array<keyof ScreenAccessMap> = [
+        'accueil',
+        'planning',
+        'clients',
+        'facturation',
+        'restaurant',
+        'cuisine',
+        'rapports',
+      ];
+      for (const scr of forbiddenMenageScreens) {
+        if (explicitScreensPassed && screenAccess[scr] !== 'AUCUN') {
+          throw new ForbiddenException('Cette personne n’a besoin que de l’écran Chambres');
+        }
+        screenAccess[scr] = 'AUCUN';
+      }
+    }
+
+    if (starterProfile !== 'CUISINIER') {
+      if (explicitScreensPassed && screenAccess.cuisine !== 'AUCUN') {
+        throw new ForbiddenException('Seul le cuisinier voit la cuisine');
+      }
+      screenAccess.cuisine = 'AUCUN';
+    } else {
+      const nonCookScreens: Array<keyof ScreenAccessMap> = [
+        'accueil',
+        'planning',
+        'chambres',
+        'clients',
+        'facturation',
+        'restaurant',
+        'rapports',
+      ];
+      if (explicitScreensPassed) {
+        for (const scr of nonCookScreens) {
+          if (screenAccess[scr] !== 'AUCUN') {
+            throw new ForbiddenException(
+              'Le profil Cuisinier n’a accès qu’à l’écran Cuisine en modification.',
+            );
+          }
+        }
+        if (screenAccess.cuisine !== 'ECRITURE') {
+          throw new ForbiddenException(
+            'Le profil Cuisinier doit conserver l’écran Cuisine en modification.',
+          );
+        }
+      }
+      if (explicitSpecialsPassed && Object.values(specialPermissions).some(Boolean)) {
+        throw new ForbiddenException(
+          'Le profil Cuisinier ne dispose d’aucun droit particulier.',
+        );
+      }
+      for (const scr of nonCookScreens) {
+        screenAccess[scr] = 'AUCUN';
+      }
+      screenAccess.cuisine = 'ECRITURE';
+      for (const key of Object.keys(specialPermissions) as Array<keyof SpecialPermissionsMap>) {
+        specialPermissions[key] = false;
+      }
+    }
+
+    if (starterProfile !== 'COMPTABLE') {
+      if (explicitScreensPassed && screenAccess.rapports !== 'AUCUN') {
+        throw new ForbiddenException('Seul le comptable peut voir les rapports');
+      }
+      screenAccess.rapports = 'AUCUN';
+    }
+  }
+
   private assertStarterProfileAssignable(profileKey: string): StarterProfileKey {
     if (profileKey === 'DIRECTEUR' || profileKey === 'DIRECTION') {
       throw new ForbiddenException(
@@ -217,6 +294,9 @@ export class AdministrationService {
     const screenAccess = isDirector
       ? defaults.screenAccess
       : sanitizeScreenAccess(u.screenAccess, defaults.screenAccess);
+    if (!isKitchenAccount({ role: u.role, isPrimaryAdmin: isDirector })) {
+      screenAccess.cuisine = 'AUCUN';
+    }
     const specialPermissions = isDirector
       ? defaults.specialPermissions
       : sanitizeSpecialPermissions(u.specialPermissions, defaults.specialPermissions);
@@ -307,34 +387,13 @@ export class AdministrationService {
     const screenAccess = this.validateScreenAccessPayload(dto.screenAccess);
     const specialPermissions = this.validateSpecialPermissionsPayload(dto.specialPermissions);
 
-    if (starterProfile === 'ASSISTANT_RESTAURANT' && screenAccess.cuisine !== 'AUCUN') {
-      throw new ForbiddenException(
-        'L’assistant(e) du restaurant ne peut jamais accéder à l’écran Cuisine.',
-      );
-    }
-    if (starterProfile !== 'COMPTABLE') {
-      if (dto.screenAccess && screenAccess.rapports !== 'AUCUN') {
-        throw new ForbiddenException('Seul le comptable peut voir les rapports');
-      }
-      screenAccess.rapports = 'AUCUN';
-    }
-    if (starterProfile === 'MENAGE') {
-      const forbiddenMenageScreens: Array<keyof ScreenAccessMap> = [
-        'accueil',
-        'planning',
-        'clients',
-        'facturation',
-        'restaurant',
-        'cuisine',
-        'rapports',
-      ];
-      for (const scr of forbiddenMenageScreens) {
-        if (dto.screenAccess && screenAccess[scr] !== 'AUCUN') {
-          throw new ForbiddenException('Cette personne n’a besoin que de l’écran Chambres');
-        }
-        screenAccess[scr] = 'AUCUN';
-      }
-    }
+    this.enforceProfileAccessRules(
+      starterProfile,
+      screenAccess,
+      specialPermissions,
+      Boolean(dto.screenAccess),
+      Boolean(dto.specialPermissions),
+    );
 
     if (!dto.fullName || dto.fullName.trim().length < 2) {
       throw new BadRequestException('Le nom complet est obligatoire (2 caractères minimum).');
@@ -430,34 +489,13 @@ export class AdministrationService {
       ? this.validateSpecialPermissionsPayload(dto.specialPermissions)
       : currentFormatted.specialPermissions;
 
-    if (starterProfile === 'ASSISTANT_RESTAURANT' && screenAccess.cuisine !== 'AUCUN') {
-      throw new ForbiddenException(
-        'L’assistant(e) du restaurant ne peut jamais accéder à l’écran Cuisine.',
-      );
-    }
-    if (starterProfile !== 'COMPTABLE') {
-      if (dto.screenAccess && screenAccess.rapports !== 'AUCUN') {
-        throw new ForbiddenException('Seul le comptable peut voir les rapports');
-      }
-      screenAccess.rapports = 'AUCUN';
-    }
-    if (starterProfile === 'MENAGE') {
-      const forbiddenMenageScreens: Array<keyof ScreenAccessMap> = [
-        'accueil',
-        'planning',
-        'clients',
-        'facturation',
-        'restaurant',
-        'cuisine',
-        'rapports',
-      ];
-      for (const scr of forbiddenMenageScreens) {
-        if (dto.screenAccess && screenAccess[scr] !== 'AUCUN') {
-          throw new ForbiddenException('Cette personne n’a besoin que de l’écran Chambres');
-        }
-        screenAccess[scr] = 'AUCUN';
-      }
-    }
+    this.enforceProfileAccessRules(
+      starterProfile,
+      screenAccess,
+      specialPermissions,
+      Boolean(dto.screenAccess),
+      Boolean(dto.specialPermissions),
+    );
 
     let nextEmail = existing.email;
     if (dto.email && dto.email.trim().toLowerCase() !== existing.email) {

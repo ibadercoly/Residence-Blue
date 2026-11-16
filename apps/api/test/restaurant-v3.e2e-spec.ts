@@ -498,10 +498,20 @@ describe('Restaurant V3 — Règles métier, Atomicité, RBAC, Photos & Historiq
       .get('/api/cuisine/orders')
       .set('Authorization', `Bearer ${roleTokens['CUISINIER']}`)
       .expect(200);
+    // Tous les profils autres que Cuisinier (y compris DIRECTION, COMPTABLE, HOUSEKEEPING, MAINTENANCE) reçoivent 403
+    for (const nonCookRole of ['DIRECTION', 'RECEPTION', 'RESTAURANT', 'COMPTABLE', 'HOUSEKEEPING', 'MAINTENANCE']) {
+      for (const ep of ['/api/cuisine/orders', '/api/cuisine/stream', '/api/restaurant/kitchen/orders']) {
+        const deniedRes = await request(app.getHttpServer())
+          .get(ep)
+          .set('Authorization', `Bearer ${roleTokens[nonCookRole]}`)
+          .expect(403);
+        expect(String(deniedRes.body?.message || '')).toContain('Cet écran est réservé au cuisinier');
+      }
+    }
     await request(app.getHttpServer())
-      .get('/api/cuisine/orders')
-      .set('Authorization', `Bearer ${roleTokens['DIRECTION']}`)
-      .expect(200);
+      .get('/api/restaurant/orders/stream')
+      .set('Authorization', `Bearer ${roleTokens['CUISINIER']}`)
+      .expect(403);
 
     // 2. Assistant crée une commande de 4 spaghettis
     const created = await request(app.getHttpServer())
@@ -652,6 +662,12 @@ describe('Restaurant V3 — Règles métier, Atomicité, RBAC, Photos & Historiq
     await request(app.getHttpServer())
       .patch(`/api/restaurant/orders/${orderId}/status`)
       .set('Authorization', `Bearer ${roleTokens['DIRECTION']}`)
+      .send({ status: 'IN_PREPARATION' })
+      .expect(403);
+
+    await request(app.getHttpServer())
+      .patch(`/api/restaurant/orders/${orderId}/status`)
+      .set('Authorization', `Bearer ${roleTokens['CUISINIER']}`)
       .send({ status: 'IN_PREPARATION' })
       .expect(409);
 
@@ -917,17 +933,28 @@ describe('Restaurant V3 — Règles métier, Atomicité, RBAC, Photos & Historiq
     expect(assistantPage.body.items[0].guestName).toBe(specialGuestName);
     expect(assistantPage.body.items[0].events[0].detail).toContain(specialGuestName);
 
-    const cookSearchByGuest = await request(app.getHttpServer())
+    // CUISINIER n'a aucun accès à Restaurant (/orders/page, /orders/stream)
+    await request(app.getHttpServer())
       .get(`/api/restaurant/orders/page?offset=0&limit=50&search=${encodeURIComponent("O'Connor")}`)
       .set('Authorization', `Bearer ${roleTokens['CUISINIER']}`)
-      .expect(200);
-    expect(cookSearchByGuest.body.items).toHaveLength(0);
+      .expect(403);
+    await request(app.getHttpServer())
+      .get('/api/restaurant/orders/stream')
+      .set('Authorization', `Bearer ${roleTokens['CUISINIER']}`)
+      .expect(403);
+
+    // DIRECTION ne peut jamais exécuter une action cuisine par appel direct (403)
+    const dirKitchenDenied = await request(app.getHttpServer())
+      .patch(`/api/restaurant/orders/${roomOrdRes.body.id}/status`)
+      .set('Authorization', `Bearer ${roleTokens['DIRECTION']}`)
+      .send({ status: 'IN_PREPARATION', prepTimeMinutes: 10 })
+      .expect(403);
+    expect(String(dirKitchenDenied.body?.message || '')).toContain('Cet écran est réservé au cuisinier');
 
     for (const url of [
       '/api/restaurant/kitchen/orders',
       '/api/cuisine/orders',
       '/api/restaurant/orders',
-      '/api/restaurant/orders/page?offset=0&limit=50',
     ]) {
       const res = await request(app.getHttpServer())
         .get(url)

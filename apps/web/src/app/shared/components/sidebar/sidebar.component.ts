@@ -182,7 +182,7 @@ export interface NavItem {
                     {{ readyOrdersCount() }}
                   </span>
                 }
-                @if (item.id === 'cuisine' && pendingKitchenOrdersCount() > 0) {
+                @if (item.id === 'cuisine' && isKitchenOnly() && pendingKitchenOrdersCount() > 0) {
                   <span
                     data-testid="nav-cuisine-pending-badge"
                     class="ml-auto inline-flex min-w-[22px] h-[22px] items-center justify-center rounded-full bg-[#e11d48] px-1.5 text-[11px] font-extrabold text-white shadow-sm"
@@ -269,7 +269,9 @@ export class SidebarComponent {
     this.restaurantService ? this.restaurantService.readyOrdersCount() : 0,
   );
   readonly pendingKitchenOrdersCount = computed(() =>
-    this.restaurantService ? this.restaurantService.pendingKitchenOrdersCount() : 0,
+    this.restaurantService && this.isKitchenOnly()
+      ? this.restaurantService.pendingKitchenOrdersCount()
+      : 0,
   );
   readonly unreadRoomAlertsCount = computed(() =>
     this.roomsService && this.roomsService.canReceiveRoomAlerts()

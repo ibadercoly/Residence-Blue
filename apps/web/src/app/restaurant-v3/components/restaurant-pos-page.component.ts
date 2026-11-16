@@ -95,6 +95,22 @@ import {
           </div>
         </header>
 
+        @if (service.isDirection() && service.activeCooksCount() === 0) {
+          <div
+            data-testid="pos-no-active-cook-warning"
+            class="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-[#f59e0b]/45 bg-[#fef3c7]/80 px-3.5 py-2 text-xs sm:text-sm font-semibold text-[#925300]"
+          >
+            <span>Aucun compte cuisinier actif : les commandes ne seront pas préparées</span>
+            <a
+              routerLink="/administration/comptes/nouveau"
+              data-testid="link-create-cook-account"
+              class="underline font-bold text-[#0A2540] hover:text-primary whitespace-nowrap cursor-pointer"
+            >
+              Créer un compte cuisinier
+            </a>
+          </div>
+        }
+
         <!-- Messages statut -->
         @if (service.errorMessage(); as err) {
           <div

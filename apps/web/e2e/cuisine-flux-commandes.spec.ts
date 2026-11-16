@@ -223,19 +223,22 @@ test.describe('Flux Restaurant <-> Cuisine, Carte d’information, Notifications
       const recCuisineApi = await request.get('/api/cuisine/orders', { headers: receptionHeaders });
       expect(recCuisineApi.status()).toBe(403);
 
-      // TEST 6c : DIRECTION voit l'entrée Cuisine (#A3E635) juste après Restaurant & Bar et le bouton Prise de commande
+      // TEST 6c : DIRECTION ne voit pas l'entrée Cuisine, /cuisine redirige vers /tableau-de-bord, /api/cuisine/* en 403
       const dirContext = await browser.newContext({ viewport: { width: 1440, height: 900 } });
       const dirPage = await dirContext.newPage();
       try {
         await loginViaUi(dirPage, directionUser.email, directionUser.password);
         await expect(dirPage.locator('[data-testid="nav-restaurant"]')).toBeVisible();
-        await expect(dirPage.locator('[data-testid="nav-cuisine"]')).toBeVisible();
-        await dirPage.locator('[data-testid="nav-cuisine"]').click();
-        await dirPage.waitForURL('**/cuisine', { timeout: 10000 });
-        await expect(dirPage.locator('[data-testid="link-back-pos"]')).toBeVisible();
+        await expect(dirPage.locator('[data-testid="nav-cuisine"]')).toHaveCount(0);
+        await dirPage.goto('/cuisine', { waitUntil: 'domcontentloaded' });
+        await dirPage.waitForURL('**/tableau-de-bord', { timeout: 10000 });
+        await expect(dirPage).toHaveURL(/\/tableau-de-bord$/);
       } finally {
         await dirContext.close();
       }
+      const dirHeaders = await getApiAuthHeaders(request, directionUser.email, directionUser.password);
+      const dirCuisineApi = await request.get('/api/cuisine/orders', { headers: dirHeaders });
+      expect(dirCuisineApi.status()).toBe(403);
 
       // TEST 6d : CUISINIER arrive sur /cuisine avec barre latérale réduite (logo, Cuisine, nom, déconnexion)
       await cookPage.goto('/connexion');

@@ -464,7 +464,7 @@ export function resolveDefaultAccessForRole(
   if (isPrimaryAdmin || normalized === Role.DIRECTION) {
     return {
       starterProfile: 'DIRECTEUR',
-      screenAccess: createFullScreenAccess(),
+      screenAccess: { ...createFullScreenAccess(), cuisine: 'AUCUN' },
       specialPermissions: createFullSpecialPermissions(),
     };
   }
@@ -546,6 +546,15 @@ export function isHousekeepingAccount(user: {
   return user.starterProfile === 'MENAGE' || normalized === Role.HOUSEKEEPING;
 }
 
+export function isKitchenAccount(user: {
+  role?: Role | string | null;
+  isPrimaryAdmin?: boolean | null;
+}): boolean {
+  if (!user || isDirectorAccount(user)) return false;
+  const normalized = user.role ? normalizeLegacyRole(user.role) : undefined;
+  return normalized === Role.CUISINIER;
+}
+
 export function isReportsAllowedForAccount(user: {
   role?: Role | string | null;
   isPrimaryAdmin?: boolean | null;
@@ -565,6 +574,17 @@ export function hasScreenAccess(
   required: Exclude<AccessLevel, 'AUCUN'> = 'LECTURE',
 ): boolean {
   if (!user) return false;
+  if (screen === 'cuisine') {
+    if (!isKitchenAccount(user)) return false;
+    const cookMap = user.screenAccess ?? resolveDefaultAccessForRole(user.role ?? '').screenAccess;
+    const cookLevel = cookMap.cuisine ?? 'ECRITURE';
+    return required === 'LECTURE'
+      ? cookLevel === 'LECTURE' || cookLevel === 'ECRITURE'
+      : cookLevel === 'ECRITURE';
+  }
+  if (isKitchenAccount(user)) {
+    return false;
+  }
   if (isDirectorAccount(user)) return true;
   if (isHousekeepingAccount(user) && screen !== 'chambres') {
     return false;
@@ -598,10 +618,10 @@ export function hasSpecialPermission(
 export function getAuthorizedScreens(user: {
   role?: Role | string | null;
   isPrimaryAdmin?: boolean | null;
+  starterProfile?: StarterProfileKey | string | null;
   screenAccess?: ScreenAccessMap | null;
 } | null | undefined): ScreenDefinition[] {
   if (!user) return [];
-  if (isDirectorAccount(user)) return [...SCREEN_DEFINITIONS];
   return SCREEN_DEFINITIONS.filter((def) => hasScreenAccess(user, def.key, 'LECTURE'));
 }
 

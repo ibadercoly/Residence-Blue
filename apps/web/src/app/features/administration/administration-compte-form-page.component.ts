@@ -265,9 +265,17 @@ import { AdministrationService, ManagedAccount } from './administration.service'
                           <p data-testid="menage-locked-hint" class="text-base text-slate-600">
                             Cette personne n’a besoin que de l’écran Chambres
                           </p>
-                        } @else if (scr.key === 'cuisine' && isRestaurantLockedOutOfKitchen()) {
-                          <p class="text-base text-amber-800">
-                            Toujours bloqué pour un(e) assistant(e) du restaurant.
+                        } @else if (scr.key !== 'cuisine' && isCookProfile()) {
+                          <p data-testid="cook-other-locked-hint" class="text-base text-slate-600">
+                            Le cuisinier n’a accès qu’à l’écran Cuisine
+                          </p>
+                        } @else if (scr.key === 'cuisine' && isCookProfile()) {
+                          <p data-testid="cook-cuisine-locked-hint" class="text-base text-slate-600">
+                            Toujours en modification pour le cuisinier
+                          </p>
+                        } @else if (scr.key === 'cuisine' && isKitchenLockedForProfile()) {
+                          <p data-testid="cuisine-locked-hint" class="text-base text-slate-600">
+                            Seul le cuisinier voit la cuisine
                           </p>
                         } @else if (scr.key === 'rapports' && isReportsLockedForProfile()) {
                           <p data-testid="rapports-locked-hint" class="text-base text-slate-600">
@@ -285,7 +293,9 @@ import { AdministrationService, ManagedAccount } from './administration.service'
                             type="button"
                             [disabled]="
                               (scr.key !== 'chambres' && isMenageProfile() && lvl.value !== 'AUCUN') ||
-                              (scr.key === 'cuisine' && isRestaurantLockedOutOfKitchen() && lvl.value !== 'AUCUN') ||
+                              (scr.key !== 'cuisine' && isCookProfile() && lvl.value !== 'AUCUN') ||
+                              (scr.key === 'cuisine' && isCookProfile() && lvl.value !== 'ECRITURE') ||
+                              (scr.key === 'cuisine' && isKitchenLockedForProfile() && lvl.value !== 'AUCUN') ||
                               (scr.key === 'rapports' && isReportsLockedForProfile() && lvl.value !== 'AUCUN')
                             "
                             [attr.data-testid]="'screen-' + scr.key + '-' + lvl.value"
@@ -327,8 +337,9 @@ import { AdministrationService, ManagedAccount } from './administration.service'
                         [attr.aria-checked]="specialPermissions()[perm.key]"
                         [attr.aria-label]="perm.label"
                         [attr.data-testid]="'perm-toggle-' + perm.key"
+                        [disabled]="isCookProfile()"
                         (click)="toggleSpecialPermission(perm.key)"
-                        class="relative inline-flex h-[44px] w-[72px] shrink-0 cursor-pointer items-center rounded-full p-1 transition-colors focus:outline-none focus:ring-2 focus:ring-[#005e6a]"
+                        class="relative inline-flex h-[44px] w-[72px] shrink-0 cursor-pointer items-center rounded-full p-1 transition-colors focus:outline-none focus:ring-2 focus:ring-[#005e6a] disabled:opacity-50 disabled:cursor-not-allowed"
                         [class.bg-[#005e6a]]="specialPermissions()[perm.key]"
                         [class.bg-slate-300]="!specialPermissions()[perm.key]"
                       >
@@ -613,8 +624,12 @@ export class AdministrationCompteFormPageComponent implements OnInit {
     ...STARTER_PROFILES[0].specialPermissions,
   });
 
-  readonly isRestaurantLockedOutOfKitchen = computed(
-    () => this.starterProfile() === 'ASSISTANT_RESTAURANT',
+  readonly isCookProfile = computed(
+    () => this.starterProfile() === 'CUISINIER',
+  );
+
+  readonly isKitchenLockedForProfile = computed(
+    () => this.starterProfile() !== 'CUISINIER',
   );
 
   readonly isReportsLockedForProfile = computed(
@@ -625,7 +640,8 @@ export class AdministrationCompteFormPageComponent implements OnInit {
 
   isScreenLockedForProfile(screen: ScreenKey): boolean {
     if (screen !== 'chambres' && this.isMenageProfile()) return true;
-    if (screen === 'cuisine' && this.isRestaurantLockedOutOfKitchen()) return true;
+    if (this.isCookProfile()) return true;
+    if (screen === 'cuisine' && this.isKitchenLockedForProfile()) return true;
     if (screen === 'rapports' && this.isReportsLockedForProfile()) return true;
     return false;
   }
@@ -663,6 +679,19 @@ export class AdministrationCompteFormPageComponent implements OnInit {
       if (nextProfile !== 'COMPTABLE') {
         loadedScreens.rapports = 'AUCUN';
       }
+      if (nextProfile !== 'CUISINIER') {
+        loadedScreens.cuisine = 'AUCUN';
+      }
+      if (nextProfile === 'CUISINIER') {
+        loadedScreens.accueil = 'AUCUN';
+        loadedScreens.planning = 'AUCUN';
+        loadedScreens.chambres = 'AUCUN';
+        loadedScreens.clients = 'AUCUN';
+        loadedScreens.facturation = 'AUCUN';
+        loadedScreens.restaurant = 'AUCUN';
+        loadedScreens.cuisine = 'ECRITURE';
+        loadedScreens.rapports = 'AUCUN';
+      }
       if (nextProfile === 'MENAGE') {
         loadedScreens.accueil = 'AUCUN';
         loadedScreens.planning = 'AUCUN';
@@ -698,7 +727,10 @@ export class AdministrationCompteFormPageComponent implements OnInit {
     if (screen !== 'chambres' && this.isMenageProfile() && level !== 'AUCUN') {
       return;
     }
-    if (screen === 'cuisine' && this.isRestaurantLockedOutOfKitchen()) {
+    if (this.isCookProfile()) {
+      return;
+    }
+    if (screen === 'cuisine' && this.isKitchenLockedForProfile() && level !== 'AUCUN') {
       return;
     }
     if (screen === 'rapports' && this.isReportsLockedForProfile() && level !== 'AUCUN') {
@@ -708,6 +740,7 @@ export class AdministrationCompteFormPageComponent implements OnInit {
   }
 
   toggleSpecialPermission(key: SpecialPermissionKey): void {
+    if (this.isCookProfile()) return;
     this.specialPermissions.update((curr) => ({ ...curr, [key]: !curr[key] }));
   }
 

@@ -450,12 +450,27 @@ export class RestaurantService {
   ) {
     const hideRooms = Boolean(options?.kitchenOnly) || this.isKitchenRole(actorRole);
     const hidePrices = Boolean(options?.hideAmounts) || hideRooms;
-    const [categories, products, roomsInStay] = await Promise.all([
+    const isDirector = actorRole === 'DIRECTION';
+    const [categories, products, roomsInStay, activeCooksCount] = await Promise.all([
       this.findAllCategories(),
       this.findAllProducts(false, hidePrices),
       hideRooms ? Promise.resolve([]) : this.findRoomsInStay(),
+      isDirector
+        ? this.prisma.user.count({
+            where: {
+              isActive: true,
+              deletedAt: null,
+              role: { in: ['CUISINIER', 'CUISINE'] as any },
+            },
+          })
+        : Promise.resolve(undefined),
     ]);
-    return { categories, products, roomsInStay };
+    return {
+      categories,
+      products,
+      roomsInStay,
+      ...(isDirector ? { activeCooksCount } : {}),
+    };
   }
 
   private async resolveOrCreateCategory(
@@ -1401,6 +1416,22 @@ export class RestaurantService {
     const rawRequested = dto.status || dto.statut;
     const requestedStatus = rawRequested ? this.normalizeOrderStatus(rawRequested) : undefined;
     const isKitchen = Boolean(actor?.kitchenOnly) || this.isKitchenRole(actor?.actorRole);
+    const requestedPrepMin = dto.prepTimeMinutes ?? dto.tempsPreparationMinutes;
+    const requestedAddMin = dto.addMinutes;
+    const hasUnavailableUpdate =
+      Array.isArray(dto.unavailableLineIds) && dto.unavailableLineIds.length > 0;
+
+    const isKitchenAction =
+      requestedStatus === 'CONFIRMED' ||
+      requestedStatus === 'IN_PREPARATION' ||
+      requestedStatus === 'READY' ||
+      requestedPrepMin !== undefined ||
+      requestedAddMin !== undefined ||
+      hasUnavailableUpdate;
+
+    if (!isKitchen && isKitchenAction) {
+      throw new ForbiddenException('Cet écran est réservé au cuisinier');
+    }
 
     if (requestedStatus === 'CANCELLED') {
       if (isKitchen) {
@@ -1434,10 +1465,6 @@ export class RestaurantService {
     }
 
     const now = new Date();
-    const requestedPrepMin = dto.prepTimeMinutes ?? dto.tempsPreparationMinutes;
-    const requestedAddMin = dto.addMinutes;
-    const hasUnavailableUpdate =
-      Array.isArray(dto.unavailableLineIds) && dto.unavailableLineIds.length > 0;
 
     // Ajustement de temps (+5 min ou changement de temps) sur une commande déjà En préparation ou Confirmée
     const isTimeAdjustmentOnly =

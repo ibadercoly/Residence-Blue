@@ -5,6 +5,7 @@ import {
   Body,
   Controller,
   Delete,
+  ForbiddenException,
   Get,
   Headers,
   HttpCode,
@@ -24,7 +25,7 @@ import {
 import { FileInterceptor } from '@nestjs/platform-express';
 import { Request, Response } from 'express';
 import { map, merge, Observable, takeUntil, timer } from 'rxjs';
-import { hasScreenAccess, hasSpecialPermission } from '@residence-blue/shared';
+import { hasScreenAccess, hasSpecialPermission, isKitchenAccount } from '@residence-blue/shared';
 import { Acces } from '../common/decorators/acces.decorator';
 import { Public } from '../common/decorators/roles.decorator';
 import { SessionRevocationService } from '../auth/session-revocation.service';
@@ -55,9 +56,7 @@ export class RestaurantController {
   private getAccessFlags(req?: Request) {
     const user = (req as any)?.user;
     const role = user?.role as string | undefined;
-    const canRestaurant = hasScreenAccess(user, 'restaurant', 'LECTURE');
-    const canCuisine = hasScreenAccess(user, 'cuisine', 'LECTURE');
-    const isKitchenOnly = role === 'CUISINIER' || role === 'CUISINE' || (!canRestaurant && canCuisine);
+    const isKitchenOnly = isKitchenAccount(user);
     const hideAmounts = isKitchenOnly || !hasSpecialPermission(user, 'voir_montants');
     return { user, role, isKitchenOnly, hideAmounts };
   }
@@ -166,7 +165,7 @@ export class RestaurantController {
 
   @Get('orders/stream')
   @Sse()
-  @Acces({ anyScreens: [{ screen: 'restaurant', level: 'LECTURE' }, { screen: 'cuisine', level: 'LECTURE' }] })
+  @Acces('restaurant', 'LECTURE')
   streamOrders(@Req() req: Request): Observable<MessageEvent> {
     const { user, role, isKitchenOnly, hideAmounts } = this.getAccessFlags(req);
     const rawLastId =
@@ -220,7 +219,6 @@ export class RestaurantController {
   @Acces({
     anyScreens: [
       { screen: 'restaurant', level: 'LECTURE' },
-      { screen: 'cuisine', level: 'LECTURE' },
       { screen: 'facturation', level: 'LECTURE' },
     ],
   })
@@ -232,15 +230,21 @@ export class RestaurantController {
   @Get('kitchen/orders')
   @Acces('cuisine', 'LECTURE')
   async findKitchenOrders(@Req() req: Request) {
-    const { role, isKitchenOnly, hideAmounts } = this.getAccessFlags(req);
-    return this.restaurantService.findAllOrders(role, hideAmounts || isKitchenOnly);
+    const { user, role } = this.getAccessFlags(req);
+    if (!isKitchenAccount(user)) {
+      throw new ForbiddenException('Cet écran est réservé au cuisinier');
+    }
+    return this.restaurantService.findAllOrders(role, true);
   }
 
   @Get('orders')
   @Acces('cuisine', 'LECTURE')
   async findAllOrders(@Req() req: Request) {
-    const { role, isKitchenOnly, hideAmounts } = this.getAccessFlags(req);
-    return this.restaurantService.findAllOrders(role, hideAmounts || isKitchenOnly);
+    const { user, role } = this.getAccessFlags(req);
+    if (!isKitchenAccount(user)) {
+      throw new ForbiddenException('Cet écran est réservé au cuisinier');
+    }
+    return this.restaurantService.findAllOrders(role, true);
   }
 
   @Post('orders')
@@ -309,31 +313,67 @@ export class RestaurantController {
 
 @Controller('cuisine')
 export class CuisineController {
-  constructor(private readonly restaurantService: RestaurantService) {}
+  constructor(
+    private readonly restaurantService: RestaurantService,
+    private readonly sessionRevocation: SessionRevocationService,
+  ) {}
+
+  @Get('stream')
+  @Sse()
+  @Acces('cuisine', 'LECTURE')
+  streamCuisineOrders(@Req() req: Request): Observable<MessageEvent> {
+    const user = (req as any)?.user;
+    if (!isKitchenAccount(user)) {
+      throw new ForbiddenException('Cet écran est réservé au cuisinier');
+    }
+    const role = user?.role as string | undefined;
+    const rawLastId =
+      (req.headers['last-event-id'] as string | undefined) ||
+      (req.query?.lastEventId as string | undefined);
+    const lastEventId = rawLastId ? Number(rawLastId) : undefined;
+
+    const updates$ = this.restaurantService
+      .getRoleFilteredOrderEventStream(role, lastEventId, true)
+      .pipe(
+        map(
+          (evt) =>
+            ({
+              id: String(evt.eventId),
+              data: evt,
+            }) as MessageEvent,
+        ),
+      );
+    const heartbeat$ = timer(0, 25000).pipe(
+      map(
+        () =>
+          ({
+            data: { type: 'HEARTBEAT', timestamp: new Date().toISOString() },
+          }) as MessageEvent,
+      ),
+    );
+    const stream$ = merge(updates$, heartbeat$);
+    return user?.id
+      ? stream$.pipe(takeUntil(this.sessionRevocation.onUserRevoked(user.id)))
+      : stream$;
+  }
 
   @Get('orders')
   @Acces('cuisine', 'LECTURE')
   async findCuisineOrders(@Req() req: Request) {
     const user = (req as any)?.user;
-    const role = user?.role as string | undefined;
-    const hideAmounts =
-      role === 'CUISINIER' ||
-      role === 'CUISINE' ||
-      !hasScreenAccess(user, 'restaurant', 'LECTURE') ||
-      !hasSpecialPermission(user, 'voir_montants');
-    return this.restaurantService.findAllOrders(role, hideAmounts);
+    if (!isKitchenAccount(user)) {
+      throw new ForbiddenException('Cet écran est réservé au cuisinier');
+    }
+    return this.restaurantService.findAllOrders(user?.role, true);
   }
 
   @Get('*')
   @Acces('cuisine', 'LECTURE')
   async findCuisineRoot(@Req() req: Request) {
     const user = (req as any)?.user;
-    const role = user?.role as string | undefined;
-    const hideAmounts =
-      role === 'CUISINIER' ||
-      role === 'CUISINE' ||
-      !hasScreenAccess(user, 'restaurant', 'LECTURE') ||
-      !hasSpecialPermission(user, 'voir_montants');
-    return this.restaurantService.findAllOrders(role, hideAmounts);
+    if (!isKitchenAccount(user)) {
+      throw new ForbiddenException('Cet écran est réservé au cuisinier');
+    }
+    return this.restaurantService.findAllOrders(user?.role, true);
   }
 }

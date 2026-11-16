@@ -294,4 +294,5 @@ export interface RestaurantMenuCatalog {
   categories: DishCategory[];
   products: DishItem[];
   roomsInStay: RestaurantInStayRoom[];
+  activeCooksCount?: number;
 }

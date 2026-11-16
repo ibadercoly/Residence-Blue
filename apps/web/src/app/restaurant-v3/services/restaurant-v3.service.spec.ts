@@ -104,4 +104,19 @@ describe('RestaurantV3Service', () => {
     expect(queued).toBe(true);
     expect(enqueueMock).toHaveBeenCalledTimes(1);
   });
+
+  it('enregistre activeCooksCount depuis /api/restaurant/catalog', async () => {
+    jest.spyOn(globalThis, 'fetch').mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        categories: [],
+        products: [],
+        roomsInStay: [],
+        activeCooksCount: 0,
+      }),
+    } as Response);
+
+    await service.loadCatalog();
+    expect(service.activeCooksCount()).toBe(0);
+  });
 });

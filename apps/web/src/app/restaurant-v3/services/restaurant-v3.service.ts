@@ -86,6 +86,7 @@ export class RestaurantV3Service {
   readonly errorMessage = signal<string | null>(null);
   readonly successMessage = signal<string | null>(null);
   readonly sseConnected = signal<boolean>(false);
+  readonly activeCooksCount = signal<number | null>(null);
   readonly soundEnabled = signal<boolean>(true);
   readonly kitchenNewOrderNotice = signal<string | null>(null);
   readonly assistantNotifications = signal<AssistantNotificationBanner[]>([]);
@@ -440,6 +441,9 @@ export class RestaurantV3Service {
       this.categories.set(data.categories || []);
       this.products.set(data.products || []);
       this.roomsInStay.set(data.roomsInStay || []);
+      this.activeCooksCount.set(
+        typeof data.activeCooksCount === 'number' ? data.activeCooksCount : null,
+      );
       void this.putCache({ id: 'catalog', ...data });
     } catch (err: any) {
       if (err?.name === 'AbortError') return;
@@ -681,13 +685,15 @@ export class RestaurantV3Service {
       });
       if (!res.ok) {
         this.errorMessage.set(await this.extractError(res, 'Impossible de modifier le statut.'));
-        await this.loadKitchenOrders();
+        if (this.isKitchenOnly()) {
+          await this.loadKitchenOrders();
+        }
         return false;
       }
       if (this.isKitchenOnly()) {
         await this.loadKitchenOrders();
       } else {
-        await Promise.all([this.loadOrdersPage(), this.loadKitchenOrders()]);
+        await this.loadOrdersPage();
       }
       return true;
     } catch {
@@ -799,7 +805,7 @@ export class RestaurantV3Service {
 
   async loadKitchenOrders(): Promise<void> {
     if (!this.isOnline()) return;
-    if (!this.isDirection() && !this.isKitchenOnly()) return;
+    if (!this.isKitchenOnly()) return;
     try {
       const res = await this.apiFetch('/api/restaurant/kitchen/orders', {
         method: 'GET',
@@ -845,7 +851,8 @@ export class RestaurantV3Service {
         if (this.lastSseEventId !== null) {
           headers['Last-Event-ID'] = String(this.lastSseEventId);
         }
-        const res = await this.apiFetch('/api/restaurant/orders/stream', {
+        const streamUrl = this.isKitchenOnly() ? '/api/cuisine/stream' : '/api/restaurant/orders/stream';
+        const res = await this.apiFetch(streamUrl, {
           method: 'GET',
           headers: this.authHeaders(headers),
           signal: controller.signal,
@@ -887,6 +894,21 @@ export class RestaurantV3Service {
               }
             }
             if (frame.includes('ORDER_')) {
+              if (this.isKitchenOnly() && parsedEvt?.order?.id) {
+                const ord = parsedEvt.order as RestaurantOrderV3;
+                const activeKitchenStatuses = new Set([
+                  'PENDING',
+                  'SENT_TO_KITCHEN',
+                  'CONFIRMED',
+                  'IN_PREPARATION',
+                  'READY',
+                  'AUTHORIZED',
+                ]);
+                this.kitchenOrders.update((curr) => {
+                  const without = curr.filter((x) => x.id !== ord.id);
+                  return activeKitchenStatuses.has(String(ord.status)) ? [...without, ord] : without;
+                });
+              }
               if (parsedEvt?.type === 'ORDER_CREATED') {
                 const dest = parsedEvt?.order?.destinationLabel || 'Nouveau ticket';
                 this.kitchenNewOrderNotice.set(`Nouvelle commande • ${dest}`);

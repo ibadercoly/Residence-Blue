@@ -351,6 +351,41 @@ describe('Administration des comptes et modèle d’accès (e2e)', () => {
         },
       })
       .expect(403);
+
+    // DIRECTION reçoit aussi 403 sur /api/cuisine/orders et aucun autre profil ne peut recevoir Cuisine
+    await request(app.getHttpServer())
+      .get('/api/cuisine/orders')
+      .set('Authorization', `Bearer ${roleTokens[Role.DIRECTION]}`)
+      .expect(403);
+
+    for (const profileKey of ['ASSISTANT_RECEPTION', 'ASSISTANT_RESTAURANT', 'TECHNIQUE', 'COMPTABLE'] as const) {
+      const deniedRes = await request(app.getHttpServer())
+        .post('/api/administration/comptes')
+        .set('Authorization', `Bearer ${roleTokens[Role.DIRECTION]}`)
+        .send({
+          fullName: `Cuisine Interdite ${profileKey}`,
+          email: `no-cook-${profileKey.toLowerCase()}-${Date.now()}@residenceblue.sn`,
+          starterProfile: profileKey,
+          screenAccess: {
+            accueil: 'AUCUN',
+            planning: 'AUCUN',
+            chambres: 'LECTURE',
+            clients: 'AUCUN',
+            facturation: 'AUCUN',
+            restaurant: 'AUCUN',
+            cuisine: 'LECTURE',
+            rapports: 'AUCUN',
+          },
+          specialPermissions: {
+            voir_montants: false,
+            encaisser_paiement: false,
+            changer_etat_chambre: false,
+            annuler_commande_ou_reservation: false,
+          },
+        })
+        .expect(403);
+      expect(String(deniedRes.body?.message || '')).toContain('Seul le cuisinier voit la cuisine');
+    }
   });
 
   it('désactive immédiatement (jeton refusé + flux SSE fermé) puis réactive, puis supprime en libérant e-mail et gardant historique', async () => {

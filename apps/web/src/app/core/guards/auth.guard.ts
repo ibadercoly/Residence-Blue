@@ -1,6 +1,6 @@
 import { inject } from '@angular/core';
 import { ActivatedRouteSnapshot, CanActivateFn, Router, RouterStateSnapshot } from '@angular/router';
-import { ScreenKey } from '@residence-blue/shared';
+import { ScreenKey, isKitchenAccount } from '@residence-blue/shared';
 import { AuthService } from '../services/auth.service';
 
 function resolveRequiredScreenForUrl(url: string): ScreenKey | null {
@@ -49,6 +49,11 @@ export const authGuard: CanActivateFn = async (
 
   if (state.url.startsWith('/changer-mot-de-passe')) {
     return router.createUrlTree([authService.getFirstAuthorizedRoute()]);
+  }
+
+  // Le cuisinier n'accède qu'à /cuisine ; toute autre adresse le redirige vers /cuisine.
+  if (isKitchenAccount(user) && !state.url.startsWith('/cuisine')) {
+    return router.createUrlTree(['/cuisine']);
   }
 
   // L'écran Administration est réservé au directeur ; le composant /administration

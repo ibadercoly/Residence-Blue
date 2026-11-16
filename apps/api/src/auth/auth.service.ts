@@ -13,6 +13,7 @@ import * as crypto from 'crypto';
 import {
   Role,
   isDirectorAccount,
+  isKitchenAccount,
   resolveDefaultAccessForRole,
   sanitizeScreenAccess,
   sanitizeSpecialPermissions,
@@ -110,6 +111,9 @@ export class AuthService {
     const screenAccess = isDirector
       ? defaults.screenAccess
       : sanitizeScreenAccess(u.screenAccess, defaults.screenAccess);
+    if (!isKitchenAccount({ role: u.role, isPrimaryAdmin: u.isPrimaryAdmin })) {
+      screenAccess.cuisine = 'AUCUN';
+    }
     const specialPermissions = isDirector
       ? defaults.specialPermissions
       : sanitizeSpecialPermissions(u.specialPermissions, defaults.specialPermissions);

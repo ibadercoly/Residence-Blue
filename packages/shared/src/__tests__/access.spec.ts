@@ -1,4 +1,5 @@
 import {
+  getAuthorizedScreens,
   STARTER_PROFILES,
   getFirstAuthorizedRoute,
   hasScreenAccess,
@@ -156,5 +157,76 @@ describe('access model (@residence-blue/shared)', () => {
         'LECTURE',
       ),
     ).toBe(false);
+  });
+
+  it('réserve strictement Cuisine au seul profil Cuisinier (refus même pour DIRECTION)', () => {
+    const dir = resolveDefaultAccessForRole(Role.DIRECTION, true);
+    expect(dir.screenAccess.cuisine).toBe('AUCUN');
+    expect(
+      hasScreenAccess(
+        { role: Role.DIRECTION, isPrimaryAdmin: true, screenAccess: dir.screenAccess },
+        'cuisine',
+        'LECTURE',
+      ),
+    ).toBe(false);
+    expect(
+      hasScreenAccess(
+        {
+          role: Role.DIRECTION,
+          isPrimaryAdmin: true,
+          screenAccess: { ...dir.screenAccess, cuisine: 'ECRITURE' },
+        },
+        'cuisine',
+        'ECRITURE',
+      ),
+    ).toBe(false);
+
+    const dirScreens = getAuthorizedScreens({ role: Role.DIRECTION, isPrimaryAdmin: true });
+    expect(dirScreens.some((s) => s.key === 'cuisine')).toBe(false);
+
+    for (const nonCook of [
+      Role.RECEPTION,
+      Role.RESTAURANT,
+      Role.COMPTABLE,
+      Role.HOUSEKEEPING,
+      Role.MAINTENANCE,
+    ]) {
+      expect(
+        hasScreenAccess(
+          {
+            role: nonCook,
+            isPrimaryAdmin: false,
+            screenAccess: {
+              accueil: 'AUCUN',
+              planning: 'AUCUN',
+              chambres: 'AUCUN',
+              clients: 'AUCUN',
+              facturation: 'AUCUN',
+              restaurant: 'ECRITURE',
+              cuisine: 'ECRITURE',
+              rapports: 'AUCUN',
+            },
+          },
+          'cuisine',
+          'LECTURE',
+        ),
+      ).toBe(false);
+    }
+
+    const cookScreens = getAuthorizedScreens({
+      role: Role.CUISINIER,
+      isPrimaryAdmin: false,
+      screenAccess: {
+        accueil: 'ECRITURE',
+        planning: 'ECRITURE',
+        chambres: 'ECRITURE',
+        clients: 'ECRITURE',
+        facturation: 'ECRITURE',
+        restaurant: 'ECRITURE',
+        cuisine: 'ECRITURE',
+        rapports: 'ECRITURE',
+      },
+    });
+    expect(cookScreens.map((s) => s.key)).toEqual(['cuisine']);
   });
 });
