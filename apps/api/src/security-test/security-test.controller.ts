@@ -78,7 +78,7 @@ export class SecurityTestController {
 
   // Route sur un module actif autorisant le rôle HOUSEKEEPING : pour tester le blocage du rôle désactivé en V1
   @RequireModule('rooms')
-  @Roles(UserRole.ADMIN, 'HOUSEKEEPING')
+  @Roles(UserRole.ADMIN, 'HOUSEKEEPING', 'MAINTENANCE')
   @Get('test-staff-role')
   testStaffRole() {
     return { message: 'Rôle autorisé' };

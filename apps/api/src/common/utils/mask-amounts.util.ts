@@ -13,6 +13,8 @@ const MONETARY_KEYS = new Set([
   'vatAmountFcfa',
   'amountFcfa',
   'pricePerNight',
+  'highSeasonPricePerNight',
+  'corporatePricePerNight',
   'totalBilledTodayFcfa',
   'totalCollectedTodayFcfa',
   'totalOutstandingFcfa',

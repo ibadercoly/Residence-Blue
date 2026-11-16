@@ -255,18 +255,21 @@ import { AdministrationService, ManagedAccount } from './administration.service'
                   @for (scr of screens; track scr.key) {
                     <div
                       [attr.data-testid]="'row-screen-' + scr.key"
-                      [class]="scr.key === 'rapports' && isReportsLockedForProfile()
+                      [class]="isScreenLockedForProfile(scr.key)
                         ? 'flex flex-wrap items-center justify-between gap-3 p-4 bg-slate-50 opacity-60 min-w-0'
                         : 'flex flex-wrap items-center justify-between gap-3 p-4 bg-white min-w-0'"
                     >
                       <div class="min-w-0 shrink-0">
                         <div class="text-base font-bold text-[#0A2540]">{{ scr.label }}</div>
-                        @if (scr.key === 'cuisine' && isRestaurantLockedOutOfKitchen()) {
+                        @if (scr.key !== 'chambres' && isMenageProfile()) {
+                          <p data-testid="menage-locked-hint" class="text-base text-slate-600">
+                            Cette personne n’a besoin que de l’écran Chambres
+                          </p>
+                        } @else if (scr.key === 'cuisine' && isRestaurantLockedOutOfKitchen()) {
                           <p class="text-base text-amber-800">
                             Toujours bloqué pour un(e) assistant(e) du restaurant.
                           </p>
-                        }
-                        @if (scr.key === 'rapports' && isReportsLockedForProfile()) {
+                        } @else if (scr.key === 'rapports' && isReportsLockedForProfile()) {
                           <p data-testid="rapports-locked-hint" class="text-base text-slate-600">
                             Seul le comptable peut voir les rapports
                           </p>
@@ -281,6 +284,7 @@ import { AdministrationService, ManagedAccount } from './administration.service'
                           <button
                             type="button"
                             [disabled]="
+                              (scr.key !== 'chambres' && isMenageProfile() && lvl.value !== 'AUCUN') ||
                               (scr.key === 'cuisine' && isRestaurantLockedOutOfKitchen() && lvl.value !== 'AUCUN') ||
                               (scr.key === 'rapports' && isReportsLockedForProfile() && lvl.value !== 'AUCUN')
                             "
@@ -617,6 +621,15 @@ export class AdministrationCompteFormPageComponent implements OnInit {
     () => this.starterProfile() !== 'COMPTABLE',
   );
 
+  readonly isMenageProfile = computed(() => this.starterProfile() === 'MENAGE');
+
+  isScreenLockedForProfile(screen: ScreenKey): boolean {
+    if (screen !== 'chambres' && this.isMenageProfile()) return true;
+    if (screen === 'cuisine' && this.isRestaurantLockedOutOfKitchen()) return true;
+    if (screen === 'rapports' && this.isReportsLockedForProfile()) return true;
+    return false;
+  }
+
   readonly previewScreens = computed(() =>
     SCREEN_DEFINITIONS.filter((s) => this.screenAccess()[s.key] !== 'AUCUN'),
   );
@@ -650,6 +663,15 @@ export class AdministrationCompteFormPageComponent implements OnInit {
       if (nextProfile !== 'COMPTABLE') {
         loadedScreens.rapports = 'AUCUN';
       }
+      if (nextProfile === 'MENAGE') {
+        loadedScreens.accueil = 'AUCUN';
+        loadedScreens.planning = 'AUCUN';
+        loadedScreens.clients = 'AUCUN';
+        loadedScreens.facturation = 'AUCUN';
+        loadedScreens.restaurant = 'AUCUN';
+        loadedScreens.cuisine = 'AUCUN';
+        loadedScreens.rapports = 'AUCUN';
+      }
       this.screenAccess.set(loadedScreens);
       this.specialPermissions.set({
         ...createEmptySpecialPermissions(),
@@ -673,6 +695,9 @@ export class AdministrationCompteFormPageComponent implements OnInit {
   }
 
   setScreenLevel(screen: ScreenKey, level: AccessLevel): void {
+    if (screen !== 'chambres' && this.isMenageProfile() && level !== 'AUCUN') {
+      return;
+    }
     if (screen === 'cuisine' && this.isRestaurantLockedOutOfKitchen()) {
       return;
     }

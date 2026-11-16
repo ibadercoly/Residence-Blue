@@ -33,6 +33,10 @@ export class RoomsService {
 
   readonly rooms = signal<RoomUiItem[]>([]);
   readonly currentRole = computed<Role>(() => this.authService?.currentRole() || Role.RECEPTION);
+  readonly canViewAmounts = computed<boolean>(() => {
+    if (!this.authService || typeof this.authService.hasPermission !== 'function') return true;
+    return this.authService.hasPermission('voir_montants');
+  });
   readonly selectedFilter = signal<string>('ALL');
   readonly selectedFloor = signal<number | null>(null);
   readonly selectedCategory = signal<string | null>(null);
@@ -874,7 +878,14 @@ export class RoomsService {
 
   private normalizeRoom(r: Partial<RoomUiItem> & { id: string; number: string }): RoomUiItem {
     const category = r.category || r.type?.name || 'Standard';
-    const price = r.type?.pricePerNight || (category === 'Suite' ? 95000 : category === 'Deluxe' ? 55000 : 35000);
+    const canViewAmounts = this.authService && typeof this.authService.hasPermission === 'function'
+      ? this.authService.hasPermission('voir_montants')
+      : true;
+    const rawPrice = r.type?.pricePerNight !== undefined ? r.type.pricePerNight : r.pricePerNight;
+    const price: number | null =
+      canViewAmounts && typeof rawPrice === 'number' && Number.isFinite(rawPrice)
+        ? rawPrice
+        : null;
     const imageUrl = r.imageUrl || r.image || getRoomImageUrl(r.number);
     const imageAlt = r.imageAlt || getRoomImageAlt(r.number);
 
@@ -885,10 +896,11 @@ export class RoomsService {
       status: r.status || RoomStatus.FREE,
       category,
       typeId: r.typeId || `type-${category.toLowerCase().replace(/\s+/g, '-')}`,
+      pricePerNight: price,
       type: {
         id: r.typeId || `type-${category.toLowerCase().replace(/\s+/g, '-')}`,
         name: category,
-        pricePerNight: price,
+        pricePerNight: price as any,
       },
       amenities: r.amenities || ['Climatisation', 'Wi-Fi Fibre'],
       image: imageUrl,
@@ -902,8 +914,8 @@ export class RoomsService {
       view: r.view || (category === 'Suite' ? 'mer' : category === 'Deluxe' ? 'piscine' : 'jardin'),
       smoking: Boolean(r.smoking),
       connectingRoom: r.connectingRoom || '',
-      highSeasonPricePerNight: r.highSeasonPricePerNight,
-      corporatePricePerNight: r.corporatePricePerNight,
+      highSeasonPricePerNight: canViewAmounts ? r.highSeasonPricePerNight : null,
+      corporatePricePerNight: canViewAmounts ? r.corporatePricePerNight : null,
       breakfastIncluded: r.breakfastIncluded ?? true,
       description: r.description || '',
       internalNote: r.internalNote || '',
@@ -913,14 +925,8 @@ export class RoomsService {
   }
 
   private buildInitialRooms(): RoomUiItem[] {
-    const typePrices: Record<string, number> = {
-      Standard: 35000,
-      Deluxe: 55000,
-      Suite: 95000,
-    };
-
     return SEED_ROOMS.map((seed, idx) => {
-      const price = typePrices[seed.typeName] || 35000;
+      const price: number | null = null;
       const category = seed.typeName;
       const imageUrl = seed.imageUrl || getRoomImageUrl(seed.number);
       const imageAlt = seed.imageAlt || getRoomImageAlt(seed.number);

@@ -318,6 +318,23 @@ export class AdministrationService {
       }
       screenAccess.rapports = 'AUCUN';
     }
+    if (starterProfile === 'MENAGE') {
+      const forbiddenMenageScreens: Array<keyof ScreenAccessMap> = [
+        'accueil',
+        'planning',
+        'clients',
+        'facturation',
+        'restaurant',
+        'cuisine',
+        'rapports',
+      ];
+      for (const scr of forbiddenMenageScreens) {
+        if (dto.screenAccess && screenAccess[scr] !== 'AUCUN') {
+          throw new ForbiddenException('Cette personne n’a besoin que de l’écran Chambres');
+        }
+        screenAccess[scr] = 'AUCUN';
+      }
+    }
 
     if (!dto.fullName || dto.fullName.trim().length < 2) {
       throw new BadRequestException('Le nom complet est obligatoire (2 caractères minimum).');
@@ -423,6 +440,23 @@ export class AdministrationService {
         throw new ForbiddenException('Seul le comptable peut voir les rapports');
       }
       screenAccess.rapports = 'AUCUN';
+    }
+    if (starterProfile === 'MENAGE') {
+      const forbiddenMenageScreens: Array<keyof ScreenAccessMap> = [
+        'accueil',
+        'planning',
+        'clients',
+        'facturation',
+        'restaurant',
+        'cuisine',
+        'rapports',
+      ];
+      for (const scr of forbiddenMenageScreens) {
+        if (dto.screenAccess && screenAccess[scr] !== 'AUCUN') {
+          throw new ForbiddenException('Cette personne n’a besoin que de l’écran Chambres');
+        }
+        screenAccess[scr] = 'AUCUN';
+      }
     }
 
     let nextEmail = existing.email;

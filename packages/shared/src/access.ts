@@ -488,10 +488,7 @@ export function resolveDefaultAccessForRole(
     case Role.HOUSEKEEPING:
       return {
         starterProfile: 'MENAGE',
-        screenAccess: {
-          ...STARTER_PROFILES[3].screenAccess,
-          accueil: 'LECTURE',
-        },
+        screenAccess: { ...STARTER_PROFILES[3].screenAccess },
         specialPermissions: { ...STARTER_PROFILES[3].specialPermissions },
       };
     case Role.MAINTENANCE:
@@ -536,6 +533,14 @@ export function isAccountantAccount(user: {
   return user.starterProfile === 'COMPTABLE' || normalized === Role.COMPTABLE;
 }
 
+export function isHousekeepingAccount(user: {
+  role?: Role | string | null;
+  starterProfile?: StarterProfileKey | string | null;
+}): boolean {
+  const normalized = user.role ? normalizeLegacyRole(user.role) : undefined;
+  return user.starterProfile === 'MENAGE' || normalized === Role.HOUSEKEEPING;
+}
+
 export function isReportsAllowedForAccount(user: {
   role?: Role | string | null;
   isPrimaryAdmin?: boolean | null;
@@ -556,6 +561,9 @@ export function hasScreenAccess(
 ): boolean {
   if (!user) return false;
   if (isDirectorAccount(user)) return true;
+  if (isHousekeepingAccount(user) && screen !== 'chambres') {
+    return false;
+  }
   if (screen === 'rapports' && !isAccountantAccount(user)) {
     return false;
   }

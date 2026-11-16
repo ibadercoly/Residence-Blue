@@ -36,15 +36,17 @@ import { AccueilStatsDuJourComponent } from '../../components/accueil-stats-du-j
           </div>
         </div>
 
-        <button
-          type="button"
-          (click)="confirmResetDemo()"
-          class="h-11 min-h-[44px] px-4 rounded-xl bg-white hover:bg-stone-50 border border-stone-300 text-stone-700 text-xs font-bold flex items-center justify-center gap-2 transition-colors cursor-pointer shrink-0 shadow-xs"
-          data-testid="btn-reset-demo"
-        >
-          <span class="material-symbols-outlined text-base">restart_alt</span>
-          Réinitialiser les données
-        </button>
+        @if (isDirector() || canAccessPlanning()) {
+          <button
+            type="button"
+            (click)="confirmResetDemo()"
+            class="h-11 min-h-[44px] px-4 rounded-xl bg-white hover:bg-stone-50 border border-stone-300 text-stone-700 text-xs font-bold flex items-center justify-center gap-2 transition-colors cursor-pointer shrink-0 shadow-xs"
+            data-testid="btn-reset-demo"
+          >
+            <span class="material-symbols-outlined text-base">restart_alt</span>
+            Réinitialiser les données
+          </button>
+        }
       </div>
 
       <!-- Feedback Toast Notification -->
@@ -122,6 +124,7 @@ import { AccueilStatsDuJourComponent } from '../../components/accueil-stats-du-j
           </div>
         </div>
 
+        @if (canViewAmounts()) {
         <!-- Chiffre 4 : Recette encaissée du jour -->
         <div class="bg-white p-5 rounded-2xl border border-stone-200 shadow-sm flex flex-col justify-between">
           <div class="flex items-center justify-between text-stone-500 mb-2">
@@ -137,8 +140,10 @@ import { AccueilStatsDuJourComponent } from '../../components/accueil-stats-du-j
             </div>
           </div>
         </div>
+        }
       </div>
 
+      @if (canAccessPlanning() || canAccessRestaurant() || canAccessFacturation()) {
       <!-- 4. Les 5 Boutons d'Action Principaux (>= 44px) -->
       <div class="bg-white p-6 rounded-2xl border border-stone-200 shadow-sm space-y-4">
         <div>
@@ -151,6 +156,7 @@ import { AccueilStatsDuJourComponent } from '../../components/accueil-stats-du-j
         </div>
 
         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3" data-testid="action-buttons-group">
+          @if (canAccessPlanning()) {
           <!-- Action 1 : Nouvelle réservation -->
           <button
             type="button"
@@ -183,7 +189,9 @@ import { AccueilStatsDuJourComponent } from '../../components/accueil-stats-du-j
             <span class="material-symbols-outlined text-xl">meeting_room</span>
             <span>Départ (Check-out)</span>
           </button>
+          }
 
+          @if (canAccessRestaurant()) {
           <!-- Action 4 : Commande en chambre -->
           <a
             routerLink="/restaurant"
@@ -193,7 +201,9 @@ import { AccueilStatsDuJourComponent } from '../../components/accueil-stats-du-j
             <span class="material-symbols-outlined text-xl">room_service</span>
             <span>Commande en chambre</span>
           </a>
+          }
 
+          @if (canAccessFacturation()) {
           <!-- Action 5 : Encaisser -->
           <a
             routerLink="/facturation"
@@ -203,8 +213,10 @@ import { AccueilStatsDuJourComponent } from '../../components/accueil-stats-du-j
             <span class="material-symbols-outlined text-xl text-emerald-600">point_of_sale</span>
             <span>Encaisser</span>
           </a>
+          }
         </div>
       </div>
+      }
 
       <!-- 4b. Statistiques du jour (composant dédié) -->
       <app-accueil-stats-du-jour />
@@ -287,6 +299,11 @@ export class DashboardPageComponent {
     return this.facturationService?.counter()?.kpis?.collectedTodayFcfa ?? 0;
   });
   readonly formattedTodayRevenue = computed(() => this.todayRevenueFcfa().toLocaleString('fr-FR'));
+  readonly isDirector = computed(() => this.authService?.isDirector() ?? false);
+  readonly canViewAmounts = computed(() => this.authService?.hasPermission('voir_montants') ?? false);
+  readonly canAccessPlanning = computed(() => this.authService?.hasScreen('planning', 'ECRITURE') ?? false);
+  readonly canAccessRestaurant = computed(() => this.authService?.hasScreen('restaurant', 'LECTURE') ?? false);
+  readonly canAccessFacturation = computed(() => this.authService?.hasScreen('facturation', 'LECTURE') ?? false);
   private readonly router = inject(Router);
   private readonly reservationModal = inject(ReservationModalService);
   private readonly moduleConfig = inject(ModuleConfigService);

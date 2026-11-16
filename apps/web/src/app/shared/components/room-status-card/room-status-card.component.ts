@@ -14,6 +14,7 @@ import { RoomStatus, Role, formatFcfa } from '@residence-blue/shared';
 import { ImageComponent } from '../image/image.component';
 import { StatusBadgeComponent } from '../status-badge/status-badge.component';
 import { ActionButtonComponent } from '../action-button/action-button.component';
+import { AuthService } from '../../../core/services/auth.service';
 
 @Component({
   selector: 'app-room-status-card',
@@ -180,12 +181,14 @@ import { ActionButtonComponent } from '../action-button/action-button.component'
         <!-- Corps de la carte : Tarifs, Équipements et Sync -->
         <div class="card-body p-4 bg-surface-container-lowest flex flex-col justify-between flex-1">
           <div>
-            <div class="price-row flex items-baseline justify-between mb-2">
-              <span class="price-amount font-label-currency text-xl font-bold text-primary">
-                {{ formatPrice(room.type?.pricePerNight || 0) }}
-              </span>
-              <span class="price-unit text-xs text-on-surface-variant font-medium">/ nuitée</span>
-            </div>
+            @if (shouldShowPrice) {
+              <div class="price-row flex items-baseline justify-between mb-2" data-testid="room-card-price">
+                <span class="price-amount font-label-currency text-xl font-bold text-primary">
+                  {{ formatPrice(displayedPrice!) }}
+                </span>
+                <span class="price-unit text-xs text-on-surface-variant font-medium">/ nuitée</span>
+              </div>
+            }
 
             <!-- Équipements clés -->
             <div class="amenities-list flex flex-wrap gap-1 mb-3">
@@ -390,9 +393,11 @@ import { ActionButtonComponent } from '../action-button/action-button.component'
 })
 export class RoomStatusCardComponent {
   private readonly elementRef = inject(ElementRef, { optional: true });
+  private readonly authService = inject(AuthService, { optional: true });
 
   @Input({ required: true }) room!: RoomUiItem;
   @Input() currentRole: Role = Role.DIRECTION;
+  @Input() canViewAmounts: boolean | null = null;
   @Input() showActions: boolean = true;
   @Input() isHighlighted: boolean = false;
 
@@ -514,6 +519,19 @@ export class RoomStatusCardComponent {
   onActionDelete(): void {
     this.closeMenu(true);
     this.onDelete.emit(this.room);
+  }
+
+  get displayedPrice(): number | null {
+    const p = this.room?.type?.pricePerNight !== undefined ? this.room.type.pricePerNight : this.room?.pricePerNight;
+    return typeof p === 'number' && Number.isFinite(p) ? p : null;
+  }
+
+  get shouldShowPrice(): boolean {
+    if (this.canViewAmounts === false) return false;
+    if (this.canViewAmounts === null && this.authService && typeof this.authService.hasPermission === 'function') {
+      if (!this.authService.hasPermission('voir_montants')) return false;
+    }
+    return this.displayedPrice !== null;
   }
 
   formatPrice(amount: number): string {

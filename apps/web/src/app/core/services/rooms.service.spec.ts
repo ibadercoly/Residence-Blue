@@ -254,4 +254,23 @@ describe('RoomsService', () => {
       expect(mockOutbox.syncOutbox).toHaveBeenCalled();
     });
   });
+
+  describe('Masquage strict des tarifs (sans prix inventés)', () => {
+    it('ne doit jamais inventer 35000/55000/95000 quand pricePerNight est null ou sans voir_montants', async () => {
+      mockAuth.hasPermission = () => false;
+      (global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: true,
+        json: async () => [
+          { id: 'r-1', number: '101', floor: 1, status: RoomStatus.FREE, category: 'Standard', amenities: [], type: { id: 't1', name: 'Standard', pricePerNight: null } },
+          { id: 'r-2', number: '301', floor: 3, status: RoomStatus.FREE, category: 'Suite', amenities: [], type: { id: 't3', name: 'Suite', pricePerNight: 95000 } },
+        ],
+      });
+
+      await service.fetchFromServer();
+      const loaded = service.rooms();
+      expect(loaded).toHaveLength(2);
+      expect(loaded[0].type?.pricePerNight).toBeNull();
+      expect(loaded[1].type?.pricePerNight).toBeNull();
+    });
+  });
 });

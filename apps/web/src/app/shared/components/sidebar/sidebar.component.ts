@@ -2,7 +2,7 @@ import { Component, EventEmitter, Input, Output, inject, signal, computed } from
 import { RoomsService } from '../../../core/services/rooms.service';
 import { CommonModule } from '@angular/common';
 import { RouterLink, RouterLinkActive } from '@angular/router';
-import { isKitchenOnlyRole } from '@residence-blue/shared';
+import { getAuthorizedScreens, isKitchenOnlyRole } from '@residence-blue/shared';
 import { AuthService } from '../../../core/services/auth.service';
 import { ModuleConfigService } from '../../../core/services/module-config.service';
 import { RestaurantV3Service } from '../../../restaurant-v3/services/restaurant-v3.service';
@@ -199,7 +199,7 @@ export interface NavItem {
 
       <!-- Pied de barre latérale : compte & déconnexion pour CUISINIER, sinon badge Version -->
       <div class="p-gutter">
-        @if (isKitchenOnly()) {
+        @if (isKitchenOnly() || isSingleScreenProfile()) {
           <div
             data-testid="sidebar-cook-footer"
             class="bg-surface-variant/10 rounded-xl p-space-md flex flex-col gap-space-sm"
@@ -212,7 +212,7 @@ export interface NavItem {
                 {{ cookAccountName() }}
               </span>
               <span class="font-body-sm text-[11px] text-outline-variant truncate">
-                Cuisine &bull; Temps réel
+                {{ isKitchenOnly() ? 'Cuisine • Temps réel' : 'Accès simplifié' }}
               </span>
             </div>
             <button
@@ -222,7 +222,7 @@ export interface NavItem {
               class="w-full h-10 rounded-lg bg-[#e11d48]/20 hover:bg-[#e11d48]/30 text-white font-label-md text-label-md flex items-center justify-center gap-2 transition-colors cursor-pointer"
             >
               <span class="material-symbols-outlined text-[18px]" aria-hidden="true">logout</span>
-              <span>Déconnexion</span>
+              <span>Se déconnecter</span>
             </button>
           </div>
         } @else {
@@ -248,6 +248,11 @@ export class SidebarComponent {
   private readonly moduleConfig = inject(ModuleConfigService, { optional: true });
   private readonly restaurantService = inject(RestaurantV3Service, { optional: true });
   readonly isKitchenOnly = computed(() => isKitchenOnlyRole(this.authService?.currentRole()));
+  readonly isSingleScreenProfile = computed(() => {
+    const user = this.authService?.currentUser();
+    if (!user || this.isKitchenOnly() || this.authService?.isDirector()) return false;
+    return getAuthorizedScreens(user).length <= 1;
+  });
   readonly cookAccountName = computed(
     () => this.authService?.currentUser()?.fullName || 'Cuisinier',
   );

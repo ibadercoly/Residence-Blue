@@ -3,7 +3,7 @@ import { CommonModule } from '@angular/common';
 import { ReservationModalService } from '../../../core/services/reservation-modal.service';
 import { AuthService, ConnectedSessionItem } from '../../../core/services/auth.service';
 import { ModalShellComponent } from '../modal-shell/modal-shell.component';
-import { Role } from '@residence-blue/shared';
+import { Role, getAuthorizedScreens } from '@residence-blue/shared';
 
 @Component({
   selector: 'app-header',
@@ -16,21 +16,26 @@ import { Role } from '@residence-blue/shared';
       class="hidden md:flex fixed top-0 left-64 right-0 h-20 bg-surface/90 backdrop-blur-xl shadow-[0_1px_8px_rgba(0,0,0,0.04)] z-40 items-center justify-between px-margin"
       role="banner"
     >
-      <!-- Global Search -->
-      <div class="flex items-center gap-gutter flex-1 max-w-xl">
-        <div class="relative w-full">
-          <label for="global-search" class="sr-only">Rechercher une réservation, client, chambre</label>
-          <span class="material-symbols-outlined absolute left-space-md top-1/2 -translate-y-1/2 text-outline text-[20px] pointer-events-none" aria-hidden="true">
-            search
-          </span>
-          <input
-            id="global-search"
-            class="w-full h-11 pl-11 pr-space-md rounded-xl bg-surface-container-lowest text-on-surface placeholder:text-outline font-body-sm text-body-sm outline-none shadow-[0_2px_8px_rgba(10,37,64,0.04)] focus:ring-2 focus:ring-primary/20 transition-all"
-            placeholder="Rechercher une réservation, client, chambre..."
-            type="text"
-          />
+      @if (canUseGlobalSearch()) {
+        <!-- Global Search -->
+        <div class="flex items-center gap-gutter flex-1 max-w-xl">
+          <div class="relative w-full">
+            <label for="global-search" class="sr-only">Rechercher une réservation, client, chambre</label>
+            <span class="material-symbols-outlined absolute left-space-md top-1/2 -translate-y-1/2 text-outline text-[20px] pointer-events-none" aria-hidden="true">
+              search
+            </span>
+            <input
+              id="global-search"
+              data-testid="header-global-search"
+              class="w-full h-11 pl-11 pr-space-md rounded-xl bg-surface-container-lowest text-on-surface placeholder:text-outline font-body-sm text-body-sm outline-none shadow-[0_2px_8px_rgba(10,37,64,0.04)] focus:ring-2 focus:ring-primary/20 transition-all"
+              placeholder="Rechercher une réservation, client, chambre..."
+              type="text"
+            />
+          </div>
         </div>
-      </div>
+      } @else {
+        <div class="flex-1"></div>
+      }
 
       <!-- Action items & authenticated profile -->
       <div class="flex items-center gap-gutter">
@@ -142,6 +147,7 @@ import { Role } from '@residence-blue/shared';
     >
       <div class="h-16 px-gutter-sm flex items-center justify-between gap-space-sm">
         <div class="flex items-center gap-space-sm min-w-0">
+@if (!isSingleScreenProfile()) {
           <button
             type="button"
             (click)="menuToggle.emit()"
@@ -151,6 +157,7 @@ import { Role } from '@residence-blue/shared';
           >
             <span class="material-symbols-outlined text-[22px]" aria-hidden="true">menu</span>
           </button>
+          }
           <div class="w-9 h-9 rounded-xl bg-primary flex items-center justify-center text-on-primary shadow-sm flex-shrink-0">
             <span class="material-symbols-outlined text-[20px]" aria-hidden="true">hotel</span>
           </div>
@@ -160,16 +167,28 @@ import { Role } from '@residence-blue/shared';
           </div>
         </div>
         <div class="flex items-center gap-space-xs flex-shrink-0">
-          @if (canCreateReservation()) {
+          @if (isSingleScreenProfile()) {
             <button
-              aria-label="Nouvelle réservation"
               type="button"
-              (click)="openNewReservation()"
-              data-testid="header-new-reservation-mobile-btn"
-              class="w-10 h-10 rounded-xl bg-primary text-on-primary flex items-center justify-center shadow-sm cursor-pointer min-h-[44px] min-w-[44px]"
+              (click)="logout()"
+              data-testid="mobile-logout-btn"
+              class="min-h-[44px] px-3 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-semibold text-sm inline-flex items-center gap-1.5 shadow-sm cursor-pointer"
             >
-              <span class="material-symbols-outlined text-[20px]" aria-hidden="true">add</span>
+              <span class="material-symbols-outlined text-[18px]" aria-hidden="true">logout</span>
+              <span>Se déconnecter</span>
             </button>
+          } @else {
+            @if (canCreateReservation()) {
+              <button
+                aria-label="Nouvelle réservation"
+                type="button"
+                (click)="openNewReservation()"
+                data-testid="header-new-reservation-mobile-btn"
+                class="w-10 h-10 rounded-xl bg-primary text-on-primary flex items-center justify-center shadow-sm cursor-pointer min-h-[44px] min-w-[44px]"
+              >
+                <span class="material-symbols-outlined text-[20px]" aria-hidden="true">add</span>
+              </button>
+            }
           }
           <div class="relative" data-testid="user-profile-mobile">
             <button
@@ -302,6 +321,14 @@ export class HeaderComponent {
   readonly canCreateReservation = computed(() => {
     const r = this.currentUser()?.role;
     return r === Role.DIRECTION || r === Role.RECEPTION;
+  });
+  readonly canUseGlobalSearch = computed(() =>
+    Boolean(this.authService.hasScreen('planning', 'LECTURE') || this.authService.hasScreen('clients', 'LECTURE')),
+  );
+  readonly isSingleScreenProfile = computed(() => {
+    const user = this.currentUser();
+    if (!user || this.authService.isDirector()) return false;
+    return getAuthorizedScreens(user).length <= 1;
   });
 
   @HostListener('window:keydown.escape')

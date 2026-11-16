@@ -102,4 +102,59 @@ describe('access model (@residence-blue/shared)', () => {
       ),
     ).toBe(true);
   });
+
+  it('verrouille strictement HOUSEKEEPING / MENAGE sur Chambres uniquement (y compris sans JSON)', () => {
+    const legacy = resolveDefaultAccessForRole(Role.HOUSEKEEPING);
+    expect(legacy.starterProfile).toBe('MENAGE');
+    expect(legacy.screenAccess).toEqual({
+      accueil: 'AUCUN',
+      planning: 'AUCUN',
+      chambres: 'LECTURE',
+      clients: 'AUCUN',
+      facturation: 'AUCUN',
+      restaurant: 'AUCUN',
+      cuisine: 'AUCUN',
+      rapports: 'AUCUN',
+    });
+    expect(
+      getFirstAuthorizedRoute({
+        role: Role.HOUSEKEEPING,
+        isPrimaryAdmin: false,
+        screenAccess: null,
+      }),
+    ).toBe('/chambres');
+    expect(
+      hasScreenAccess(
+        {
+          role: Role.HOUSEKEEPING,
+          starterProfile: 'MENAGE',
+          isPrimaryAdmin: false,
+          screenAccess: {
+            accueil: 'ECRITURE',
+            planning: 'LECTURE',
+            chambres: 'LECTURE',
+            clients: 'LECTURE',
+            facturation: 'LECTURE',
+            restaurant: 'ECRITURE',
+            cuisine: 'LECTURE',
+            rapports: 'LECTURE',
+          },
+        },
+        'restaurant',
+        'LECTURE',
+      ),
+    ).toBe(false);
+    expect(
+      hasScreenAccess(
+        {
+          role: Role.HOUSEKEEPING,
+          starterProfile: 'MENAGE',
+          isPrimaryAdmin: false,
+          screenAccess: { accueil: 'LECTURE', restaurant: 'LECTURE', chambres: 'LECTURE' } as any,
+        },
+        'accueil',
+        'LECTURE',
+      ),
+    ).toBe(false);
+  });
 });

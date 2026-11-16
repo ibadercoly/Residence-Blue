@@ -360,10 +360,10 @@ export class ModuleConfigService {
         canManageMenu: false
       },
       HOUSEKEEPING: {
-        allowedModules: ['housekeeping'],
-        enabled: false,
-        version: 'v2',
-        description: 'Gouvernance d’étage et ménage : reporté en Version 2. Non assignable en V1.',
+        allowedModules: ['rooms'],
+        enabled: true,
+        version: 'v1',
+        description: 'Personnel de m?nage : consultation et mise ? jour simple de l??tat des chambres.',
         canExportClients: false,
         canManageMenu: false
       },

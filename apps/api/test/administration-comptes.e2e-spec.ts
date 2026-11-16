@@ -1,6 +1,8 @@
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
+import * as fs from 'node:fs';
 import * as http from 'http';
+import * as path from 'node:path';
 import request from 'supertest';
 import { Role } from '@residence-blue/shared';
 import { AppModule } from '../src/app.module';
@@ -807,5 +809,161 @@ describe('Administration des comptes et modèle d’accès (e2e)', () => {
     expect(updDir.body.user.fullName).toBe('ibader');
     expect(updDir.body.user.role).toBe('DIRECTION');
     expect(updDir.body.otherSessionsRevoked).toBe(0);
+  });
+
+  it('verrouille strictement le profil Ménage (403 restaurant, 403 attribution autres écrans, /rooms sans prix, migration SQL)', async () => {
+    const baseScreens = {
+      accueil: 'AUCUN',
+      planning: 'AUCUN',
+      chambres: 'LECTURE',
+      clients: 'AUCUN',
+      facturation: 'AUCUN',
+      restaurant: 'AUCUN',
+      cuisine: 'AUCUN',
+      rapports: 'AUCUN',
+    };
+    const basePerms = {
+      voir_montants: false,
+      encaisser_paiement: false,
+      changer_etat_chambre: true,
+      annuler_commande_ou_reservation: false,
+    };
+
+    // Refus 403 si tentative d'attribuer Restaurant, Accueil, Planning, Clients, Facturation ou Cuisine à MENAGE
+    for (const extraScreen of ['restaurant', 'accueil', 'planning', 'clients', 'facturation', 'cuisine'] as const) {
+      const denyRes = await request(app.getHttpServer())
+        .post('/api/administration/comptes')
+        .set('Authorization', `Bearer ${roleTokens[Role.DIRECTION]}`)
+        .send({
+          fullName: 'Test Ménage Refusé',
+          email: `menage-deny-${extraScreen}-${Date.now()}@residenceblue.sn`,
+          starterProfile: 'MENAGE',
+          screenAccess: { ...baseScreens, [extraScreen]: 'LECTURE' },
+          specialPermissions: basePerms,
+        })
+        .expect(403);
+      expect(denyRes.body.message).toContain('Chambres');
+    }
+
+    // Création valide d'un compte Ménage
+    const menageEmail = `menage-ok-${Date.now()}@residenceblue.sn`;
+    const createdMenage = await request(app.getHttpServer())
+      .post('/api/administration/comptes')
+      .set('Authorization', `Bearer ${roleTokens[Role.DIRECTION]}`)
+      .send({
+        fullName: 'Ndeye Ménage',
+        email: menageEmail,
+        starterProfile: 'MENAGE',
+        screenAccess: baseScreens,
+        specialPermissions: basePerms,
+      })
+      .expect(201);
+    const menageId = createdMenage.body.account.id as string;
+    createdUserIds.push(menageId);
+
+    // Refus 403 si tentative d'ajouter Restaurant par PATCH
+    await request(app.getHttpServer())
+      .patch(`/api/administration/comptes/${menageId}`)
+      .set('Authorization', `Bearer ${roleTokens[Role.DIRECTION]}`)
+      .send({ screenAccess: { ...baseScreens, restaurant: 'LECTURE' } })
+      .expect(403);
+
+    // Changement de mot de passe provisoire puis connexion avec le compte Ménage
+    const l1 = await request(app.getHttpServer())
+      .post('/api/auth/login')
+      .send({ login: menageEmail, password: createdMenage.body.provisionalPassword })
+      .expect(200);
+    await request(app.getHttpServer())
+      .post('/api/auth/change-initial-password')
+      .set('Authorization', `Bearer ${l1.body.accessToken}`)
+      .send({ newPassword: `MenagePass!${Date.now()}` })
+      .expect(200);
+    const menageToken = l1.body.accessToken as string;
+
+    // 403 sur toutes les routes Restaurant & Cuisine + Accueil pour les 2 comptes (historique sans JSON + nouveau)
+    for (const tokenToCheck of [roleTokens[Role.HOUSEKEEPING], menageToken]) {
+      await request(app.getHttpServer()).get('/api/accueil/jour').set('Authorization', `Bearer ${tokenToCheck}`).expect(403);
+      await request(app.getHttpServer()).get('/api/restaurant/catalog').set('Authorization', `Bearer ${tokenToCheck}`).expect(403);
+      await request(app.getHttpServer()).get('/api/restaurant/categories').set('Authorization', `Bearer ${tokenToCheck}`).expect(403);
+      await request(app.getHttpServer()).get('/api/restaurant/rooms-in-stay').set('Authorization', `Bearer ${tokenToCheck}`).expect(403);
+      await request(app.getHttpServer()).get('/api/restaurant/products').set('Authorization', `Bearer ${tokenToCheck}`).expect(403);
+      await request(app.getHttpServer()).get('/api/restaurant/orders/page').set('Authorization', `Bearer ${tokenToCheck}`).expect(403);
+      await request(app.getHttpServer()).get('/api/restaurant/orders').set('Authorization', `Bearer ${tokenToCheck}`).expect(403);
+      await request(app.getHttpServer()).get('/api/restaurant/kitchen/orders').set('Authorization', `Bearer ${tokenToCheck}`).expect(403);
+      await request(app.getHttpServer()).get('/api/cuisine/orders').set('Authorization', `Bearer ${tokenToCheck}`).expect(403);
+      await request(app.getHttpServer())
+        .post('/api/restaurant/orders')
+        .set('Authorization', `Bearer ${tokenToCheck}`)
+        .send({ destinationType: 'COUNTER', action: 'SEND_TO_KITCHEN', items: [] })
+        .expect(403);
+
+      // Accès Chambres 200 avec tarifs strictement masqués (null)
+      const roomsRes = await request(app.getHttpServer())
+        .get('/api/rooms')
+        .set('Authorization', `Bearer ${tokenToCheck}`)
+        .expect(200);
+      expect(Array.isArray(roomsRes.body)).toBe(true);
+      expect(roomsRes.body.length).toBeGreaterThanOrEqual(12);
+      expect(roomsRes.body[0].pricePerNight).toBeNull();
+      expect(roomsRes.body[0].type.pricePerNight).toBeNull();
+
+      const availRes = await request(app.getHttpServer())
+        .get('/api/rooms/available?checkIn=2026-12-01&checkOut=2026-12-03')
+        .set('Authorization', `Bearer ${tokenToCheck}`)
+        .expect(200);
+      if (availRes.body.length > 0) {
+        expect(availRes.body[0].pricePerNight).toBeNull();
+        expect(availRes.body[0].type?.pricePerNight).toBeNull();
+      }
+    }
+
+    // Migration SQL idempotente sur un compte Ménage périmé
+    const staleHk = await prisma.user.create({
+      data: {
+        email: `stale-menage-${Date.now()}@residenceblue.sn`,
+        fullName: 'Ancien Compte Ménage Périmé',
+        role: Role.HOUSEKEEPING,
+        starterProfile: 'MENAGE',
+        isActive: true,
+        isPrimaryAdmin: false,
+        mustChangePassword: false,
+        passwordHash: await hashPassword('StaleMenage!2026'),
+        screenAccess: {
+          accueil: 'LECTURE',
+          planning: 'LECTURE',
+          chambres: 'LECTURE',
+          clients: 'LECTURE',
+          facturation: 'LECTURE',
+          restaurant: 'LECTURE',
+          cuisine: 'AUCUN',
+          rapports: 'AUCUN',
+        },
+        specialPermissions: basePerms,
+      },
+    });
+    createdUserIds.push(staleHk.id);
+
+    const migPaths = [
+      path.resolve(process.cwd(), 'prisma/migrations/20261116063000_menage_verrouillage_acces/migration.sql'),
+      path.resolve(process.cwd(), 'apps/api/prisma/migrations/20261116063000_menage_verrouillage_acces/migration.sql'),
+    ];
+    const migSql = fs.readFileSync(migPaths.find((p) => fs.existsSync(p))!, 'utf8');
+    await prisma.$executeRawUnsafe(migSql);
+
+    const cleanedHk = await prisma.user.findUnique({ where: { id: staleHk.id } });
+    expect(cleanedHk?.screenAccess).toEqual({
+      accueil: 'AUCUN',
+      planning: 'AUCUN',
+      chambres: 'LECTURE',
+      clients: 'AUCUN',
+      facturation: 'AUCUN',
+      restaurant: 'AUCUN',
+      cuisine: 'AUCUN',
+      rapports: 'AUCUN',
+    });
+    const migAudit = await prisma.auditLog.findFirst({
+      where: { action: 'MIGRATION_VERROUILLAGE_MENAGE', entityId: staleHk.id },
+    });
+    expect(migAudit).toBeTruthy();
   });
 });

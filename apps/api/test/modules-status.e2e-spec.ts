@@ -30,7 +30,7 @@ describe('Modules Status & Deferred Routing (API)', () => {
     moduleConfigService = app.get(ServerModuleConfigService);
     const prisma = app.get(PrismaService);
     roleTokens['ADMIN'] = (await issueDbTestToken(prisma, 'DIRECTION')).token;
-    roleTokens['HOUSEKEEPING'] = (await issueDbTestToken(prisma, 'HOUSEKEEPING')).token;
+    roleTokens['HOUSEKEEPING'] = (await issueDbTestToken(prisma, 'HOUSEKEEPING')).token; roleTokens['MAINTENANCE'] = (await issueDbTestToken(prisma, 'MAINTENANCE')).token;
     await app.init();
   }, 30000);
 
@@ -76,22 +76,27 @@ describe('Modules Status & Deferred Routing (API)', () => {
   });
 
   describe('2. Rôles reportés V2 / V3 non assignables ou utilisables en V1', () => {
-    it('doit refuser l’accès avec un rôle reporté (ex: HOUSEKEEPING) sur une route même si le rôle y est listé', async () => {
-      const res = await request(app.getHttpServer())
+    it('autorise HOUSEKEEPING (activé V1) et refuse un rôle reporté (ex: MAINTENANCE) sur une route même si le rôle y est listé', async () => {
+      const hkRes = await request(app.getHttpServer())
         .get('/api/security-test/test-staff-role')
         .set('Authorization', `Bearer ${roleTokens['HOUSEKEEPING']}`);
+      expect(hkRes.status).toBe(200);
 
-      // Le rôle HOUSEKEEPING est désactivé en V1 -> 403 Forbidden
+      const res = await request(app.getHttpServer())
+        .get('/api/security-test/test-staff-role')
+        .set('Authorization', `Bearer ${roleTokens['MAINTENANCE']}`);
+
+      // Le rôle MAINTENANCE est désactivé en V1 -> 403 Forbidden
       expect(res.status).toBe(403);
       expect(res.body.message).toContain('reporté en version ultérieure');
     });
 
     it('doit accepter le rôle reporté si l’interrupteur est activé dynamiquement pour les tests CI', async () => {
-      moduleConfigService.setModuleOverride('housekeeping', true);
+      moduleConfigService.setModuleOverride('maintenance', true);
 
       const res = await request(app.getHttpServer())
         .get('/api/security-test/test-staff-role')
-        .set('Authorization', `Bearer ${roleTokens['HOUSEKEEPING']}`);
+        .set('Authorization', `Bearer ${roleTokens['MAINTENANCE']}`);
 
       expect(res.status).toBe(200);
 

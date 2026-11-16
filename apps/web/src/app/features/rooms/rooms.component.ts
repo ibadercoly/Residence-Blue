@@ -268,6 +268,7 @@ import { ModalShellComponent } from '../../shared/components/modal-shell/modal-s
           <app-room-status-card
             [room]="room"
             [currentRole]="roomsService.currentRole()"
+            [canViewAmounts]="roomsService.canViewAmounts()"
             [isHighlighted]="roomsService.justHighlightedRoomId() === room.id"
             (onEdit)="openEditDrawer(room)"
             (onDeactivate)="deactivateRoom(room)"
@@ -630,6 +631,7 @@ import { ModalShellComponent } from '../../shared/components/modal-shell/modal-s
                 </h3>
               </div>
 
+              @if (roomsService.canViewAmounts()) {
               <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <!-- Prix standard par nuit (obligatoire, entier positif FCFA) -->
                 <div>
@@ -681,6 +683,7 @@ import { ModalShellComponent } from '../../shared/components/modal-shell/modal-s
                   />
                 </div>
               </div>
+              }
 
               <!-- Petit-déjeuner inclus -->
               <div class="flex items-center gap-2">

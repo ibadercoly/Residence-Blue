@@ -504,11 +504,11 @@
     },
     "HOUSEKEEPING": {
       "allowedModules": [
-        "housekeeping"
+        "rooms"
       ],
-      "enabled": false,
-      "version": "v2",
-      "description": "Gouvernance d'étage et ménage : reporté en Version 2. Non assignable en V1.",
+      "enabled": true,
+      "version": "v1",
+      "description": "Personnel de m?nage : consultation et mise ? jour simple de l'?tat des chambres.",
       "canExportClients": false,
       "canManageMenu": false
     },

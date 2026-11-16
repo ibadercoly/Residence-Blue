@@ -122,4 +122,16 @@ describe('RoomStatusCardComponent', () => {
     component.onTriggerKeydown({ key: 'Escape', preventDefault: () => {} } as KeyboardEvent);
     expect(component.isMenuOpen()).toBe(false);
   });
+  it('masque le prix lorsque pricePerNight est null ou canViewAmounts est false', () => {
+    expect(component.shouldShowPrice).toBe(false); component.canViewAmounts = true; expect(component.shouldShowPrice).toBe(true);
+    component.canViewAmounts = false;
+    expect(component.shouldShowPrice).toBe(false);
+    component.canViewAmounts = true;
+    component.room = {
+      ...component.room,
+      pricePerNight: null,
+      type: { ...component.room.type!, pricePerNight: null },
+    };
+    expect(component.shouldShowPrice).toBe(false);
+  });
 });

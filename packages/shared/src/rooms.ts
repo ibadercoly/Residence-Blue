@@ -23,7 +23,7 @@ export enum RoomCategory {
 export interface RoomTypeDto {
   id: string;
   name: string;
-  pricePerNight: number; // ENTIER strict en FCFA
+  pricePerNight: number | null; // ENTIER strict en FCFA (null si masque)
   createdAt?: string | Date;
   updatedAt?: string | Date;
 }
@@ -46,8 +46,9 @@ export interface RoomDto {
   view?: string;
   smoking?: boolean;
   connectingRoom?: string;
-  highSeasonPricePerNight?: number;
-  corporatePricePerNight?: number;
+  pricePerNight?: number | null;
+  highSeasonPricePerNight?: number | null;
+  corporatePricePerNight?: number | null;
   breakfastIncluded?: boolean;
   description?: string;
   internalNote?: string;

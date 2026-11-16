@@ -64,8 +64,10 @@ export class RoomsController {
     ],
   })
   @Get('available')
-  async findAvailable(@Query() query: AvailableRoomsQueryDto) {
-    return this.roomsService.findAvailable(query);
+  async findAvailable(@Query() query: AvailableRoomsQueryDto, @Req() req: Request) {
+    const rooms = await this.roomsService.findAvailable(query);
+    const user = (req as any)?.user;
+    return hasSpecialPermission(user, 'voir_montants') ? rooms : maskAmountsInPayload(rooms);
   }
 
   /**

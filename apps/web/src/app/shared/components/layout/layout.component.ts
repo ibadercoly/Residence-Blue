@@ -2,7 +2,7 @@ import { ChangeDetectionStrategy, Component, OnDestroy, computed, inject, signal
 import { Router, RouterLink, RouterLinkActive, NavigationEnd } from '@angular/router';
 import { Subscription } from 'rxjs';
 import { filter } from 'rxjs/operators';
-import { isKitchenOnlyRole } from '@residence-blue/shared';
+import { ScreenKey, getAuthorizedScreens, isKitchenOnlyRole } from '@residence-blue/shared';
 import { AuthService } from '../../../core/services/auth.service';
 import { SidebarComponent } from '../sidebar/sidebar.component';
 import { HeaderComponent } from '../header/header.component';
@@ -14,6 +14,8 @@ interface MobileNavItem {
   label: string;
   icon: string;
   colorClass?: string;
+  screen?: ScreenKey;
+  directorOnly?: boolean;
 }
 
 @Component({
@@ -87,14 +89,14 @@ interface MobileNavItem {
         }
       }
 
-      <!-- Mobile Bottom Navigation (tableau_de_bord_mode_clair) -->
-      @if (!isKitchenOnly()) {
+      <!-- Mobile Bottom Navigation (masquée si profil à 1 seul écran ou cuisine) -->
+      @if (!isKitchenOnly() && !isSingleScreenProfile()) {
       <nav
         class="md:hidden fixed bottom-0 w-full z-40 pb-safe bg-surface-container-lowest/90 backdrop-blur-xl shadow-[0_-2px_12px_rgba(10,37,64,0.05)]"
         aria-label="Navigation mobile"
       >
         <div class="flex justify-around items-center h-16 px-space-xs">
-          @for (item of mobileNavItems; track item.path) {
+          @for (item of visibleMobileNavItems(); track item.path) {
             <a
               [routerLink]="item.path"
               #rla="routerLinkActive"
@@ -130,13 +132,28 @@ export class LayoutComponent implements OnDestroy {
   private readonly routerSub: Subscription | null = null;
   readonly mobileMenuOpen = signal(false);
 
+  readonly isSingleScreenProfile = computed(() => {
+    const user = this.authService?.currentUser();
+    if (!user || this.isKitchenOnly() || this.authService?.isDirector()) return false;
+    return getAuthorizedScreens(user).length <= 1;
+  });
+
   readonly mobileNavItems: MobileNavItem[] = [
-    { path: '/tableau-de-bord', label: 'Bord', icon: 'dashboard', colorClass: 'rb-menu-color-dashboard' },
-    { path: '/planning', label: 'Planning', icon: 'calendar_month', colorClass: 'rb-menu-color-planning' },
-    { path: '/chambres', label: 'Chambres', icon: 'bed', colorClass: 'rb-menu-color-rooms' },
-    { path: '/reservations', label: 'Résas', icon: 'book_online', colorClass: 'rb-menu-color-facturation' },
-    { path: '/parametres', label: 'Plus', icon: 'widgets', colorClass: 'rb-menu-color-rapports' },
+    { path: '/tableau-de-bord', label: 'Bord', icon: 'dashboard', colorClass: 'rb-menu-color-dashboard', screen: 'accueil' },
+    { path: '/planning', label: 'Planning', icon: 'calendar_month', colorClass: 'rb-menu-color-planning', screen: 'planning' },
+    { path: '/chambres', label: 'Chambres', icon: 'bed', colorClass: 'rb-menu-color-rooms', screen: 'chambres' },
+    { path: '/reservations', label: 'Résas', icon: 'book_online', colorClass: 'rb-menu-color-facturation', screen: 'planning' },
+    { path: '/parametres', label: 'Plus', icon: 'widgets', colorClass: 'rb-menu-color-rapports', directorOnly: true },
   ];
+
+  readonly visibleMobileNavItems = computed(() => {
+    if (!this.authService?.currentUser()) return [];
+    return this.mobileNavItems.filter((item) => {
+      if (item.directorOnly) return this.authService?.isDirector() ?? false;
+      if (item.screen) return this.authService?.hasScreen(item.screen, 'LECTURE') ?? false;
+      return true;
+    });
+  });
 
   constructor() {
     if (this.router && this.modalService) {

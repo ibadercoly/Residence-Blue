@@ -46,7 +46,7 @@ test.describe('Accueil — Statistiques du jour, RBAC, Offline & Responsive', ()
     cleanupAccueilE2eData();
     dirUser = createE2eUser('DIRECTION');
     restoUser = createE2eUser('RESTAURANT');
-    hkUser = createE2eUser('HOUSEKEEPING');
+    hkUser = createE2eUser('MAINTENANCE');
 
     // Injecter 1 facture du jour payée + 1 commande restaurant du jour avec tie-breaker CA
     execE2eNodeScript(`
@@ -236,7 +236,7 @@ test.describe('Accueil — Statistiques du jour, RBAC, Offline & Responsive', ()
     await context.setOffline(false);
   });
 
-  test('RBAC UI : RESTAURANT ne voit que le bloc Restaurant, HOUSEKEEPING ne voit que Clients sans montants', async ({
+  test('RBAC UI : RESTAURANT ne voit que le bloc Restaurant, MAINTENANCE ne voit que Clients sans montants', async ({
     page,
   }) => {
     await page.setViewportSize({ width: 1280, height: 850 });
@@ -248,7 +248,7 @@ test.describe('Accueil — Statistiques du jour, RBAC, Offline & Responsive', ()
     await expect(page.locator('[data-testid="accueil-block-clients"]')).toHaveCount(0);
     await expect(page.locator('[data-testid="accueil-block-billing"]')).toHaveCount(0);
 
-    // HOUSEKEEPING (GOUVERNANTE)
+    // MAINTENANCE (Technique)
     await loginViaUi(page, hkUser.email, hkUser.password);
     await page.goto('/', { waitUntil: 'networkidle' });
     await expect(page.locator('[data-testid="accueil-block-clients"]')).toBeVisible();

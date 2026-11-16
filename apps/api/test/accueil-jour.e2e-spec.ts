@@ -479,16 +479,20 @@ describe('Accueil du jour — GET /api/accueil/jour (e2e)', () => {
     expect('clients' in rResto.body).toBe(false);
     expect('billing' in rResto.body).toBe(false);
 
-    for (const opsRole of [Role.HOUSEKEEPING, Role.MAINTENANCE]) {
-      const rOps = await request(app.getHttpServer())
-        .get('/api/accueil/jour')
-        .set('Authorization', `Bearer ${roleTokens[opsRole]}`)
-        .expect(200);
-      expect(rOps.body.visibleBlocks).toEqual(['CLIENTS']);
-      expect('billing' in rOps.body).toBe(false);
-      expect('restaurant' in rOps.body).toBe(false);
-      expect(JSON.stringify(rOps.body)).not.toContain('Fcfa');
-    }
+    const rMaint = await request(app.getHttpServer())
+      .get('/api/accueil/jour')
+      .set('Authorization', `Bearer ${roleTokens[Role.MAINTENANCE]}`)
+      .expect(200);
+    expect(rMaint.body.visibleBlocks).toEqual(['CLIENTS']);
+    expect('billing' in rMaint.body).toBe(false);
+    expect('restaurant' in rMaint.body).toBe(false);
+    expect(JSON.stringify(rMaint.body)).not.toContain('Fcfa');
+
+    // HOUSEKEEPING n'a accès qu'à Chambres (aucun accès Accueil)
+    await request(app.getHttpServer())
+      .get('/api/accueil/jour')
+      .set('Authorization', `Bearer ${roleTokens[Role.HOUSEKEEPING]}`)
+      .expect(403);
 
     await request(app.getHttpServer())
       .get('/api/accueil/jour')
