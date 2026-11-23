@@ -281,9 +281,9 @@ export class PlanningMockService implements OnDestroy {
       }, 60_000);
       if (
         this.dayCheckIntervalId &&
-        typeof (this.dayCheckIntervalId as { unref?: () => void }).unref === 'function'
+        typeof (this.dayCheckIntervalId as unknown as { unref?: () => void }).unref === 'function'
       ) {
-        (this.dayCheckIntervalId as { unref: () => void }).unref();
+        (this.dayCheckIntervalId as unknown as { unref: () => void }).unref();
       }
     }
     if (typeof document !== 'undefined') {
