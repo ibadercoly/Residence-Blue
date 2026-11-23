@@ -136,7 +136,7 @@ export interface PlanningData {
   occupancyStats: OccupancyStats;
   conflictAlert: ConflictAlert;
   rooms: PlanningRoom[];
-  selectedReservation: SelectedReservationDetail;
+  selectedReservation: SelectedReservationDetail | null;
   housekeeping: HousekeepingOverview;
 }
 

@@ -15,7 +15,7 @@ import {
   getRoomImageAlt,
   FALLBACK_ROOM_IMAGE,
 } from '@residence-blue/shared';
-import { PlanningMockService } from './planning-mock.service';
+import { PlanningService } from './planning.service';
 import { AuthService } from './auth.service';
 
 export interface RoomUiItem extends RoomDto {
@@ -785,7 +785,7 @@ export class RoomsService {
     }
 
     if (!force) {
-      // Vérification des réservations actives via PlanningMockService
+      // Vérification des réservations actives via PlanningService
       const conflicts = this.getFutureOrCurrentReservationsForRoom(room.number);
       if (conflicts.length > 0) {
         const conflictList = conflicts
@@ -847,7 +847,7 @@ export class RoomsService {
     checkOut: string;
     status: string;
   }> {
-    const planningService = this.injector.get(PlanningMockService, null, { optional: true });
+    const planningService = this.injector.get(PlanningService, null, { optional: true });
     if (!planningService) {
       return [];
     }

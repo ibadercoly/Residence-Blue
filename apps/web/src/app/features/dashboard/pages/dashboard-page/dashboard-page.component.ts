@@ -2,9 +2,8 @@ import { Component, computed, effect, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router, RouterLink } from '@angular/router';
 import { ReservationModalService } from '../../../../core/services/reservation-modal.service';
-import { ModuleConfigService } from '../../../../core/services/module-config.service';
 import { RoomsService } from '../../../../core/services/rooms.service';
-import { PlanningMockService } from '../../../../core/services/planning-mock.service';
+import { PlanningService } from '../../../../core/services/planning.service';
 import { FacturationService } from '../../../../facturation-v3/services/facturation.service';
 import { AuthService } from '../../../../core/services/auth.service';
 import { AccueilStatsDuJourComponent } from '../../components/accueil-stats-du-jour/accueil-stats-du-jour.component';
@@ -16,39 +15,6 @@ import { AccueilStatsDuJourComponent } from '../../components/accueil-stats-du-j
   host: { class: 'block w-full' },
   template: `
     <div class="p-4 sm:p-6 max-w-7xl mx-auto font-['Manrope'] pb-16 space-y-6">
-
-      <!-- 1. Bandeau Mode Démonstration -->
-      <div class="bg-blue-50/70 border border-blue-200 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs">
-        <div class="flex items-center gap-3">
-          <div class="w-10 h-10 rounded-xl bg-[#135bec] text-white flex items-center justify-center shrink-0">
-            <span class="material-symbols-outlined text-2xl">verified</span>
-          </div>
-          <div>
-            <div class="flex items-center gap-2">
-              <span class="text-sm font-bold text-stone-900">Mode Démonstration Actif</span>
-              <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-100 text-[#135bec]">
-                Version 1 Minimale
-              </span>
-            </div>
-            <p class="text-xs text-stone-600 mt-0.5">
-              Données réalistes pour l'hôtel Résidence Blue ({{ roomsCount() }} chambres, restaurant La Teranga &amp; piscine).
-            </p>
-          </div>
-        </div>
-
-        @if (isDirector() || canAccessPlanning()) {
-          <button
-            type="button"
-            (click)="confirmResetDemo()"
-            class="h-11 min-h-[44px] px-4 rounded-xl bg-white hover:bg-stone-50 border border-stone-300 text-stone-700 text-xs font-bold flex items-center justify-center gap-2 transition-colors cursor-pointer shrink-0 shadow-xs"
-            data-testid="btn-reset-demo"
-          >
-            <span class="material-symbols-outlined text-base">restart_alt</span>
-            Réinitialiser les données
-          </button>
-        }
-      </div>
-
       <!-- Feedback Toast Notification -->
       <div
         *ngIf="toastMessage()"
@@ -264,7 +230,7 @@ import { AccueilStatsDuJourComponent } from '../../components/accueil-stats-du-j
 })
 export class DashboardPageComponent {
   readonly roomsService = inject(RoomsService, { optional: true });
-  readonly planningService = inject(PlanningMockService, { optional: true });
+  readonly planningService = inject(PlanningService, { optional: true });
   readonly facturationService = inject(FacturationService, { optional: true });
   private readonly authService = inject(AuthService, { optional: true });
 
@@ -306,7 +272,6 @@ export class DashboardPageComponent {
   readonly canAccessFacturation = computed(() => this.authService?.hasScreen('facturation', 'LECTURE') ?? false);
   private readonly router = inject(Router);
   private readonly reservationModal = inject(ReservationModalService);
-  private readonly moduleConfig = inject(ModuleConfigService);
 
   readonly toastMessage = signal<string | null>(null);
 
@@ -368,21 +333,6 @@ export class DashboardPageComponent {
   // Action 5 : Encaisser
   goToFacturation(): void {
     this.router.navigate(['/facturation']);
-  }
-
-  // Mode Démonstration
-  confirmResetDemo(): void {
-    this.activeModal.set({
-      title: 'Réinitialiser les données de démonstration ?',
-      message: 'Toutes les réservations, chambres et folios de démonstration seront remis à leur état initial en un clic.',
-      icon: 'restart_alt',
-      confirmText: 'Réinitialiser',
-      onConfirm: () => {
-        this.moduleConfig.resetDemoData();
-        this.activeModal.set(null);
-        this.showToast('Données de démonstration réinitialisées avec succès.');
-      }
-    });
   }
 
   showToast(msg: string): void {

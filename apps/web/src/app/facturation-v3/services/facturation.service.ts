@@ -19,7 +19,7 @@ import { AuthService } from '../../core/services/auth.service';
 import { IdbService } from '../../core/offline/idb.service';
 import { NetworkService } from '../../core/offline/network.service';
 import { OutboxService } from '../../core/offline/outbox.service';
-import { PlanningMockService } from '../../core/services/planning-mock.service';
+import { PlanningService } from '../../core/services/planning.service';
 
 @Injectable({
   providedIn: 'root',
@@ -27,7 +27,7 @@ import { PlanningMockService } from '../../core/services/planning-mock.service';
 export class FacturationService {
   private readonly roomsService = inject(RoomsService, { optional: true });
   private readonly authService = inject(AuthService, { optional: true });
-  private readonly planningService = inject(PlanningMockService, { optional: true });
+  private readonly planningService = inject(PlanningService, { optional: true });
   private readonly idb = inject(IdbService, { optional: true });
   private readonly network = inject(NetworkService, { optional: true });
   private readonly outbox = inject(OutboxService, { optional: true });

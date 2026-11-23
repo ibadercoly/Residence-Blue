@@ -1,6 +1,6 @@
 import { Component, HostListener, computed, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { PlanningMockService } from '../../core/services/planning-mock.service';
+import { PlanningService } from '../../core/services/planning.service';
 import { ReservationModalService } from '../../core/services/reservation-modal.service';
 import { RoomsService } from '../../core/services/rooms.service';
 import { ReservationStatusType } from '../../core/models/planning.model';
@@ -610,17 +610,17 @@ import { ActionButtonComponent } from '../../shared/components/action-button/act
   `
 })
 export class PlanningPageComponent {
-  readonly planningService: PlanningMockService;
+  readonly planningService: PlanningService;
   readonly modalService: ReservationModalService;
 
   private readonly roomsService: RoomsService | null = null;
 
   constructor(
-    planningService?: PlanningMockService,
+    planningService?: PlanningService,
     modalService?: ReservationModalService,
     roomsService?: RoomsService
   ) {
-    this.planningService = planningService ?? inject(PlanningMockService);
+    this.planningService = planningService ?? inject(PlanningService);
     this.modalService = modalService ?? inject(ReservationModalService);
     if (roomsService) {
       this.roomsService = roomsService;

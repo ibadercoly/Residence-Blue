@@ -1,10 +1,10 @@
-import { PlanningMockService } from './planning-mock.service';
+import { PlanningService } from './planning.service';
 
-describe('PlanningMockService', () => {
-  let service: PlanningMockService;
+describe('PlanningService', () => {
+  let service: PlanningService;
 
   beforeEach(() => {
-    service = new PlanningMockService();
+    service = new PlanningService();
     service.testCatalogRooms.set([
       { number: '101', category: 'Standard', typeLabel: 'Standard Patio', description: 'RDC Jardin' },
       { number: '102', category: 'Standard', typeLabel: 'Standard Patio', description: 'RDC Jardin' },
