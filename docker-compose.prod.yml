@@ -64,9 +64,11 @@ services:
       ENCRYPTION_MASTER_KEY: ${ENCRYPTION_MASTER_KEY:?ENCRYPTION_MASTER_KEY requis}
       ENCRYPTION_KEYS: ${ENCRYPTION_KEYS:-}
       JWT_SECRET: ${JWT_SECRET:?JWT_SECRET requis}
-      MEDIA_DIR: /app/uploads/rooms
-    ports:
-      - "${PORT:-3000}:3000"
+      COOKIE_SECURE: ${COOKIE_SECURE:-true}
+      CORS_ORIGIN: ${CORS_ORIGIN:-https://${HTTPS_DOMAIN:-localhost}}
+      MEDIA_DIR: ${MEDIA_DIR:-/app/uploads/rooms}
+    expose:
+      - "3000"
     volumes:
       # Volume persistant pour préserver les images téléversées à chaque reconstruction
       - media_uploads:/app/uploads/rooms
@@ -74,6 +76,18 @@ services:
       - internal_net
       - public_net
     mem_limit: 300m
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:3000/api/health').then((r) => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))",
+        ]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
 
   web:
     build:
@@ -82,9 +96,37 @@ services:
     container_name: residence_blue_prod_web
     restart: unless-stopped
     depends_on:
-      - api
+      api:
+        condition: service_healthy
+    expose:
+      - "80"
+    networks:
+      - public_net
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1:80/ || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+  proxy:
+    image: caddy:2-alpine
+    container_name: residence_blue_prod_proxy
+    restart: unless-stopped
+    depends_on:
+      api:
+        condition: service_healthy
+      web:
+        condition: service_healthy
+    environment:
+      HTTPS_DOMAIN: ${HTTPS_DOMAIN:-localhost}
     ports:
-      - "4200:80"
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./docker/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
     networks:
       - public_net
 
@@ -103,11 +145,14 @@ services:
       PGUSER: app_owner
       PGPASSWORD: ${APP_OWNER_PASSWORD}
       PGDATABASE: ${POSTGRES_DB}
-      BACKUP_DIR: /backups
+      BACKUP_DIR: ${BACKUP_DIR:-/backups}
+      BACKUP_OFFSITE_DIR: ${BACKUP_OFFSITE_DIR:-/backups-offsite}
+      BACKUP_AGE_RECIPIENT: ${BACKUP_AGE_RECIPIENT:-}
       BACKUP_ENCRYPTION_KEY: ${BACKUP_ENCRYPTION_KEY:?BACKUP_ENCRYPTION_KEY requis}
     volumes:
       - ./scripts:/scripts:ro
       - pgbackups:/backups
+      - pgbackups_offsite:/backups-offsite
       # Inclusion des images dans les sauvegardes
       - media_uploads:/backups/media:ro
     networks:
@@ -125,5 +170,11 @@ volumes:
     driver: local
   pgbackups:
     driver: local
+  pgbackups_offsite:
+    driver: local
   media_uploads:
+    driver: local
+  caddy_data:
+    driver: local
+  caddy_config:
     driver: local

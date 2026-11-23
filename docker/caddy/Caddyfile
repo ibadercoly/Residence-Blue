@@ -1,0 +1,43 @@
+# Configuration Caddy — Résidence Blue (Thiès, Sénégal)
+# Proxy HTTPS unique : tout le trafic (site web + API) passe par les ports 80 et 443.
+# Caddy obtient et renouvelle automatiquement le certificat TLS Let's Encrypt pour {$HTTPS_DOMAIN}.
+# HTTP (80) est redirigé automatiquement en 301 vers HTTPS (443).
+
+{$HTTPS_DOMAIN:localhost} {
+	encode zstd gzip
+
+	# En-têtes de sécurité complémentaires
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		-Server
+	}
+
+	# Flux temps réel SSE (sans mise en tampon)
+	@sse {
+		path /api/notifications/stream /api/cuisine/stream /api/restaurant/orders/stream /api/rooms/stream
+	}
+	handle @sse {
+		reverse_proxy api:3000 {
+			flush_interval -1
+			header_up X-Real-IP {remote_host}
+		}
+	}
+
+	# Routes API et santé
+	@api {
+		path /api /api/* /health
+	}
+	handle @api {
+		reverse_proxy api:3000 {
+			header_up X-Real-IP {remote_host}
+		}
+	}
+
+	# Application web Angular
+	handle {
+		reverse_proxy web:80
+	}
+}
