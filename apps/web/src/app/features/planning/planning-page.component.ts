@@ -1,6 +1,7 @@
 import { Component, HostListener, computed, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { PlanningMockService } from '../../core/services/planning-mock.service';
+import { addDaysToIso } from '../../core/utils/dakar-date.util';
 import { ReservationModalService } from '../../core/services/reservation-modal.service';
 import { RoomsService } from '../../core/services/rooms.service';
 import { ReservationStatusType } from '../../core/models/planning.model';
@@ -242,6 +243,8 @@ import { ActionButtonComponent } from '../../shared/components/action-button/act
               [class.bg-surface-container-low]="day.isWeekend && !day.isToday"
               [class.font-bold]="day.isToday"
               [attr.data-testid]="'day-header-' + day.dayIndex"
+              [attr.data-date-iso]="day.dateIso"
+              [attr.data-is-today]="day.isToday ? 'true' : 'false'"
             >
               <span class="text-[11px] uppercase tracking-wider truncate w-full" [class.text-primary]="day.isToday">
                 {{ day.name }}
@@ -657,11 +660,13 @@ export class PlanningPageComponent {
       return { arrivals: [], departures: [], staying: [] };
     }
 
-    const currentDayIso = days[dayIndex]?.dateIso || '2026-11-10';
+    const todayIso = this.planningService.todayIso();
+    const currentDayIso = days[dayIndex]?.dateIso || todayIso;
+    const isTodayColumn = currentDayIso === todayIso;
     const all = this.planningService.allReservations();
 
     const arrivals = all.filter(r => r.checkInDate === currentDayIso);
-    const departures = all.filter(r => r.checkOutDate === currentDayIso || (r.status === 'DEPART_AUJ' && dayIndex === 0));
+    const departures = all.filter(r => r.checkOutDate === currentDayIso || (r.status === 'DEPART_AUJ' && isTodayColumn));
     const staying = all.filter(r => {
       if (r.checkInDate === currentDayIso || r.checkOutDate === currentDayIso) return false;
       return r.checkInDate < currentDayIso && r.checkOutDate > currentDayIso;
@@ -684,9 +689,7 @@ export class PlanningPageComponent {
   }
 
   onEmptySlotClick(roomNumber: string, dateIso: string): void {
-    const nextDay = new Date(dateIso);
-    nextDay.setDate(nextDay.getDate() + 1);
-    const checkOutIso = nextDay.toISOString().split('T')[0];
+    const checkOutIso = addDaysToIso(dateIso, 1);
 
     const category = this.getCategoryForRoom(roomNumber);
     this.modalService.open({
@@ -698,10 +701,8 @@ export class PlanningPageComponent {
   }
 
   openNewReservation(roomNumber?: string, dateIso?: string): void {
-    const arrival = dateIso || '2026-11-10';
-    const nextDay = new Date(arrival);
-    nextDay.setDate(nextDay.getDate() + 1);
-    const departure = nextDay.toISOString().split('T')[0];
+    const arrival = dateIso || this.planningService.todayIso();
+    const departure = addDaysToIso(arrival, 1);
 
     this.modalService.open({
       roomNumber: roomNumber || '101',

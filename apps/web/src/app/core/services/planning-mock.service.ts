@@ -1,4 +1,13 @@
-import { Injectable, signal, computed, effect, inject, Injector } from '@angular/core';
+import { Injectable, OnDestroy, signal, computed, effect, inject, Injector } from '@angular/core';
+import {
+  addDaysToIso,
+  aujourdhuiDakarIso,
+  estAujourdhuiDakar,
+  formatPlanningPeriodLabel,
+  getDayOfWeekFromIso,
+  parseIsoParts,
+  trouverIndexColonneAujourdhui,
+} from '../utils/dakar-date.util';
 import { RoomsService } from './rooms.service';
 import { AuthService } from './auth.service';
 import { Observable, of } from 'rxjs';
@@ -16,7 +25,7 @@ import {
 @Injectable({
   providedIn: 'root'
 })
-export class PlanningMockService {
+export class PlanningMockService implements OnDestroy {
   private readonly injector = inject(Injector);
 
   /**
@@ -215,7 +224,21 @@ export class PlanningMockService {
   readonly serverSynced = signal<boolean>(false);
   readonly testCatalogRooms = signal<Omit<PlanningRoom, 'reservations'>[]>([]);
 
+  /** Date du jour en heure officielle de Dakar (AAAA-MM-JJ), mise à jour au changement de jour */
+  readonly todayIso = signal<string>(aujourdhuiDakarIso());
+
+  private dayCheckIntervalId: ReturnType<typeof setInterval> | null = null;
+  private readonly handleVisibilityChange = (): void => {
+    if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
+      this.refreshTodayDate();
+    }
+  };
+  private readonly handleWindowFocus = (): void => {
+    this.refreshTodayDate();
+  };
+
   constructor() {
+    this.startDayChangeWatcher();
     this.fetchFromServer();
     try {
       effect(() => {
@@ -225,6 +248,49 @@ export class PlanningMockService {
       });
     } catch {
       // Hors contexte d'injection Angular
+    }
+  }
+
+  ngOnDestroy(): void {
+    if (this.dayCheckIntervalId !== null) {
+      clearInterval(this.dayCheckIntervalId);
+      this.dayCheckIntervalId = null;
+    }
+    if (typeof document !== 'undefined') {
+      document.removeEventListener('visibilitychange', this.handleVisibilityChange);
+    }
+    if (typeof window !== 'undefined') {
+      window.removeEventListener('focus', this.handleWindowFocus);
+    }
+  }
+
+  /** Vérifie si la date du jour à Dakar a changé et met à jour la référence sans perdre l'état courant */
+  refreshTodayDate(reference: Date = new Date()): boolean {
+    const nextIso = aujourdhuiDakarIso(reference);
+    if (nextIso !== this.todayIso()) {
+      this.todayIso.set(nextIso);
+      return true;
+    }
+    return false;
+  }
+
+  private startDayChangeWatcher(): void {
+    if (typeof setInterval !== 'undefined') {
+      this.dayCheckIntervalId = setInterval(() => {
+        this.refreshTodayDate();
+      }, 60_000);
+      if (
+        this.dayCheckIntervalId &&
+        typeof (this.dayCheckIntervalId as { unref?: () => void }).unref === 'function'
+      ) {
+        (this.dayCheckIntervalId as { unref: () => void }).unref();
+      }
+    }
+    if (typeof document !== 'undefined') {
+      document.addEventListener('visibilitychange', this.handleVisibilityChange);
+    }
+    if (typeof window !== 'undefined') {
+      window.addEventListener('focus', this.handleWindowFocus);
     }
   }
 
@@ -286,44 +352,41 @@ export class PlanningMockService {
     return [];
   }
 
-  /** Date de référence fixe pour la démo : Mardi 10 Novembre 2026 */
-  private readonly baseDate = new Date(2026, 10, 10); // 10 nov 2026
-
-  /** Calcul dynamique des 7 jours affichés */
+  /** Calcul dynamique des 7 jours affichés à partir de la date du jour à Dakar */
   readonly currentDays = computed<PlanningDay[]>(() => {
     const offset = this.weekOffset();
-    const startDate = new Date(this.baseDate);
-    startDate.setDate(this.baseDate.getDate() + offset * 7);
+    const today = this.todayIso();
+    const startIso = addDaysToIso(today, offset * 7);
 
     const dayNames = ['Dim', 'Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam'];
     const monthNames = ['Janv.', 'Févr.', 'Mars', 'Avr.', 'Mai', 'Juin', 'Juil.', 'Août', 'Sept.', 'Oct.', 'Nov.', 'Déc.'];
 
     const days: PlanningDay[] = [];
     for (let i = 0; i < 7; i++) {
-      const d = new Date(startDate);
-      d.setDate(startDate.getDate() + i);
-
-      const dayOfWeek = d.getDay();
+      const dateIso = addDaysToIso(startIso, i);
+      const { mois, jour } = parseIsoParts(dateIso);
+      const dayOfWeek = getDayOfWeekFromIso(dateIso);
       const isWeekend = dayOfWeek === 0 || dayOfWeek === 6; // Samedi ou Dimanche
-      const isToday = offset === 0 && i === 0; // Mardi 10 nov est le jour 0 quand offset = 0
-
-      const yyyy = d.getFullYear();
-      const mm = String(d.getMonth() + 1).padStart(2, '0');
-      const dd = String(d.getDate()).padStart(2, '0');
+      const isToday = estAujourdhuiDakar(dateIso, today);
 
       days.push({
         name: dayNames[dayOfWeek],
-        number: dd,
-        month: monthNames[d.getMonth()],
+        number: String(jour).padStart(2, '0'),
+        month: monthNames[mois - 1],
         isToday,
         isWeekend,
         dayIndex: i,
-        dateIso: `${yyyy}-${mm}-${dd}`
+        dateIso
       });
     }
 
     return days;
   });
+
+  /** Index de la colonne « Aujourd'hui » déterminé par comparaison de dates (-1 si hors période) */
+  readonly todayColumnIndex = computed<number>(() =>
+    trouverIndexColonneAujourdhui(this.currentDays(), this.todayIso()),
+  );
 
   /** Libellé de période sur une seule ligne (ex: « 10 – 16 nov. 2026 ») */
   readonly periodLabel = computed<string>(() => {
@@ -331,12 +394,12 @@ export class PlanningMockService {
     if (days.length === 0) return '';
     const first = days[0];
     const last = days[days.length - 1];
-    return `${first.number} – ${last.number} nov. 2026`;
+    return formatPlanningPeriodLabel(first.dateIso, last.dateIso);
   });
 
   /** 3 chiffres clés du jour (Arrivées aujourd'hui, Départs aujourd'hui, Chambres libres) */
   readonly dailyMetrics = computed<PlanningDailyMetrics>(() => {
-    const todayIso = '2026-11-10';
+    const todayIso = this.todayIso();
     const all = this.allReservations();
 
     // Arrivées aujourd'hui : checkInDate === today
