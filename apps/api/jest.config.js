@@ -1,3 +1,6 @@
+// Configuration Jest des tests unitaires : environnement de test garanti.
+process.env.NODE_ENV = 'test';
+
 module.exports = {
   preset: 'ts-jest/presets/default-esm',
   moduleFileExtensions: ['js', 'json', 'ts'],

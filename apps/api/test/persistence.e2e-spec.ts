@@ -9,6 +9,7 @@ import { seedAll } from '../prisma/seed';
 import { getUploadsDir as getRoomsUploadDir } from '../src/rooms/rooms-image.util';
 import { isValidPasswordHash } from '../src/auth/password-hash.util';
 import { issueDbTestToken } from './auth-test.helper';
+import { createManagedAccountForTest } from './managed-account-test.helper';
 
 describe('Persistance Complète de Bout en Bout (chore/audit-persistance)', () => {
   let app: INestApplication;
@@ -63,24 +64,23 @@ describe('Persistance Complète de Bout en Bout (chore/audit-persistance)', () =
     let createdUserId: string;
     const testEmail = `persistance.user.${Date.now()}@residenceblue.sn`;
 
-    it('crée un utilisateur via POST /api/users, hache le mot de passe, survit au redémarrage API et permet la connexion', async () => {
-      // 1. Création
-      const createRes = await request(app.getHttpServer())
-        .post('/api/users')
-        .set('Authorization', `Bearer ${roleTokens['DIRECTION']}`)
-        .send({
-          email: testEmail,
-          fullName: 'Ousmane Kane',
-          jobTitle: 'Réceptionniste Nuit',
-          password: 'PasswordSecurise2026!',
-          role: 'RECEPTION',
-        })
-        .expect(201);
-
-      createdUserId = createRes.body.id;
+    it('crée un utilisateur via /api/administration/comptes, hache le mot de passe, survit au redémarrage API et permet la connexion', async () => {
+      // 1. Création via la seule route canonique de gestion des comptes
+      const created = await createManagedAccountForTest(app, roleTokens['DIRECTION'], {
+        email: testEmail,
+        fullName: 'Ousmane Kane',
+        role: 'RECEPTION',
+        newPassword: 'PasswordSecurise2026!',
+      });
+      createdUserId = created.id;
       expect(createdUserId).toBeDefined();
-      expect(createRes.body.email).toBe(testEmail);
-      expect(createRes.body.passwordHash).toBeUndefined();
+      expect(created.email).toBe(testEmail);
+
+      const createdAccount = await request(app.getHttpServer())
+        .get(`/api/administration/comptes/${createdUserId}`)
+        .set('Authorization', `Bearer ${roleTokens['DIRECTION']}`)
+        .expect(200);
+      expect(createdAccount.body.passwordHash).toBeUndefined();
 
       // 2. Lecture directe en base via Prisma : mot de passe haché (jamais en clair)
       const dbUser = await prisma.user.findUnique({ where: { id: createdUserId } });
@@ -96,7 +96,7 @@ describe('Persistance Complète de Bout en Bout (chore/audit-persistance)', () =
       prisma = rebooted.prisma;
 
       const getRes = await request(app.getHttpServer())
-        .get(`/api/users/${createdUserId}`)
+        .get(`/api/administration/comptes/${createdUserId}`)
         .set('Authorization', `Bearer ${roleTokens['DIRECTION']}`)
         .expect(200);
       expect(getRes.body.fullName).toBe('Ousmane Kane');
@@ -112,16 +112,16 @@ describe('Persistance Complète de Bout en Bout (chore/audit-persistance)', () =
       expect(loginRes.body.user.id).toBe(createdUserId);
       expect(loginRes.body.accessToken).toBeDefined();
 
-      // 5. Modification puis suppression (désactivation car l'utilisateur a un historique de connexion)
+      // 5. Modification puis désactivation via l'administration (historique de connexion)
       const patchRes = await request(app.getHttpServer())
-        .patch(`/api/users/${createdUserId}`)
+        .patch(`/api/administration/comptes/${createdUserId}`)
         .set('Authorization', `Bearer ${roleTokens['DIRECTION']}`)
         .send({ fullName: 'Ousmane Kane Senior' })
         .expect(200);
       expect(patchRes.body.fullName).toBe('Ousmane Kane Senior');
 
       await request(app.getHttpServer())
-        .delete(`/api/users/${createdUserId}`)
+        .post(`/api/administration/comptes/${createdUserId}/desactiver`)
         .set('Authorization', `Bearer ${roleTokens['DIRECTION']}`)
         .expect(200);
 
@@ -129,26 +129,24 @@ describe('Persistance Complète de Bout en Bout (chore/audit-persistance)', () =
       expect(afterDeactivate).toBeDefined();
       expect(afterDeactivate!.isActive).toBe(false);
 
-      // 6. Suppression définitive d'un utilisateur vierge sans historique de connexion
+      // 6. Suppression d'un utilisateur sans historique métier (anonymisation conservant l'audit)
       const freshEmail = `persistance.fresh.${Date.now()}@residenceblue.sn`;
-      const freshCreate = await request(app.getHttpServer())
-        .post('/api/users')
-        .set('Authorization', `Bearer ${roleTokens['DIRECTION']}`)
-        .send({
-          email: freshEmail,
-          fullName: 'Utilisateur Vierge',
-          password: 'PasswordSecurise2026!',
-          role: 'SERVEUR',
-        })
-        .expect(201);
+      const freshCreate = await createManagedAccountForTest(app, roleTokens['DIRECTION'], {
+        email: freshEmail,
+        fullName: 'Utilisateur Vierge',
+        role: 'SERVEUR',
+        newPassword: 'PasswordSecurise2026!',
+      });
 
       await request(app.getHttpServer())
-        .delete(`/api/users/${freshCreate.body.id}`)
+        .post(`/api/administration/comptes/${freshCreate.id}/supprimer`)
         .set('Authorization', `Bearer ${roleTokens['DIRECTION']}`)
+        .send({ confirmName: 'Utilisateur Vierge', directorPassword: 'TestSecure2026!' })
         .expect(200);
 
-      const afterHardDelete = await prisma.user.findUnique({ where: { id: freshCreate.body.id } });
-      expect(afterHardDelete).toBeNull();
+      const afterDelete = await prisma.user.findUnique({ where: { id: freshCreate.id } });
+      expect(afterDelete?.deletedAt).toBeTruthy();
+      expect(afterDelete?.isActive).toBe(false);
     });
   });
 

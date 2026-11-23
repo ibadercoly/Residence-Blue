@@ -7,19 +7,13 @@ import {
   HttpStatus,
   Param,
   Post,
-  Patch,
   Query,
   Req,
   Res,
 } from '@nestjs/common';
 import { Request, Response } from 'express';
 import { AuthService, IssuedAuthResult, RequestMeta } from './auth.service';
-import {
-  ChangeInitialPasswordDto,
-  CreateUserDto,
-  LoginDto,
-  UpdateUserDto,
-} from './dto/auth.dto';
+import { ChangeInitialPasswordDto, LoginDto } from './dto/auth.dto';
 import { Acces } from '../common/decorators/acces.decorator';
 import { Public, Roles } from '../common/decorators/roles.decorator';
 import { ALL_ROLES, Role } from '@residence-blue/shared';
@@ -159,48 +153,5 @@ export class AuthController {
       actor,
       this.extractMeta(req).ip,
     );
-  }
-
-  @Get('users')
-  @Roles(Role.DIRECTION)
-  findAllUsers() {
-    return this.authService.findAllUsers();
-  }
-
-  @Get('users/:id')
-  @Roles(Role.DIRECTION)
-  findOneUser(@Param('id') id: string) {
-    return this.authService.findOneUser(id);
-  }
-
-  @Post('users')
-  @Roles(Role.DIRECTION)
-  createUser(@Body() dto: CreateUserDto, @Req() req: Request) {
-    const actor = (req as any).user as { id?: string };
-    return this.authService.createUser(dto, {
-      id: actor?.id,
-      ip: this.extractMeta(req).ip,
-    });
-  }
-
-  @Patch('users/:id')
-  @Roles(Role.DIRECTION)
-  updateUser(@Param('id') id: string, @Body() dto: UpdateUserDto, @Req() req: Request) {
-    const actor = (req as any).user as { id?: string };
-    return this.authService.updateUser(id, dto, {
-      id: actor?.id,
-      ip: this.extractMeta(req).ip,
-    });
-  }
-
-  @Delete('users/:id')
-  @Roles(Role.DIRECTION)
-  @HttpCode(HttpStatus.OK)
-  removeUser(@Param('id') id: string, @Req() req: Request) {
-    const actor = (req as any).user as { id?: string };
-    return this.authService.deleteOrDeactivateUser(id, {
-      id: actor?.id,
-      ip: this.extractMeta(req).ip,
-    });
   }
 }

@@ -25,7 +25,7 @@ import {
 import { FileInterceptor } from '@nestjs/platform-express';
 import { Request, Response } from 'express';
 import { map, merge, Observable, takeUntil, timer } from 'rxjs';
-import { hasScreenAccess, hasSpecialPermission, isKitchenAccount } from '@residence-blue/shared';
+import { hasSpecialPermission, isKitchenAccount } from '@residence-blue/shared';
 import { Acces } from '../common/decorators/acces.decorator';
 import { Public } from '../common/decorators/roles.decorator';
 import { SessionRevocationService } from '../auth/session-revocation.service';

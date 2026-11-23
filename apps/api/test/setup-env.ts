@@ -2,6 +2,9 @@ import * as dotenv from 'dotenv';
 import * as path from 'path';
 import * as fs from 'fs';
 
+// Les suites Jest/Playwright s'exécutent toujours avec la configuration de test.
+process.env.NODE_ENV = 'test';
+
 // Charger le .env racine et le .env apps/api si présents
 const rootEnvPath = path.resolve(process.cwd(), '.env');
 const apiEnvPath = path.resolve(process.cwd(), 'apps/api/.env');

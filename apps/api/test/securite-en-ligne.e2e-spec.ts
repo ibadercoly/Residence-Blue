@@ -10,6 +10,7 @@ import { PrismaService } from '../src/prisma/prisma.service';
 import { SanitizedExceptionFilter } from '../src/common/filters/http-exception.filter';
 import { signJwt } from '../src/auth/jwt.util';
 import { issueDbTestToken } from './auth-test.helper';
+import { createManagedAccountForTest } from './managed-account-test.helper';
 
 describe('Sécurité En Ligne — Tests complets d’intrusion et de conformité (e2e)', () => {
   let app: INestApplication;
@@ -84,7 +85,7 @@ describe('Sécurité En Ligne — Tests complets d’intrusion et de conformité
   describe('1. Jetons JWT : absence, falsification, expiration & rejet total de x-user-role', () => {
     it('renvoie 401 sans jeton Bearer même si x-user-role: DIRECTION est envoyé', async () => {
       await request(app.getHttpServer())
-        .get('/api/users')
+        .get('/api/administration/comptes')
         .set('x-user-role', 'DIRECTION')
         .expect(401);
 
@@ -115,7 +116,7 @@ describe('Sécurité En Ligne — Tests complets d’intrusion et de conformité
         'wrong-secret-key-not-matching-server-key',
       );
       await request(app.getHttpServer())
-        .get('/api/users')
+        .get('/api/administration/comptes')
         .set('Authorization', `Bearer ${forged}`)
         .expect(401);
 
@@ -130,7 +131,7 @@ describe('Sécurité En Ligne — Tests complets d’intrusion et de conformité
         }),
       ).toString('base64url');
       await request(app.getHttpServer())
-        .get('/api/users')
+        .get('/api/administration/comptes')
         .set('Authorization', `Bearer ${h}.${p}.`)
         .expect(401);
 
@@ -150,7 +151,7 @@ describe('Sécurité En Ligne — Tests complets d’intrusion et de conformité
         -60,
       );
       await request(app.getHttpServer())
-        .get('/api/users')
+        .get('/api/administration/comptes')
         .set('Authorization', `Bearer ${expired}`)
         .expect(401);
 
@@ -160,7 +161,7 @@ describe('Sécurité En Ligne — Tests complets d’intrusion et de conformité
         300,
       );
       await request(app.getHttpServer())
-        .get('/api/users')
+        .get('/api/administration/comptes')
         .set('Authorization', `Bearer ${mfaToken}`)
         .expect(401);
     });
@@ -168,7 +169,7 @@ describe('Sécurité En Ligne — Tests complets d’intrusion et de conformité
     it('ignore x-user-role: DIRECTION quand le JWT appartient à un rôle inférieur (403)', async () => {
       const { token: serveurToken } = await issueDbTestToken(prisma, Role.SERVEUR);
       await request(app.getHttpServer())
-        .get('/api/users')
+        .get('/api/administration/comptes')
         .set('Authorization', `Bearer ${serveurToken}`)
         .set('x-user-role', 'DIRECTION')
         .expect(403);
@@ -192,7 +193,7 @@ describe('Sécurité En Ligne — Tests complets d’intrusion et de conformité
 
       // RECEPTION -> interdit sur création utilisateur & audit/verify & clôture caisse
       await request(app.getHttpServer())
-        .get('/api/users')
+        .get('/api/administration/comptes')
         .set('Authorization', `Bearer ${rec.token}`)
         .expect(403);
       await request(app.getHttpServer())
@@ -242,7 +243,7 @@ describe('Sécurité En Ligne — Tests complets d’intrusion et de conformité
         .set('Authorization', `Bearer ${comptable.token}`)
         .expect(403);
       await request(app.getHttpServer())
-        .get('/api/users')
+        .get('/api/administration/comptes')
         .set('Authorization', `Bearer ${comptable.token}`)
         .expect(403);
 
@@ -258,35 +259,35 @@ describe('Sécurité En Ligne — Tests complets d’intrusion et de conformité
     it('exige 10+ caractères, rejette les mots de passe courants et stocke en argon2id', async () => {
       const dir = await issueDbTestToken(prisma, Role.DIRECTION);
       const email = `pwd.policy.${Date.now()}@residenceblue.sn`;
+      const created = await createManagedAccountForTest(app, dir.token, {
+        email,
+        fullName: 'Policy Test',
+        role: Role.RECEPTION,
+      });
+      createdUserIds.push(created.id);
 
-      // Trop court (< 10)
+      // Trop court (< 10) lors du changement du mot de passe provisoire
       await request(app.getHttpServer())
-        .post('/api/users')
-        .set('Authorization', `Bearer ${dir.token}`)
-        .send({ email, fullName: 'Policy Test', password: 'Court9!', role: Role.RECEPTION })
+        .post('/api/auth/change-initial-password')
+        .set('Authorization', `Bearer ${created.provisionalAccessToken}`)
+        .send({ newPassword: 'Court9!' })
         .expect(400);
 
       // Mot de passe courant (>= 10 mais interdit)
       await request(app.getHttpServer())
-        .post('/api/users')
-        .set('Authorization', `Bearer ${dir.token}`)
-        .send({ email, fullName: 'Policy Test', password: 'motdepasse123', role: Role.RECEPTION })
+        .post('/api/auth/change-initial-password')
+        .set('Authorization', `Bearer ${created.provisionalAccessToken}`)
+        .send({ newPassword: 'motdepasse123' })
         .expect(400);
 
       // Mot de passe fort accepté et haché en argon2id
-      const created = await request(app.getHttpServer())
-        .post('/api/users')
-        .set('Authorization', `Bearer ${dir.token}`)
-        .send({
-          email,
-          fullName: 'Policy OK',
-          password: 'TerangaSecurity2026#Thies',
-          role: Role.RECEPTION,
-        })
-        .expect(201);
+      await request(app.getHttpServer())
+        .post('/api/auth/change-initial-password')
+        .set('Authorization', `Bearer ${created.provisionalAccessToken}`)
+        .send({ newPassword: 'TerangaSecurity2026#Thies' })
+        .expect(200);
 
-      createdUserIds.push(created.body.id);
-      const dbUser = await prisma.user.findUnique({ where: { id: created.body.id } });
+      const dbUser = await prisma.user.findUnique({ where: { id: created.id } });
       expect(dbUser!.passwordHash.startsWith('$argon2id$')).toBe(true);
     });
 
@@ -295,12 +296,13 @@ describe('Sécurité En Ligne — Tests complets d’intrusion et de conformité
       const email = `direct.comptable.${Date.now()}@residenceblue.sn`;
       const pwd = 'ComptableStrong2026#!';
 
-      const created = await request(app.getHttpServer())
-        .post('/api/users')
-        .set('Authorization', `Bearer ${dir.token}`)
-        .send({ email, fullName: 'Comptable Test', password: pwd, role: Role.COMPTABLE })
-        .expect(201);
-      createdUserIds.push(created.body.id);
+      const created = await createManagedAccountForTest(app, dir.token, {
+        email,
+        fullName: 'Comptable Test',
+        role: Role.COMPTABLE,
+        newPassword: pwd,
+      });
+      createdUserIds.push(created.id);
 
       const loginRes = await request(app.getHttpServer())
         .post('/api/auth/login')
@@ -333,12 +335,13 @@ describe('Sécurité En Ligne — Tests complets d’intrusion et de conformité
       const dir = await issueDbTestToken(prisma, Role.DIRECTION);
       const email = `rot.user.${Date.now()}@residenceblue.sn`;
       const pwd = 'RotationStrong2026#!';
-      const created = await request(app.getHttpServer())
-        .post('/api/users')
-        .set('Authorization', `Bearer ${dir.token}`)
-        .send({ email, fullName: 'Rotation User', password: pwd, role: Role.RECEPTION })
-        .expect(201);
-      createdUserIds.push(created.body.id);
+      const created = await createManagedAccountForTest(app, dir.token, {
+        email,
+        fullName: 'Rotation User',
+        role: Role.RECEPTION,
+        newPassword: pwd,
+      });
+      createdUserIds.push(created.id);
 
       const loginRes = await request(app.getHttpServer())
         .post('/api/auth/login')
@@ -379,12 +382,13 @@ describe('Sécurité En Ligne — Tests complets d’intrusion et de conformité
       const dir = await issueDbTestToken(prisma, Role.DIRECTION);
       const email = `deact.${Date.now()}@residenceblue.sn`;
       const pwd = 'DeactivateStrong2026!';
-      const created = await request(app.getHttpServer())
-        .post('/api/users')
-        .set('Authorization', `Bearer ${dir.token}`)
-        .send({ email, fullName: 'Deact User', password: pwd, role: Role.RECEPTION })
-        .expect(201);
-      createdUserIds.push(created.body.id);
+      const created = await createManagedAccountForTest(app, dir.token, {
+        email,
+        fullName: 'Deact User',
+        role: Role.RECEPTION,
+        newPassword: pwd,
+      });
+      createdUserIds.push(created.id);
 
       const loginRes = await request(app.getHttpServer())
         .post('/api/auth/login')
@@ -398,7 +402,7 @@ describe('Sécurité En Ligne — Tests complets d’intrusion et de conformité
         .get('/api/auth/sessions')
         .set('Authorization', `Bearer ${dir.token}`)
         .expect(200);
-      const targetSession = (sessionsRes.body as any[]).find((s) => s.userId === created.body.id);
+      const targetSession = (sessionsRes.body as any[]).find((s) => s.userId === created.id);
       expect(targetSession).toBeDefined();
 
       await request(app.getHttpServer())
@@ -420,9 +424,8 @@ describe('Sécurité En Ligne — Tests complets d’intrusion et de conformité
       const cookieB = (loginRes2.headers['set-cookie'] as string[])[0].split(';')[0];
 
       await request(app.getHttpServer())
-        .patch(`/api/users/${created.body.id}`)
+        .post(`/api/administration/comptes/${created.id}/desactiver`)
         .set('Authorization', `Bearer ${dir.token}`)
-        .send({ isActive: false })
         .expect(200);
 
       await request(app.getHttpServer())
@@ -440,12 +443,13 @@ describe('Sécurité En Ligne — Tests complets d’intrusion et de conformité
       const dir = await issueDbTestToken(prisma, Role.DIRECTION);
       const email = `idle.${Date.now()}@residenceblue.sn`;
       const pwd = 'IdleTestStrong2026!';
-      const created = await request(app.getHttpServer())
-        .post('/api/users')
-        .set('Authorization', `Bearer ${dir.token}`)
-        .send({ email, fullName: 'Idle User', password: pwd, role: Role.RECEPTION })
-        .expect(201);
-      createdUserIds.push(created.body.id);
+      const created = await createManagedAccountForTest(app, dir.token, {
+        email,
+        fullName: 'Idle User',
+        role: Role.RECEPTION,
+        newPassword: pwd,
+      });
+      createdUserIds.push(created.id);
 
       const loginRes = await request(app.getHttpServer())
         .post('/api/auth/login')
@@ -455,7 +459,7 @@ describe('Sécurité En Ligne — Tests complets d’intrusion et de conformité
 
       // Simuler 31 minutes d'inactivité sur les refresh_tokens de l'utilisateur
       await prisma.refreshToken.updateMany({
-        where: { userId: created.body.id },
+        where: { userId: created.id },
         data: { lastUsedAt: new Date(Date.now() - 31 * 60 * 1000) },
       });
 
@@ -476,17 +480,13 @@ describe('Sécurité En Ligne — Tests complets d’intrusion et de conformité
       const dir = await issueDbTestToken(prisma, Role.DIRECTION);
       const realEmail = `bf.real.${Date.now()}@residenceblue.sn`;
       const fakeEmail = `bf.fake.${Date.now()}@residenceblue.sn`;
-      const created = await request(app.getHttpServer())
-        .post('/api/users')
-        .set('Authorization', `Bearer ${dir.token}`)
-        .send({
-          email: realEmail,
-          fullName: 'Brute Force',
-          password: 'BruteForceStrong2026!',
-          role: Role.SERVEUR,
-        })
-        .expect(201);
-      createdUserIds.push(created.body.id);
+      const created = await createManagedAccountForTest(app, dir.token, {
+        email: realEmail,
+        fullName: 'Brute Force',
+        role: Role.SERVEUR,
+        newPassword: 'BruteForceStrong2026!',
+      });
+      createdUserIds.push(created.id);
 
       const realMsgs: string[] = [];
       const fakeMsgs: string[] = [];

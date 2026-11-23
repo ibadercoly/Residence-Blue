@@ -2,6 +2,23 @@ import { CryptoService } from './crypto.service';
 
 describe('CryptoService - Chiffrement AES-256-GCM avec rotation de clés', () => {
   let service: CryptoService;
+  const originalNodeEnv = process.env.NODE_ENV;
+  const originalMasterKey = process.env.ENCRYPTION_MASTER_KEY;
+  const missingKeyMessage =
+    'Clé de chiffrement manquante : l’application ne démarre pas pour protéger les pièces d’identité';
+
+  afterEach(() => {
+    if (originalNodeEnv === undefined) {
+      delete process.env.NODE_ENV;
+    } else {
+      process.env.NODE_ENV = originalNodeEnv;
+    }
+    if (originalMasterKey === undefined) {
+      delete process.env.ENCRYPTION_MASTER_KEY;
+    } else {
+      process.env.ENCRYPTION_MASTER_KEY = originalMasterKey;
+    }
+  });
 
   beforeEach(() => {
     process.env.ENCRYPTION_KEY_ID = 'v1';
@@ -98,5 +115,32 @@ describe('CryptoService - Chiffrement AES-256-GCM avec rotation de clés', () =>
     );
     expect(() => service.decrypt(`v2:${iv}:${authTag}:${cipher}`)).toThrow();
     expect(() => service.decrypt(`unknown_key:${iv}:${authTag}:${cipher}`)).toThrow();
+  });
+
+  it('refuse de démarrer hors test sans ENCRYPTION_MASTER_KEY', () => {
+    process.env.NODE_ENV = 'production';
+    process.env.ENCRYPTION_MASTER_KEY = '';
+
+    expect(() => new CryptoService()).toThrow(missingKeyMessage);
+  });
+
+  it('refuse de démarrer hors test avec une clé d’exemple', () => {
+    process.env.NODE_ENV = 'production';
+    process.env.ENCRYPTION_MASTER_KEY = '0'.repeat(64);
+
+    expect(() => new CryptoService()).toThrow(missingKeyMessage);
+  });
+
+  it('chiffre et déchiffre une pièce d’identité avec une clé réelle fournie en test', () => {
+    process.env.NODE_ENV = 'test';
+    process.env.ENCRYPTION_MASTER_KEY =
+      '9f2c1a7b4e6d8f3a5b0c2d4e6f8a9b1c3d5e7f9a2b4c6d8e0f2a4b6c8d0e2f4';
+    const configured = new CryptoService();
+    const idDocument = 'CNI-REELLE-2026-TEST';
+
+    const encrypted = configured.encrypt(idDocument);
+    expect(encrypted).not.toBe(idDocument);
+    expect(encrypted.split(':')).toHaveLength(4);
+    expect(configured.decrypt(encrypted)).toBe(idDocument);
   });
 });

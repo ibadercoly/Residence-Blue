@@ -26,9 +26,17 @@ export class CryptoService {
       'v1';
 
     const rawMasterKey =
-      this.configService?.get<string>('ENCRYPTION_MASTER_KEY') ||
-      process.env.ENCRYPTION_MASTER_KEY ||
-      '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef';
+      (this.configService?.get<string>('ENCRYPTION_MASTER_KEY') ||
+        process.env.ENCRYPTION_MASTER_KEY ||
+        '').trim();
+    const environment =
+      this.configService?.get<string>('NODE_ENV') || process.env.NODE_ENV || 'development';
+
+    if (!rawMasterKey || (environment !== 'test' && this.isExampleKey(rawMasterKey))) {
+      throw new Error(
+        'Clé de chiffrement manquante : l’application ne démarre pas pour protéger les pièces d’identité',
+      );
+    }
 
     this.keyRing.set(this.activeKeyId, this.deriveKeyBuffer(rawMasterKey));
 
@@ -46,6 +54,19 @@ export class CryptoService {
         }
       }
     }
+  }
+
+  private isExampleKey(rawKey: string): boolean {
+    const normalized = rawKey.trim().toLowerCase();
+    return (
+      normalized ===
+        '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef' ||
+      /^0{64}$/.test(normalized) ||
+      /^f{64}$/.test(normalized) ||
+      /(^|[_-])(example|exemple|changeme|changez|replace|todo|sample|demo)([_-]|$)/.test(
+        normalized,
+      )
+    );
   }
 
   private deriveKeyBuffer(rawKey: string): Buffer {

@@ -23,6 +23,9 @@ import { SecurityTestController } from './security-test/security-test.controller
 import { CryptoService } from './common/security/crypto.service';
 import { ServerModuleConfigService } from './common/services/server-module-config.service';
 
+// Les routes de test ne sont enregistrées que dans l'environnement de tests.
+const securityTestControllers = process.env.NODE_ENV === 'test' ? [SecurityTestController] : [];
+
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
@@ -42,7 +45,7 @@ import { ServerModuleConfigService } from './common/services/server-module-confi
     AdministrationModule,
     NotificationsModule,
   ],
-  controllers: [SecurityTestController],
+  controllers: securityTestControllers,
   providers: [
     CryptoService,
     ServerModuleConfigService,

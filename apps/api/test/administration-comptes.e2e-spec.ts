@@ -122,7 +122,7 @@ describe('Administration des comptes et modèle d’accès (e2e)', () => {
       .expect(401);
   });
 
-  it('interdit de créer un second administrateur via /api/administration/comptes et /api/users', async () => {
+  it('interdit de créer un second administrateur via /api/administration/comptes et retire /api/users', async () => {
     await request(app.getHttpServer())
       .post('/api/administration/comptes')
       .set('Authorization', `Bearer ${roleTokens[Role.DIRECTION]}`)
@@ -158,7 +158,7 @@ describe('Administration des comptes et modèle d’accès (e2e)', () => {
         password: 'UnMotDePasseTresSolide2026!',
         role: Role.DIRECTION,
       })
-      .expect(403);
+      .expect(404);
   });
 
   it('protège le compte directeur principal contre DELETE, désactivation, changement de profil et réduction d’accès', async () => {
