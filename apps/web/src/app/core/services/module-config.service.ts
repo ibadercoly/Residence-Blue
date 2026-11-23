@@ -36,7 +36,6 @@ export class ModuleConfigService {
         config: {
           kpiCount: 4,
           actionButtonsCount: 5,
-          enableDemoReset: true
         }
       },
       planning: {
@@ -388,10 +387,6 @@ export class ModuleConfigService {
 
   readonly manifest = this._manifest.asReadonly();
 
-  // Mode Démonstration (réinitialisation en un clic des données)
-  readonly isDemoDataActive = signal<boolean>(true);
-  readonly demoResetNotification = signal<string | null>(null);
-
   // Surcharges dynamiques pour les tests unitaires et la CI
   private readonly moduleOverrides = signal<Record<string, boolean>>({});
   private readonly featureOverrides = signal<Record<string, boolean>>({});
@@ -503,24 +498,5 @@ export class ModuleConfigService {
   resetOverrides(): void {
     this.moduleOverrides.set({});
     this.featureOverrides.set({});
-  }
-
-  /**
-   * Réinitialise les données en mode démonstration en 1 clic.
-   */
-  resetDemoData(): void {
-    try {
-      if (typeof localStorage !== 'undefined') {
-        localStorage.removeItem('residence_blue_ticket_storage');
-      }
-    } catch {
-      // Ignorer
-    }
-
-    this.isDemoDataActive.set(true);
-    this.demoResetNotification.set('Données de démonstration réinitialisées avec succès.');
-    setTimeout(() => {
-      this.demoResetNotification.set(null);
-    }, 4000);
   }
 }

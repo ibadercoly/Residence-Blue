@@ -172,12 +172,12 @@ export class ReservationModalService {
     let items: AvailableRoomItem[] = [];
     if (this.injector) {
       try {
-        const [{ RoomsService }, { PlanningMockService }] = await Promise.all([
+        const [{ RoomsService }, { PlanningService }] = await Promise.all([
           import('./rooms.service'),
-          import('./planning-mock.service'),
+          import('./planning.service'),
         ]);
         const roomsService = this.injector.get(RoomsService, null);
-        const planningService = this.injector.get(PlanningMockService, null);
+        const planningService = this.injector.get(PlanningService, null);
         const rooms = roomsService?.activeRooms() ?? [];
         const reservations = planningService?.allReservations() ?? [];
         items = rooms
@@ -352,11 +352,11 @@ export class ReservationModalService {
   ): Promise<void> {
     if (!this.injector) return;
     try {
-      const [{ PlanningMockService }, { RoomsService }] = await Promise.all([
-        import('./planning-mock.service'),
+      const [{ PlanningService }, { RoomsService }] = await Promise.all([
+        import('./planning.service'),
         import('./rooms.service'),
       ]);
-      this.injector.get(PlanningMockService, null)?.upsertReservationFromApi(created as any);
+      this.injector.get(PlanningService, null)?.upsertReservationFromApi(created as any);
       void this.injector.get(RoomsService, null)?.fetchFromServer?.();
       if (hasNewGuest) {
         const { ClientsService } = await import('./clients.service');

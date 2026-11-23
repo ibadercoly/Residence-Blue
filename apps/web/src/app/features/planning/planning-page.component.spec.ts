@@ -1,14 +1,14 @@
 import { PlanningPageComponent } from './planning-page.component';
-import { PlanningMockService } from '../../core/services/planning-mock.service';
+import { PlanningService } from '../../core/services/planning.service';
 import { ReservationModalService } from '../../core/services/reservation-modal.service';
 
 describe('PlanningPageComponent', () => {
   let component: PlanningPageComponent;
-  let service: PlanningMockService;
+  let service: PlanningService;
   let modalService: ReservationModalService;
 
   beforeEach(() => {
-    service = new PlanningMockService();
+    service = new PlanningService();
     service.allReservations.set([
       {
         id: 'RB-2024-0894',

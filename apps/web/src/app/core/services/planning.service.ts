@@ -16,18 +16,17 @@ import {
 @Injectable({
   providedIn: 'root'
 })
-export class PlanningMockService {
+export class PlanningService {
   private readonly injector = inject(Injector);
 
   /**
    * Résolution paresseuse de RoomsService : l'injection directe créerait une
-   * dépendance circulaire (RoomsService dépend déjà de PlanningMockService).
+   * dépendance circulaire (RoomsService dépend déjà de PlanningService).
    */
   private get roomsService(): RoomsService | null {
     return this.injector.get(RoomsService, null);
   }
-  // TODO(API): Raccorder au backend NestJS et à la base de données PostgreSQL / Prisma
-  // Voir docs/performance/A-FAIRE-API.md pour la spécification des routes d'exploitation.
+  // Service du planning raccordé au backend NestJS et à la base PostgreSQL / Prisma (/api/reservations).
 
   /** Décalage de semaine (-1 = semaine précédente, 0 = semaine courante, +1 = semaine suivante) */
   readonly weekOffset = signal<number>(0);
@@ -43,172 +42,6 @@ export class PlanningMockService {
 
   /** Message de feedback opérateur pour les actions rapides */
   readonly feedbackMessage = signal<string | null>(null);
-
-  /** Base des réservations de démonstration pour la Résidence Blue (12 chambres) */
-  private readonly initialReservations: PlanningReservation[] = [
-    {
-      id: 'res-101-diallo',
-      guestName: 'M. Diallo',
-      roomNumber: '101',
-      startDayIndex: 0,
-      durationDays: 1,
-      checkInDate: '2026-11-07',
-      checkOutDate: '2026-11-10',
-      status: 'DEPART_AUJ',
-      statusLabel: 'Départ aujourd\'hui',
-      nights: 3,
-      totalFcfa: 255000,
-      remainingFcfa: 0,
-      contactPhone: '+221 77 123 45 67',
-      contactEmail: 'diallo@teranga.sn'
-    },
-    {
-      id: 'res-102-lindstrom',
-      guestName: 'Karin Lindström',
-      roomNumber: '102',
-      startDayIndex: 3,
-      durationDays: 3,
-      checkInDate: '2026-11-13',
-      checkOutDate: '2026-11-16',
-      status: 'CONFIRME',
-      statusLabel: 'Confirmée',
-      nights: 3,
-      totalFcfa: 255000,
-      remainingFcfa: 155000,
-      contactPhone: '+46 70 123 45 67',
-      contactEmail: 'karin.lindstrom@stockholm.se'
-    },
-    {
-      id: 'res-103-faye',
-      guestName: 'Dr. Faye',
-      roomNumber: '103',
-      startDayIndex: 0,
-      durationDays: 4,
-      checkInDate: '2026-11-10',
-      checkOutDate: '2026-11-14',
-      status: 'EN_SEJOUR',
-      statusLabel: 'En séjour',
-      nights: 4,
-      totalFcfa: 340000,
-      remainingFcfa: 0,
-      contactPhone: '+221 76 987 65 43',
-      contactEmail: 'dr.faye@clinique-thies.sn'
-    },
-    {
-      id: 'res-104-sow',
-      guestName: 'M. Sow',
-      roomNumber: '104',
-      startDayIndex: 4,
-      durationDays: 2,
-      checkInDate: '2026-11-14',
-      checkOutDate: '2026-11-16',
-      status: 'CONFIRME',
-      statusLabel: 'Confirmée',
-      nights: 2,
-      totalFcfa: 170000,
-      remainingFcfa: 70000,
-      contactPhone: '+221 77 456 78 90',
-      contactEmail: 'a.sow@transport.sn'
-    },
-    {
-      id: 'res-105-martin',
-      guestName: 'Sophie Martin',
-      roomNumber: '105',
-      startDayIndex: 0,
-      durationDays: 3,
-      checkInDate: '2026-11-10',
-      checkOutDate: '2026-11-13',
-      status: 'EN_SEJOUR',
-      statusLabel: 'En séjour',
-      nights: 3,
-      totalFcfa: 255000,
-      remainingFcfa: 0,
-      contactPhone: '+33 6 12 34 56 78',
-      contactEmail: 'sophie.martin@paris.fr'
-    },
-    // Ch. 106 est libre toute la semaine
-    {
-      id: 'res-201-moreau',
-      guestName: 'Famille Moreau',
-      roomNumber: '201',
-      startDayIndex: 0,
-      durationDays: 2,
-      checkInDate: '2026-11-08',
-      checkOutDate: '2026-11-12',
-      status: 'EN_SEJOUR',
-      statusLabel: 'En séjour',
-      nights: 4,
-      totalFcfa: 520000,
-      remainingFcfa: 100000,
-      contactPhone: '+33 6 98 76 54 32',
-      contactEmail: 'famille.moreau@lyon.fr'
-    },
-    {
-      id: 'res-202-lefevre',
-      guestName: 'Mme Claire Lefèvre',
-      roomNumber: '202',
-      startDayIndex: 2,
-      durationDays: 3,
-      checkInDate: '2026-11-12',
-      checkOutDate: '2026-11-15',
-      status: 'CONFIRME',
-      statusLabel: 'Confirmée',
-      nights: 3,
-      totalFcfa: 390000,
-      remainingFcfa: 200000,
-      contactPhone: '+33 6 45 67 89 01',
-      contactEmail: 'claire.lefevre@avocat.fr'
-    },
-    {
-      id: 'res-203-traore',
-      guestName: 'M. Traoré',
-      roomNumber: '203',
-      startDayIndex: 0,
-      durationDays: 1,
-      checkInDate: '2026-11-07',
-      checkOutDate: '2026-11-10',
-      status: 'DEPART_AUJ',
-      statusLabel: 'Départ aujourd\'hui',
-      nights: 3,
-      totalFcfa: 390000,
-      remainingFcfa: 0,
-      contactPhone: '+221 77 345 67 89',
-      contactEmail: 'traore@invest.sn'
-    },
-    {
-      id: 'res-204-sylla',
-      guestName: 'Babacar Sylla',
-      roomNumber: '204',
-      startDayIndex: 1,
-      durationDays: 3,
-      checkInDate: '2026-11-11',
-      checkOutDate: '2026-11-14',
-      status: 'CONFIRME',
-      statusLabel: 'Confirmée',
-      nights: 3,
-      totalFcfa: 390000,
-      remainingFcfa: 190000,
-      contactPhone: '+221 70 890 12 34',
-      contactEmail: 'b.sylla@sylla-holding.sn'
-    },
-    {
-      id: 'RB-2024-0894',
-      guestName: 'M. Mamadou Diop',
-      roomNumber: '301',
-      startDayIndex: 0,
-      durationDays: 4,
-      checkInDate: '2026-11-10',
-      checkOutDate: '2026-11-14',
-      status: 'EN_SEJOUR',
-      statusLabel: 'En séjour',
-      nights: 4,
-      totalFcfa: 840000,
-      remainingFcfa: 280000,
-      contactPhone: '+221 77 654 32 10',
-      contactEmail: 'mamadou.diop@orange-sonatel.sn'
-    }
-    // Ch. 302 est libre toute la semaine
-  ];
 
   /** État réactif de toutes les réservations (source : API PostgreSQL, vide par défaut) */
   readonly allReservations = signal<PlanningReservation[]>([]);
@@ -744,29 +577,7 @@ export class PlanningMockService {
         targetRoomName: ''
       },
       rooms,
-      selectedReservation: this.selectedReservation() || {
-        id: 'RB-2024-0894',
-        guestName: 'M. Mamadou Diop',
-        status: 'EN_SEJOUR',
-        statusBadge: 'En séjour',
-        roomNumber: '301',
-        roomCategory: 'Chambre 301 • Suite',
-        roomDescription: 'Suite Panoramique VIP',
-        checkInDate: '2026-11-10',
-        checkOutDate: '2026-11-14',
-        nights: 4,
-        folio: {
-          totalFcfa: 840000,
-          paidFcfa: 560000,
-          remainingFcfa: 280000,
-          depositBadge: 'Acompte versé',
-          preferredPayment: 'Espèces / Wave'
-        },
-        contact: {
-          phone: '+221 77 654 32 10',
-          email: 'mamadou.diop@orange-sonatel.sn'
-        }
-      },
+      selectedReservation: this.selectedReservation(),
       housekeeping: {
         title: 'Gouvernante',
         detail: '12 chambres suivies'

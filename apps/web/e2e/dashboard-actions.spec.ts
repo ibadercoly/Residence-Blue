@@ -95,22 +95,10 @@ test.describe('Accueil V1 Minimale & Actions Rapides', () => {
     expect(page.url()).toContain('facturation');
   });
 
-  test('bouton de réinitialisation mode démo fonctionne avec confirmation', async ({ page }) => {
-    const resetBtn = page.locator('[data-testid="btn-reset-demo"]');
-    await expect(resetBtn).toBeVisible();
-    await resetBtn.click();
-
-    // Modale d'action de confirmation
-    const actionModal = page.locator('[data-testid="dashboard-action-modal"]');
-    await expect(actionModal).toBeVisible();
-    await expect(page.locator('[data-testid="modal-title"]')).toContainText('données de démo');
-
-    // Valider la réinitialisation
-    await page.locator('[data-testid="btn-modal-confirm"]').click();
-
-    // Toast de confirmation affiché
-    const toast = page.locator('[data-testid="dashboard-toast"]');
-    await expect(toast).toBeVisible();
-    await expect(toast).toContainText('Données de démonstration réinitialisées avec succès');
+  test('aucun bandeau ni bouton de mode démonstration n’est affiché sur l’accueil', async ({ page }) => {
+    await expect(page.locator('[data-testid="btn-reset-demo"]')).toHaveCount(0);
+    const bodyText = (await page.locator('body').textContent()) ?? '';
+    expect(bodyText).not.toMatch(/démonstration/i);
+    expect(bodyText).not.toMatch(/réinitialiser/i);
   });
 });
