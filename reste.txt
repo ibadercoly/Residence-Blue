@@ -1,0 +1,174 @@
+RESTE À FAIRE — point d'arrêt du 23/11/2026
+=============================================
+
+But : terminer le LOT 1 (sécurité de base), puis enchaîner les lots 2 à 10.
+Aucun merge, push ni tag n'a été effectué.
+
+
+1. ÉTAT GIT AU MOMENT DE L'ARRÊT
+--------------------------------
+Branche courante : fix/lot1-securite-base
+HEAD             : 8ae6b61  fix(e2e): aligner le serveur de test sur l'environnement test du lot 1
+Commits du lot 1 : 2d46d2a, 02433db, 8ae6b61
+
+Autres branches concernées :
+- docs/analyse-projet-infos : 61bf976 (contient infos.md, 560 lignes). Non fusionnée.
+- fix/barres-defilement-menus : 02433db (branche témoin, non touchée).
+- master local : 87484fd [origin/master]. ATTENTION : ce ref distant est PÉRIMÉ,
+  le fetch a échoué (DNS github.com indisponible). master local est ancêtre de la
+  branche lot 1 : la fusion sera un fast-forward qui apporte aussi les commits
+  de fonctionnalités précédents. Vérifier l'état distant avant de pousser.
+
+Modifications NON commitées, restaurées et à garder telles quelles :
+- apps/web/src/app/shared/components/sidebar/sidebar.component.ts
+  <nav class="rb-menu-scrollable flex flex-col gap-space-xs" ...>
+- apps/web/src/styles.css
+  ::-webkit-scrollbar { display: block; width: 12px; height: 12px; }
+  + règles .rb-menu-scrollable / .rb-notif-scroll (barres visibles).
+  => Ces changements appartiennent au travail « barres de défilement » et ne
+     doivent PAS entrer dans le commit du lot 1. Ne pas les stasher sans le dire.
+
+Fichiers non suivis, volontairement exclus des commits :
+- lot1.txt, lot2.txt
+- reste.txt (ce fichier)
+=> Lire lot2.txt avant de démarrer le lot 2.
+
+
+2. VÉRIFICATIONS DÉJÀ FAITES (avec les barres de défilement restaurées)
+-----------------------------------------------------------------------
+- lint        : VERT (shared, api, web)
+- build       : VERT (npm run build complet, puis npm run build:web après restauration)
+- unitaires   : VERT — shared 31, API 45, web 141
+- intégration : VERT — 21 suites, 132 tests
+- sécurité    : ROUGE — voir 2.1
+- E2E         : voir 2.2
+
+Note : prisma generate a échoué avec EPERM sur query_engine-windows.dll.node,
+verrouillé par le serveur API déjà lancé (PID 14360). Le client Prisma était
+déjà généré (index.js à jour), donc cela n'a pas bloqué les tests. Ne pas tuer
+les processus de l'utilisateur sans accord.
+
+2.1 SÉCURITÉ ROUGE — test de performance
+----------------------------------------
+Commande : npm run test:security
+Résultat : 19 suites / 130 tests ; 1 échec, 129 réussis.
+
+Test fautif : apps/api/test/accueil-jour.e2e-spec.ts:348
+  expect(elapsedMs).toBeLessThan(300)
+Observations :
+- run intégration : 153 ms (VERT)
+- run sécurité complet : 1041 ms (ROUGE)
+- relance isolée du même fichier : 415 ms (ROUGE)
+
+Volumes de la base residence_blue_e2e au moment du diagnostic :
+  3 réservations, 5 factures, 0 paiement, 10 commandes, 11 lignes,
+  3 clients, 3682 logs d'audit. Donc ce n'est pas un problème de volume.
+
+RÈGLE ABSOLUE : ne pas désactiver, supprimer, assouplir ou commenter ce test.
+À faire : diagnostiquer la cause (charge machine, connexions Prisma, requête
+GET /api/accueil/jour), corriger sur la branche si c'est du code, ou relancer
+sur une machine calme. Tant que ce test est rouge, ne pas fusionner.
+
+La commande s'est arrêtée avant les deux scripts complémentaires. À lancer ensuite :
+  node scripts/test-securite-photos.mjs
+  node scripts/test-bundle-budgets-and-exclusion.mjs
+
+2.2 E2E EN COURS AU MOMENT DE L'ARRÊT
+-------------------------------------
+Premier lancement : ÉCHEC. Cause réelle trouvée et corrigée :
+le serveur Playwright (scripts/e2e-api-server.mjs) lançait le seed avec le
+NODE_ENV du .env (développement). Le lot 1 refuse désormais de démarrer sans
+clé hors test :
+  « Clé de chiffrement manquante : l'application ne démarre pas pour protéger
+     les pièces d'identité »
+Correctif commité dans 8ae6b61 : childEnv contient NODE_ENV='test' et un
+ENCRYPTION_MASTER_KEY de test (identique à apps/api/test/setup-env.ts).
+
+Relance lancée en arrière-plan :
+  shell id : sh_2098dde74001rPMrLnvxGo14Yo
+  sortie   : C:\Users\IBADER\.local\share\opencode\shell\4aca3097939befbe24ecb8af406f4eb32a811a9c\sh_2098dde74001rPMrLnvxGo14Yo.out
+=> À la reprise : consulter ce résultat. Attention aux tests de comparaison
+   visuelle : les barres de défilement sont visibles dans le build actuel.
+   Si un test visuel échoue à cause de cela, ne pas modifier le test : il faut
+   traiter le travail « barres de défilement » séparément et décider avec
+   l'utilisateur. Ne pas masquer l'échec pour fusionner.
+
+
+3. PROCÉDURE DE FINITION DU LOT 1 (une fois TOUT vert)
+------------------------------------------------------
+1. Refaire le fetch et vérifier le distant :
+     git fetch --all --prune
+     git status -sb
+     git log origin/master -1
+   Règle AGENTS.md : avant de déclarer un push échoué, comparer le commit
+   distant au commit local. Si le push a réussi, ne pas le relancer.
+   Ne JAMAIS utiliser --force. En cas de refus : git pull --rebase, puis
+   relancer TOUS les tests avant de repousser.
+
+2. Relancer la matrice complète sur l'état final :
+     npm run lint
+     npm run build
+     npm run test:unit
+     npm run test:integration
+     npm run test:security
+     npm run test:e2e
+
+3. Fusion et publication :
+     git checkout master
+     git merge fix/lot1-securite-base
+     git merge docs/analyse-projet-infos
+     git push origin master
+     git branch -d fix/lot1-securite-base docs/analyse-projet-infos
+     git tag -a v0.1.0-lot1-securite -m "Fin de phase : securite de base"
+     git push origin v0.1.0-lot1-securite
+   (nom de tag à confirmer ; aucun tag n'existe encore dans le dépôt.)
+
+4. NE PAS supprimer fix/barres-defilement-menus : c'est un autre travail.
+
+
+4. TRAVAIL WEB SÉPARÉ (barres de défilement)
+--------------------------------------------
+Les deux fichiers modifiés doivent être commités sur leur propre branche, pas
+dans le lot 1 :
+  git checkout -b fix/barres-defilement-menus   (ou rebaser la branche existante
+                                                sur le nouveau lot 1)
+  git add apps/web/src/app/shared/components/sidebar/sidebar.component.ts
+  git add apps/web/src/styles.css
+  git commit -m "fix(web): afficher les barres de defilement des menus"
+Puis lint + build + unitaires + E2E avant fusion, comme pour toute fonctionnalité.
+
+
+5. LOTS RESTANTS DU PLAN DE FINITION
+------------------------------------
+Document : docs/analyses/audit/07-PLAN-DE-FINITION.md
+
+- Lot 2 : HTTPS, fermeture du port API 3000 en production, healthcheck API,
+  sauvegarde hors site et restauration prouvée.
+- Lot 3 : supprimer le mode démonstration (enableDemoReset, bandeau, bouton reset).
+- Lot 4 : planning ouvert sur la date du jour en Africa/Dakar (MET-001).
+- Lot 5 : import des fichiers Excel réels de l'hôtel (ExcelJS déjà installé).
+- Lot 6 : arrondis TVA, année du numéro de facture, taxe de séjour.
+- Lot 7 : vraie clôture de caisse avec écart compté.
+- Lot 8 : paramètres hôtel dans Administration, retirer les routes V2/V3.
+- Lot 9 : planning hors ligne (check-in / annulation via outbox).
+- Lot 10 : nettoyage et dettes (darkMode/.dark dans tailwind.config.js,
+  docs/securite/ROLES.md qui mentionne encore /api/users, etc.).
+
+Dettes documentées dans infos.md, à traiter dans les lots concernés :
+- docs/securite/ROLES.md cite encore les routes /api/users supprimées.
+- apps/web/tailwind.config.js contient encore darkMode: 'class' et une palette .dark.
+- config/modules.json contient encore enableDemoReset: true.
+- docker-compose.prod.yml publie encore le port 3000 de l'API.
+
+
+6. RÈGLES À NE PAS OUBLIER
+--------------------------
+- master toujours stable ; branche par fonctionnalité ; Conventional Commits.
+- Un seul thème clair, style des maquettes à l'identique, modales via ModalShell.
+- Montants FCFA entiers ; UUID client + Idempotency-Key ; serveur source de vérité.
+- Accès refusé par défaut ; ValidationPipe whitelist/forbidNonWhitelisted ;
+  Prisma paramétré ; aucun secret dans Git ; AES-256-GCM pour les pièces d'identité.
+- Si un test échoue : corriger le code sur la branche. Jamais désactiver ou
+  affaiblir un test.
+- Ne pas inclure lot1.txt, lot2.txt, reste.txt ni les modifs web dans les commits.
+- Ne pas merger/pousser/tagger sans accord explicite de l'utilisateur.
