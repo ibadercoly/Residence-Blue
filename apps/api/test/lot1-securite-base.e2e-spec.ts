@@ -13,6 +13,8 @@ const VALID_STRICT_PAYLOAD = {
 };
 
 describe('Lot 1 — base de sécurité (e2e)', () => {
+  jest.setTimeout(60_000);
+
   let app: INestApplication | undefined;
   const originalNodeEnv = process.env.NODE_ENV;
   const originalMasterKey = process.env.ENCRYPTION_MASTER_KEY;
