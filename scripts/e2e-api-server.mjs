@@ -49,6 +49,12 @@ const e2eWebPort = String(process.env.E2E_WEB_PORT || 4201);
 
 const childEnv = {
   ...process.env,
+  // Le lot 1 refuse de demarrer sans cle hors "test" : le seed et l'API E2E
+  // doivent utiliser le meme environnement que les suites Jest (setup-env.ts).
+  NODE_ENV: 'test',
+  ENCRYPTION_MASTER_KEY:
+    process.env.ENCRYPTION_MASTER_KEY ||
+    '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef',
   DATABASE_URL: e2eDatabaseUrl,
   PORT: e2ePort,
   CORS_ORIGIN: `http://localhost:${e2eWebPort},http://127.0.0.1:${e2eWebPort}`,
