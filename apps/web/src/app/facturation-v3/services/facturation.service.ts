@@ -21,6 +21,33 @@ import { NetworkService } from '../../core/offline/network.service';
 import { OutboxService } from '../../core/offline/outbox.service';
 import { PlanningService } from '../../core/services/planning.service';
 
+export interface CashClosureItemDto {
+  id: string;
+  businessDate: string;
+  closedAt: string;
+  closedById: string;
+  closedByName: string;
+  totalTheoreticalCash: number;
+  totalCountedCash: number;
+  difference: number;
+  notes: string | null;
+}
+
+export interface TodayCashClosureStatusDto {
+  businessDate: string;
+  isClosedToday: boolean;
+  latestClosureToday: CashClosureItemDto | null;
+  totalTheoreticalCash: number;
+  totalCollectedToday: number;
+  byMethod: {
+    CASH: number;
+    ORANGE_MONEY: number;
+    WAVE: number;
+    CARD: number;
+    BANK_TRANSFER: number;
+  };
+}
+
 @Injectable({
   providedIn: 'root',
 })
@@ -56,6 +83,13 @@ export class FacturationService {
   readonly busyAction = signal<boolean>(false);
   readonly errorMessage = signal<string | null>(null);
   readonly successMessage = signal<string | null>(null);
+  readonly todayCashClosure = signal<TodayCashClosureStatusDto | null>(null);
+  readonly submittingCashClosure = signal<boolean>(false);
+
+  readonly canCloseCash = computed<boolean>(() => {
+    const role = this.authService?.currentRole();
+    return role === 'DIRECTION' || role === 'RECEPTION';
+  });
   readonly pendingOfflinePaymentKeys = signal<string[]>([]);
 
   readonly currentRole = computed<string>(() => {
@@ -743,5 +777,58 @@ export class FacturationService {
       `/api/invoices/cash-closure/export?format=${format}`,
       `cloture-caisse.${ext}`,
     );
+  }
+
+  async loadTodayCashClosure(): Promise<void> {
+    if (typeof fetch === 'undefined') return;
+    try {
+      const res = await fetch('/api/billing/cash-closure/today', {
+        method: 'GET',
+        headers: this.buildHeaders(),
+      });
+      if (res.ok) {
+        const data = (await res.json()) as TodayCashClosureStatusDto;
+        this.todayCashClosure.set(data);
+      }
+    } catch {
+      // Silencieux si hors ligne
+    }
+  }
+
+  async submitCashClosure(
+    totalCountedCash: number,
+    notes?: string,
+  ): Promise<CashClosureItemDto | null> {
+    this.submittingCashClosure.set(true);
+    this.clearMessages();
+    try {
+      const res = await fetch('/api/billing/cash-closure', {
+        method: 'POST',
+        headers: this.buildHeaders(),
+        body: JSON.stringify({
+          totalCountedCash: Math.round(totalCountedCash),
+          notes: notes?.trim() || undefined,
+        }),
+      });
+      if (!res.ok) {
+        this.errorMessage.set(
+          await this.extractError(res, 'Impossible d’enregistrer la clôture de caisse.'),
+        );
+        return null;
+      }
+      const created = (await res.json()) as CashClosureItemDto;
+      await this.loadTodayCashClosure();
+      const diffSign = created.difference > 0 ? '+' : '';
+      const diffText = `${diffSign}${created.difference.toLocaleString('fr-FR')} FCFA`;
+      this.successMessage.set(
+        `Clôture de caisse enregistrée avec succès (écart : ${diffText}).`,
+      );
+      return created;
+    } catch {
+      this.errorMessage.set('Erreur réseau lors de la clôture de caisse.');
+      return null;
+    } finally {
+      this.submittingCashClosure.set(false);
+    }
   }
 }

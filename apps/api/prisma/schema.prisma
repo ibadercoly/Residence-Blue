@@ -85,6 +85,7 @@ model User {
   syncOps                    SyncOperation[]
   createdReservations        Reservation[]   @relation("CreatedReservations")
   receivedPayments           Payment[]       @relation("ReceivedPayments")
+  cashClosures               CashClosure[]   @relation("CashClosuresClosedBy")
   notificationReads          NotificationRead[]
 
   @@map("users")
@@ -344,6 +345,25 @@ model Payment {
   @@index([paidAt])
   @@index([reversedPaymentId])
   @@map("payments")
+}
+
+model CashClosure {
+  id                   String   @id @default(uuid()) @db.Uuid
+  businessDate         String   @map("business_date")
+  closedAt             DateTime @default(now()) @map("closed_at")
+  closedById           String   @map("closed_by_id") @db.Uuid
+  closedBy             User     @relation("CashClosuresClosedBy", fields: [closedById], references: [id], onDelete: Restrict)
+  closedByName         String   @map("closed_by_name")
+  totalTheoreticalCash Int      @map("total_theoretical_cash")
+  totalCountedCash     Int      @map("total_counted_cash")
+  difference           Int
+  notes                String?  @db.Text
+  createdAt            DateTime @default(now()) @map("created_at")
+
+  @@index([businessDate])
+  @@index([closedAt])
+  @@index([closedById])
+  @@map("cash_closures")
 }
 
 model RestaurantCategory {
