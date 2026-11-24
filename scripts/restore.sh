@@ -62,7 +62,38 @@ case "$BACKUP_FILE" in
     ;;
 esac
 
-# Réapplication des droits de sécurité après restauration
-echo "SELECT public.enforce_residence_blue_permissions();" | run_psql >/dev/null
+# Réapplication des droits de sécurité après restauration (crée la fonction si la base était vierge)
+run_psql >/dev/null <<'SQL'
+DO $$
+BEGIN
+  IF to_regprocedure('public.enforce_residence_blue_permissions()') IS NULL THEN
+    CREATE FUNCTION public.enforce_residence_blue_permissions()
+    RETURNS void
+    LANGUAGE plpgsql
+    AS $fn$
+    BEGIN
+      REVOKE CREATE ON SCHEMA public FROM PUBLIC, app_user, app_readonly;
+      GRANT USAGE ON SCHEMA public TO app_user, app_readonly;
+      GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO app_user;
+      REVOKE TRUNCATE, REFERENCES, TRIGGER ON ALL TABLES IN SCHEMA public FROM app_user;
+      GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO app_user;
+      REVOKE ALL ON ALL TABLES IN SCHEMA public FROM app_readonly;
+      GRANT SELECT ON ALL TABLES IN SCHEMA public TO app_readonly;
+      IF EXISTS (
+        SELECT 1 FROM information_schema.tables
+        WHERE table_schema = 'public' AND table_name = 'audit_log'
+      ) THEN
+        REVOKE UPDATE, DELETE, TRUNCATE ON TABLE public.audit_log FROM app_user, app_readonly, PUBLIC;
+        GRANT SELECT, INSERT ON TABLE public.audit_log TO app_user;
+        GRANT SELECT ON TABLE public.audit_log TO app_readonly;
+      END IF;
+    END;
+    $fn$;
+    REVOKE ALL ON FUNCTION public.enforce_residence_blue_permissions() FROM PUBLIC;
+  END IF;
+END
+$$;
+SELECT public.enforce_residence_blue_permissions();
+SQL
 
 echo "[RESTORE] Restauration complète terminée depuis : ${BACKUP_FILE}"
