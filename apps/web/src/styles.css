@@ -23,6 +23,7 @@
   --couleur-menu-cuisine: #A3E635;
   --couleur-menu-rapports: #F2785C;
   --couleur-menu-administration: #818CF8;
+  --couleur-menu-parametres: #818CF8;
 }
 
 .rb-menu-color-dashboard { --couleur-menu-item: var(--couleur-menu-accueil); }
@@ -34,6 +35,7 @@
 .rb-menu-color-cuisine { --couleur-menu-item: var(--couleur-menu-cuisine); }
 .rb-menu-color-rapports { --couleur-menu-item: var(--couleur-menu-rapports); }
 .rb-menu-color-administration { --couleur-menu-item: var(--couleur-menu-administration); }
+.rb-menu-color-parametres { --couleur-menu-item: var(--couleur-menu-parametres); }
 
 .rb-menu-svg-icon {
   width: var(--icone-menu, 26px);

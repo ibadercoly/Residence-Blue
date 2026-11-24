@@ -39,6 +39,10 @@ export const authGuard: CanActivateFn = async (
     return router.createUrlTree(['/connexion']);
   }
 
+  if (state.url.startsWith('/parametres') && !authService.isDirector()) {
+    return router.createUrlTree([authService.getFirstAuthorizedRoute()]);
+  }
+
   // Changement obligatoire du mot de passe provisoire avant tout autre écran
   if (user.mustChangePassword) {
     if (state.url.startsWith('/changer-mot-de-passe')) {

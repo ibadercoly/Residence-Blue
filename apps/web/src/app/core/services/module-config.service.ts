@@ -13,7 +13,17 @@ export interface NavMenuItem {
   providedIn: 'root'
 })
 export class ModuleConfigService {
-  private readonly authService = inject(AuthService);
+  private readonly authService: AuthService;
+
+  constructor(authServiceOverride?: AuthService) {
+    let injectedAuth: AuthService | null = null;
+    try {
+      injectedAuth = inject(AuthService, { optional: true });
+    } catch {
+      injectedAuth = null;
+    }
+    this.authService = authServiceOverride ?? (injectedAuth as AuthService);
+  }
 
   // Configuration déclarative issue de config/modules.json (garantit le fonctionnement hors-ligne immédiat)
   private readonly _manifest = signal<AppModulesManifest>({
@@ -158,14 +168,14 @@ export class ModuleConfigService {
       },
       parametres: {
         id: 'parametres',
-        name: 'Paramètres avancés',
+        name: "Paramètres de l'hôtel",
         route: '/parametres',
         icon: 'settings',
-        enabled: false,
-        version: 'v2',
-        status: 'deferred',
+        enabled: true,
+        version: 'v1',
+        status: 'active',
         dependencies: [],
-        description: 'Configuration avancée des taxes de séjour, passerelles de paiement et personnalisation hôtelière.'
+        description: 'Paramètres légaux et fiscaux de l’hôtel, réservés à la direction.'
       },
       marketing_crm: {
         id: 'marketing_crm',
@@ -317,7 +327,7 @@ export class ModuleConfigService {
     },
     roles: {
       DIRECTION: {
-        allowedModules: ['dashboard', 'planning', 'rooms', 'clients', 'facturation', 'rapports', 'restaurant', 'pool', 'exports'],
+        allowedModules: ['dashboard', 'planning', 'rooms', 'clients', 'facturation', 'rapports', 'restaurant', 'pool', 'exports', 'parametres'],
         enabled: true,
         version: 'v1',
         description: 'Direction générale de l’établissement : accès complet à tous les modules actifs.',
@@ -449,7 +459,7 @@ export class ModuleConfigService {
   }
 
   /**
-   * Liste épurée des entrées de menu (7 entrées maximum, conforme à l'exigence de simplicité pour une directrice).
+   * Liste du menu principal filtrée selon les écrans et le rôle du compte.
    */
   readonly menuItems = computed<NavMenuItem[]>(() => {
     const user = this.authService.currentUser();
@@ -471,6 +481,18 @@ export class ModuleConfigService {
     const visible = candidates
       .filter((c) => this.authService.hasScreen(c.key, 'LECTURE'))
       .map((c) => c.item);
+
+    // Garder le même critère que le menu Administration et l'API : certains
+    // comptes directeurs sont reconnus par isPrimaryAdmin même si leur rôle
+    // synchronisé n'est pas exactement DIRECTION.
+    if (this.authService.isDirector()) {
+      visible.push({
+        id: 'parametres',
+        label: 'Paramètres',
+        route: '/parametres',
+        icon: 'settings',
+      });
+    }
 
     if (this.authService.isDirector()) {
       visible.push({

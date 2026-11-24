@@ -206,15 +206,15 @@
     },
     "parametres": {
       "id": "parametres",
-      "name": "Paramètres avancés",
+      "name": "Paramètres de l'hôtel",
       "route": "/parametres",
       "apiPrefix": "/api/settings",
       "icon": "settings",
-      "enabled": false,
-      "version": "v2",
-      "status": "deferred",
+      "enabled": true,
+      "version": "v1",
+      "status": "active",
       "dependencies": [],
-      "description": "Configuration avancée des taxes de séjour, passerelles de paiement et personnalisation hôtelière."
+      "description": "Paramètres légaux et fiscaux de l'hôtel, réservés à la direction."
     },
     "marketing_crm": {
       "id": "marketing_crm",
@@ -447,7 +447,8 @@
         "rapports",
         "restaurant",
         "pool",
-        "exports"
+        "exports",
+        "parametres"
       ],
       "enabled": true,
       "version": "v1",

@@ -413,9 +413,38 @@ describe('Persistance Complète de Bout en Bout (chore/audit-persistance)', () =
       const settingsPatch = await request(app.getHttpServer())
         .patch('/api/hotel-settings')
         .set('Authorization', `Bearer ${roleTokens['DIRECTION']}`)
-        .send({ supportPhone: '+221 33 951 99 99' })
+        .send({ supportPhone: '+221 33 951 99 99', tourismTaxIncludesChildren: true })
         .expect(200);
       expect(settingsPatch.body.supportPhone).toBe('+221 33 951 99 99');
+      expect(settingsPatch.body.tourismTaxIncludesChildren).toBe(true);
+
+      await request(app.getHttpServer())
+        .patch('/api/hotel-settings')
+        .set('Authorization', `Bearer ${roleTokens['RECEPTION']}`)
+        .send({ vatRatePercent: 12 })
+        .expect(403);
+
+      const settingsDb = await prisma.hotelSetting.findUnique({ where: { id: 'default' } });
+      expect(settingsDb?.tourismTaxIncludesChildren).toBe(true);
+
+      await request(app.getHttpServer())
+        .patch('/api/hotel-settings')
+        .set('Authorization', `Bearer ${roleTokens['DIRECTION']}`)
+        .send({ vatRatePercent: 12 })
+        .expect(200);
+      const invoiceAfterVatChange = await request(app.getHttpServer())
+        .post('/api/invoices')
+        .set('Authorization', `Bearer ${roleTokens['RECEPTION']}`)
+        .send({
+          roomNumber: '101',
+          depositFcfa: 0,
+          lines: [{ description: 'Nuitée après changement de TVA', category: 'ROOM', quantity: 1, unitPriceFcfa: 35000 }],
+        })
+        .expect(201);
+      expect(invoiceAfterVatChange.body.vatRatePercent).toBe(12);
+      await prisma.payment.deleteMany({ where: { invoiceId: invoiceAfterVatChange.body.id } });
+      await prisma.invoiceLine.deleteMany({ where: { invoiceId: invoiceAfterVatChange.body.id } });
+      await prisma.invoice.delete({ where: { id: invoiceAfterVatChange.body.id } });
 
       const dbSettings = await prisma.hotelSetting.findUnique({ where: { id: 'default' } });
       expect(dbSettings?.supportPhone).toBe('+221 33 951 99 99');
@@ -424,7 +453,7 @@ describe('Persistance Complète de Bout en Bout (chore/audit-persistance)', () =
       await request(app.getHttpServer())
         .patch('/api/hotel-settings')
         .set('Authorization', `Bearer ${roleTokens['DIRECTION']}`)
-        .send({ supportPhone: '+221 33 957 00 00' })
+        .send({ supportPhone: '+221 33 957 00 00', tourismTaxIncludesChildren: false, vatRatePercent: 10 })
         .expect(200);
 
       await prisma.payment.deleteMany({ where: { invoiceId } });

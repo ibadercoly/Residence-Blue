@@ -1,10 +1,10 @@
-import { Component, EventEmitter, Input, Output, inject, signal, computed } from '@angular/core';
+import { Component, EventEmitter, Input, Output, inject, signal, computed, Signal } from '@angular/core';
 import { RoomsService } from '../../../core/services/rooms.service';
 import { CommonModule } from '@angular/common';
 import { RouterLink, RouterLinkActive } from '@angular/router';
 import { getAuthorizedScreens, isKitchenOnlyRole } from '@residence-blue/shared';
 import { AuthService } from '../../../core/services/auth.service';
-import { ModuleConfigService } from '../../../core/services/module-config.service';
+import { ModuleConfigService, NavMenuItem } from '../../../core/services/module-config.service';
 import { RestaurantV3Service } from '../../../restaurant-v3/services/restaurant-v3.service';
 
 export interface NavItem {
@@ -65,7 +65,7 @@ export interface NavItem {
           </button>
         </div>
 
-        <!-- Section Navigation principale (Maximum 7 modules actifs V1) -->
+        <!-- Navigation principale adaptée aux droits du compte connecté -->
         <div class="px-space-md py-space-sm">
           <div class="px-space-md py-space-xs mb-space-xs font-label-md text-label-md text-outline-variant uppercase tracking-wider">
             Menu Principal
@@ -148,6 +148,11 @@ export interface NavItem {
                       <rect x="10.25" y="8" width="3.5" height="11.5" rx="1" stroke="currentColor" stroke-width="1.8" />
                       <rect x="16" y="4.5" width="3.5" height="15" rx="1" stroke="currentColor" stroke-width="1.8" />
                       <line x1="3" y1="19.5" x2="21" y2="19.5" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" />
+                    }
+                    @case ('parametres') {
+                      <path class="accent" d="M12 8.3a3.7 3.7 0 1 0 0 7.4 3.7 3.7 0 0 0 0-7.4Z" />
+                      <path d="m19.4 13.5 1.1.8-1.4 2.5-1.3-.5a7.7 7.7 0 0 1-1.4.8l-.2 1.4h-2.9l-.3-1.4a7.7 7.7 0 0 1-1.4-.8l-1.3.5-1.4-2.5 1.1-.8a7.2 7.2 0 0 1 0-1.6l-1.1-.8 1.4-2.5 1.3.5a7.7 7.7 0 0 1 1.4-.8l.3-1.4h2.9l.2 1.4a7.7 7.7 0 0 1 1.4.8l1.3-.5 1.4 2.5-1.1.8a7.2 7.2 0 0 1 0 1.6Z" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" />
+                      <circle cx="12" cy="12.7" r="2.3" stroke="currentColor" stroke-width="1.7" />
                     }
                     @case ('administration') {
                       <!-- Administration : bouclier sécurisé avec badge en accent -->
@@ -251,37 +256,19 @@ export class SidebarComponent {
   @Input() mobileOpen = false;
   @Output() closeMobile = new EventEmitter<void>();
 
-  readonly roomsService = inject(RoomsService, { optional: true });
-  readonly roomsCount = computed(() => (this.roomsService ? this.roomsService.rooms().length : 12));
-  private readonly authService = inject(AuthService, { optional: true });
-  private readonly moduleConfig = inject(ModuleConfigService, { optional: true });
-  private readonly restaurantService = inject(RestaurantV3Service, { optional: true });
-  readonly isKitchenOnly = computed(() => isKitchenOnlyRole(this.authService?.currentRole()));
-  readonly isSingleScreenProfile = computed(() => {
-    const user = this.authService?.currentUser();
-    if (!user || this.isKitchenOnly() || this.authService?.isDirector()) return false;
-    return getAuthorizedScreens(user).length <= 1;
-  });
-  readonly cookAccountName = computed(
-    () => this.authService?.currentUser()?.fullName || 'Cuisinier',
-  );
-  readonly readyOrdersCount = computed(() =>
-    this.restaurantService ? this.restaurantService.readyOrdersCount() : 0,
-  );
-  readonly pendingKitchenOrdersCount = computed(() =>
-    this.restaurantService && this.isKitchenOnly()
-      ? this.restaurantService.pendingKitchenOrdersCount()
-      : 0,
-  );
-  readonly unreadRoomAlertsCount = computed(() =>
-    this.roomsService && this.roomsService.canReceiveRoomAlerts()
-      ? this.roomsService.unreadAlertsCount()
-      : 0,
-  );
-
-  async logout(): Promise<void> {
-    await this.authService?.logout();
-  }
+  readonly roomsService: RoomsService | null;
+  readonly roomsCount: Signal<number>;
+  private readonly authService: AuthService | null;
+  private readonly moduleConfig: ModuleConfigService | null;
+  private readonly restaurantService: RestaurantV3Service | null;
+  readonly isKitchenOnly: Signal<boolean>;
+  readonly isDirector: Signal<boolean>;
+  readonly isSingleScreenProfile: Signal<boolean>;
+  readonly cookAccountName: Signal<string>;
+  readonly readyOrdersCount: Signal<number>;
+  readonly pendingKitchenOrdersCount: Signal<number>;
+  readonly unreadRoomAlertsCount: Signal<number>;
+  readonly activeMenuItems: Signal<NavMenuItem[]>;
 
   readonly navItems: NavItem[] = [
     { path: '/tableau-de-bord', label: 'Tableau de bord', icon: 'dashboard' },
@@ -296,14 +283,81 @@ export class SidebarComponent {
     { path: '/parametres', label: 'Paramètres', icon: 'settings' },
   ];
 
-  readonly activeMenuItems =
-    this.moduleConfig?.menuItems ||
-    signal(
-      this.navItems.slice(0, 6).map((i) => ({
-        id: i.path.replace('/', ''),
-        route: i.path,
-        label: i.label,
-        icon: i.icon,
-      })),
+  constructor(
+    roomsServiceOverride?: RoomsService,
+    authServiceOverride?: AuthService,
+    moduleConfigOverride?: ModuleConfigService,
+    restaurantServiceOverride?: RestaurantV3Service,
+  ) {
+    let injectedRooms: RoomsService | null = null;
+    let injectedAuth: AuthService | null = null;
+    let injectedModuleConfig: ModuleConfigService | null = null;
+    let injectedRestaurant: RestaurantV3Service | null = null;
+
+    try {
+      injectedRooms = inject(RoomsService, { optional: true });
+    } catch {
+      injectedRooms = null;
+    }
+    try {
+      injectedAuth = inject(AuthService, { optional: true });
+    } catch {
+      injectedAuth = null;
+    }
+    try {
+      injectedModuleConfig = inject(ModuleConfigService, { optional: true });
+    } catch {
+      injectedModuleConfig = null;
+    }
+    try {
+      injectedRestaurant = inject(RestaurantV3Service, { optional: true });
+    } catch {
+      injectedRestaurant = null;
+    }
+
+    this.roomsService = roomsServiceOverride ?? injectedRooms;
+    this.authService = authServiceOverride ?? injectedAuth;
+    this.moduleConfig = moduleConfigOverride ?? injectedModuleConfig;
+    this.restaurantService = restaurantServiceOverride ?? injectedRestaurant;
+
+    this.roomsCount = computed(() => (this.roomsService ? this.roomsService.rooms().length : 12));
+    this.isKitchenOnly = computed(() => isKitchenOnlyRole(this.authService?.currentRole()));
+    this.isDirector = computed(() => this.authService?.isDirector() ?? false);
+    this.isSingleScreenProfile = computed(() => {
+      const user = this.authService?.currentUser();
+      if (!user || this.isKitchenOnly() || this.authService?.isDirector()) return false;
+      return getAuthorizedScreens(user).length <= 1;
+    });
+    this.cookAccountName = computed(
+      () => this.authService?.currentUser()?.fullName || 'Cuisinier',
     );
+    this.readyOrdersCount = computed(() =>
+      this.restaurantService ? this.restaurantService.readyOrdersCount() : 0,
+    );
+    this.pendingKitchenOrdersCount = computed(() =>
+      this.restaurantService && this.isKitchenOnly()
+        ? this.restaurantService.pendingKitchenOrdersCount()
+        : 0,
+    );
+    this.unreadRoomAlertsCount = computed(() =>
+      this.roomsService && this.roomsService.canReceiveRoomAlerts()
+        ? this.roomsService.unreadAlertsCount()
+        : 0,
+    );
+
+    this.activeMenuItems =
+      this.moduleConfig?.menuItems ||
+      signal(
+        this.navItems.slice(0, 6).map((i) => ({
+          id: i.path.replace('/', ''),
+          route: i.path,
+          label: i.label,
+          icon: i.icon,
+        })),
+      );
+  }
+
+  async logout(): Promise<void> {
+    await this.authService?.logout();
+  }
 }

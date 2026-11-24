@@ -107,7 +107,7 @@ export class ReservationModalService {
     this.feedbackMessage.set(null);
   }
 
-  private showFeedback(msg: string): void {
+  showFeedback(msg: string): void {
     if (this.feedbackTimer) {
       clearTimeout(this.feedbackTimer);
     }

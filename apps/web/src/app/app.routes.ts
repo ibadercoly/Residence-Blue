@@ -1,6 +1,7 @@
 import { Routes } from '@angular/router';
 import { moduleCanMatch } from './core/guards/module-match.guard';
 import { authGuard } from './core/guards/auth.guard';
+import { notFoundCanMatch } from './core/guards/not-found.guard';
 
 export const routes: Routes = [
   {
@@ -160,72 +161,20 @@ export const routes: Routes = [
     pathMatch: 'full',
     redirectTo: 'accueil',
   },
-  // Modules reportés V2/V3 (protégés par canMatch et authGuard)
-  {
-    path: 'housekeeping',
-    canActivate: [authGuard],
-    canMatch: [moduleCanMatch('housekeeping')],
-    loadComponent: () =>
-      import('./features/dashboard/pages/dashboard-page/dashboard-page.component').then(
-        (m) => m.DashboardPageComponent,
-      ),
-  },
-  {
-    path: 'maintenance',
-    canActivate: [authGuard],
-    canMatch: [moduleCanMatch('maintenance')],
-    loadComponent: () =>
-      import('./features/dashboard/pages/dashboard-page/dashboard-page.component').then(
-        (m) => m.DashboardPageComponent,
-      ),
-  },
-  {
-    path: 'stocks',
-    canActivate: [authGuard],
-    canMatch: [moduleCanMatch('inventory')],
-    loadComponent: () =>
-      import('./features/dashboard/pages/dashboard-page/dashboard-page.component').then(
-        (m) => m.DashboardPageComponent,
-      ),
-  },
   {
     path: 'parametres',
     canActivate: [authGuard],
-    canMatch: [moduleCanMatch('parametres')],
     loadComponent: () =>
-      import('./features/dashboard/pages/dashboard-page/dashboard-page.component').then(
-        (m) => m.DashboardPageComponent,
-      ),
-  },
-  {
-    path: 'marketing',
-    canActivate: [authGuard],
-    canMatch: [moduleCanMatch('marketing_crm')],
-    loadComponent: () =>
-      import('./features/dashboard/pages/dashboard-page/dashboard-page.component').then(
-        (m) => m.DashboardPageComponent,
-      ),
-  },
-  {
-    path: 'channel-manager',
-    canActivate: [authGuard],
-    canMatch: [moduleCanMatch('channel_manager')],
-    loadComponent: () =>
-      import('./features/dashboard/pages/dashboard-page/dashboard-page.component').then(
-        (m) => m.DashboardPageComponent,
-      ),
-  },
-  {
-    path: 'comptabilite',
-    canActivate: [authGuard],
-    canMatch: [moduleCanMatch('accounting')],
-    loadComponent: () =>
-      import('./features/dashboard/pages/dashboard-page/dashboard-page.component').then(
-        (m) => m.DashboardPageComponent,
+      import('./features/administration/pages/hotel-settings-page/hotel-settings-page.component').then(
+        (m) => m.HotelSettingsPageComponent,
       ),
   },
   {
     path: '**',
-    redirectTo: 'tableau-de-bord',
+    canMatch: [notFoundCanMatch],
+    loadComponent: () =>
+      import('./features/dashboard/pages/dashboard-page/dashboard-page.component').then(
+        (m) => m.DashboardPageComponent,
+      ),
   },
 ];

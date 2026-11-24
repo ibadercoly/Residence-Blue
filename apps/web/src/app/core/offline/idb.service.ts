@@ -6,7 +6,7 @@ import { ModuleConfigService } from '../services/module-config.service';
 })
 export class IdbService {
   private readonly dbName = 'residence_blue_db';
-  private readonly dbVersion = 1;
+  private readonly dbVersion = 2;
   private dbPromise: Promise<IDBDatabase> | null = null;
   private readonly moduleConfig = inject(ModuleConfigService, { optional: true });
 
@@ -24,6 +24,7 @@ export class IdbService {
     marketing: 'marketing_crm',
     channel_manager: 'channel_manager',
     accounting: 'accounting',
+    hotelSettings: 'parametres',
   };
 
   /**
@@ -65,6 +66,9 @@ export class IdbService {
         }
         if (!db.objectStoreNames.contains('reservations')) {
           db.createObjectStore('reservations', { keyPath: 'id' });
+        }
+        if (!db.objectStoreNames.contains('hotelSettings')) {
+          db.createObjectStore('hotelSettings', { keyPath: 'id' });
         }
         if (!db.objectStoreNames.contains('outbox')) {
           const outboxStore = db.createObjectStore('outbox', { keyPath: 'id' });
