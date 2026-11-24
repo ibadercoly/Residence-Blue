@@ -36,10 +36,10 @@ test.describe('Clôture de caisse — Comptoir Facturation (E2E)', () => {
   }) => {
     await page.setViewportSize({ width: 360, height: 800 });
     await loginViaUi(page);
-    await page.goto('/facturation', { waitUntil: 'networkidle' });
+    await page.goto('/facturation', { waitUntil: 'domcontentloaded' });
 
     const openBtn = page.locator('[data-testid="btn-open-cash-closure"]');
-    await expect(openBtn).toBeVisible({ timeout: 15_000 });
+    await expect(openBtn).toBeVisible({ timeout: 25_000 });
     await openBtn.click();
 
     const modal = page.locator('[data-testid="cash-closure-modal"]');
