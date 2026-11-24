@@ -3,9 +3,9 @@ import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import * as crypto from 'crypto';
 import request from 'supertest';
-import { PrismaClient, PaymentMethod, Role } from '@prisma/client';
+import { PrismaClient, PaymentMethod } from '@prisma/client';
 import { AppModule } from '../src/app.module';
-import { signMockTestToken } from './auth-test.helper';
+import { issueDbTestToken } from './auth-test.helper';
 
 describe('Clôture de caisse — API intégration & droits (residence_blue_e2e)', () => {
   jest.setTimeout(60_000);
@@ -14,8 +14,11 @@ describe('Clôture de caisse — API intégration & droits (residence_blue_e2e)'
   const prisma = new PrismaClient();
   const suffix = crypto.randomUUID().slice(0, 6);
 
+  let receptionToken: string;
   let receptionUserId: string;
+  let comptableToken: string;
   let comptableUserId: string;
+  let cuisinierToken: string;
   let cuisinierUserId: string;
   let testInvoiceId: string;
   const createdClosureIds: string[] = [];
@@ -41,24 +44,26 @@ describe('Clôture de caisse — API intégration & droits (residence_blue_e2e)'
     );
     await app.init();
 
-    // Créer 3 utilisateurs éphémères pour les tests de droits et FK closedById
-    const mkUser = async (role: Role, tag: string) => {
-      const u = await prisma.user.create({
-        data: {
-          id: crypto.randomUUID(),
-          email: `cc.${tag}.${suffix}@residenceblue.sn`,
-          fullName: `Test ${tag}`,
-          passwordHash: '$argon2id$v=19$m=19456,t=2,p=1$c2FsdHNhbHRzYWx0c2FsdA$hashhashhashhashhashhashhashhash',
-          role,
-          isActive: true,
-        },
-      });
-      return u.id;
-    };
+    const rec = await issueDbTestToken(prisma, 'RECEPTION', {
+      email: `cc.reception.${suffix}@residenceblue.sn`,
+      fullName: 'Test reception',
+    });
+    receptionToken = rec.token;
+    receptionUserId = rec.userId;
 
-    receptionUserId = await mkUser(Role.RECEPTION, 'reception');
-    comptableUserId = await mkUser(Role.COMPTABLE, 'comptable');
-    cuisinierUserId = await mkUser(Role.CUISINIER, 'cuisinier');
+    const comp = await issueDbTestToken(prisma, 'COMPTABLE', {
+      email: `cc.comptable.${suffix}@residenceblue.sn`,
+      fullName: 'Test comptable',
+    });
+    comptableToken = comp.token;
+    comptableUserId = comp.userId;
+
+    const cuis = await issueDbTestToken(prisma, 'CUISINIER', {
+      email: `cc.cuisinier.${suffix}@residenceblue.sn`,
+      fullName: 'Test cuisinier',
+    });
+    cuisinierToken = cuis.token;
+    cuisinierUserId = cuis.userId;
 
     // Créer une facture et un paiement en espèces du jour (50 000 FCFA)
     const inv = await prisma.invoice.create({
@@ -95,21 +100,19 @@ describe('Clôture de caisse — API intégration & droits (residence_blue_e2e)'
     }
     const userIds = [receptionUserId, comptableUserId, cuisinierUserId].filter(Boolean);
     if (userIds.length > 0) {
-      await prisma.user.deleteMany({ where: { id: { in: userIds } } });
+      await prisma.user.updateMany({
+        where: { id: { in: userIds } },
+        data: { isActive: false, deletedAt: new Date() },
+      });
     }
     await app?.close();
     await prisma.$disconnect();
   });
 
   it('calcule correctement écart = 0, écart positif et écart négatif, et journalise dans AuditLog', async () => {
-    const token = signMockTestToken('RECEPTION', {
-      id: receptionUserId,
-      fullName: 'Test reception',
-    });
-
     const todayRes = await request(app.getHttpServer())
       .get('/api/billing/cash-closure/today')
-      .set('Authorization', `Bearer ${token}`)
+      .set('Authorization', `Bearer ${receptionToken}`)
       .expect(200);
 
     const theoretical = todayRes.body.totalTheoreticalCash as number;
@@ -118,7 +121,7 @@ describe('Clôture de caisse — API intégration & droits (residence_blue_e2e)'
     // 1. Écart = 0
     const resZero = await request(app.getHttpServer())
       .post('/api/billing/cash-closure')
-      .set('Authorization', `Bearer ${token}`)
+      .set('Authorization', `Bearer ${receptionToken}`)
       .send({ totalCountedCash: theoretical, notes: 'Caisse juste' })
       .expect(201);
     createdClosureIds.push(resZero.body.id);
@@ -129,7 +132,7 @@ describe('Clôture de caisse — API intégration & droits (residence_blue_e2e)'
     // 2. Écart positif (+5 000 FCFA)
     const resPos = await request(app.getHttpServer())
       .post('/api/billing/cash-closure')
-      .set('Authorization', `Bearer ${token}`)
+      .set('Authorization', `Bearer ${receptionToken}`)
       .send({ totalCountedCash: theoretical + 5000, notes: 'Surplus test' })
       .expect(201);
     createdClosureIds.push(resPos.body.id);
@@ -138,7 +141,7 @@ describe('Clôture de caisse — API intégration & droits (residence_blue_e2e)'
     // 3. Écart négatif (-3 000 FCFA)
     const resNeg = await request(app.getHttpServer())
       .post('/api/billing/cash-closure')
-      .set('Authorization', `Bearer ${token}`)
+      .set('Authorization', `Bearer ${receptionToken}`)
       .send({ totalCountedCash: theoretical - 3000, notes: 'Manquant test' })
       .expect(201);
     createdClosureIds.push(resNeg.body.id);
@@ -152,19 +155,6 @@ describe('Clôture de caisse — API intégration & droits (residence_blue_e2e)'
   });
 
   it('applique strictement les droits : RECEPTION crée (201), COMPTABLE lit l’historique (200), CUISINIER reçoit 403', async () => {
-    const receptionToken = signMockTestToken('RECEPTION', {
-      id: receptionUserId,
-      fullName: 'Test reception',
-    });
-    const comptableToken = signMockTestToken('COMPTABLE', {
-      id: comptableUserId,
-      fullName: 'Test comptable',
-    });
-    const cuisinierToken = signMockTestToken('CUISINIER', {
-      id: cuisinierUserId,
-      fullName: 'Test cuisinier',
-    });
-
     // RECEPTION ne peut pas lire l'historique réservé à DIRECTION et COMPTABLE
     await request(app.getHttpServer())
       .get('/api/billing/cash-closure/history')
