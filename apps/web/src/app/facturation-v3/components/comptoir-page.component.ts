@@ -18,6 +18,7 @@ import {
   BillingSummaryCard,
 } from '@residence-blue/shared';
 import { FacturationService } from '../services/facturation.service';
+import { ModalShellComponent } from '../../shared/components/modal-shell/modal-shell.component';
 import {
   BILLING_SHARED_TABLE_STYLES,
   billingStatusBadge,
@@ -33,7 +34,7 @@ interface FilterPillOption {
 @Component({
   selector: 'app-comptoir-page',
   standalone: true,
-  imports: [CommonModule, RouterLink],
+  imports: [CommonModule, RouterLink, ModalShellComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   styles: [
     BILLING_SHARED_TABLE_STYLES,
@@ -186,8 +187,40 @@ interface FilterPillOption {
             </p>
           </div>
 
-          @if (service.canManageCreditsAndExport()) {
-            <div class="flex flex-wrap gap-2">
+          <div class="flex flex-wrap items-center gap-2">
+            @if (service.canCloseCash()) {
+              @if (!isCashClosedToday()) {
+                <button
+                  type="button"
+                  data-testid="btn-open-cash-closure"
+                  (click)="openCashClosureModal()"
+                  class="rb-btn rb-btn-primary"
+                >
+                  <span class="material-symbols-outlined text-[18px]" aria-hidden="true"
+                    >point_of_sale</span
+                  >
+                  <span>Fermer la caisse</span>
+                </button>
+              } @else {
+                <span
+                  data-testid="cash-closed-today-badge"
+                  class="inline-flex items-center gap-1.5 rounded-lg border border-emerald-300 bg-emerald-50 px-3 py-2 text-xs font-bold text-emerald-800"
+                >
+                  <span class="material-symbols-outlined text-[16px]" aria-hidden="true">task_alt</span>
+                  <span>Caisse fermée aujourd'hui</span>
+                </span>
+                <button
+                  type="button"
+                  data-testid="btn-reopen-cash-closure"
+                  (click)="requestReopenCashClosure()"
+                  class="rb-btn rb-btn-outline"
+                >
+                  <span>Nouvelle clôture</span>
+                </button>
+              }
+            }
+
+            @if (service.canManageCreditsAndExport()) {
               <button
                 type="button"
                 data-testid="export-closure-pdf"
@@ -203,15 +236,15 @@ interface FilterPillOption {
                 type="button"
                 data-testid="export-closure-excel"
                 (click)="service.downloadCashClosure('excel')"
-                class="rb-btn rb-btn-primary"
+                class="rb-btn rb-btn-outline"
               >
                 <span class="material-symbols-outlined text-[18px]" aria-hidden="true"
                   >table_view</span
                 >
                 <span>Exporter la clôture (Excel)</span>
               </button>
-            </div>
-          }
+            }
+          </div>
         </div>
 
         <div class="rb-grid-cash" data-testid="daily-cash-cards">
@@ -582,6 +615,133 @@ interface FilterPillOption {
           }
         </footer>
       </section>
+
+      <!-- Modale Fermer la caisse -->
+      <app-modal-shell
+        [isOpen]="cashClosureModalOpen()"
+        title="Fermer la caisse"
+        subtitle="Vérifiez les encaissements du jour et saisissez le montant compté en espèces"
+        icon="point_of_sale"
+        maxWidth="640px"
+        testId="cash-closure-modal"
+        (closed)="closeCashClosureModal()"
+      >
+        <div modal-body class="space-y-4 min-w-0">
+          @if (confirmingReopen()) {
+            <div class="rounded-xl border border-amber-300 bg-amber-50 p-3 text-xs font-semibold text-amber-900">
+              La caisse a déjà été fermée aujourd'hui. Valider enregistrera une nouvelle clôture horodatée.
+            </div>
+          }
+
+          <div>
+            <h3 class="mb-2 text-xs font-extrabold uppercase tracking-wider text-[#3d494a]">
+              Totaux attendus du jour (lecture seule)
+            </h3>
+            <div class="grid grid-cols-2 sm:grid-cols-3 gap-2">
+              <div class="rounded-lg border border-[#d6e2e4] bg-[#f8fbfc] p-2.5 min-w-0">
+                <div class="text-[11px] font-bold text-[#3d494a] truncate">Espèces (attendu)</div>
+                <div class="mt-0.5 text-sm font-extrabold text-[#161d20]" data-testid="closure-expected-cash">
+                  {{ formatFcfa(theoreticalCashFcfa()) }}
+                </div>
+              </div>
+              <div class="rounded-lg border border-[#d6e2e4] bg-[#f8fbfc] p-2.5 min-w-0">
+                <div class="text-[11px] font-bold text-[#3d494a] truncate">Orange Money</div>
+                <div class="mt-0.5 text-sm font-extrabold text-[#161d20]">
+                  {{ formatFcfa(dailyCash().byMethod.ORANGE_MONEY) }}
+                </div>
+              </div>
+              <div class="rounded-lg border border-[#d6e2e4] bg-[#f8fbfc] p-2.5 min-w-0">
+                <div class="text-[11px] font-bold text-[#3d494a] truncate">Wave</div>
+                <div class="mt-0.5 text-sm font-extrabold text-[#161d20]">
+                  {{ formatFcfa(dailyCash().byMethod.WAVE) }}
+                </div>
+              </div>
+              <div class="rounded-lg border border-[#d6e2e4] bg-[#f8fbfc] p-2.5 min-w-0">
+                <div class="text-[11px] font-bold text-[#3d494a] truncate">Carte</div>
+                <div class="mt-0.5 text-sm font-extrabold text-[#161d20]">
+                  {{ formatFcfa(dailyCash().byMethod.CARD) }}
+                </div>
+              </div>
+              <div class="rounded-lg border border-[#d6e2e4] bg-[#f8fbfc] p-2.5 min-w-0">
+                <div class="text-[11px] font-bold text-[#3d494a] truncate">Virement</div>
+                <div class="mt-0.5 text-sm font-extrabold text-[#161d20]">
+                  {{ formatFcfa(dailyCash().byMethod.BANK_TRANSFER) }}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="space-y-1.5">
+            <label for="input-counted-cash" class="block text-xs font-extrabold uppercase tracking-wider text-[#161d20]">
+              Montant compté en espèces (FCFA)
+            </label>
+            <input
+              id="input-counted-cash"
+              type="number"
+              min="0"
+              step="1"
+              inputmode="numeric"
+              data-testid="input-counted-cash"
+              [value]="countedCashInput()"
+              (input)="onCountedCashInput($event)"
+              placeholder="Ex. 150000"
+              class="w-full min-h-[44px] rounded-lg border border-[#b9cdd0] bg-white px-3 py-2 text-base font-bold text-[#161d20] focus:border-[#00666f] focus:outline-none"
+            />
+          </div>
+
+          <!-- Écart automatique (vert si 0, rouge si positif ou négatif) -->
+          <div
+            data-testid="cash-closure-difference"
+            class="rounded-xl border px-4 py-3 flex items-center justify-between gap-2"
+            [class.border-emerald-300]="cashDifferenceFcfa() === 0"
+            [class.bg-emerald-50]="cashDifferenceFcfa() === 0"
+            [class.text-emerald-800]="cashDifferenceFcfa() === 0"
+            [class.border-red-300]="cashDifferenceFcfa() !== 0"
+            [class.bg-red-50]="cashDifferenceFcfa() !== 0"
+            [class.text-red-800]="cashDifferenceFcfa() !== 0"
+          >
+            <span class="text-xs font-extrabold uppercase tracking-wider">Écart constaté</span>
+            <span class="text-base font-extrabold" data-testid="cash-closure-difference-value">
+              {{ formattedCashDifference() }}
+            </span>
+          </div>
+
+          <div class="space-y-1.5">
+            <label for="input-closure-notes" class="block text-xs font-bold uppercase tracking-wider text-[#3d494a]">
+              Notes (optionnel)
+            </label>
+            <textarea
+              id="input-closure-notes"
+              rows="2"
+              maxlength="1000"
+              data-testid="input-closure-notes"
+              [value]="closureNotesInput()"
+              (input)="onClosureNotesInput($event)"
+              placeholder="Explication éventuelle en cas d'écart..."
+              class="w-full rounded-lg border border-[#b9cdd0] bg-white px-3 py-2 text-sm text-[#161d20] focus:border-[#00666f] focus:outline-none"
+            ></textarea>
+          </div>
+        </div>
+
+        <div modal-footer class="w-full flex flex-wrap items-center justify-end gap-2">
+          <button
+            type="button"
+            (click)="closeCashClosureModal()"
+            class="rb-btn rb-btn-outline"
+          >
+            Annuler
+          </button>
+          <button
+            type="button"
+            data-testid="btn-confirm-cash-closure"
+            [disabled]="service.submittingCashClosure() || !isCountedCashValid()"
+            (click)="submitCashClosure()"
+            class="rb-btn rb-btn-primary"
+          >
+            {{ service.submittingCashClosure() ? 'Enregistrement...' : 'Valider la clôture' }}
+          </button>
+        </div>
+      </app-modal-shell>
     </div>
   `,
 })
@@ -597,6 +757,10 @@ export class ComptoirPageComponent implements OnInit, OnDestroy {
   readonly sortBy = signal<BillingSortField>('updatedAt');
   readonly sortOrder = signal<BillingSortOrder>('desc');
   readonly busyRowId = signal<string | null>(null);
+  readonly cashClosureModalOpen = signal<boolean>(false);
+  readonly confirmingReopen = signal<boolean>(false);
+  readonly countedCashInput = signal<string>('0');
+  readonly closureNotesInput = signal<string>('');
 
   readonly filterPills: readonly FilterPillOption[] = [
     { key: 'TO_PROCESS', label: 'À traiter' },
@@ -640,9 +804,34 @@ export class ComptoirPageComponent implements OnInit, OnDestroy {
   readonly items = computed<BillingSummaryCard[]>(() => this.service.counter()?.page?.items ?? []);
   readonly totalCount = computed<number>(() => this.service.counter()?.page?.total ?? 0);
   readonly hasMore = computed<boolean>(() => this.service.counter()?.page?.hasMore ?? false);
+  readonly isCashClosedToday = computed<boolean>(
+    () => this.service.todayCashClosure()?.isClosedToday ?? false,
+  );
+  readonly theoreticalCashFcfa = computed<number>(
+    () =>
+      this.service.todayCashClosure()?.totalTheoreticalCash ??
+      this.dailyCash().byMethod.CASH,
+  );
+  readonly parsedCountedCash = computed<number | null>(() => {
+    const raw = this.countedCashInput().trim();
+    if (raw === '' || !/^\d+$/.test(raw)) return null;
+    return Number(raw);
+  });
+  readonly isCountedCashValid = computed<boolean>(() => this.parsedCountedCash() !== null);
+  readonly cashDifferenceFcfa = computed<number>(() => {
+    const counted = this.parsedCountedCash();
+    if (counted === null) return -this.theoreticalCashFcfa();
+    return counted - this.theoreticalCashFcfa();
+  });
+  readonly formattedCashDifference = computed<string>(() => {
+    const diff = this.cashDifferenceFcfa();
+    const prefix = diff > 0 ? '+' : '';
+    return `${prefix}${formatFcfaPlain(diff)}`;
+  });
 
   ngOnInit(): void {
     this.reloadCounter();
+    void this.service.loadTodayCashClosure();
     if (typeof window !== 'undefined') {
       window.addEventListener('keydown', this.keyListener);
     }
@@ -761,6 +950,45 @@ export class ComptoirPageComponent implements OnInit, OnDestroy {
       }
     } finally {
       this.busyRowId.set(null);
+    }
+  }
+
+  openCashClosureModal(): void {
+    this.confirmingReopen.set(false);
+    this.countedCashInput.set(String(this.theoreticalCashFcfa()));
+    this.closureNotesInput.set('');
+    this.cashClosureModalOpen.set(true);
+  }
+
+  requestReopenCashClosure(): void {
+    this.confirmingReopen.set(true);
+    this.countedCashInput.set(String(this.theoreticalCashFcfa()));
+    this.closureNotesInput.set('');
+    this.cashClosureModalOpen.set(true);
+  }
+
+  closeCashClosureModal(): void {
+    this.cashClosureModalOpen.set(false);
+    this.confirmingReopen.set(false);
+  }
+
+  onCountedCashInput(event: Event): void {
+    const val = (event.target as HTMLInputElement)?.value ?? '';
+    this.countedCashInput.set(val);
+  }
+
+  onClosureNotesInput(event: Event): void {
+    const val = (event.target as HTMLTextAreaElement)?.value ?? '';
+    this.closureNotesInput.set(val);
+  }
+
+  async submitCashClosure(): Promise<void> {
+    const counted = this.parsedCountedCash();
+    if (counted === null) return;
+    const saved = await this.service.submitCashClosure(counted, this.closureNotesInput());
+    if (saved) {
+      this.closeCashClosureModal();
+      this.reloadCounter();
     }
   }
 
