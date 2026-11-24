@@ -23,7 +23,7 @@
   --couleur-menu-cuisine: #A3E635;
   --couleur-menu-rapports: #F2785C;
   --couleur-menu-administration: #818CF8;
-  --couleur-menu-parametres: #818CF8;
+  --couleur-menu-parametres: #FBBF24;
 }
 
 .rb-menu-color-dashboard { --couleur-menu-item: var(--couleur-menu-accueil); }
@@ -116,4 +116,29 @@
   .pt-safe { padding-top: env(safe-area-inset-top, 0px); }
 }
 
-::-webkit-scrollbar { display: none; }
+
+/* Barre de défilement visible et élégante pour la barre latérale */
+.rb-sidebar-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.35) transparent;
+  overflow-y: auto;
+}
+
+.rb-sidebar-scroll::-webkit-scrollbar {
+  display: block;
+  width: 6px;
+}
+
+.rb-sidebar-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.rb-sidebar-scroll::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.3);
+  border-radius: 9999px;
+}
+
+.rb-sidebar-scroll::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.5);
+}
+

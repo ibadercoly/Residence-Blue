@@ -37,9 +37,9 @@ export interface NavItem {
       "
       aria-label="Navigation principale"
     >
-      <div class="flex flex-col">
-        <!-- Brand Header -->
-        <div class="h-20 flex items-center justify-between gap-space-md px-gutter">
+      <div class="flex flex-col min-h-0 flex-1 overflow-hidden">
+        <!-- Brand Header (fixe en haut) -->
+        <div class="h-20 flex items-center justify-between gap-space-md px-gutter shrink-0">
           <div class="flex items-center gap-space-md min-w-0">
             <div class="w-10 h-10 rounded-xl bg-primary flex items-center justify-center text-on-primary shadow-sm shrink-0">
               <span class="material-symbols-outlined text-[24px]">hotel</span>
@@ -65,12 +65,12 @@ export interface NavItem {
           </button>
         </div>
 
-        <!-- Navigation principale adaptée aux droits du compte connecté -->
-        <div class="px-space-md py-space-sm">
+        <!-- Navigation principale défilable avec barre de défilement visible -->
+        <div class="flex-1 min-h-0 overflow-y-auto rb-sidebar-scroll px-space-md py-space-sm">
           <div class="px-space-md py-space-xs mb-space-xs font-label-md text-label-md text-outline-variant uppercase tracking-wider">
             Menu Principal
           </div>
-          <nav class="flex flex-col gap-space-xs" data-testid="sidebar-nav">
+          <nav class="flex flex-col gap-space-xs pb-space-sm" data-testid="sidebar-nav">
             @for (item of activeMenuItems(); track item.route) {
               <a
                 [routerLink]="item.route"
@@ -150,9 +150,16 @@ export interface NavItem {
                       <line x1="3" y1="19.5" x2="21" y2="19.5" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" />
                     }
                     @case ('parametres') {
-                      <path class="accent" d="M12 8.3a3.7 3.7 0 1 0 0 7.4 3.7 3.7 0 0 0 0-7.4Z" />
-                      <path d="m19.4 13.5 1.1.8-1.4 2.5-1.3-.5a7.7 7.7 0 0 1-1.4.8l-.2 1.4h-2.9l-.3-1.4a7.7 7.7 0 0 1-1.4-.8l-1.3.5-1.4-2.5 1.1-.8a7.2 7.2 0 0 1 0-1.6l-1.1-.8 1.4-2.5 1.3.5a7.7 7.7 0 0 1 1.4-.8l.3-1.4h2.9l.2 1.4a7.7 7.7 0 0 1 1.4.8l1.3-.5 1.4 2.5-1.1.8a7.2 7.2 0 0 1 0 1.6Z" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" />
-                      <circle cx="12" cy="12.7" r="2.3" stroke="currentColor" stroke-width="1.7" />
+                      <!-- Paramètres : engrenage de réglages harmonisé à la même échelle (viewBox 24x24) -->
+                      <circle class="accent" cx="12" cy="12" r="5.5" />
+                      <path
+                        d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"
+                        stroke="currentColor"
+                        stroke-width="1.9"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                      />
+                      <circle cx="12" cy="12" r="3.2" stroke="currentColor" stroke-width="1.9" fill="none" />
                     }
                     @case ('administration') {
                       <!-- Administration : bouclier sécurisé avec badge en accent -->
@@ -212,7 +219,7 @@ export interface NavItem {
       </div>
 
       <!-- Pied de barre latérale : compte & déconnexion pour CUISINIER, sinon badge Version -->
-      <div class="p-gutter">
+      <div class="p-gutter shrink-0">
         @if (isKitchenOnly() || isSingleScreenProfile()) {
           <div
             data-testid="sidebar-cook-footer"
