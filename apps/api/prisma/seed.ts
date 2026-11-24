@@ -236,6 +236,7 @@ export async function seedAll(customPrisma: PrismaClient = prisma) {
       currency: 'XOF',
       vatRatePercent: 10,
       tourismTaxPerNightPerPerson: 1000,
+      tourismTaxIncludesChildren: false,
       exchangeRateEurToFcfa: 655.957,
     },
   });

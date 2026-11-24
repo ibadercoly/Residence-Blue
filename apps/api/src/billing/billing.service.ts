@@ -120,10 +120,57 @@ export class BillingService {
   }
 
   /**
-   * Calcule les totaux strictement en entiers FCFA selon les taux lus des Paramètres.
-   * Règle d'arrondi : arithmétique demi-supérieur (Math.round).
+   * Retourne l'année civile en cours dans le fuseau officiel du Sénégal (Africa/Dakar),
+   * indépendamment du fuseau horaire configuré sur le serveur.
    */
-  private computeInvoiceTotals(params: {
+  getDakarYear(reference: Date = new Date()): number {
+    const yearStr = new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'Africa/Dakar',
+      year: 'numeric',
+    }).format(reference);
+    return Number(yearStr);
+  }
+
+  /**
+   * Calcule la taxe de séjour en entiers FCFA selon le paramétrage hôtel
+   * (adultes seuls par défaut, ou adultes + enfants si tourismTaxIncludesChildren = true).
+   */
+  computeTourismTaxFcfa(params: {
+    ratePerNightPerPerson: number;
+    adultsCount: number;
+    childrenCount: number;
+    nights: number;
+    includesChildren: boolean;
+    overrideFcfa?: number | null;
+  }): { taxablePersons: number; quantity: number; amountFcfa: number } {
+    const safeNights = Math.max(1, Math.round(params.nights || 1));
+    const safeAdults = Math.max(0, Math.round(params.adultsCount || 0));
+    const safeChildren = Math.max(0, Math.round(params.childrenCount || 0));
+    const taxablePersons = params.includesChildren ? safeAdults + safeChildren : safeAdults;
+    const quantity = taxablePersons * safeNights;
+
+    if (params.overrideFcfa && params.overrideFcfa > 0) {
+      return {
+        taxablePersons,
+        quantity,
+        amountFcfa: Math.round(params.overrideFcfa),
+      };
+    }
+
+    const safeRate = Math.max(0, Math.round(params.ratePerNightPerPerson || 0));
+    return {
+      taxablePersons,
+      quantity,
+      amountFcfa: Math.max(0, safeRate * quantity),
+    };
+  }
+
+  /**
+   * Calcule les totaux strictement en entiers FCFA selon les taux lus des Paramètres.
+   * Règle d'arrondi : arithmétique demi-supérieur (Math.round) ; la TVA est toujours
+   * calculée par différence exacte (TTC − HT − service) pour garantir zéro écart au franc près.
+   */
+  computeInvoiceTotals(params: {
     lines: Array<{ category?: string | null; totalPriceFcfa: number }>;
     discountFcfa: number;
     depositFcfa: number;
@@ -132,21 +179,24 @@ export class BillingService {
     serviceRatePercent: number;
     isCreditNote?: boolean;
   }) {
+    const vatRate = Math.max(0, Math.round(params.vatRatePercent || 0));
+    const serviceRate = Math.max(0, Math.round(params.serviceRatePercent || 0));
+
     if (params.isCreditNote) {
       const signedSum = params.lines.reduce((s, l) => s + l.totalPriceFcfa, 0);
       const absTotal = Math.abs(signedSum);
       const absHt =
-        params.vatRatePercent > 0
-          ? Math.round((absTotal * 100) / (100 + params.vatRatePercent))
-          : absTotal;
+        vatRate > 0 ? Math.round((absTotal * 100) / (100 + vatRate)) : absTotal;
       const absService =
-        params.serviceRatePercent > 0
-          ? Math.round((absHt * params.serviceRatePercent) / 100)
-          : 0;
-      const absVat =
-        params.serviceRatePercent > 0
-          ? Math.round(((absHt + absService) * params.vatRatePercent) / 100)
-          : absTotal - absHt;
+        serviceRate > 0 ? Math.round((absHt * serviceRate) / 100) : 0;
+      const absBaseWithService = absHt + absService;
+      const absTtcTarget =
+        serviceRate > 0
+          ? vatRate > 0
+            ? Math.round((absBaseWithService * (100 + vatRate)) / 100)
+            : absBaseWithService
+          : absTotal;
+      const absVat = vatRate > 0 ? absTtcTarget - absBaseWithService : 0;
       return {
         grossLinesFcfa: signedSum,
         subtotalHtFcfa: -absHt,
@@ -170,22 +220,22 @@ export class BillingService {
     const safeDiscount = Math.max(0, Math.min(Math.round(params.discountFcfa || 0), grossLinesFcfa));
     const netPrestations = Math.max(0, grossLinesFcfa - safeDiscount);
 
-    const vatRate = Math.max(0, Math.round(params.vatRatePercent || 0));
-    const serviceRate = Math.max(0, Math.round(params.serviceRatePercent || 0));
-
     const subtotalHtFcfa =
       vatRate > 0 ? Math.round((netPrestations * 100) / (100 + vatRate)) : netPrestations;
 
-    let serviceAmountFcfa = 0;
-    let vatAmountFcfa = 0;
+    const serviceAmountFcfa =
+      serviceRate > 0 ? Math.round((subtotalHtFcfa * serviceRate) / 100) : 0;
 
-    if (serviceRate > 0) {
-      serviceAmountFcfa = Math.round((subtotalHtFcfa * serviceRate) / 100);
-      vatAmountFcfa =
-        vatRate > 0 ? Math.round(((subtotalHtFcfa + serviceAmountFcfa) * vatRate) / 100) : 0;
-    } else {
-      vatAmountFcfa = netPrestations - subtotalHtFcfa;
-    }
+    const baseWithService = subtotalHtFcfa + serviceAmountFcfa;
+    const totalPrestationsTtc =
+      serviceRate > 0
+        ? vatRate > 0
+          ? Math.round((baseWithService * (100 + vatRate)) / 100)
+          : baseWithService
+        : netPrestations;
+
+    // Différence exacte TTC − base HT (+ service) : garantit subtotal + service + vat === totalPrestationsTtc
+    const vatAmountFcfa = vatRate > 0 ? totalPrestationsTtc - baseWithService : 0;
 
     const totalFcfa = subtotalHtFcfa + serviceAmountFcfa + vatAmountFcfa + tourismTaxFcfa;
     const settledTotal = Math.max(0, Math.round(params.depositFcfa || 0) + Math.round(params.paidAmountFcfa || 0));
@@ -236,11 +286,12 @@ export class BillingService {
    * Numérotation séquentielle sans trou avec verrou PostgreSQL dans la transaction :
    * FA-AAAA-NNNN pour les factures, AV-AAAA-NNNN pour les avoirs.
    */
-  private async nextSequenceNumber(
+  async nextSequenceNumber(
     tx: Prisma.TransactionClient,
     docType: 'FA' | 'AV',
+    referenceDate: Date = new Date(),
   ): Promise<string> {
-    const year = new Date().getFullYear();
+    const year = this.getDakarYear(referenceDate);
     const key = `${docType}-${year}`;
     const rows = await tx.$queryRaw<Array<{ last_seq: number }>>`
       INSERT INTO "invoice_sequences" ("id", "doc_type", "year", "last_seq")
@@ -331,6 +382,7 @@ export class BillingService {
     const vatRatePercent = settings.vatRatePercent ?? 0;
     const serviceRatePercent = settings.serviceRatePercent ?? 0;
     const tourismTaxRate = settings.tourismTaxPerNightPerPerson ?? 0;
+    const tourismTaxIncludesChildren = settings.tourismTaxIncludesChildren ?? false;
 
     // 1. Créer des notes ouvertes pour les réservations confirmées / en séjour sans note
     const reservationsWithoutInvoice = await this.prisma.reservation.findMany({
@@ -347,7 +399,15 @@ export class BillingService {
       const ratePerNight = res.room?.pricePerNight ?? Math.round(res.totalFcfa / Math.max(1, res.nights));
       const accTotal = Math.max(0, ratePerNight * Math.max(1, res.nights));
       const checkInStr = new Date(res.checkInDate).toISOString().slice(0, 10);
-      const tourismTax = res.tourismTaxFcfa > 0 ? res.tourismTaxFcfa : tourismTaxRate * res.adultsCount * res.nights;
+      const tourismTaxCalc = this.computeTourismTaxFcfa({
+        ratePerNightPerPerson: tourismTaxRate,
+        adultsCount: res.adultsCount,
+        childrenCount: res.childrenCount,
+        nights: res.nights,
+        includesChildren: tourismTaxIncludesChildren,
+        overrideFcfa: res.tourismTaxFcfa,
+      });
+      const tourismTax = tourismTaxCalc.amountFcfa;
 
       const linesData: Prisma.InvoiceLineCreateWithoutInvoiceInput[] = [
         {
@@ -364,13 +424,14 @@ export class BillingService {
       ];
 
       if (tourismTax > 0) {
+        const personLabel = tourismTaxIncludesChildren ? 'personne(s)' : 'adulte(s)';
         linesData.push({
           dateLabel: checkInStr,
           description: 'Taxe de séjour',
-          subDescription: `${res.adultsCount} adulte(s) × ${res.nights} nuit(s)`,
+          subDescription: `${tourismTaxCalc.taxablePersons} ${personLabel} × ${res.nights} nuit(s)`,
           category: 'TAX',
-          quantity: res.adultsCount * res.nights,
-          quantityLabel: `${res.adultsCount * res.nights}`,
+          quantity: tourismTaxCalc.quantity,
+          quantityLabel: `${tourismTaxCalc.quantity}`,
           unitPriceFcfa: tourismTaxRate,
           totalPriceFcfa: tourismTax,
           isSystem: true,

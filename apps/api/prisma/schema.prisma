@@ -503,6 +503,7 @@ model HotelSetting {
   vatRatePercent              Int      @default(10) @map("vat_rate_percent")
   serviceRatePercent          Int?     @map("service_rate_percent")
   tourismTaxPerNightPerPerson Int      @default(1000) @map("tourism_tax_per_night_per_person")
+  tourismTaxIncludesChildren  Boolean  @default(false) @map("tourism_tax_includes_children")
   discountThresholdPercent    Int?     @map("discount_threshold_percent")
   invoiceLogoPath             String?  @map("invoice_logo_path")
   exchangeRateEurToFcfa       Float    @default(655.957) @map("exchange_rate_eur_to_fcfa")
