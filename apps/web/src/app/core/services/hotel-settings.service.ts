@@ -1,5 +1,7 @@
 import { Injectable, effect, inject, signal } from '@angular/core';
 import { AuthService } from './auth.service';
+import { IdbService } from '../offline/idb.service';
+import { OutboxService } from '../offline/outbox.service';
 
 export interface HotelSettings {
   hotelName: string;
@@ -19,8 +21,21 @@ export interface HotelSettings {
   vatRatePercent: number; // 10% taux réduit hôtellerie au Sénégal
   serviceRatePercent?: number | null;
   tourismTaxPerNightPerPerson: number; // 1000 FCFA
+  tourismTaxIncludesChildren: boolean;
   discountThresholdPercent?: number | null;
   invoiceLogoPath?: string | null;
+}
+
+interface CachedHotelSettings extends HotelSettings {
+  id: 'default';
+}
+
+function optionalInject<T>(token: abstract new (...args: never[]) => T): T | null {
+  try {
+    return inject(token, { optional: true });
+  } catch {
+    return null;
+  }
 }
 
 @Injectable({
@@ -28,6 +43,8 @@ export interface HotelSettings {
 })
 export class HotelSettingsService {
   private readonly authService: AuthService | null;
+  private readonly idbService = optionalInject(IdbService);
+  private readonly outboxService = optionalInject(OutboxService);
   // Paramètres par défaut de la Résidence Blue à Grand Standing, Thiès
   // Source de vérité paramétrable (AGENTS.md & ADAPTATION-THIES.md)
   private readonly _settings = signal<HotelSettings>({
@@ -46,7 +63,8 @@ export class HotelSettingsService {
     restaurantName: 'La Teranga',
     currency: 'XOF',
     vatRatePercent: 10,
-    tourismTaxPerNightPerPerson: 1000
+    tourismTaxPerNightPerPerson: 1000,
+    tourismTaxIncludesChildren: false
   });
 
   readonly settings = this._settings.asReadonly();
@@ -72,6 +90,12 @@ export class HotelSettingsService {
   }
 
   async fetchFromServer(): Promise<void> {
+    const cached = await this.idbService?.get<CachedHotelSettings>('hotelSettings', 'default').catch(() => undefined);
+    if (cached) {
+      const settings = { ...cached };
+      delete (settings as Partial<CachedHotelSettings>).id;
+      this._settings.update((current) => ({ ...current, ...settings }));
+    }
     if (typeof fetch === 'undefined') return;
     try {
       const res = await fetch('/api/hotel-settings');
@@ -79,6 +103,7 @@ export class HotelSettingsService {
         const data = await res.json();
         if (data && data.hotelName) {
           this._settings.update((curr) => ({ ...curr, ...data }));
+          await this.cacheSettings(this._settings());
         }
       }
     } catch {}
@@ -92,27 +117,42 @@ export class HotelSettingsService {
     return `tel:${this.supportPhone.replace(/\s+/g, '')}`;
   }
 
-  updateSettings(partial: Partial<HotelSettings>): void {
-    this._settings.update(curr => ({ ...curr, ...partial }));
-    if (typeof fetch !== 'undefined') {
-      fetch('/api/hotel-settings', {
+  async updateSettings(partial: Partial<HotelSettings>): Promise<{ settings: HotelSettings; syncPending: boolean }> {
+    let response: Response;
+    try {
+      if (typeof fetch === 'undefined') throw new Error('Connexion indisponible');
+      response = await fetch('/api/hotel-settings', {
         method: 'PATCH',
         credentials: 'include',
         headers: {
           'Content-Type': 'application/json',
+          'Idempotency-Key': crypto.randomUUID(),
           ...(this.authService ? this.authService.getAuthHeaders() : {}),
         },
         body: JSON.stringify(partial),
-      })
-        .then(async (res) => {
-          if (res.ok) {
-            const saved = await res.json();
-            if (saved && saved.hotelName) {
-              this._settings.update((curr) => ({ ...curr, ...saved }));
-            }
-          }
-        })
-        .catch(() => {});
+      });
+    } catch {
+      if (!this.idbService || !this.outboxService) {
+        throw new Error('Enregistrement impossible : stockage hors ligne indisponible.');
+      }
+      this._settings.update((current) => ({ ...current, ...partial }));
+      await this.cacheSettings(this._settings());
+      await this.outboxService.enqueue('PATCH_HOTEL_SETTINGS', '/api/hotel-settings', partial);
+      return { settings: this._settings(), syncPending: true };
     }
+
+    if (!response.ok) {
+      throw new Error(response.status === 403
+        ? 'Cette action est réservée à la direction.'
+        : 'Les paramètres n’ont pas pu être enregistrés. Réessayez.');
+    }
+    const saved = await response.json() as HotelSettings;
+    this._settings.update((current) => ({ ...current, ...saved }));
+    await this.cacheSettings(this._settings());
+    return { settings: this._settings(), syncPending: false };
+  }
+
+  private async cacheSettings(settings: HotelSettings): Promise<void> {
+    await this.idbService?.put('hotelSettings', { id: 'default', ...settings } satisfies CachedHotelSettings).catch(() => {});
   }
 }

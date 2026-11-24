@@ -60,7 +60,7 @@ test.describe('Menu latéral : couleurs des 7 icônes SVG et suppression de Expo
 
     // 1. « Exports » absent du menu et /exports redirige vers /accueil
     const navLinks = page.locator('[data-testid="sidebar-nav"] a');
-    expect(await navLinks.count()).toBe(8);
+    expect(await navLinks.count()).toBe(9);
     await expect(page.locator('[data-testid="nav-cuisine"]')).toHaveCount(0);
 
     await page.goto('/exports');

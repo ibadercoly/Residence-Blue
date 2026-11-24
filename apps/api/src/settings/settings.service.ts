@@ -43,6 +43,9 @@ export class SettingsService {
           ...(dto.tourismTaxPerNightPerPerson !== undefined
             ? { tourismTaxPerNightPerPerson: Math.round(dto.tourismTaxPerNightPerPerson) }
             : {}),
+          ...(dto.tourismTaxIncludesChildren !== undefined
+            ? { tourismTaxIncludesChildren: dto.tourismTaxIncludesChildren }
+            : {}),
           ...(dto.discountThresholdPercent !== undefined
             ? { discountThresholdPercent: Math.round(dto.discountThresholdPercent) }
             : {}),
@@ -68,6 +71,9 @@ export class SettingsService {
           ...(dto.serviceRatePercent !== undefined ? { serviceRatePercent: Math.round(dto.serviceRatePercent) } : {}),
           ...(dto.tourismTaxPerNightPerPerson !== undefined
             ? { tourismTaxPerNightPerPerson: Math.round(dto.tourismTaxPerNightPerPerson) }
+            : {}),
+          ...(dto.tourismTaxIncludesChildren !== undefined
+            ? { tourismTaxIncludesChildren: dto.tourismTaxIncludesChildren }
             : {}),
           ...(dto.discountThresholdPercent !== undefined
             ? { discountThresholdPercent: Math.round(dto.discountThresholdPercent) }

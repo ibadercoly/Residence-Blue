@@ -1,4 +1,4 @@
-import { IsInt, IsNumber, IsOptional, IsString, Max, Min } from 'class-validator';
+import { IsBoolean, IsInt, IsNumber, IsOptional, IsString, Max, Min } from 'class-validator';
 import { Type } from 'class-transformer';
 
 export class UpdateHotelSettingsDto {
@@ -79,6 +79,10 @@ export class UpdateHotelSettingsDto {
   @IsInt()
   @Min(0)
   tourismTaxPerNightPerPerson?: number;
+
+  @IsOptional()
+  @IsBoolean()
+  tourismTaxIncludesChildren?: boolean;
 
   @IsOptional()
   @Type(() => Number)
