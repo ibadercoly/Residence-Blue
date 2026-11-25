@@ -1,4 +1,9 @@
 import { PlanningService } from './planning.service';
+import { IdbService } from '../offline/idb.service';
+import { NetworkService } from '../offline/network.service';
+import { OutboxService } from '../offline/outbox.service';
+import { signal } from '@angular/core';
+import { PlanningReservation } from '../models/planning.model';
 
 describe('PlanningService', () => {
   let service: PlanningService;
@@ -435,4 +440,237 @@ describe('PlanningService', () => {
       }
     }
   });
+
+  describe('Fonctionnement Hors Ligne (Audit LOG-005)', () => {
+    let mockIdb: jest.Mocked<IdbService>;
+    let mockNetwork: jest.Mocked<NetworkService>;
+    let mockOutbox: jest.Mocked<OutboxService>;
+    let offlineService: PlanningService;
+    let isOnlineSignal: ReturnType<typeof signal<boolean>>;
+
+    beforeEach(() => {
+      isOnlineSignal = signal<boolean>(false);
+      mockIdb = {
+        getAll: jest.fn().mockResolvedValue([]),
+        put: jest.fn().mockResolvedValue(undefined),
+        delete: jest.fn().mockResolvedValue(undefined),
+        get: jest.fn().mockResolvedValue(undefined),
+        isStoreAllowed: jest.fn().mockReturnValue(true),
+      } as unknown as jest.Mocked<IdbService>;
+
+      mockNetwork = {
+        isOnline: isOnlineSignal,
+      } as unknown as jest.Mocked<NetworkService>;
+
+      mockOutbox = {
+        enqueue: jest.fn().mockImplementation((type: string, endpoint: string, payload: unknown) =>
+          Promise.resolve({
+            id: 'uuid-outbox-1',
+            idempotencyKey: 'uuid-idem-1',
+            type,
+            endpoint,
+            payload,
+            createdAt: Date.now(),
+            status: 'PENDING',
+            retryCount: 0,
+          })
+        ),
+        syncOutbox: jest.fn().mockResolvedValue(undefined),
+        pendingCount: signal(0),
+        isSyncing: signal(false),
+        lastConflict: signal(null),
+      } as unknown as jest.Mocked<OutboxService>;
+
+      const mockAuth = {
+        isAuthenticated: () => true,
+        getAuthHeaders: () => ({}),
+      } as any;
+      offlineService = new PlanningService(mockIdb, mockNetwork, mockOutbox, mockAuth);
+    });
+
+    afterEach(() => {
+      offlineService.ngOnDestroy();
+    });
+
+    it('devrait lire les données depuis IndexedDB en cas de coupure réseau', async () => {
+      const cachedReservations: PlanningReservation[] = [
+        {
+          id: 'res-cached-thies-1',
+          guestName: 'Awa Diop',
+          roomNumber: '101',
+          startDayIndex: 0,
+          durationDays: 3,
+          checkInDate: '2026-11-10',
+          checkOutDate: '2026-11-13',
+          status: 'CONFIRME',
+          statusLabel: 'Confirmée',
+          nights: 3,
+          totalFcfa: 255000,
+          remainingFcfa: 0,
+        },
+      ];
+      mockIdb.getAll.mockResolvedValue(cachedReservations);
+
+      // Réseau coupé
+      isOnlineSignal.set(false);
+      await offlineService.fetchFromServer();
+
+      expect(mockIdb.getAll).toHaveBeenCalledWith('reservations');
+      expect(offlineService.allReservations().length).toBe(1);
+      expect(offlineService.allReservations()[0].guestName).toBe('Awa Diop');
+      expect(offlineService.isOffline()).toBe(true);
+    });
+
+    it('devrait mettre à jour IndexedDB quand le serveur répond avec succès', async () => {
+      isOnlineSignal.set(true);
+      const serverReservations: PlanningReservation[] = [
+        {
+          id: 'res-server-1',
+          guestName: 'Moussa Ndiaye',
+          roomNumber: '201',
+          startDayIndex: 0,
+          durationDays: 2,
+          checkInDate: '2026-11-10',
+          checkOutDate: '2026-11-12',
+          status: 'EN_SEJOUR',
+          statusLabel: 'En séjour',
+          nights: 2,
+          totalFcfa: 170000,
+          remainingFcfa: 0,
+        },
+      ];
+
+      const originalFetch = (globalThis as any).fetch;
+      (globalThis as any).fetch = jest.fn().mockResolvedValue({
+        ok: true,
+        json: async () => serverReservations,
+      });
+
+      try {
+        await offlineService.fetchFromServer();
+        expect(offlineService.allReservations()).toEqual(serverReservations);
+        expect(mockIdb.put).toHaveBeenCalledWith('reservations', serverReservations[0]);
+      } finally {
+        (globalThis as any).fetch = originalFetch;
+      }
+    });
+
+    it('devrait effectuer un check-in hors ligne : optimistic UI + IndexedDB + Outbox', async () => {
+      isOnlineSignal.set(false);
+      offlineService.allReservations.set([
+        {
+          id: 'res-offline-checkin',
+          guestName: 'Cheikh Sarr',
+          roomNumber: '102',
+          startDayIndex: 0,
+          durationDays: 2,
+          checkInDate: '2026-11-10',
+          checkOutDate: '2026-11-12',
+          status: 'CONFIRME',
+          statusLabel: 'Confirmée',
+          nights: 2,
+          totalFcfa: 170000,
+          remainingFcfa: 0,
+        },
+      ]);
+
+      const result = offlineService.toggleCheckInCheckOut('res-offline-checkin');
+
+      // 1. Optimistic UI : statut changé immédiatement en EN_SEJOUR
+      expect(result.success).toBe(true);
+      expect(result.newStatus).toBe('EN_SEJOUR');
+      const updated = offlineService.allReservations().find((r) => r.id === 'res-offline-checkin');
+      expect(updated?.status).toBe('EN_SEJOUR');
+
+      // 2. Persistance locale dans IndexedDB
+      expect(mockIdb.put).toHaveBeenCalledWith('reservations', expect.objectContaining({
+        id: 'res-offline-checkin',
+        status: 'EN_SEJOUR',
+      }));
+
+      // 3. Mise en file d'attente Outbox
+      expect(mockOutbox.enqueue).toHaveBeenCalledWith(
+        'RESERVATION_CHECK_IN',
+        '/api/reservations/res-offline-checkin/check-in',
+        { id: 'res-offline-checkin' }
+      );
+      expect(offlineService.feedbackMessage()).toContain('enregistré hors ligne');
+    });
+
+    it('devrait effectuer une annulation hors ligne : optimistic UI + delete IndexedDB + Outbox', async () => {
+      isOnlineSignal.set(false);
+      offlineService.allReservations.set([
+        {
+          id: 'res-offline-cancel',
+          guestName: 'Fatou Binetou',
+          roomNumber: '202',
+          startDayIndex: 0,
+          durationDays: 1,
+          checkInDate: '2026-11-10',
+          checkOutDate: '2026-11-11',
+          status: 'CONFIRME',
+          statusLabel: 'Confirmée',
+          nights: 1,
+          totalFcfa: 85000,
+          remainingFcfa: 0,
+        },
+      ]);
+
+      const result = offlineService.cancelReservation('res-offline-cancel');
+
+      expect(result.success).toBe(true);
+      expect(offlineService.allReservations().some((r) => r.id === 'res-offline-cancel')).toBe(false);
+      expect(mockIdb.delete).toHaveBeenCalledWith('reservations', 'res-offline-cancel');
+      expect(mockOutbox.enqueue).toHaveBeenCalledWith(
+        'RESERVATION_CANCEL',
+        '/api/reservations/res-offline-cancel/cancel',
+        { id: 'res-offline-cancel' }
+      );
+      expect(offlineService.feedbackMessage()).toContain('enregistré hors ligne');
+    });
+
+    it('devrait annuler l’action et avertir l’utilisateur en cas de rejet 409 Conflict', () => {
+      const initialReservation: PlanningReservation = {
+        id: 'res-conflit-409',
+        guestName: 'Alioune Fall',
+        roomNumber: '105',
+        startDayIndex: 0,
+        durationDays: 2,
+        checkInDate: '2026-11-10',
+        checkOutDate: '2026-11-12',
+        status: 'CONFIRME',
+        statusLabel: 'Confirmée',
+        nights: 2,
+        totalFcfa: 170000,
+        remainingFcfa: 0,
+      };
+      offlineService.allReservations.set([initialReservation]);
+
+      // Déclenche une action qui modifie localement l'état
+      offlineService.toggleCheckInCheckOut('res-conflit-409');
+      expect(offlineService.allReservations()[0].status).toBe('EN_SEJOUR');
+
+      // Le serveur rejette avec 409 Conflict
+      offlineService.handleConflict('res-conflit-409', 'Chambre déjà occupée par un autre client.');
+
+      // L'action est annulée : retour au statut CONFIRME
+      expect(offlineService.allReservations()[0].status).toBe('CONFIRME');
+      expect(mockIdb.put).toHaveBeenCalledWith('reservations', expect.objectContaining({
+        id: 'res-conflit-409',
+        status: 'CONFIRME',
+      }));
+      expect(offlineService.feedbackMessage()).toContain('Chambre déjà occupée');
+    });
+
+    it('devrait synchroniser l’Outbox et rafraîchir les réservations lors du retour réseau', async () => {
+      isOnlineSignal.set(true);
+      const fetchSpy = jest.spyOn(offlineService, 'fetchFromServer').mockResolvedValue(undefined);
+
+      await offlineService.syncOutbox();
+
+      expect(mockOutbox.syncOutbox).toHaveBeenCalled();
+      expect(fetchSpy).toHaveBeenCalled();
+    });
+  });
+
 });

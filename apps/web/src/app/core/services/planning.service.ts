@@ -10,6 +10,10 @@ import {
 } from '../utils/dakar-date.util';
 import { RoomsService } from './rooms.service';
 import { AuthService } from './auth.service';
+import { IdbService } from '../offline/idb.service';
+import { NetworkService } from '../offline/network.service';
+import { OutboxService } from '../offline/outbox.service';
+import { OutboxItem } from '@residence-blue/shared';
 import { Observable, of } from 'rxjs';
 import {
   PlanningData,
@@ -26,14 +30,40 @@ import {
   providedIn: 'root'
 })
 export class PlanningService implements OnDestroy {
-  private readonly injector = inject(Injector);
+  private readonly injector = inject(Injector, { optional: true });
+  private readonly idb = inject(IdbService, { optional: true });
+  private readonly network = inject(NetworkService, { optional: true });
+  private readonly outbox = inject(OutboxService, { optional: true });
+
+  private idbServiceOverride?: IdbService;
+  private networkServiceOverride?: NetworkService;
+  private outboxServiceOverride?: OutboxService;
+
+  get idbService(): IdbService | null {
+    return this.idbServiceOverride ?? this.idb ?? this.injector?.get(IdbService, null) ?? null;
+  }
+
+  get networkService(): NetworkService | null {
+    return this.networkServiceOverride ?? this.network ?? this.injector?.get(NetworkService, null) ?? null;
+  }
+
+  get outboxService(): OutboxService | null {
+    return this.outboxServiceOverride ?? this.outbox ?? this.injector?.get(OutboxService, null) ?? null;
+  }
+
+  readonly isOffline = computed<boolean>(() => {
+    return this.networkService ? !this.networkService.isOnline() : false;
+  });
+
+  /** Sauvegarde de l'état précédent pour rollback en cas de 409 Conflict côté serveur */
+  private readonly rollbackMap = new Map<string, PlanningReservation>();
 
   /**
    * Résolution paresseuse de RoomsService : l'injection directe créerait une
    * dépendance circulaire (RoomsService dépend déjà de PlanningService).
    */
   private get roomsService(): RoomsService | null {
-    return this.injector.get(RoomsService, null);
+    return this.injector?.get(RoomsService, null) ?? null;
   }
   // Service du planning raccordé au backend NestJS et à la base PostgreSQL / Prisma (/api/reservations).
 
@@ -70,9 +100,25 @@ export class PlanningService implements OnDestroy {
     this.refreshTodayDate();
   };
 
-  constructor() {
+  constructor(
+    idb?: IdbService,
+    network?: NetworkService,
+    outbox?: OutboxService,
+    authService?: AuthService,
+  ) {
+    if (idb) this.idbServiceOverride = idb;
+    if (network) this.networkServiceOverride = network;
+    if (outbox) this.outboxServiceOverride = outbox;
+    if (authService) this.authServiceOverride = authService;
+
     this.startDayChangeWatcher();
-    this.fetchFromServer();
+
+    if (typeof window !== 'undefined') {
+      window.addEventListener('online', this.handleOnline);
+      window.addEventListener('outbox-conflict', this.handleOutboxConflict);
+    }
+
+    void this.fetchFromServer().catch(() => {});
     try {
       effect(() => {
         if (this.authService?.isAuthenticated()) {
@@ -84,6 +130,21 @@ export class PlanningService implements OnDestroy {
     }
   }
 
+  private readonly handleOnline = (): void => {
+    void this.syncOutbox();
+  };
+
+  private readonly handleOutboxConflict = (event: Event): void => {
+    const customEvent = event as CustomEvent<{ item: OutboxItem; message?: string }>;
+    const item = customEvent?.detail?.item;
+    if (item && item.type.startsWith('RESERVATION_')) {
+      const reservationId = (item.payload as { id?: string })?.id;
+      if (reservationId) {
+        this.handleConflict(reservationId, customEvent.detail?.message);
+      }
+    }
+  };
+
   ngOnDestroy(): void {
     if (this.dayCheckIntervalId !== null) {
       clearInterval(this.dayCheckIntervalId);
@@ -94,6 +155,8 @@ export class PlanningService implements OnDestroy {
     }
     if (typeof window !== 'undefined') {
       window.removeEventListener('focus', this.handleWindowFocus);
+      window.removeEventListener('online', this.handleOnline);
+      window.removeEventListener('outbox-conflict', this.handleOutboxConflict);
     }
   }
 
@@ -127,8 +190,9 @@ export class PlanningService implements OnDestroy {
     }
   }
 
+  private authServiceOverride?: AuthService;
   private get authService(): AuthService | null {
-    return this.injector.get(AuthService, null);
+    return this.authServiceOverride ?? this.injector?.get(AuthService, null) ?? null;
   }
 
   private getAuthHeaders(extra?: Record<string, string>): Record<string, string> {
@@ -139,8 +203,21 @@ export class PlanningService implements OnDestroy {
   }
 
   async fetchFromServer(): Promise<void> {
-    if (typeof fetch === 'undefined') return;
-    if (this.authService && !this.authService.isAuthenticated()) return;
+    // Si hors ligne : lire la copie locale stockée dans IndexedDB (magasin reservations)
+    if (this.networkService && !this.networkService.isOnline()) {
+      await this.loadFromIndexedDb();
+      return;
+    }
+
+    if (typeof fetch === 'undefined') {
+      await this.loadFromIndexedDb();
+      return;
+    }
+
+    if (this.authService && !this.authService.isAuthenticated()) {
+      return;
+    }
+
     try {
       const res = await fetch('/api/reservations', {
         credentials: 'include',
@@ -150,8 +227,72 @@ export class PlanningService implements OnDestroy {
         const list: PlanningReservation[] = await res.json();
         this.serverSynced.set(true);
         this.allReservations.set(list);
+        // Quand le réseau répond, mettre à jour la copie locale dans IndexedDB
+        await this.saveToIndexedDb(list);
+      } else {
+        await this.loadFromIndexedDb();
       }
-    } catch {}
+    } catch {
+      // Coupure réseau : repli sur la copie locale stockée dans IndexedDB
+      await this.loadFromIndexedDb();
+    }
+  }
+
+  async loadFromIndexedDb(): Promise<void> {
+    if (!this.idbService) return;
+    try {
+      const cached = await this.idbService.getAll<PlanningReservation>('reservations');
+      if (cached && cached.length > 0) {
+        this.allReservations.set(cached);
+      }
+    } catch (err) {
+      console.warn('[PlanningService] Impossible de charger les réservations depuis IndexedDB :', err);
+    }
+  }
+
+  async saveToIndexedDb(list: PlanningReservation[]): Promise<void> {
+    if (!this.idbService) return;
+    try {
+      const cached = (await this.idbService.getAll<PlanningReservation>('reservations')) || [];
+      const currentServerIds = new Set(list.map((r) => r.id));
+      for (const old of cached) {
+        if (old.id && !currentServerIds.has(old.id)) {
+          await this.idbService.delete('reservations', old.id);
+        }
+      }
+      for (const item of list) {
+        await this.idbService.put('reservations', item);
+      }
+    } catch (err) {
+      console.warn('[PlanningService] Erreur lors de la mise à jour IndexedDB :', err);
+    }
+  }
+
+  async syncOutbox(): Promise<void> {
+    if (this.outboxService) {
+      await this.outboxService.syncOutbox();
+    }
+    await this.fetchFromServer();
+  }
+
+  handleConflict(reservationId: string, errorMsg?: string): void {
+    const previous = this.rollbackMap.get(reservationId);
+    if (previous) {
+      this.allReservations.update((list) => {
+        const idx = list.findIndex((r) => r.id === reservationId);
+        if (idx >= 0) {
+          const copy = [...list];
+          copy[idx] = previous;
+          return copy;
+        }
+        return [...list, previous];
+      });
+      if (this.idbService) {
+        void this.idbService.put('reservations', previous).catch(() => {});
+      }
+    }
+    const msg = errorMsg || 'Action rejetée par le serveur (conflit 409). L’action a été annulée.';
+    this.feedbackMessage.set(msg);
   }
 
   upsertReservationFromApi(saved: PlanningReservation): void {
@@ -447,12 +588,14 @@ export class PlanningService implements OnDestroy {
     return { success: true, message: successMsg };
   }
 
-  /** 3. Check-in ou Check-out selon l'état actuel */
+  /** 3. Check-in ou Check-out selon l'état actuel avec support hors ligne via Outbox */
   toggleCheckInCheckOut(id: string): { success: boolean; newStatus: ReservationStatusType; message: string } {
     const res = this.allReservations().find(r => r.id === id);
     if (!res) {
       return { success: false, newStatus: 'CONFIRME', message: 'Réservation introuvable.' };
     }
+
+    this.rollbackMap.set(id, { ...res });
 
     let nextStatus: ReservationStatusType = 'EN_SEJOUR';
     let nextLabel = 'En séjour';
@@ -472,58 +615,71 @@ export class PlanningService implements OnDestroy {
       msg = `Statut réinitialisé en séjour pour ${res.guestName}.`;
     }
 
+    const updatedRes: PlanningReservation = {
+      ...res,
+      status: nextStatus,
+      statusLabel: nextLabel,
+    };
+
+    // 1. Optimistic UI : mise à jour immédiate locale
     this.allReservations.update(list =>
-      list.map(r => {
-        if (r.id !== id) return r;
-        return {
-          ...r,
-          status: nextStatus,
-          statusLabel: nextLabel
-        };
-      })
+      list.map(r => (r.id === id ? updatedRes : r))
     );
 
-    if (typeof fetch !== 'undefined' && /^[0-9a-f-]{36}$/i.test(id)) {
-      const actionPath = nextStatus === 'EN_SEJOUR' ? 'check-in' : 'check-out';
-      fetch(`/api/reservations/${id}/${actionPath}`, {
-        method: 'POST',
-        credentials: 'include',
-        headers: this.getAuthHeaders(),
-      })
-        .then(async (response) => {
-          if (response.ok) {
-            const updated = await response.json();
-            this.allReservations.update((list) => list.map((r) => (r.id === id ? updated : r)));
-          }
-        })
-        .catch(() => {});
+    // 2. Persistance locale dans IndexedDB
+    if (this.idbService) {
+      void this.idbService.put('reservations', updatedRes).catch(() => {});
     }
 
-    this.feedbackMessage.set(msg);
-    return { success: true, newStatus: nextStatus, message: msg };
+    // 3. Enregistrement dans l'Outbox (avec Idempotency-Key UUID)
+    const actionPath = nextStatus === 'EN_SEJOUR' ? 'check-in' : 'check-out';
+    const actionType = nextStatus === 'EN_SEJOUR' ? 'RESERVATION_CHECK_IN' : 'RESERVATION_CHECK_OUT';
+    const endpoint = `/api/reservations/${id}/${actionPath}`;
+
+    if (this.outboxService) {
+      void this.outboxService.enqueue(actionType, endpoint, { id }).catch(() => {});
+    }
+
+    const isOffline = this.networkService ? !this.networkService.isOnline() : false;
+    const finalMsg = isOffline
+      ? `${msg} (enregistré hors ligne, en attente de synchronisation)`
+      : msg;
+
+    this.feedbackMessage.set(finalMsg);
+    return { success: true, newStatus: nextStatus, message: finalMsg };
   }
 
-  /** 4. Annuler : retire la réservation */
+  /** 4. Annuler : retire la réservation avec support hors ligne via Outbox */
   cancelReservation(id: string): { success: boolean; message: string } {
     const res = this.allReservations().find(r => r.id === id);
     if (!res) {
       return { success: false, message: 'Réservation introuvable.' };
     }
 
+    this.rollbackMap.set(id, { ...res });
+
+    // 1. Optimistic UI : retrait immédiat de l'affichage local
     this.allReservations.update(list => list.filter(r => r.id !== id));
     this.closeDetail();
 
-    if (typeof fetch !== 'undefined' && /^[0-9a-f-]{36}$/i.test(id)) {
-      fetch(`/api/reservations/${id}/cancel`, {
-        method: 'POST',
-        credentials: 'include',
-        headers: this.getAuthHeaders(),
-      }).catch(() => {});
+    // 2. Suppression locale dans IndexedDB
+    if (this.idbService) {
+      void this.idbService.delete('reservations', id).catch(() => {});
     }
 
-    const msg = `Réservation de ${res.guestName} en Chambre ${res.roomNumber} annulée.`;
-    this.feedbackMessage.set(msg);
-    return { success: true, message: msg };
+    // 3. Mise en file d'attente Outbox
+    if (this.outboxService) {
+      void this.outboxService.enqueue('RESERVATION_CANCEL', `/api/reservations/${id}/cancel`, { id }).catch(() => {});
+    }
+
+    const isOffline = this.networkService ? !this.networkService.isOnline() : false;
+    const baseMsg = `Réservation de ${res.guestName} en Chambre ${res.roomNumber} annulée.`;
+    const finalMsg = isOffline
+      ? `${baseMsg} (enregistré hors ligne, en attente de synchronisation)`
+      : baseMsg;
+
+    this.feedbackMessage.set(finalMsg);
+    return { success: true, message: finalMsg };
   }
 
   // --- Contrôle des Conflits & Nouvelle Réservation ---

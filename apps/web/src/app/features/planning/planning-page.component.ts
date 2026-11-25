@@ -4,6 +4,7 @@ import { PlanningService } from '../../core/services/planning.service';
 import { addDaysToIso } from '../../core/utils/dakar-date.util';
 import { ReservationModalService } from '../../core/services/reservation-modal.service';
 import { RoomsService } from '../../core/services/rooms.service';
+import { NetworkService } from '../../core/offline/network.service';
 import { ReservationStatusType } from '../../core/models/planning.model';
 import { formatFcfa } from '@residence-blue/shared';
 import { StatusBadgeComponent } from '../../shared/components/status-badge/status-badge.component';
@@ -615,16 +616,27 @@ import { ActionButtonComponent } from '../../shared/components/action-button/act
 export class PlanningPageComponent {
   readonly planningService: PlanningService;
   readonly modalService: ReservationModalService;
+  readonly networkService: NetworkService;
 
   private readonly roomsService: RoomsService | null = null;
 
   constructor(
     planningService?: PlanningService,
     modalService?: ReservationModalService,
-    roomsService?: RoomsService
+    roomsService?: RoomsService,
+    networkService?: NetworkService
   ) {
     this.planningService = planningService ?? inject(PlanningService);
     this.modalService = modalService ?? inject(ReservationModalService);
+    if (networkService) {
+      this.networkService = networkService;
+    } else {
+      try {
+        this.networkService = inject(NetworkService);
+      } catch {
+        this.networkService = new NetworkService();
+      }
+    }
     if (roomsService) {
       this.roomsService = roomsService;
     } else {

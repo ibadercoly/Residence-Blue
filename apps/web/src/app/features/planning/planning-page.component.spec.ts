@@ -1,6 +1,8 @@
 import { PlanningPageComponent } from './planning-page.component';
 import { PlanningService } from '../../core/services/planning.service';
 import { ReservationModalService } from '../../core/services/reservation-modal.service';
+import { NetworkService } from '../../core/offline/network.service';
+import { signal } from '@angular/core';
 
 describe('PlanningPageComponent', () => {
   let component: PlanningPageComponent;
@@ -115,4 +117,18 @@ describe('PlanningPageComponent', () => {
     expect(Array.isArray(sections.departures)).toBe(true);
     expect(Array.isArray(sections.staying)).toBe(true);
   });
+
+  it('devrait afficher le bandeau hors ligne si l’application est hors ligne et le masquer si en ligne', () => {
+    const isOnlineSig = signal<boolean>(false);
+    const mockNetwork = { isOnline: isOnlineSig } as unknown as NetworkService;
+    const offlineComp = new PlanningPageComponent(service, modalService, undefined, mockNetwork);
+
+    // Hors ligne
+    expect(offlineComp.networkService.isOnline()).toBe(false);
+
+    // Retour en ligne
+    isOnlineSig.set(true);
+    expect(offlineComp.networkService.isOnline()).toBe(true);
+  });
+
 });
