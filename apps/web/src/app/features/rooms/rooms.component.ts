@@ -9,13 +9,14 @@ import { OutboxService } from '../../core/offline/outbox.service';
 import { RoomStatus, Role, CreateRoomDto, UpdateRoomDto, isHousekeepingAccount } from '@residence-blue/shared';
 import { AuthService } from '../../core/services/auth.service';
 import { MenageChambresComponent } from './menage-chambres.component';
+import { ProblemReportModalComponent } from '../../shared/components/problem-report-modal/problem-report-modal.component';
 import { RoomStatusCardComponent } from '../../shared/components/room-status-card/room-status-card.component';
 import { ModalShellComponent } from '../../shared/components/modal-shell/modal-shell.component';
 
 @Component({
   selector: 'app-rooms',
   standalone: true,
-  imports: [CommonModule, FormsModule, RoomStatusCardComponent, ModalShellComponent, MenageChambresComponent],
+  imports: [CommonModule, FormsModule, RoomStatusCardComponent, ModalShellComponent, MenageChambresComponent, ProblemReportModalComponent],
   host: { class: 'block w-full max-w-full overflow-x-hidden' },
   template: `
     @if (isHousekeepingProfile()) {
@@ -281,6 +282,7 @@ import { ModalShellComponent } from '../../shared/components/modal-shell/modal-s
             (onDelete)="openDeleteModal(room)"
             (onView)="openEditDrawer(room)"
             (onStatusChange)="changeStatus(room.id, $event.status, $event.reason)"
+            (onReportProblem)="openProblemModal(room)"
           ></app-room-status-card>
         } @empty {
           <div class="col-span-full py-12 text-center text-on-surface-variant bg-surface-container-lowest rounded-2xl border border-outline-variant/60">
@@ -914,6 +916,15 @@ import { ModalShellComponent } from '../../shared/components/modal-shell/modal-s
           </div>
         </app-modal-shell>
       }
+
+      @if (problemReportingRoom()) {
+        <app-problem-report-modal
+          [isOpen]="true"
+          [room]="problemReportingRoom()"
+          (close)="closeProblemModal()"
+          (reported)="closeProblemModal()"
+        ></app-problem-report-modal>
+      }
     </div>
     }
   `,
@@ -998,6 +1009,17 @@ export class RoomsComponent {
   formRemovePhoto: boolean = false;
 
   // Modale de confirmation de suppression (ModalShellComponent)
+  // Modale de signalement de problème
+  readonly problemReportingRoom = signal<RoomUiItem | null>(null);
+
+  openProblemModal(room: RoomUiItem): void {
+    this.problemReportingRoom.set(room);
+  }
+
+  closeProblemModal(): void {
+    this.problemReportingRoom.set(null);
+  }
+
   readonly isDeleteModalOpen = signal<boolean>(false);
   readonly roomToDelete = signal<RoomUiItem | null>(null);
   readonly deleteConfirmInput = signal<string>('');

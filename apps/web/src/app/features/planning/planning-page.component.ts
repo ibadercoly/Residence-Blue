@@ -3,17 +3,18 @@ import { CommonModule } from '@angular/common';
 import { PlanningService } from '../../core/services/planning.service';
 import { addDaysToIso } from '../../core/utils/dakar-date.util';
 import { ReservationModalService } from '../../core/services/reservation-modal.service';
-import { RoomsService } from '../../core/services/rooms.service';
+import { RoomsService, RoomUiItem } from '../../core/services/rooms.service';
 import { NetworkService } from '../../core/offline/network.service';
 import { ReservationStatusType } from '../../core/models/planning.model';
 import { formatFcfa } from '@residence-blue/shared';
 import { StatusBadgeComponent } from '../../shared/components/status-badge/status-badge.component';
 import { ActionButtonComponent } from '../../shared/components/action-button/action-button.component';
+import { ProblemReportModalComponent } from '../../shared/components/problem-report-modal/problem-report-modal.component';
 
 @Component({
   selector: 'app-planning-page',
   standalone: true,
-  imports: [CommonModule, StatusBadgeComponent, ActionButtonComponent],
+  imports: [CommonModule, StatusBadgeComponent, ActionButtonComponent, ProblemReportModalComponent],
   template: `
     <div class="flex flex-col w-full max-w-full overflow-x-hidden pb-16 text-on-surface" data-testid="planning-page">
       <!-- 1. EN-TÊTE : Titre et bouton principal Nouvelle réservation -->
@@ -568,6 +569,16 @@ import { ActionButtonComponent } from '../../shared/components/action-button/act
 
           <!-- 4 BOUTONS STRICTS : Modifier, Prolonger, Check-in / Check-out, Annuler -->
           <div class="flex flex-col gap-2.5 pt-4 mt-auto" data-testid="drawer-actions">
+            <!-- Bouton Signaler un problème -->
+            <app-action-button
+              label="Signaler un problème"
+              icon="report_problem"
+              variant="outline"
+              color="neutral"
+              testId="drawer-btn-report-problem"
+              (action)="openProblemModalByNumber(detail.roomNumber)"
+            ></app-action-button>
+
             <!-- Bouton 1 : Modifier -->
             <app-action-button
               label="Modifier"
@@ -609,6 +620,15 @@ import { ActionButtonComponent } from '../../shared/components/action-button/act
             ></app-action-button>
           </div>
         </aside>
+      }
+
+      @if (problemReportingRoom()) {
+        <app-problem-report-modal
+          [isOpen]="true"
+          [room]="problemReportingRoom()"
+          (close)="problemReportingRoom.set(null)"
+          (reported)="problemReportingRoom.set(null)"
+        ></app-problem-report-modal>
       }
     </div>
   `
@@ -656,6 +676,36 @@ export class PlanningPageComponent {
       ? (this.roomsService?.roomAlerts().find((a) => !a.read) ?? null)
       : null,
   );
+
+
+  readonly problemReportingRoom = signal<RoomUiItem | null>(null);
+
+  openProblemModalByNumber(roomNumber: string, event?: Event): void {
+    if (event) {
+      event.stopPropagation();
+    }
+    const found = this.roomsService?.rooms()?.find((r) => r.number === roomNumber) || null;
+    if (found) {
+      this.problemReportingRoom.set(found);
+    }
+  }
+
+  getRoomProblemBadge(roomNumber: string): string | null {
+    const r = this.roomsService?.rooms()?.find((rm) => rm.number === roomNumber);
+    if (!r) return null;
+    const active = (r.activeProblems || []).find(
+      (p) => p.status === 'REPORTED' || p.status === 'IN_PROGRESS',
+    );
+    if (active) {
+      const typeLabel = (active.typeLabel || active.type).toLowerCase();
+      return active.blocksRental ? `Problème : ${typeLabel} (non louable)` : `Problème : ${typeLabel}`;
+    }
+    if (r.status === 'MAINTENANCE') {
+      const reason = (r.maintenanceReason || 'Signalé').toLowerCase();
+      return `Problème : ${reason} (non louable)`;
+    }
+    return null;
+  }
 
   acknowledgePlanningAlerts(): void {
     this.roomsService?.markAllAlertsRead();

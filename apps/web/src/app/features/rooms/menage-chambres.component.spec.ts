@@ -1,14 +1,15 @@
 import { signal } from '@angular/core';
 import { Role, RoomStatus } from '@residence-blue/shared';
-import { MenageChambresComponent, MENAGE_PROBLEM_CHOICES } from './menage-chambres.component';
+import { MenageChambresComponent } from './menage-chambres.component';
 import { RoomsService, RoomUiItem } from '../../core/services/rooms.service';
 import { NetworkService } from '../../core/offline/network.service';
 import { OutboxService } from '../../core/offline/outbox.service';
 
-describe('MenageChambresComponent', () => {
+describe('MenageChambresComponent (Tests Unitaires Parcours Ménage & Pannes)', () => {
   let component: MenageChambresComponent;
   let roomsSig: ReturnType<typeof signal<RoomUiItem[]>>;
-  let changeRoomStatusMock: jest.Mock;
+  let updateCleanlinessMock: jest.Mock;
+  let reportProblemMock: jest.Mock;
 
   beforeEach(() => {
     roomsSig = signal<RoomUiItem[]>([
@@ -19,6 +20,7 @@ describe('MenageChambresComponent', () => {
         floor: 1,
         category: 'Standard',
         status: RoomStatus.CLEANING,
+        isClean: false,
         amenities: [],
         isActive: true,
         type: { id: 't-std', name: 'Standard', pricePerNight: null },
@@ -30,6 +32,7 @@ describe('MenageChambresComponent', () => {
         floor: 1,
         category: 'Standard',
         status: RoomStatus.OCCUPIED,
+        isClean: false, // Client présent mais chambre sale -> doit être à nettoyer maintenant
         amenities: [],
         isActive: true,
         type: { id: 't-std', name: 'Standard', pricePerNight: null },
@@ -41,6 +44,7 @@ describe('MenageChambresComponent', () => {
         floor: 1,
         category: 'Standard',
         status: RoomStatus.FREE,
+        isClean: true,
         amenities: [],
         isActive: true,
         type: { id: 't-std', name: 'Standard', pricePerNight: null },
@@ -51,35 +55,30 @@ describe('MenageChambresComponent', () => {
         typeId: 't-std',
         floor: 1,
         category: 'Standard',
-        status: RoomStatus.MAINTENANCE,
-        maintenanceReason: "Fuite d'eau",
+        status: RoomStatus.OCCUPIED,
+        isClean: true, // Client présent et propre -> Autres chambres
         amenities: [],
         isActive: true,
         type: { id: 't-std', name: 'Standard', pricePerNight: null },
       },
     ]);
 
-    changeRoomStatusMock = jest.fn().mockImplementation(async (roomId: string, nextStatus: RoomStatus, reason?: string) => {
+    updateCleanlinessMock = jest.fn().mockImplementation(async (roomId: string, isClean: boolean) => {
       roomsSig.update((list) =>
-        list.map((r) =>
-          r.id === roomId
-            ? {
-                ...r,
-                status: nextStatus,
-                maintenanceReason: nextStatus === RoomStatus.MAINTENANCE ? reason || 'Problème signalé' : null,
-              }
-            : r,
-        ),
+        list.map((r) => (r.id === roomId ? { ...r, isClean } : r)),
       );
       return true;
     });
+
+    reportProblemMock = jest.fn().mockResolvedValue(true);
 
     const mockRoomsService = {
       activeRooms: () => roomsSig().filter((r) => r.isActive !== false),
       errorMessage: signal<string | null>(null),
       successMessage: signal<string | null>(null),
       currentRole: () => Role.HOUSEKEEPING,
-      changeRoomStatus: changeRoomStatusMock,
+      updateCleanliness: updateCleanlinessMock,
+      reportProblem: reportProblemMock,
       syncOutbox: jest.fn(),
     } as unknown as RoomsService;
 
@@ -90,47 +89,43 @@ describe('MenageChambresComponent', () => {
     );
   });
 
-  it('classe les chambres dans les 3 groupes + pannes déjà signalées', () => {
-    expect(component.cleaningRooms().map((r) => r.number)).toEqual(['101']);
-    expect(component.occupiedRooms().map((r) => r.number)).toEqual(['102']);
-    expect(component.freeRooms().map((r) => r.number)).toEqual(['103']);
-    expect(component.maintenanceRooms().map((r) => r.number)).toEqual(['104']);
-    expect(MENAGE_PROBLEM_CHOICES.map((c) => c.label)).toEqual([
-      "Fuite d'eau",
-      'Ampoule ou électricité',
-      'Climatisation',
-      'Autre',
-    ]);
+  it('classe les chambres dans les 2 groupes : À nettoyer maintenant et Autres chambres', () => {
+    // 101 (libre sale) et 102 (occupée sale) doivent être dans roomsToCleanNow
+    expect(component.roomsToCleanNow().map((r) => r.number)).toEqual(['101', '102']);
+
+    // 103 (libre propre) et 104 (occupée propre) doivent être dans otherRooms
+    expect(component.otherRooms().map((r) => r.number)).toEqual(['103', '104']);
   });
 
-  it('passe une chambre À nettoyer -> Propre (J’ai nettoyé) puis la retire du groupe À nettoyer', async () => {
-    await component.markCleaned(component.cleaningRooms()[0]);
-
-    expect(changeRoomStatusMock).toHaveBeenCalledWith('r-101', RoomStatus.FREE, 'Chambre nettoyée et prête');
-    expect(component.cleaningRooms()).toHaveLength(0);
-    expect(component.freeRooms().map((r) => r.number)).toEqual(['101', '103']);
+  it('identifie correctement si une chambre est occupée', () => {
+    expect(component.isOccupied(roomsSig()[0])).toBe(false); // 101 FREE/CLEANING
+    expect(component.isOccupied(roomsSig()[1])).toBe(true);  // 102 OCCUPIED
   });
 
-  it('passe une chambre Propre -> À nettoyer', async () => {
-    await component.markNeedsCleaning(component.freeRooms()[0]);
+  it('passe une chambre À nettoyer -> Propre (J’ai nettoyé) via updateCleanliness', async () => {
+    const dirtyOccupied = component.roomsToCleanNow().find((r) => r.number === '102')!;
+    await component.markCleaned(dirtyOccupied);
 
-    expect(changeRoomStatusMock).toHaveBeenCalledWith('r-103', RoomStatus.CLEANING, 'Chambre marquée à nettoyer');
-    expect(component.cleaningRooms().map((r) => r.number)).toEqual(['101', '103']);
+    expect(updateCleanlinessMock).toHaveBeenCalledWith('r-102', true);
+    // Maintenant propre, elle passe dans otherRooms
+    expect(component.roomsToCleanNow().map((r) => r.number)).toEqual(['101']);
+    expect(component.otherRooms().map((r) => r.number)).toContain('102');
   });
 
-  it('envoie un signalement de problème avec choix + note vers PATCH status MAINTENANCE', async () => {
-    const occupiedRoom = component.occupiedRooms()[0];
-    component.openProblemModal(occupiedRoom);
-    component.selectedProblemChoice.set('Climatisation');
-    component.problemDetails.set('Souffle chaud');
-    await component.submitProblem();
+  it('passe une chambre Propre -> À nettoyer via updateCleanliness', async () => {
+    const cleanRoom = component.otherRooms().find((r) => r.number === '103')!;
+    await component.markNeedsCleaning(cleanRoom);
 
-    expect(changeRoomStatusMock).toHaveBeenCalledWith(
-      occupiedRoom.id,
-      RoomStatus.MAINTENANCE,
-      'Climatisation — Souffle chaud',
-    );
+    expect(updateCleanlinessMock).toHaveBeenCalledWith('r-103', false);
+    expect(component.roomsToCleanNow().map((r) => r.number)).toContain('103');
+  });
+
+  it('ouvre et ferme la modale de signalement de problème', () => {
+    const room = roomsSig()[1];
+    component.openProblemModal(room);
+    expect(component.problemModalRoom()).toBe(room);
+
+    component.closeProblemModal();
     expect(component.problemModalRoom()).toBeNull();
-    expect(component.maintenanceRooms().map((r) => r.number)).toEqual(['102', '104']);
   });
 });

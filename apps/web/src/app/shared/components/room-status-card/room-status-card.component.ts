@@ -103,6 +103,20 @@ import { AuthService } from '../../../core/services/auth.service';
                   </button>
                 }
 
+                
+                <!-- Signalement de panne / problème -->
+                <button
+                  type="button"
+                  role="menuitem"
+                  tabindex="0"
+                  (click)="onActionReportProblem()"
+                  class="menu-item-action w-full text-left px-3 py-2 text-xs font-medium text-rose-700 hover:bg-rose-50 focus:bg-rose-50 focus:outline-none flex items-center gap-2 cursor-pointer whitespace-nowrap"
+                  data-testid="menu-action-report-problem"
+                >
+                  <span class="material-symbols-outlined text-[16px] text-rose-600">report_problem</span>
+                  <span>Signaler un problème</span>
+                </button>
+
                 <!-- 3. État de la chambre (non cliquable, affiche la pastille d'état actuelle) -->
                 <div
                   class="menu-item-status px-3 py-2 flex items-center justify-between gap-3 text-xs font-medium text-on-surface-variant select-none whitespace-nowrap"
@@ -426,6 +440,7 @@ export class RoomStatusCardComponent {
   @Output() onReactivate = new EventEmitter<RoomUiItem>();
   @Output() onDelete = new EventEmitter<RoomUiItem>();
   @Output() onView = new EventEmitter<RoomUiItem>();
+  @Output() onReportProblem = new EventEmitter<RoomUiItem>();
 
   readonly RoomStatus = RoomStatus;
   readonly Role = Role;
@@ -513,6 +528,30 @@ export class RoomStatusCardComponent {
     } else if (event.key === 'Tab') {
       this.closeMenu(false);
     }
+  }
+
+
+  onActionReportProblem(): void {
+    this.closeMenu(true);
+    if (this.room) {
+      this.onReportProblem.emit(this.room);
+    }
+  }
+
+  activeProblemBadge(): string | null {
+    if (!this.room) return null;
+    const active = (this.room.activeProblems || []).find(
+      (p) => p.status === 'REPORTED' || p.status === 'IN_PROGRESS',
+    );
+    if (active) {
+      const typeLabel = (active.typeLabel || active.type).toLowerCase();
+      return active.blocksRental ? `Problème : ${typeLabel} (non louable)` : `Problème : ${typeLabel}`;
+    }
+    if (this.room.status === RoomStatus.MAINTENANCE) {
+      const reason = (this.room.maintenanceReason || 'Signalé').toLowerCase();
+      return `Problème : ${reason} (non louable)`;
+    }
+    return null;
   }
 
   onActionView(): void {

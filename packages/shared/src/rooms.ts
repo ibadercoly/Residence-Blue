@@ -131,6 +131,8 @@ export interface RoomProblemDto {
   roomFloor?: number;
   roomCategory?: string;
   type: RoomProblemType;
+  typeLabel?: string;
+  icon?: string;
   description?: string | null;
   reportedByRole: string;
   reportedByName: string;

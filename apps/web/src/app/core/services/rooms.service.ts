@@ -14,6 +14,10 @@ import {
   getRoomImageUrl,
   getRoomImageAlt,
   FALLBACK_ROOM_IMAGE,
+  RoomProblemType,
+  RoomProblemDto,
+  isProblemTypeBlockingByDefault,
+  ROOM_PROBLEM_TYPE_META,
 } from '@residence-blue/shared';
 import { PlanningService } from './planning.service';
 import { AuthService } from './auth.service';
@@ -1031,6 +1035,196 @@ export class RoomsService {
       isActive: r.isActive !== false,
       syncPending: Boolean(r.syncPending),
     };
+  }
+
+
+  /**
+   * Mise à jour de l'état de propreté d'une chambre (indépendant de l'occupation).
+   * Compatible hors-ligne (optimistic UI + Outbox).
+   */
+  async updateCleanliness(roomId: string, isClean: boolean): Promise<boolean> {
+    this.errorMessage.set(null);
+    this.successMessage.set(null);
+
+    const room = this.rooms().find((r) => r.id === roomId);
+    if (!room) {
+      this.errorMessage.set('Chambre introuvable.');
+      return false;
+    }
+
+    const previousIsClean = room.isClean;
+    const previousStatus = room.status;
+
+    // Statut dérivé
+    let nextStatus = room.status;
+    const hasBlocking = (room.activeProblems || []).some(
+      (p) => p.blocksRental && p.status !== 'RESOLVED' && p.status !== 'CANCELLED'
+    );
+    if (room.status !== RoomStatus.OCCUPIED) {
+      if (hasBlocking) {
+        nextStatus = RoomStatus.MAINTENANCE;
+      } else {
+        nextStatus = isClean ? RoomStatus.FREE : RoomStatus.CLEANING;
+      }
+    }
+
+    const optimistic: RoomUiItem = {
+      ...room,
+      isClean,
+      status: nextStatus,
+      syncPending: !this.network.isOnline(),
+    };
+
+    this.rooms.update((list) => list.map((r) => (r.id === roomId ? optimistic : r)));
+    await this.idb.put('rooms', optimistic);
+
+    const msg = isClean ? `Chambre ${room.number} : marquée propre.` : `Chambre ${room.number} : marquée à nettoyer.`;
+
+    if (!this.network.isOnline()) {
+      await this.outbox.enqueue('PATCH_ROOM_CLEANLINESS', `/api/rooms/${roomId}/cleanliness`, { isClean });
+      this.successMessage.set(`${msg} (enregistré hors-ligne, en attente de synchronisation).`);
+      return true;
+    }
+
+    try {
+      const response = await (this.authService
+        ? this.authService.authenticatedFetch(`/api/rooms/${roomId}/cleanliness`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ isClean }),
+          })
+        : fetch(`/api/rooms/${roomId}/cleanliness`, {
+            method: 'PATCH',
+            credentials: 'include',
+            headers: this.getAuthHeaders({ 'Content-Type': 'application/json' }),
+            body: JSON.stringify({ isClean }),
+          }));
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        this.errorMessage.set(errorData.message || `Erreur serveur (${response.status}).`);
+        if (response.status === 400 || response.status === 403 || response.status === 409) {
+          const rollback: RoomUiItem = { ...room, isClean: previousIsClean, status: previousStatus, syncPending: false };
+          this.rooms.update((list) => list.map((r) => (r.id === roomId ? rollback : r)));
+          await this.idb.put('rooms', rollback);
+          return false;
+        }
+        throw new Error(errorData.message || 'Erreur réseau');
+      }
+
+      const serverRoom = await response.json().catch(() => null);
+      if (serverRoom) {
+        const normalized = this.normalizeRoom({ ...serverRoom, syncPending: false });
+        this.rooms.update((list) => list.map((r) => (r.id === roomId ? normalized : r)));
+        await this.idb.put('rooms', normalized);
+      } else {
+        this.rooms.update((list) => list.map((r) => (r.id === roomId ? { ...r, syncPending: false } : r)));
+      }
+      this.successMessage.set(msg);
+      return true;
+    } catch {
+      await this.outbox.enqueue('PATCH_ROOM_CLEANLINESS', `/api/rooms/${roomId}/cleanliness`, { isClean });
+      this.successMessage.set(`Connexion perturbée : action enregistrée dans la file hors-ligne.`);
+      return true;
+    }
+  }
+
+  /**
+   * Signalement d'une panne / problème sur une chambre.
+   * Compatible hors-ligne (optimistic UI + Outbox).
+   */
+  async reportProblem(roomId: string, dto: { type: RoomProblemType; description?: string }): Promise<boolean> {
+    this.errorMessage.set(null);
+    this.successMessage.set(null);
+
+    const room = this.rooms().find((r) => r.id === roomId);
+    if (!room) {
+      this.errorMessage.set('Chambre introuvable.');
+      return false;
+    }
+
+    const previousProblems = room.activeProblems || [];
+    const previousStatus = room.status;
+
+    const isBlocking = isProblemTypeBlockingByDefault(dto.type);
+    let nextStatus = room.status;
+    if (room.status !== RoomStatus.OCCUPIED && isBlocking) {
+      nextStatus = RoomStatus.MAINTENANCE;
+    }
+
+    const optimisticProblem: RoomProblemDto = {
+      id: crypto.randomUUID(),
+      roomId: room.id,
+      roomNumber: room.number,
+      roomFloor: room.floor,
+      roomCategory: room.category || room.type?.name || 'Standard',
+      type: dto.type,
+      typeLabel: ROOM_PROBLEM_TYPE_META[dto.type]?.label || dto.type,
+      icon: ROOM_PROBLEM_TYPE_META[dto.type]?.icon || 'build',
+      description: dto.description?.trim() || '',
+      reportedAt: new Date().toISOString(),
+      reportedByName: this.authService?.currentUser()?.fullName || 'Utilisateur',
+      reportedByRole: String(this.currentRole()),
+      wasOccupied: room.status === RoomStatus.OCCUPIED,
+      isCurrentlyOccupied: room.status === RoomStatus.OCCUPIED,
+      blocksRental: isBlocking,
+      status: 'REPORTED',
+    };
+
+    const optimistic: RoomUiItem = {
+      ...room,
+      status: nextStatus,
+      maintenanceReason: isBlocking ? (ROOM_PROBLEM_TYPE_META[dto.type]?.label || dto.type) : room.maintenanceReason,
+      activeProblems: [optimisticProblem, ...previousProblems],
+      syncPending: !this.network.isOnline(),
+    };
+
+    this.rooms.update((list) => list.map((r) => (r.id === roomId ? optimistic : r)));
+    await this.idb.put('rooms', optimistic);
+
+    const typeLabel = ROOM_PROBLEM_TYPE_META[dto.type]?.label || dto.type;
+    const msg = `Chambre ${room.number} : ${typeLabel.toLowerCase()} signalée.`;
+
+    if (!this.network.isOnline()) {
+      await this.outbox.enqueue('POST_ROOM_PROBLEM', `/api/rooms/${roomId}/problems`, dto);
+      this.successMessage.set(`${msg} (enregistré hors-ligne, en attente de synchronisation).`);
+      return true;
+    }
+
+    try {
+      const response = await (this.authService
+        ? this.authService.authenticatedFetch(`/api/rooms/${roomId}/problems`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(dto),
+          })
+        : fetch(`/api/rooms/${roomId}/problems`, {
+            method: 'POST',
+            credentials: 'include',
+            headers: this.getAuthHeaders({ 'Content-Type': 'application/json' }),
+            body: JSON.stringify(dto),
+          }));
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        this.errorMessage.set(errorData.message || `Erreur serveur (${response.status}).`);
+        if (response.status === 400 || response.status === 403 || response.status === 409) {
+          const rollback: RoomUiItem = { ...room, status: previousStatus, activeProblems: previousProblems, syncPending: false };
+          this.rooms.update((list) => list.map((r) => (r.id === roomId ? rollback : r)));
+          await this.idb.put('rooms', rollback);
+          return false;
+        }
+        throw new Error(errorData.message || 'Erreur réseau');
+      }
+
+      await this.fetchFromServer();
+      this.successMessage.set(msg);
+      return true;
+    } catch {
+      await this.outbox.enqueue('POST_ROOM_PROBLEM', `/api/rooms/${roomId}/problems`, dto);
+      this.successMessage.set(`Connexion perturbée : signalement enregistré dans la file hors-ligne.`);
+      return true;
+    }
   }
 
   toggleAlertSound(): void {
