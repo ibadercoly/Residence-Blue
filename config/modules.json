@@ -258,6 +258,19 @@
         "facturation"
       ],
       "description": "Grand livre, écritures comptables conformes au référentiel SYSCOHADA et bilan d'exercice."
+    },
+    "technique": {
+      "id": "technique",
+      "name": "Technique",
+      "route": "/technique",
+      "apiPrefix": "/api/technique",
+      "icon": "build",
+      "enabled": true,
+      "version": "v1",
+      "dependencies": [
+        "rooms"
+      ],
+      "description": "Gestion des pannes et interventions pour l'équipe technique"
     }
   },
   "features": {
@@ -484,7 +497,9 @@
       "canManageMenu": false
     },
     "CUISINE": {
-      "allowedModules": [ "restaurant" ],
+      "allowedModules": [
+        "restaurant"
+      ],
       "enabled": true,
       "version": "v1",
       "kitchenScreenOnly": true,
@@ -515,11 +530,11 @@
     },
     "MAINTENANCE": {
       "allowedModules": [
-        "maintenance"
+        "technique"
       ],
-      "enabled": false,
-      "version": "v2",
-      "description": "Techniciens de maintenance des équipements : reporté en Version 2. Non assignable en V1.",
+      "enabled": true,
+      "version": "v1",
+      "description": "Techniciens de maintenance des équipements.",
       "canExportClients": false,
       "canManageMenu": false
     },

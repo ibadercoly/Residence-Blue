@@ -116,6 +116,7 @@ describe('access model (@residence-blue/shared)', () => {
       restaurant: 'AUCUN',
       cuisine: 'AUCUN',
       rapports: 'AUCUN',
+      technique: 'AUCUN',
     });
     expect(
       getFirstAuthorizedRoute({

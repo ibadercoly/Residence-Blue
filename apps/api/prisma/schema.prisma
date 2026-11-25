@@ -20,6 +20,22 @@ enum Role {
   COMPTABLE
 }
 
+
+enum RoomProblemType {
+  CLIMATISATION
+  FUITE_EAU
+  ELECTRICITE
+  AMPOULE
+  AUTRE
+}
+
+enum RoomProblemStatus {
+  REPORTED
+  IN_PROGRESS
+  RESOLVED
+  CANCELLED
+}
+
 enum RoomStatus {
   FREE
   OCCUPIED
@@ -87,6 +103,10 @@ model User {
   receivedPayments           Payment[]       @relation("ReceivedPayments")
   cashClosures               CashClosure[]   @relation("CashClosuresClosedBy")
   notificationReads          NotificationRead[]
+  reportedProblems           RoomProblem[]   @relation("ReportedProblems")
+  assignedProblems           RoomProblem[]   @relation("AssignedProblems")
+  resolvedProblems           RoomProblem[]   @relation("ResolvedProblems")
+  cancelledProblems          RoomProblem[]   @relation("CancelledProblems")
 
   @@map("users")
 }
@@ -149,12 +169,14 @@ model Room {
   description             String?           @db.Text
   internalNote            String?           @map("internal_note") @db.Text
   maintenanceReason       String?           @map("maintenance_reason") @db.Text
+  isClean                 Boolean           @default(true) @map("is_clean")
   isActive                Boolean           @default(true) @map("is_active")
   createdAt               DateTime          @default(now()) @map("created_at")
   updatedAt               DateTime          @updatedAt @map("updated_at")
   reservations            Reservation[]
   invoices                Invoice[]
   orders                  RestaurantOrder[]
+  problems                RoomProblem[]
 
   @@index([typeId])
   @@index([status])
@@ -597,4 +619,43 @@ model NotificationRead {
   @@id([notificationId, userId])
   @@index([userId, readAt])
   @@map("notification_reads")
+}
+
+
+model RoomProblem {
+  id                 String            @id @default(uuid()) @db.Uuid
+  roomId             String            @map("room_id") @db.Uuid
+  room               Room              @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  type               RoomProblemType
+  description        String?           @db.Text
+  reportedByUserId   String?           @map("reported_by_user_id") @db.Uuid
+  reportedByUser     User?             @relation("ReportedProblems", fields: [reportedByUserId], references: [id], onDelete: SetNull)
+  reportedByRole     String            @map("reported_by_role")
+  reportedByName     String            @map("reported_by_name")
+  reportedAt         DateTime          @default(now()) @map("reported_at")
+  wasOccupied        Boolean           @default(false) @map("was_occupied")
+  blocksRental       Boolean           @default(true) @map("blocks_rental")
+  status             RoomProblemStatus @default(REPORTED)
+  assignedToUserId   String?           @map("assigned_to_user_id") @db.Uuid
+  assignedToUser     User?             @relation("AssignedProblems", fields: [assignedToUserId], references: [id], onDelete: SetNull)
+  assignedToName     String?           @map("assigned_to_name")
+  acknowledgedAt     DateTime?         @map("acknowledged_at")
+  resolvedByUserId   String?           @map("resolved_by_user_id") @db.Uuid
+  resolvedByUser     User?             @relation("ResolvedProblems", fields: [resolvedByUserId], references: [id], onDelete: SetNull)
+  resolvedByName     String?           @map("resolved_by_name")
+  resolvedAt         DateTime?         @map("resolved_at")
+  resolutionNote     String?           @db.Text @map("resolution_note")
+  cancelledByUserId  String?           @map("cancelled_by_user_id") @db.Uuid
+  cancelledByUser    User?             @relation("CancelledProblems", fields: [cancelledByUserId], references: [id], onDelete: SetNull)
+  cancelledByName    String?           @map("cancelled_by_name")
+  cancelledAt        DateTime?         @map("cancelled_at")
+  cancellationReason String?           @db.Text @map("cancellation_reason")
+  createdAt          DateTime          @default(now()) @map("created_at")
+  updatedAt          DateTime          @updatedAt @map("updated_at")
+
+  @@index([roomId])
+  @@index([status])
+  @@index([blocksRental])
+  @@index([createdAt])
+  @@map("room_problems")
 }

@@ -8,7 +8,8 @@ export type ScreenKey =
   | 'facturation'
   | 'restaurant'
   | 'cuisine'
-  | 'rapports';
+  | 'rapports'
+  | 'technique';
 
 export type AccessLevel = 'AUCUN' | 'LECTURE' | 'ECRITURE';
 
@@ -163,6 +164,7 @@ export function createEmptyScreenAccess(): ScreenAccessMap {
     restaurant: 'AUCUN',
     cuisine: 'AUCUN',
     rapports: 'AUCUN',
+    technique: 'AUCUN',
   };
 }
 
@@ -176,6 +178,7 @@ export function createFullScreenAccess(): ScreenAccessMap {
     restaurant: 'ECRITURE',
     cuisine: 'ECRITURE',
     rapports: 'ECRITURE',
+    technique: 'ECRITURE',
   };
 }
 
@@ -212,6 +215,7 @@ export const STARTER_PROFILES: readonly StarterProfileDefinition[] = [
       restaurant: 'ECRITURE',
       cuisine: 'AUCUN',
       rapports: 'AUCUN',
+      technique: 'AUCUN',
     },
     specialPermissions: {
       voir_montants: true,
@@ -234,6 +238,7 @@ export const STARTER_PROFILES: readonly StarterProfileDefinition[] = [
       restaurant: 'ECRITURE',
       cuisine: 'AUCUN',
       rapports: 'AUCUN',
+      technique: 'AUCUN',
     },
     specialPermissions: {
       voir_montants: true,
@@ -256,6 +261,7 @@ export const STARTER_PROFILES: readonly StarterProfileDefinition[] = [
       restaurant: 'AUCUN',
       cuisine: 'ECRITURE',
       rapports: 'AUCUN',
+      technique: 'AUCUN',
     },
     specialPermissions: createEmptySpecialPermissions(),
   },
@@ -273,6 +279,7 @@ export const STARTER_PROFILES: readonly StarterProfileDefinition[] = [
       restaurant: 'AUCUN',
       cuisine: 'AUCUN',
       rapports: 'AUCUN',
+      technique: 'AUCUN',
     },
     specialPermissions: {
       voir_montants: false,
@@ -284,17 +291,18 @@ export const STARTER_PROFILES: readonly StarterProfileDefinition[] = [
   {
     key: 'TECHNIQUE',
     label: 'Technique',
-    description: 'Consultation de l’état des chambres.',
+    description: 'Écran Technique uniquement, gestion des pannes sans prix ni client.',
     role: Role.MAINTENANCE,
     screenAccess: {
       accueil: 'AUCUN',
       planning: 'AUCUN',
-      chambres: 'LECTURE',
+      chambres: 'AUCUN',
       clients: 'AUCUN',
       facturation: 'AUCUN',
       restaurant: 'AUCUN',
       cuisine: 'AUCUN',
       rapports: 'AUCUN',
+      technique: 'ECRITURE',
     },
     specialPermissions: {
       voir_montants: false,
@@ -317,6 +325,7 @@ export const STARTER_PROFILES: readonly StarterProfileDefinition[] = [
       restaurant: 'AUCUN',
       cuisine: 'AUCUN',
       rapports: 'LECTURE',
+      technique: 'AUCUN',
     },
     specialPermissions: {
       voir_montants: true,
@@ -397,6 +406,9 @@ export function inferRoleFromScreenAccess(
   const byStarter = getStarterProfileByKey(starterProfile);
   if (byStarter) {
     return byStarter.role;
+  }
+  if (screenAccess.technique !== 'AUCUN') {
+    return Role.MAINTENANCE;
   }
   if (screenAccess.cuisine !== 'AUCUN' && screenAccess.restaurant === 'AUCUN') {
     return Role.CUISINIER;
@@ -538,6 +550,15 @@ export function isAccountantAccount(user: {
   return user.starterProfile === 'COMPTABLE' || normalized === Role.COMPTABLE;
 }
 
+
+export function isTechniqueAccount(user: {
+  role?: Role | string | null;
+  starterProfile?: StarterProfileKey | string | null;
+}): boolean {
+  const normalized = user.role ? normalizeLegacyRole(user.role) : undefined;
+  return user.starterProfile === 'TECHNIQUE' || normalized === Role.MAINTENANCE;
+}
+
 export function isHousekeepingAccount(user: {
   role?: Role | string | null;
   starterProfile?: StarterProfileKey | string | null;
@@ -574,6 +595,17 @@ export function hasScreenAccess(
   required: Exclude<AccessLevel, 'AUCUN'> = 'LECTURE',
 ): boolean {
   if (!user) return false;
+  if (screen === 'technique') {
+    if (!isTechniqueAccount(user)) return false;
+    const techMap = user.screenAccess ?? resolveDefaultAccessForRole(user.role ?? '').screenAccess;
+    const techLevel = techMap.technique ?? 'ECRITURE';
+    return required === 'LECTURE'
+      ? techLevel === 'LECTURE' || techLevel === 'ECRITURE'
+      : techLevel === 'ECRITURE';
+  }
+  if (isTechniqueAccount(user)) {
+    return false;
+  }
   if (screen === 'cuisine') {
     if (!isKitchenAccount(user)) return false;
     const cookMap = user.screenAccess ?? resolveDefaultAccessForRole(user.role ?? '').screenAccess;

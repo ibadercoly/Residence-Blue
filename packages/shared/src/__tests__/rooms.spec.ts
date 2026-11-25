@@ -211,3 +211,18 @@ describe('Règles métier des chambres & Machine à états', () => {
     });
   });
 });
+
+
+describe('Règles des problèmes techniques & blocage de location', () => {
+  it('bloque la location par défaut pour Climatisation, Fuite, Electricité et Autre, mais pas Ampoule', () => {
+    const { isProblemTypeBlockingByDefault, ROOM_PROBLEM_TYPE_META } = require('../index');
+    expect(isProblemTypeBlockingByDefault('CLIMATISATION')).toBe(true);
+    expect(isProblemTypeBlockingByDefault('FUITE_EAU')).toBe(true);
+    expect(isProblemTypeBlockingByDefault('ELECTRICITE')).toBe(true);
+    expect(isProblemTypeBlockingByDefault('AMPOULE')).toBe(false);
+    expect(isProblemTypeBlockingByDefault('AUTRE')).toBe(true);
+
+    expect(ROOM_PROBLEM_TYPE_META.AMPOULE.defaultBlocking).toBe(false);
+    expect(ROOM_PROBLEM_TYPE_META.CLIMATISATION.defaultBlocking).toBe(true);
+  });
+});

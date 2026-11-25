@@ -1,6 +1,12 @@
-export type NotificationCategory = 'RESTAURANT' | 'HOUSEKEEPING';
+export type NotificationCategory = 'RESTAURANT' | 'HOUSEKEEPING' | 'MAINTENANCE';
 
 export type NotificationSeverity = 'INFO' | 'WARNING' | 'CRITICAL' | 'SUCCESS';
+
+export type MaintenanceNotificationType =
+  | 'PANNE_SIGNALEE'
+  | 'PANNE_PRISE_EN_CHARGE'
+  | 'PANNE_REPAREE'
+  | 'CHECKOUT_PANNE_NON_REPAREE';
 
 export type RestaurantNotificationType =
   | 'PLAT_CONFIRME_TEMPS'

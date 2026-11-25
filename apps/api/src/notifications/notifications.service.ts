@@ -196,7 +196,7 @@ export class NotificationsService implements OnModuleInit, OnModuleDestroy {
 
     return {
       id: raw.id,
-      category: raw.category === 'HOUSEKEEPING' ? 'HOUSEKEEPING' : 'RESTAURANT',
+      category: (raw.category === 'MAINTENANCE' ? 'MAINTENANCE' : raw.category === 'HOUSEKEEPING' ? 'HOUSEKEEPING' : 'RESTAURANT') as any,
       type: raw.type,
       severity: (raw.severity as NotificationSeverity) || 'INFO',
       title: raw.title,
@@ -222,6 +222,44 @@ export class NotificationsService implements OnModuleInit, OnModuleDestroy {
       this.recentEventsBuffer.shift();
     }
     this.events$.next(full);
+  }
+
+
+  async createNotification(params: {
+    category?: 'RESTAURANT' | 'HOUSEKEEPING' | 'MAINTENANCE';
+    type: string;
+    severity?: NotificationSeverity;
+    title: string;
+    detail?: string;
+    roomNumber?: string | null;
+    link?: string;
+    importantAlert?: boolean;
+    orderId?: string | null;
+    guestName?: string | null;
+  }) {
+    const category = params.category || 'MAINTENANCE';
+    const roomNumber = params.roomNumber || null;
+    const destinationLabel = params.detail || (roomNumber ? `Chambre ${roomNumber}` : 'Maintenance');
+    const created = await this.prisma.notificationMessage.create({
+      data: {
+        category,
+        type: params.type,
+        severity: params.severity || 'INFO',
+        orderId: params.orderId || null,
+        destinationType: roomNumber ? 'ROOM' : null,
+        roomNumber,
+        destinationLabel,
+        guestName: params.guestName || null,
+        title: params.title,
+        link: params.link || (category === 'MAINTENANCE' ? '/technique' : '/'),
+        importantAlert: Boolean(params.importantAlert),
+      },
+    });
+    this.emitBufferedEvent({
+      type: 'NOTIFICATION_CREATED',
+      rawMessage: created,
+    });
+    return created;
   }
 
   async createOrderNotification(params: {

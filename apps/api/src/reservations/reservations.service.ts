@@ -1,8 +1,10 @@
+import { NotificationsService } from '../notifications/notifications.service';
 import {
   BadRequestException,
   ConflictException,
   Injectable,
   NotFoundException,
+  Optional,
 } from '@nestjs/common';
 import * as crypto from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
@@ -26,7 +28,7 @@ export interface CreateReservationContext {
 
 @Injectable()
 export class ReservationsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaService, @Optional() private readonly notificationsService?: NotificationsService) {}
 
   private toUiStatus(status: ReservationStatus, checkOutDate: Date): { status: string; statusLabel: string } {
     const outIso = checkOutDate.toISOString().slice(0, 10);

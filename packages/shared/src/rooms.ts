@@ -35,6 +35,8 @@ export interface RoomDto {
   type?: RoomTypeDto;
   floor: number;
   status: RoomStatus;
+  isClean?: boolean;
+  activeProblems?: RoomProblemDto[];
   amenities: string[];
   imageUrl?: string;
   imageAlt?: string;
@@ -107,6 +109,70 @@ export interface CreateRoomTypeDto {
   name: string;
   pricePerNight: number; // ENTIER strict en FCFA
 }
+
+
+export type RoomProblemType =
+  | 'CLIMATISATION'
+  | 'FUITE_EAU'
+  | 'ELECTRICITE'
+  | 'AMPOULE'
+  | 'AUTRE';
+
+export type RoomProblemStatus =
+  | 'REPORTED'
+  | 'IN_PROGRESS'
+  | 'RESOLVED'
+  | 'CANCELLED';
+
+export interface RoomProblemDto {
+  id: string;
+  roomId: string;
+  roomNumber: string;
+  roomFloor?: number;
+  roomCategory?: string;
+  type: RoomProblemType;
+  description?: string | null;
+  reportedByRole: string;
+  reportedByName: string;
+  reportedAt: string;
+  wasOccupied: boolean;
+  blocksRental: boolean;
+  status: RoomProblemStatus;
+  assignedToName?: string | null;
+  acknowledgedAt?: string | null;
+  resolvedByName?: string | null;
+  resolvedAt?: string | null;
+  resolutionNote?: string | null;
+  cancelledByName?: string | null;
+  cancelledAt?: string | null;
+  cancellationReason?: string | null;
+  isCurrentlyOccupied?: boolean;
+}
+
+export interface CreateRoomProblemDto {
+  type: RoomProblemType;
+  description?: string;
+  blocksRental?: boolean;
+}
+
+export interface UpdateRoomCleanlinessDto {
+  isClean: boolean;
+}
+
+export function isProblemTypeBlockingByDefault(type: RoomProblemType): boolean {
+  return type !== 'AMPOULE';
+}
+
+export const ROOM_PROBLEM_TYPE_META: Record<
+  RoomProblemType,
+  { label: string; icon: string; defaultBlocking: boolean }
+> = {
+  CLIMATISATION: { label: 'Climatisation', icon: 'ac_unit', defaultBlocking: true },
+  FUITE_EAU: { label: "Fuite d'eau", icon: 'water_drop', defaultBlocking: true },
+  ELECTRICITE: { label: 'Électricité', icon: 'bolt', defaultBlocking: true },
+  AMPOULE: { label: 'Ampoule', icon: 'lightbulb', defaultBlocking: false },
+  AUTRE: { label: 'Autre', icon: 'build', defaultBlocking: true },
+};
 
 export interface UpdateRoomTypeDto {
   name?: string;
