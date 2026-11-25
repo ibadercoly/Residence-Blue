@@ -9,15 +9,29 @@ import { OutboxItem, SyncStatus } from '@residence-blue/shared';
 })
 export class OutboxService {
   private readonly authService = inject(AuthService, { optional: true });
+  private readonly injectedIdb = inject(IdbService, { optional: true });
+  private readonly injectedNet = inject(NetworkService, { optional: true });
+
+  private readonly idbService?: IdbService;
+  private readonly networkService?: NetworkService;
+
   readonly pendingCount = signal<number>(0);
   readonly isSyncing = signal<boolean>(false);
+  readonly lastConflict = signal<{ item: OutboxItem; message?: string } | null>(null);
   private activeSyncPromise: Promise<void> | null = null;
 
   constructor(
-    private readonly idbService: IdbService,
-    private readonly networkService: NetworkService,
+    idbService?: IdbService,
+    networkService?: NetworkService,
   ) {
+    this.idbService = idbService ?? this.injectedIdb ?? undefined;
+    this.networkService = networkService ?? this.injectedNet ?? undefined;
     this.refreshPendingCount();
+    if (typeof window !== 'undefined') {
+      window.addEventListener('online', () => {
+        void this.syncOutbox();
+      });
+    }
   }
 
   /**
@@ -36,12 +50,14 @@ export class OutboxService {
       retryCount: 0,
     };
 
-    await this.idbService.put('outbox', item);
+    if (this.idbService) {
+      await this.idbService.put('outbox', item);
+    }
     await this.refreshPendingCount();
 
     // Si on est en ligne, tentative immédiate de synchronisation en arrière-plan
-    if (this.networkService.isOnline()) {
-      this.syncOutbox();
+    if (this.networkService?.isOnline()) {
+      void this.syncOutbox();
     }
 
     return item;
@@ -49,6 +65,7 @@ export class OutboxService {
 
   async refreshPendingCount(): Promise<number> {
     try {
+      if (!this.idbService) return 0;
       const items = await this.idbService.getAll<OutboxItem>('outbox');
       const pending = items.filter((i) => i.status === SyncStatus.PENDING || i.status === SyncStatus.FAILED);
       this.pendingCount.set(pending.length);
@@ -62,7 +79,7 @@ export class OutboxService {
    * Synchronise la file d'attente avec le serveur (source de vérité).
    */
   async syncOutbox(): Promise<void> {
-    if (!this.networkService.isOnline()) {
+    if (this.networkService && !this.networkService.isOnline()) {
       return;
     }
     if (this.activeSyncPromise) {
@@ -75,7 +92,10 @@ export class OutboxService {
   }
 
   private async runSyncOutbox(): Promise<void> {
-    if (this.isSyncing() || !this.networkService.isOnline()) {
+    if (this.isSyncing() || (this.networkService && !this.networkService.isOnline())) {
+      return;
+    }
+    if (!this.idbService) {
       return;
     }
 
@@ -107,9 +127,22 @@ export class OutboxService {
                 body: JSON.stringify(item.payload),
               });
 
-          if (response.ok || response.status === 409) {
-            // Succès ou déjà traité côté serveur (idempotence)
+          if (response.ok) {
+            // Succès côté serveur
             await this.idbService.delete('outbox', item.id);
+          } else if (response.status === 409) {
+            // Conflit côté serveur : rejet définitif, suppression de l'outbox et notification
+            await this.idbService.delete('outbox', item.id);
+            const errData = await response.json().catch(() => ({}));
+            const conflictMessage = errData.message || 'Action rejetée par le serveur (conflit 409).';
+            this.lastConflict.set({ item, message: conflictMessage });
+            if (typeof window !== 'undefined') {
+              window.dispatchEvent(
+                new CustomEvent('outbox-conflict', {
+                  detail: { item, message: conflictMessage, status: 409 },
+                }),
+              );
+            }
           } else {
             item.status = SyncStatus.FAILED;
             item.retryCount += 1;
