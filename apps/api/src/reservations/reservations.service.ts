@@ -1,4 +1,5 @@
 import { NotificationsService } from '../notifications/notifications.service';
+import { ROOM_PROBLEM_TYPE_META, RoomProblemType } from '@residence-blue/shared';
 import {
   BadRequestException,
   ConflictException,
@@ -640,6 +641,8 @@ export class ReservationsService {
     const existing = await this.prisma.reservation.findUnique({ where: { id } });
     if (!existing) throw new NotFoundException(`Réservation "${id}" introuvable.`);
 
+    let blockingProblem: any = null;
+
     const updated = await this.prisma.$transaction(async (tx) => {
       const res = await tx.reservation.update({
         where: { id },
@@ -650,9 +653,20 @@ export class ReservationsService {
         include: { guest: true, room: true },
       });
 
+      blockingProblem = await tx.roomProblem.findFirst({
+        where: {
+          roomId: existing.roomId,
+          status: { in: ['REPORTED', 'IN_PROGRESS'] },
+          blocksRental: true,
+        },
+      });
+
       await tx.room.update({
         where: { id: existing.roomId },
-        data: { status: RoomStatus.CLEANING },
+        data: {
+          isClean: false,
+          status: RoomStatus.CLEANING,
+        },
       });
 
       await appendChainedAuditLog(tx, {
@@ -664,6 +678,22 @@ export class ReservationsService {
 
       return res;
     });
+
+    if (blockingProblem && this.notificationsService) {
+      const typeLabel =
+        ROOM_PROBLEM_TYPE_META[blockingProblem.type as RoomProblemType]?.label ||
+        blockingProblem.type;
+      await this.notificationsService.createNotification({
+        category: 'MAINTENANCE',
+        type: 'DEPART_CLIENT_PANNE_NON_REPAREE',
+        severity: 'CRITICAL',
+        title: `Chambre ${updated.room?.number || ''} : le client est parti, problème non réparé (${typeLabel.toLowerCase()}), chambre non louable`,
+        detail: 'Chambre vide : vous pouvez entrer',
+        roomNumber: updated.room?.number,
+        link: '/chambres',
+        importantAlert: true,
+      });
+    }
 
     return this.formatReservation(updated);
   }

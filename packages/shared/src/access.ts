@@ -119,6 +119,13 @@ export const SCREEN_DEFINITIONS: readonly ScreenDefinition[] = [
     icon: 'analytics',
     colorClass: 'rb-menu-color-rapports',
   },
+  {
+    key: 'technique',
+    label: 'Technique',
+    route: '/technique',
+    icon: 'build',
+    colorClass: 'rb-menu-color-technique',
+  },
 ] as const;
 
 export const SPECIAL_PERMISSION_DEFINITIONS: readonly SpecialPermissionDefinition[] = [
@@ -476,7 +483,7 @@ export function resolveDefaultAccessForRole(
   if (isPrimaryAdmin || normalized === Role.DIRECTION) {
     return {
       starterProfile: 'DIRECTEUR',
-      screenAccess: { ...createFullScreenAccess(), cuisine: 'AUCUN' },
+      screenAccess: { ...createFullScreenAccess(), cuisine: 'AUCUN', technique: 'AUCUN' },
       specialPermissions: createFullSpecialPermissions(),
     };
   }
@@ -493,6 +500,7 @@ export function resolveDefaultAccessForRole(
         screenAccess: {
           ...STARTER_PROFILES[1].screenAccess,
           accueil: 'LECTURE',
+
         },
         specialPermissions: { ...STARTER_PROFILES[1].specialPermissions },
       };
@@ -513,7 +521,7 @@ export function resolveDefaultAccessForRole(
         starterProfile: 'TECHNIQUE',
         screenAccess: {
           ...STARTER_PROFILES[4].screenAccess,
-          accueil: 'LECTURE',
+
         },
         specialPermissions: { ...STARTER_PROFILES[4].specialPermissions },
       };
@@ -523,6 +531,7 @@ export function resolveDefaultAccessForRole(
         screenAccess: {
           ...STARTER_PROFILES[5].screenAccess,
           accueil: 'LECTURE',
+
         },
         specialPermissions: { ...STARTER_PROFILES[5].specialPermissions },
       };

@@ -476,6 +476,7 @@ export class ModuleConfigService {
       { key: 'rapports', item: { id: 'rapports', label: 'Rapports', route: '/rapports', icon: 'analytics' } },
       { key: 'restaurant', item: { id: 'restaurant', label: 'Restaurant & Bar', route: '/restaurant', icon: 'restaurant' } },
       { key: 'cuisine', item: { id: 'cuisine', label: 'Cuisine', route: '/cuisine', icon: 'chef_hat' } },
+      { key: 'technique', item: { id: 'technique', label: 'Technique', route: '/technique', icon: 'build' } },
     ];
 
     const visible = candidates

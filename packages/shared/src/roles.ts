@@ -18,6 +18,10 @@ export function isKitchenOnlyRole(role?: string | null): boolean {
   return role === Role.CUISINIER || role === Role.CUISINE;
 }
 
+export function isTechniqueOnlyRole(role?: string | null): boolean {
+  return role === Role.MAINTENANCE;
+}
+
 /**
  * Alias de compatibilité descendante pour les modules existants.
  */

@@ -1,6 +1,6 @@
 import { inject } from '@angular/core';
 import { ActivatedRouteSnapshot, CanActivateFn, Router, RouterStateSnapshot } from '@angular/router';
-import { ScreenKey, isKitchenAccount } from '@residence-blue/shared';
+import { ScreenKey, isKitchenAccount, isTechniqueAccount } from '@residence-blue/shared';
 import { AuthService } from '../services/auth.service';
 
 function resolveRequiredScreenForUrl(url: string): ScreenKey | null {
@@ -11,6 +11,7 @@ function resolveRequiredScreenForUrl(url: string): ScreenKey | null {
   if (url.startsWith('/facturation')) return 'facturation';
   if (url.startsWith('/restaurant')) return 'restaurant';
   if (url.startsWith('/cuisine')) return 'cuisine';
+  if (url.startsWith('/technique')) return 'technique';
   if (url.startsWith('/rapports')) return 'rapports';
   return null;
 }
@@ -58,6 +59,16 @@ export const authGuard: CanActivateFn = async (
   // Le cuisinier n'accède qu'à /cuisine ; toute autre adresse le redirige vers /cuisine.
   if (isKitchenAccount(user) && !state.url.startsWith('/cuisine')) {
     return router.createUrlTree(['/cuisine']);
+  }
+
+  // Le technicien n'accède qu'à /technique ; toute autre adresse le redirige vers /technique.
+  if (isTechniqueAccount(user) && !state.url.startsWith('/technique')) {
+    return router.createUrlTree(['/technique']);
+  }
+
+  // L'écran Technique est réservé au compte Technique
+  if (state.url.startsWith('/technique') && !isTechniqueAccount(user)) {
+    return router.createUrlTree([authService.getFirstAuthorizedRoute()]);
   }
 
   // L'écran Administration est réservé au directeur ; le composant /administration

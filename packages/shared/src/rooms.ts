@@ -151,6 +151,13 @@ export interface RoomProblemDto {
   isCurrentlyOccupied?: boolean;
 }
 
+export interface TechniqueDashboardDto {
+  toTreat: RoomProblemDto[];
+  inProgress: RoomProblemDto[];
+  resolvedToday: RoomProblemDto[];
+  totalToTreat: number;
+}
+
 export interface CreateRoomProblemDto {
   type: RoomProblemType;
   description?: string;

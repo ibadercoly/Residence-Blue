@@ -157,6 +157,14 @@ export const routes: Routes = [
       ),
   },
   {
+    path: 'technique',
+    canActivate: [authGuard],
+    loadComponent: () =>
+      import('./features/technique/technique-page.component').then(
+        (m) => m.TechniquePageComponent,
+      ),
+  },
+  {
     path: 'exports',
     pathMatch: 'full',
     redirectTo: 'accueil',

@@ -23,7 +23,8 @@
   --couleur-menu-cuisine: #A3E635;
   --couleur-menu-rapports: #F2785C;
   --couleur-menu-administration: #818CF8;
-  --couleur-menu-parametres: #818CF8;
+  --couleur-menu-parametres: #FBBF24;
+  --couleur-menu-technique: #F59E0B;
 }
 
 .rb-menu-color-dashboard { --couleur-menu-item: var(--couleur-menu-accueil); }
@@ -36,6 +37,7 @@
 .rb-menu-color-rapports { --couleur-menu-item: var(--couleur-menu-rapports); }
 .rb-menu-color-administration { --couleur-menu-item: var(--couleur-menu-administration); }
 .rb-menu-color-parametres { --couleur-menu-item: var(--couleur-menu-parametres); }
+.rb-menu-color-technique { --couleur-menu-item: var(--couleur-menu-technique); }
 
 .rb-menu-svg-icon {
   width: var(--icone-menu, 26px);
@@ -116,4 +118,57 @@
   .pt-safe { padding-top: env(safe-area-inset-top, 0px); }
 }
 
-::-webkit-scrollbar { display: none; }
+/* Barres de défilement visibles sur tous les menus et écrans */
+html {
+  overflow-y: scroll;
+  scrollbar-gutter: stable;
+  scrollbar-width: auto;
+  scrollbar-color: #64748b #e6f0f2;
+}
+
+::-webkit-scrollbar {
+  display: block;
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: #e6f0f2;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #64748b;
+  border-radius: 9999px;
+  border: 2px solid #e6f0f2;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #005e6a;
+}
+
+/* Barre de défilement visible et élégante pour la barre latérale */
+.rb-sidebar-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.45) rgba(255, 255, 255, 0.08);
+  overflow-y: auto;
+}
+
+.rb-sidebar-scroll::-webkit-scrollbar {
+  display: block;
+  width: 6px;
+}
+
+.rb-sidebar-scroll::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 9999px;
+}
+
+.rb-sidebar-scroll::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.45);
+  border-radius: 9999px;
+  border: none;
+}
+
+.rb-sidebar-scroll::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.65);
+}
