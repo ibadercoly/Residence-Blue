@@ -269,18 +269,18 @@ export function formatAccueilFcfa(amount: number | undefined | null): string {
                     </div>
                   }
 
-                  <ul data-testid="accueil-billing-legend" class="grid grid-cols-1 sm:grid-cols-2 gap-1.5 text-[11px]">
+                  <ul data-testid="accueil-billing-legend" class="flex flex-col gap-1.5 text-xs m-0 p-0 list-none">
                     @for (slice of b.collectedByMethod; track slice.method) {
-                      <li class="flex items-center justify-between gap-1.5 text-stone-700">
-                        <span class="inline-flex items-center gap-1.5 min-w-0">
+                      <li class="flex items-center justify-between gap-3 rounded-lg border border-stone-200/80 bg-stone-50/80 px-3 py-2 text-stone-700">
+                        <span class="inline-flex items-center gap-2.5 min-w-0">
                           <span
-                            class="h-2.5 w-2.5 shrink-0 rounded-sm"
+                            class="h-3 w-3 shrink-0 rounded-sm"
                             [style.backgroundColor]="paymentColor(slice.method)"
                             aria-hidden="true"
                           ></span>
-                          <span class="font-semibold">{{ slice.label }}</span>
+                          <span class="font-semibold text-stone-800 whitespace-nowrap">{{ slice.label }}</span>
                         </span>
-                        <span class="font-bold font-mono text-stone-900 whitespace-nowrap">
+                        <span class="font-extrabold font-mono text-stone-900 whitespace-nowrap">
                           {{ formatFcfa(slice.amountFcfa) }}
                         </span>
                       </li>

@@ -14,17 +14,73 @@ import { AccueilStatsDuJourComponent } from '../../components/accueil-stats-du-j
   imports: [CommonModule, RouterLink, AccueilStatsDuJourComponent],
   host: { class: 'block w-full' },
   template: `
-    <div class="p-4 sm:p-6 max-w-7xl mx-auto font-['Manrope'] pb-16 space-y-6">
-      <!-- Feedback Toast Notification -->
-      <div
-        *ngIf="toastMessage()"
-        class="p-3.5 bg-emerald-50 border border-emerald-200 rounded-xl text-emerald-800 text-xs font-semibold flex items-center gap-2 animate-fadeIn"
-        data-testid="dashboard-toast"
+    <div class="w-full font-['Manrope'] pb-16 space-y-6">
+      <!-- 1. Bannière pleine largeur : Salle de réception Résidence Blue avec titre centré soigné -->
+      <figure
+        class="relative w-full md:-mx-margin md:w-[calc(100%+4rem)] overflow-hidden bg-[#0A2540] shadow-md m-0"
+        data-testid="dashboard-reception-banner"
       >
-        <span class="material-symbols-outlined text-base text-emerald-600">check_circle</span>
-        <span>{{ toastMessage() }}</span>
-      </div>
+        <picture class="block w-full">
+          <source
+            type="image/webp"
+            srcset="
+              assets/images/salle-reception-residence-blue-640w.webp 640w,
+              assets/images/salle-reception-residence-blue-1024w.webp 1024w,
+              assets/images/salle-reception-residence-blue.webp 1360w
+            "
+            sizes="100vw"
+          />
+          <img
+            src="assets/images/salle-reception-residence-blue.jpg"
+            alt="Salle de réception élégante bleu royal — Résidence Blue, Grand Standing, Thiès"
+            loading="eager"
+            decoding="async"
+            data-testid="dashboard-reception-image"
+            class="block w-full h-56 sm:h-72 md:h-80 lg:h-96 object-cover object-center scale-[1.01]"
+          />
+        </picture>
 
+        <!-- Voile dégradé subtil pour sublimer la lisibilité du titre au centre -->
+        <div
+          class="absolute inset-0 bg-gradient-to-b from-[#0A2540]/45 via-[#0A2540]/55 to-[#0A2540]/70"
+          aria-hidden="true"
+        ></div>
+
+        <!-- Titre centré au milieu de l’image avec police éditoriale Newsreader -->
+        <figcaption
+          class="absolute inset-0 flex flex-col items-center justify-center text-center px-4 sm:px-8 select-none"
+        >
+          <div class="inline-flex items-center gap-2.5 sm:gap-3 mb-2 sm:mb-3">
+            <span class="h-[1px] w-6 sm:w-12 bg-amber-300/85" aria-hidden="true"></span>
+            <span class="text-[10px] sm:text-xs font-semibold uppercase tracking-[0.28em] text-amber-200 drop-shadow">
+              Grand Standing &bull; Thiès
+            </span>
+            <span class="h-[1px] w-6 sm:w-12 bg-amber-300/85" aria-hidden="true"></span>
+          </div>
+          <h2
+            data-testid="dashboard-hero-welcome-title"
+            style="font-family: 'Newsreader', Georgia, serif;"
+            class="text-2xl sm:text-4xl md:text-5xl lg:text-[54px] font-medium text-white tracking-tight leading-[1.15] max-w-4xl drop-shadow-[0_4px_18px_rgba(0,0,0,0.75)]"
+          >
+            Bienvenue à l’Hôtel Résidence Blue
+          </h2>
+          <div
+            class="mt-3 sm:mt-4 h-1 w-16 sm:w-24 rounded-full bg-gradient-to-r from-amber-300 via-amber-400 to-amber-300 shadow-sm"
+            aria-hidden="true"
+          ></div>
+        </figcaption>
+      </figure>
+
+      <div class="px-4 sm:px-6 md:px-2 max-w-7xl mx-auto space-y-6">
+        <!-- Feedback Toast Notification -->
+        <div
+          *ngIf="toastMessage()"
+          class="p-3.5 bg-emerald-50 border border-emerald-200 rounded-xl text-emerald-800 text-xs font-semibold flex items-center gap-2 animate-fadeIn"
+          data-testid="dashboard-toast"
+        >
+          <span class="material-symbols-outlined text-base text-emerald-600">check_circle</span>
+          <span>{{ toastMessage() }}</span>
+        </div>
       <!-- 2. Titre Clair sans Jargon -->
       <div class="flex flex-col sm:flex-row sm:items-baseline justify-between gap-2 border-b border-stone-200 pb-4">
         <div>
@@ -225,6 +281,7 @@ import { AccueilStatsDuJourComponent } from '../../components/accueil-stats-du-j
         </div>
       </div>
 
+      </div>
     </div>
   `
 })
