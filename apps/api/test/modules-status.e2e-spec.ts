@@ -89,8 +89,8 @@ describe('Modules Status & Deferred Routing (API)', () => {
       expect(res.status).toBe(200);
     });
 
-    it('refuse le rôle si son module est désactivé dynamiquement puis le réaccepte à la réactivation', async () => {
-      moduleConfigService.setModuleOverride('maintenance', false);
+    it('refuse le rôle si son accès est désactivé dynamiquement puis le réaccepte à la réactivation', async () => {
+      moduleConfigService.setRoleOverride('MAINTENANCE', false);
 
       const refused = await request(app.getHttpServer())
         .get('/api/security-test/test-staff-role')
@@ -98,7 +98,7 @@ describe('Modules Status & Deferred Routing (API)', () => {
       expect(refused.status).toBe(403);
       expect(refused.body.message).toContain('reporté en version ultérieure');
 
-      moduleConfigService.setModuleOverride('maintenance', true);
+      moduleConfigService.setRoleOverride('MAINTENANCE', true);
 
       const res = await request(app.getHttpServer())
         .get('/api/security-test/test-staff-role')

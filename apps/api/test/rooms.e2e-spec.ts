@@ -48,14 +48,17 @@ describe('API Chambres & Porte de Sécurité (E2E & Intégration)', () => {
       roleTokens[r] = (await issueDbTestToken(prisma, r)).token;
     }
 
-    // Récupérer une chambre et une catégorie existante (ou semer si la base est vide)
+    // Récupérer une chambre du seed (101..302, possédant un historique) ou semer si absente
+    const seedRoomNumbers = ['101', '102', '103', '104', '105', '106', '201', '202', '203', '204', '301', '302'];
     let existingRoom = await prisma.room.findFirst({
+      where: { number: { in: seedRoomNumbers } },
       include: { type: true },
     });
 
     if (!existingRoom) {
       await seedRooms();
       existingRoom = await prisma.room.findFirst({
+        where: { number: { in: seedRoomNumbers } },
         include: { type: true },
       });
     }
