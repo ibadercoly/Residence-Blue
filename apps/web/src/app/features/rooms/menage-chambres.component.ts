@@ -6,24 +6,19 @@ import { RoomsService, RoomUiItem } from '../../core/services/rooms.service';
 import { NetworkService } from '../../core/offline/network.service';
 import { OutboxService } from '../../core/offline/outbox.service';
 import { ModalShellComponent } from '../../shared/components/modal-shell/modal-shell.component';
+import {
+  INTERVENTION_PROBLEM_CHOICES,
+  InterventionProblemChoice,
+  ReportInterventionModalComponent,
+} from '../../shared/components/report-intervention-modal/report-intervention-modal.component';
 
-export interface ProblemChoiceOption {
-  id: string;
-  label: string;
-  icon: string;
-}
-
-export const MENAGE_PROBLEM_CHOICES: ProblemChoiceOption[] = [
-  { id: 'fuite', label: "Fuite d'eau", icon: 'water_drop' },
-  { id: 'electricite', label: 'Ampoule ou électricité', icon: 'lightbulb' },
-  { id: 'climatisation', label: 'Climatisation', icon: 'ac_unit' },
-  { id: 'autre', label: 'Autre', icon: 'build' },
-];
+export type ProblemChoiceOption = InterventionProblemChoice;
+export const MENAGE_PROBLEM_CHOICES: ProblemChoiceOption[] = INTERVENTION_PROBLEM_CHOICES;
 
 @Component({
   selector: 'app-menage-chambres',
   standalone: true,
-  imports: [CommonModule, FormsModule, ModalShellComponent],
+  imports: [CommonModule, FormsModule, ModalShellComponent, ReportInterventionModalComponent],
   host: { class: 'block w-full max-w-full overflow-x-hidden' },
   template: `
     <div
@@ -350,87 +345,15 @@ export const MENAGE_PROBLEM_CHOICES: ProblemChoiceOption[] = [
         </section>
       }
 
-      <!-- Modale « Signaler un problème » (ModalShellComponent) -->
-      @if (problemModalRoom(); as targetRoom) {
-        <app-modal-shell
-          [isOpen]="problemModalRoom() !== null"
-          title="Signaler un problème"
-          [subtitle]="'Chambre ' + targetRoom.number + ' · Étage ' + targetRoom.floor"
-          icon="report_problem"
-          testId="menage-problem-modal"
-          (closed)="closeProblemModal()"
-        >
-          <div class="flex flex-col gap-5">
-            <div class="text-[20px] font-bold text-on-surface">
-              Quel est le problème ?
-            </div>
-
-            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3" data-testid="menage-problem-choices">
-              @for (opt of problemChoices; track opt.id) {
-                <button
-                  type="button"
-                  (click)="selectedProblemChoice.set(opt.label)"
-                  [attr.data-testid]="'menage-problem-choice-' + opt.id"
-                  [class]="
-                    selectedProblemChoice() === opt.label
-                      ? 'min-h-[64px] px-4 py-3 rounded-2xl border-2 border-primary bg-primary/10 text-primary text-[20px] font-bold flex items-center gap-3 text-left cursor-pointer'
-                      : 'min-h-[64px] px-4 py-3 rounded-2xl border-2 border-outline-variant bg-surface-container-lowest hover:bg-surface-container-low text-on-surface text-[20px] font-semibold flex items-center gap-3 text-left cursor-pointer'
-                  "
-                >
-                  <span class="material-symbols-outlined text-[26px] shrink-0" aria-hidden="true">{{ opt.icon }}</span>
-                  <span class="break-words">{{ opt.label }}</span>
-                </button>
-              }
-            </div>
-
-            <div class="flex flex-col gap-2">
-              <label for="menage-problem-note" class="text-[20px] font-semibold text-on-surface">
-                Précision (facultatif)
-              </label>
-              <textarea
-                id="menage-problem-note"
-                rows="2"
-                maxlength="180"
-                [ngModel]="problemDetails()"
-                (ngModelChange)="problemDetails.set($event)"
-                placeholder="Exemple : robinet qui coule, ampoule grillée..."
-                data-testid="menage-problem-note"
-                class="w-full p-3.5 rounded-2xl bg-surface-container-lowest border border-outline-variant text-on-surface text-[20px] outline-none focus:ring-2 focus:ring-primary/30"
-              ></textarea>
-            </div>
-
-            <div
-              class="p-4 rounded-2xl bg-rose-50 border border-rose-300 text-rose-900 text-[20px] font-semibold flex items-start gap-3"
-              data-testid="menage-problem-warning"
-            >
-              <span class="material-symbols-outlined text-[26px] text-rose-700 shrink-0 mt-0.5" aria-hidden="true">warning</span>
-              <span>Votre demande sera transmise à la Direction pour validation avant toute intervention technique.</span>
-            </div>
-          </div>
-
-          <div modal-footer class="w-full flex flex-wrap items-center justify-end gap-3">
-            <button
-              type="button"
-              (click)="closeProblemModal()"
-              data-testid="menage-problem-cancel"
-              class="min-h-[64px] px-6 rounded-2xl border-2 border-outline-variant bg-surface-container-high hover:bg-surface-variant text-on-surface text-[20px] font-bold inline-flex items-center justify-center gap-2 cursor-pointer"
-            >
-              <span class="material-symbols-outlined text-[24px]" aria-hidden="true">close</span>
-              <span>Annuler</span>
-            </button>
-            <button
-              type="button"
-              (click)="submitProblem()"
-              [disabled]="!selectedProblemChoice() || isSubmittingProblem()"
-              data-testid="menage-problem-submit"
-              class="min-h-[64px] px-6 rounded-2xl bg-rose-600 hover:bg-rose-700 disabled:opacity-40 text-white text-[20px] font-bold inline-flex items-center justify-center gap-2 shadow-sm cursor-pointer"
-            >
-              <span class="material-symbols-outlined text-[24px]" aria-hidden="true">send</span>
-              <span>{{ isSubmittingProblem() ? 'Envoi...' : 'Envoyer' }}</span>
-            </button>
-          </div>
-        </app-modal-shell>
-      }
+      <!-- Modale « Signaler un problème » partagée entre Ménage et Assistant de Réception -->
+      <app-report-intervention-modal
+        [isOpen]="problemModalRoom() !== null"
+        [room]="problemModalRoom()"
+        [isSubmitting]="isSubmittingProblem()"
+        testId="menage-problem-modal"
+        (closed)="closeProblemModal()"
+        (submitted)="submitProblemDescription($event)"
+      ></app-report-intervention-modal>
     </div>
   `,
 })
@@ -541,22 +464,27 @@ export class MenageChambresComponent {
     return pendingList.some((i) => i.roomId === room.id);
   }
 
-  async submitProblem(): Promise<void> {
+  async submitProblemDescription(description: string): Promise<void> {
     const room = this.problemModalRoom();
-    const choice = this.selectedProblemChoice();
-    if (!room || !choice || this.isSubmittingProblem()) return;
-
-    const note = this.problemDetails().trim();
-    const reason = note ? `${choice} — ${note}` : choice;
+    const clean = (description || '').trim();
+    if (!room || !clean || this.isSubmittingProblem()) return;
 
     this.isSubmittingProblem.set(true);
     try {
-      const ok = await this.roomsService.requestIntervention(room.id, reason);
+      const ok = await this.roomsService.requestIntervention(room.id, clean);
       if (ok) {
         this.closeProblemModal();
       }
     } finally {
       this.isSubmittingProblem.set(false);
     }
+  }
+
+  async submitProblem(): Promise<void> {
+    const choice = this.selectedProblemChoice();
+    if (!choice) return;
+    const note = this.problemDetails().trim();
+    const reason = note ? `${choice} — ${note}` : choice;
+    await this.submitProblemDescription(reason);
   }
 }
