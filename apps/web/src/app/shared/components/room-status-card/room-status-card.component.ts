@@ -223,11 +223,31 @@ import { AuthService } from '../../../core/services/auth.service';
                 class="flex flex-col gap-2 px-2.5 py-2 bg-amber-50 border border-amber-300 text-amber-950 text-xs rounded-lg mb-2"
                 [attr.data-testid]="'room-card-pending-intervention-' + room.number"
               >
-                <div class="flex items-start gap-1.5 font-bold">
-                  <span class="material-symbols-outlined text-[16px] text-amber-700 shrink-0 mt-0.5">hourglass_top</span>
-                  <span>En attente d'accord du Directeur</span>
+                <div class="flex items-start justify-between gap-1.5 font-bold">
+                  <div class="flex items-start gap-1.5">
+                    <span class="material-symbols-outlined text-[16px] text-amber-700 shrink-0 mt-0.5">hourglass_top</span>
+                    <span>En attente d'accord du Directeur</span>
+                  </div>
+                  @if (isReportedByHousekeeping(pending) && currentRole === Role.RECEPTION) {
+                    <span
+                      class="px-1.5 py-0.5 rounded bg-stone-200 text-stone-700 text-[10px] font-semibold shrink-0"
+                      [attr.data-testid]="'room-card-readonly-housekeeping-' + room.number"
+                    >
+                      Lecture seule
+                    </span>
+                  }
                 </div>
+                @if (isReportedByHousekeeping(pending)) {
+                  <span class="text-[11px] font-semibold text-amber-800">
+                    Signalé par le Ménage{{ pending.reportedByName ? ' (' + pending.reportedByName + ')' : '' }}
+                  </span>
+                }
                 <p class="text-[11px] text-amber-900 break-words">{{ pending.issueDescription }}</p>
+                @if (isReportedByHousekeeping(pending) && currentRole === Role.RECEPTION) {
+                  <span class="text-[10px] text-stone-600 italic">
+                    Consultation uniquement — aucune action disponible sur un signalement du Ménage.
+                  </span>
+                }
                 @if (currentRole === Role.DIRECTION) {
                   <div class="grid grid-cols-2 gap-1.5 pt-1">
                     <button
@@ -658,6 +678,10 @@ export class RoomStatusCardComponent {
 
   get canReportProblem(): boolean {
     return this.currentRole === Role.RECEPTION || this.currentRole === Role.HOUSEKEEPING;
+  }
+
+  isReportedByHousekeeping(intervention: RoomInterventionRequestDto | null): boolean {
+    return String(intervention?.reportedByRole || '').toUpperCase() === Role.HOUSEKEEPING;
   }
 
   get pendingIntervention(): RoomInterventionRequestDto | null {

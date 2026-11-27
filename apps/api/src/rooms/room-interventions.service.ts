@@ -138,6 +138,31 @@ export class RoomInterventionsService {
     const reporterRoleLabel =
       reporterRole === Role.HOUSEKEEPING ? 'le Ménage' : 'la Réception';
 
+    // Empêcher toute modification/doublon sur une demande déjà en attente de la Direction
+    // (ex. l'Assistant de Réception peut consulter un signalement du Ménage mais ne peut pas interagir avec)
+    if (this.prisma.roomInterventionRequest?.findFirst) {
+      const existingPending = await this.prisma.roomInterventionRequest.findFirst({
+        where: {
+          roomId: room.id,
+          status: PrismaInterventionStatus.PENDING_DIRECTOR,
+        },
+        include: {
+          reportedBy: { select: { role: true } },
+        },
+      });
+      if (existingPending) {
+        const existingRole = String(existingPending.reportedBy?.role || '').toUpperCase();
+        if (existingRole === Role.HOUSEKEEPING && reporterRole === Role.RECEPTION) {
+          throw new ConflictException(
+            `Un problème a déjà été signalé par le Ménage pour la chambre ${room.number} et est en attente d'accord de la Direction. Vous pouvez le consulter mais pas interagir avec cette demande.`,
+          );
+        }
+        throw new ConflictException(
+          `Une demande d'intervention est déjà en attente d'accord de la Direction pour la chambre ${room.number}.`,
+        );
+      }
+    }
+
     const created = await this.prisma.$transaction(async (tx) => {
       const req = await tx.roomInterventionRequest.create({
         data: {
