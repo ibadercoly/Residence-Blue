@@ -51,17 +51,23 @@ export interface RejectRoomInterventionDto {
 
 /**
  * Catégories de chambres à la Résidence Blue.
+ * Catégories réelles du tarif public : Standard, Confort, Appartement.
  */
 export enum RoomCategory {
   STANDARD = 'Standard',
+  CONFORT = 'Confort',
+  APPARTEMENT = 'Appartement',
+  UNCLASSIFIED = 'À classer',
+  /** @deprecated Ancienne catégorie de démonstration conservée uniquement pour compatibilité ascendante */
   DELUXE = 'Deluxe',
+  /** @deprecated Ancienne catégorie de démonstration conservée uniquement pour compatibilité ascendante */
   SUITE = 'Suite',
 }
 
 export interface RoomTypeDto {
   id: string;
   name: string;
-  pricePerNight: number | null; // ENTIER strict en FCFA (null si masque)
+  pricePerNight: number | null; // ENTIER strict en FCFA (null si masqué ou non défini)
   createdAt?: string | Date;
   updatedAt?: string | Date;
 }
@@ -71,6 +77,15 @@ export interface RoomDto {
   number: string;
   typeId: string;
   type?: RoomTypeDto;
+  category?: string;
+  tariffCategoryId?: string | null;
+  tariffCategory?: {
+    id: string;
+    code: string;
+    name: string;
+  } | null;
+  isUnclassified?: boolean;
+  minTariffFcfa?: number | null;
   floor: number;
   status: RoomStatus;
   amenities: string[];
@@ -80,8 +95,8 @@ export interface RoomDto {
   childrenCapacity?: number;
   bedType?: string;
   bedsCount?: number;
-  surfaceM2?: number;
-  view?: string;
+  surfaceM2?: number | null;
+  view?: string | null;
   smoking?: boolean;
   connectingRoom?: string;
   pricePerNight?: number | null;
@@ -101,14 +116,15 @@ export interface CreateRoomDto {
   number: string;
   floor: number;
   category: string;
+  tariffCategoryId?: string | null;
   status?: RoomStatus;
-  pricePerNight: number; // FCFA
+  pricePerNight?: number | null; // FCFA (optionnel : issu de la grille tarifaire)
   adultsCapacity?: number;
   childrenCapacity?: number;
   bedType?: string;
   bedsCount?: number;
-  surfaceM2?: number;
-  view?: string;
+  surfaceM2?: number | null;
+  view?: string | null;
   smoking?: boolean;
   connectingRoom?: string;
   amenities?: string[];
@@ -235,15 +251,14 @@ export function isRoomStatusTransitionAllowed(
 }
 
 /**
- * Données initiales des 12 chambres de la Résidence Blue (Grand Standing, Thiès) :
- * - 6 Standard (101 à 106) : 35 000 FCFA
- * - 4 Deluxe (201 à 204) : 55 000 FCFA (201-202 Deluxe classique, 203-204 Bungalow Deluxe)
- * - 2 Suites (301 et 302) : 95 000 FCFA
+ * Catégories de chambres de référence de la Résidence Blue (Grand Standing, Thiès).
+ * Les tarifs réels dépendent du nombre de personnes et de la grille tarifaire (tariffs.ts) :
+ * aucun tarif fixe de démonstration n'est codé en dur sur les types de chambres.
  */
-export const SEED_ROOM_TYPES = [
-  { name: RoomCategory.STANDARD, pricePerNight: 35000 },
-  { name: RoomCategory.DELUXE, pricePerNight: 55000 },
-  { name: RoomCategory.SUITE, pricePerNight: 95000 },
+export const SEED_ROOM_TYPES: Array<{ name: RoomCategory; pricePerNight: number | null }> = [
+  { name: RoomCategory.STANDARD, pricePerNight: null },
+  { name: RoomCategory.CONFORT, pricePerNight: null },
+  { name: RoomCategory.APPARTEMENT, pricePerNight: null },
 ];
 
 export const FALLBACK_ROOM_IMAGE = 'assets/images/chambres/chambre-fallback.jpg';

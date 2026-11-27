@@ -25,6 +25,10 @@ export class UpdateRoomDto {
   category?: string;
 
   @IsOptional()
+  @IsString()
+  tariffCategoryId?: string | null;
+
+  @IsOptional()
   @IsEnum(RoomStatus, { message: 'Le statut doit être valide (FREE, OCCUPIED, CLEANING, MAINTENANCE).' })
   status?: RoomStatus;
 
