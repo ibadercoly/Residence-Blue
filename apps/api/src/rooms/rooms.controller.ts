@@ -63,8 +63,8 @@ export class RoomsController {
   })
   @Get()
   async findAll(@Req() req: Request) {
-    const rooms = await this.roomsService.findAll();
     const user = (req as any)?.user;
+    const rooms = await this.roomsService.findAll(user?.role);
     return hasSpecialPermission(user, 'voir_montants') ? rooms : maskAmountsInPayload(rooms);
   }
 

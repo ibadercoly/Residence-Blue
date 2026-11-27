@@ -120,12 +120,20 @@ describe("Workflow d'Intervention Technique en Chambre — Intégration & Sécur
       expect(dirNotif).not.toBeNull();
       expect(dirNotif?.targetRoles).toEqual([Role.DIRECTION]);
 
-      // MAINTENANCE ne voit PAS cette demande en attente
+      // MAINTENANCE ne voit PAS cette demande en attente (ni dans /interventions ni dans GET /api/rooms)
       const maintList = await request(app.getHttpServer())
         .get('/api/rooms/interventions')
         .set('Authorization', `Bearer ${roleUsers[Role.MAINTENANCE].token}`)
         .expect(200);
       expect((maintList.body as any[]).some((i) => i.id === housekeepingReqId)).toBe(false);
+
+      const maintRooms = await request(app.getHttpServer())
+        .get('/api/rooms')
+        .set('Authorization', `Bearer ${roleUsers[Role.MAINTENANCE].token}`)
+        .expect(200);
+      const maintRoomA = (maintRooms.body as any[]).find((r) => r.id === roomA.id);
+      expect(maintRoomA.activeInterventions).toEqual([]);
+      expect(JSON.stringify(maintRooms.body)).not.toContain("Fuite d'eau importante sous le lavabo");
     });
 
     it("L'Assistant de Réception signale un problème (201) -> statut PENDING_DIRECTOR + reportedBy", async () => {

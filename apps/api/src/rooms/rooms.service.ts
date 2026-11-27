@@ -73,12 +73,17 @@ export class RoomsService {
    * Retourne la liste complète des chambres avec leur catégorie et tarif,
    * triées par étage puis par numéro de chambre.
    */
-  async findAll() {
+  async findAll(userRole?: string) {
+    const isMaintenance = String(userRole || '').toUpperCase() === 'MAINTENANCE';
+    const visibleStatuses = isMaintenance
+      ? ['APPROVED']
+      : ['PENDING_DIRECTOR', 'APPROVED'];
+
     const rooms = await this.prisma.room.findMany({
       include: {
         type: true,
         interventionRequests: {
-          where: { status: { in: ['PENDING_DIRECTOR', 'APPROVED'] } },
+          where: { status: { in: visibleStatuses as any } },
           orderBy: { createdAt: 'desc' },
           include: {
             reportedBy: { select: { id: true, fullName: true, email: true, role: true } },
@@ -89,27 +94,33 @@ export class RoomsService {
       orderBy: [{ floor: 'asc' }, { number: 'asc' }],
     });
 
-    return rooms.map((room: any) => ({
-      ...room,
-      activeInterventions: (room.interventionRequests || []).map((req: any) => ({
-        id: req.id,
-        roomId: req.roomId,
-        roomNumber: room.number,
-        roomFloor: room.floor,
-        roomCategory: room.category,
-        reportedById: req.reportedById,
-        reportedByName: req.reportedBy?.fullName || req.reportedBy?.email || 'Équipe',
-        reportedByRole: req.reportedBy?.role,
-        issueDescription: req.issueDescription,
-        status: req.status,
-        approvedById: req.approvedById ?? null,
-        approvedByName: req.approvedBy?.fullName || req.approvedBy?.email || null,
-        approvedAt: req.approvedAt instanceof Date ? req.approvedAt.toISOString() : req.approvedAt ?? null,
-        rejectionReason: req.rejectionReason ?? null,
-        createdAt: req.createdAt instanceof Date ? req.createdAt.toISOString() : req.createdAt,
-        updatedAt: req.updatedAt instanceof Date ? req.updatedAt.toISOString() : req.updatedAt,
-      })),
-    }));
+    return rooms.map((room: any) => {
+      const { interventionRequests, ...roomData } = room;
+      const filteredRequests = (interventionRequests || []).filter((req: any) =>
+        isMaintenance ? req.status === 'APPROVED' : true,
+      );
+      return {
+        ...roomData,
+        activeInterventions: filteredRequests.map((req: any) => ({
+          id: req.id,
+          roomId: req.roomId,
+          roomNumber: room.number,
+          roomFloor: room.floor,
+          roomCategory: room.category,
+          reportedById: req.reportedById,
+          reportedByName: req.reportedBy?.fullName || req.reportedBy?.email || 'Équipe',
+          reportedByRole: req.reportedBy?.role,
+          issueDescription: req.issueDescription,
+          status: req.status,
+          approvedById: req.approvedById ?? null,
+          approvedByName: req.approvedBy?.fullName || req.approvedBy?.email || null,
+          approvedAt: req.approvedAt instanceof Date ? req.approvedAt.toISOString() : req.approvedAt ?? null,
+          rejectionReason: req.rejectionReason ?? null,
+          createdAt: req.createdAt instanceof Date ? req.createdAt.toISOString() : req.createdAt,
+          updatedAt: req.updatedAt instanceof Date ? req.updatedAt.toISOString() : req.updatedAt,
+        })),
+      };
+    });
   }
 
   /**

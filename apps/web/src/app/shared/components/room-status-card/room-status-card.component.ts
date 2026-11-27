@@ -661,6 +661,10 @@ export class RoomStatusCardComponent {
   }
 
   get pendingIntervention(): RoomInterventionRequestDto | null {
+    // L'équipe Technique (MAINTENANCE) ne doit JAMAIS voir une demande en attente d'accord Direction
+    if (this.currentRole === Role.MAINTENANCE) {
+      return null;
+    }
     return (
       (this.room?.activeInterventions || []).find(
         (i) => i.status === RoomInterventionStatus.PENDING_DIRECTOR,
