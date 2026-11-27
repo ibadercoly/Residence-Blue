@@ -7,6 +7,7 @@ import {
 } from '@nestjs/common';
 import {
   AppNotificationDto,
+  InterventionNotificationType,
   NotificationSeverity,
   NotificationsListResponse,
   NotificationStreamEvent,
@@ -196,13 +197,19 @@ export class NotificationsService implements OnModuleInit, OnModuleDestroy {
 
     return {
       id: raw.id,
-      category: raw.category === 'HOUSEKEEPING' ? 'HOUSEKEEPING' : 'RESTAURANT',
+      category:
+        raw.category === 'MAINTENANCE'
+          ? 'MAINTENANCE'
+          : raw.category === 'HOUSEKEEPING'
+            ? 'HOUSEKEEPING'
+            : 'RESTAURANT',
       type: raw.type,
       severity: (raw.severity as NotificationSeverity) || 'INFO',
       title: raw.title,
       detail,
       orderId: raw.orderId || null,
       roomNumber: raw.roomNumber || null,
+      targetRoles: Array.isArray(raw.targetRoles) ? raw.targetRoles : [],
       link: raw.link,
       importantAlert: Boolean(raw.importantAlert),
       read: Boolean(readAtDate),
@@ -222,6 +229,58 @@ export class NotificationsService implements OnModuleInit, OnModuleDestroy {
       this.recentEventsBuffer.shift();
     }
     this.events$.next(full);
+  }
+
+  async createInterventionNotification(params: {
+    targetRoles: string[];
+    type: InterventionNotificationType;
+    severity: NotificationSeverity;
+    roomNumber: string;
+    title: string;
+    detail: string;
+    link?: string;
+    importantAlert?: boolean;
+  }) {
+    const normalizedTargets = Array.from(
+      new Set((params.targetRoles || []).map((r) => String(r).toUpperCase())),
+    );
+    const created = await this.prisma.notificationMessage.create({
+      data: {
+        category: 'MAINTENANCE',
+        type: params.type,
+        severity: params.severity,
+        destinationType: 'ROOM',
+        roomNumber: params.roomNumber,
+        destinationLabel: params.detail,
+        guestName: null,
+        title: params.title,
+        link: params.link || '/chambres',
+        importantAlert: Boolean(params.importantAlert),
+        targetRoles: normalizedTargets,
+      },
+    });
+    this.emitBufferedEvent({
+      type: 'NOTIFICATION_CREATED',
+      rawMessage: created,
+    });
+    return created;
+  }
+
+  async listInterventionNotificationsForRole(role: string): Promise<AppNotificationDto[]> {
+    const normalizedRole = String(role || '').toUpperCase();
+    const since = new Date(Date.now() - ONE_DAY_MS);
+    const rows = await this.prisma.notificationMessage.findMany({
+      where: {
+        category: 'MAINTENANCE',
+        createdAt: { gte: since },
+        targetRoles: { has: normalizedRole },
+      },
+      orderBy: { createdAt: 'desc' },
+      take: MAX_PANEL_MESSAGES,
+    });
+    return rows.map((row) =>
+      this.formatNotificationForUser(row, { role: normalizedRole }, null),
+    );
   }
 
   async createOrderNotification(params: {
@@ -422,12 +481,24 @@ export class NotificationsService implements OnModuleInit, OnModuleDestroy {
     }
 
     const since = new Date(nowMs - ONE_DAY_MS);
+    const userRole = String(normalizeLegacyRole(user?.role || '')).toUpperCase();
+    const whereVisible: any =
+      userRole === 'DIRECTION' || userRole === 'RECEPTION'
+        ? {
+            createdAt: { gte: since },
+            OR: [
+              { category: 'RESTAURANT' },
+              { category: 'MAINTENANCE', targetRoles: { has: userRole } },
+            ],
+          }
+        : {
+            category: 'RESTAURANT',
+            createdAt: { gte: since },
+          };
+
     const [rows, totalLast24h, unreadCount] = await Promise.all([
       this.prisma.notificationMessage.findMany({
-        where: {
-          category: 'RESTAURANT',
-          createdAt: { gte: since },
-        },
+        where: whereVisible,
         orderBy: { createdAt: 'desc' },
         take: MAX_PANEL_MESSAGES,
         include: {
@@ -438,15 +509,11 @@ export class NotificationsService implements OnModuleInit, OnModuleDestroy {
         },
       }),
       this.prisma.notificationMessage.count({
-        where: {
-          category: 'RESTAURANT',
-          createdAt: { gte: since },
-        },
+        where: whereVisible,
       }),
       this.prisma.notificationMessage.count({
         where: {
-          category: 'RESTAURANT',
-          createdAt: { gte: since },
+          ...whereVisible,
           reads: { none: { userId: user.id } },
         },
       }),
@@ -536,7 +603,16 @@ export class NotificationsService implements OnModuleInit, OnModuleDestroy {
     this.assertCanAccessNotifications(user);
 
     const isRelevantForUser = (evt: BufferedNotificationEvent): boolean => {
-      if (evt.type === 'NOTIFICATION_CREATED') return true;
+      if (evt.type === 'NOTIFICATION_CREATED') {
+        if (evt.rawMessage?.category === 'MAINTENANCE') {
+          const targets: string[] = Array.isArray(evt.rawMessage.targetRoles)
+            ? evt.rawMessage.targetRoles
+            : [];
+          const normalizedRole = String(normalizeLegacyRole(user?.role || '')).toUpperCase();
+          return targets.includes(normalizedRole);
+        }
+        return true;
+      }
       return evt.targetUserId === user.id;
     };
 

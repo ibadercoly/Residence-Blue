@@ -27,6 +27,14 @@ enum RoomStatus {
   MAINTENANCE
 }
 
+enum RoomInterventionStatus {
+  PENDING_DIRECTOR
+  APPROVED
+  REJECTED
+  COMPLETED
+  CANCELLED
+}
+
 enum ReservationStatus {
   PENDING
   CONFIRMED
@@ -84,9 +92,12 @@ model User {
   auditLogs                  AuditLog[]
   syncOps                    SyncOperation[]
   createdReservations        Reservation[]   @relation("CreatedReservations")
-  receivedPayments           Payment[]       @relation("ReceivedPayments")
-  cashClosures               CashClosure[]   @relation("CashClosuresClosedBy")
+  receivedPayments           Payment[]                 @relation("ReceivedPayments")
+  cashClosures               CashClosure[]             @relation("CashClosuresClosedBy")
   notificationReads          NotificationRead[]
+  reportedInterventions      RoomInterventionRequest[] @relation("ReportedInterventions")
+  approvedInterventions      RoomInterventionRequest[] @relation("ApprovedInterventions")
+  completedInterventions     RoomInterventionRequest[] @relation("CompletedInterventions")
 
   @@map("users")
 }
@@ -155,6 +166,7 @@ model Room {
   reservations            Reservation[]
   invoices                Invoice[]
   orders                  RestaurantOrder[]
+  interventionRequests    RoomInterventionRequest[]
 
   @@index([typeId])
   @@index([status])
@@ -578,6 +590,7 @@ model NotificationMessage {
   title            String             @db.Text
   link             String
   importantAlert   Boolean            @default(false) @map("important_alert")
+  targetRoles      String[]           @default([]) @map("target_roles")
   createdAt        DateTime           @default(now()) @map("created_at")
   reads            NotificationRead[]
 
@@ -585,6 +598,30 @@ model NotificationMessage {
   @@index([orderId, type])
   @@index([category, createdAt])
   @@map("notification_messages")
+}
+
+model RoomInterventionRequest {
+  id               String                 @id @default(uuid()) @db.Uuid
+  roomId           String                 @map("room_id") @db.Uuid
+  room             Room                   @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  reportedById     String                 @map("reported_by_id") @db.Uuid
+  reportedBy       User                   @relation("ReportedInterventions", fields: [reportedById], references: [id], onDelete: Restrict)
+  issueDescription String                 @map("issue_description") @db.Text
+  status           RoomInterventionStatus @default(PENDING_DIRECTOR)
+  approvedById     String?                @map("approved_by_id") @db.Uuid
+  approvedBy       User?                  @relation("ApprovedInterventions", fields: [approvedById], references: [id], onDelete: SetNull)
+  approvedAt       DateTime?              @map("approved_at")
+  rejectionReason  String?                @map("rejection_reason") @db.Text
+  completedById    String?                @map("completed_by_id") @db.Uuid
+  completedBy      User?                  @relation("CompletedInterventions", fields: [completedById], references: [id], onDelete: SetNull)
+  completedAt      DateTime?              @map("completed_at")
+  createdAt        DateTime               @default(now()) @map("created_at")
+  updatedAt        DateTime               @updatedAt @map("updated_at")
+
+  @@index([roomId, status])
+  @@index([status, createdAt])
+  @@index([reportedById])
+  @@map("room_intervention_requests")
 }
 
 model NotificationRead {

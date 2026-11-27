@@ -6,7 +6,14 @@ import { ReservationModalService } from '../../core/services/reservation-modal.s
 import { RoomCategoryType } from '../../core/models/reservation-modal.model';
 import { NetworkService } from '../../core/offline/network.service';
 import { OutboxService } from '../../core/offline/outbox.service';
-import { RoomStatus, Role, CreateRoomDto, UpdateRoomDto, isHousekeepingAccount } from '@residence-blue/shared';
+import {
+  RoomStatus,
+  Role,
+  CreateRoomDto,
+  UpdateRoomDto,
+  RoomInterventionRequestDto,
+  isHousekeepingAccount,
+} from '@residence-blue/shared';
 import { AuthService } from '../../core/services/auth.service';
 import { MenageChambresComponent } from './menage-chambres.component';
 import { RoomStatusCardComponent } from '../../shared/components/room-status-card/room-status-card.component';
@@ -267,6 +274,138 @@ import { ModalShellComponent } from '../../shared/components/modal-shell/modal-s
         }
       </header>
 
+      <!-- PANNEAU DIRECTION : Demandes d'intervention en attente de validation -->
+      @if (roomsService.currentRole() === Role.DIRECTION && roomsService.pendingInterventions().length > 0) {
+        <section
+          class="bg-amber-50 border-2 border-amber-300 rounded-2xl p-4 sm:p-5 shadow-sm flex flex-col gap-3"
+          data-testid="director-pending-interventions-panel"
+        >
+          <div class="flex items-center justify-between gap-2 flex-wrap">
+            <div class="flex items-center gap-2">
+              <span class="material-symbols-outlined text-amber-700 text-[22px]">notification_important</span>
+              <h2 class="text-base font-bold text-amber-950">
+                Demandes d'intervention technique en attente d'accord ({{ roomsService.pendingInterventions().length }})
+              </h2>
+            </div>
+            <span class="text-xs font-semibold text-amber-800">
+              Validation obligatoire avant envoi à l'équipe Technique
+            </span>
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+            @for (req of roomsService.pendingInterventions(); track req.id) {
+              <article
+                class="bg-white rounded-xl border border-amber-200 p-4 flex flex-col justify-between gap-3 shadow-xs"
+                [attr.data-testid]="'director-intervention-card-' + req.id"
+              >
+                <div class="space-y-1">
+                  <div class="flex items-center justify-between gap-2">
+                    <span class="font-bold text-sm text-on-surface">
+                      Chambre {{ req.roomNumber }} · {{ req.roomCategory || 'Standard' }} (Étage {{ req.roomFloor }})
+                    </span>
+                    <span class="px-2 py-0.5 rounded-full bg-amber-100 text-amber-900 text-[11px] font-bold">
+                      En attente
+                    </span>
+                  </div>
+                  <p class="text-xs text-on-surface-variant">
+                    Constaté par <strong>{{ req.reportedByName }}</strong> ({{ req.reportedByRole === Role.HOUSEKEEPING ? 'Ménage' : 'Réception' }})
+                  </p>
+                  <p class="text-xs font-semibold text-on-surface bg-surface-container-low p-2.5 rounded-lg">
+                    {{ req.issueDescription }}
+                  </p>
+                </div>
+
+                <div class="flex items-center gap-2">
+                  <button
+                    type="button"
+                    (click)="approveIntervention(req.id)"
+                    [disabled]="isInterventionActionBusy()"
+                    [attr.data-testid]="'btn-approve-intervention-' + req.id"
+                    class="flex-1 h-10 px-3 rounded-xl bg-emerald-700 hover:bg-emerald-800 disabled:opacity-50 text-white text-xs font-bold inline-flex items-center justify-center gap-1.5 cursor-pointer transition-colors"
+                  >
+                    <span class="material-symbols-outlined text-[16px]">check_circle</span>
+                    <span>Approuver</span>
+                  </button>
+                  <button
+                    type="button"
+                    (click)="openRejectInterventionModal(req)"
+                    [disabled]="isInterventionActionBusy()"
+                    [attr.data-testid]="'btn-reject-intervention-' + req.id"
+                    class="flex-1 h-10 px-3 rounded-xl bg-rose-600 hover:bg-rose-700 disabled:opacity-50 text-white text-xs font-bold inline-flex items-center justify-center gap-1.5 cursor-pointer transition-colors"
+                  >
+                    <span class="material-symbols-outlined text-[16px]">cancel</span>
+                    <span>Refuser</span>
+                  </button>
+                </div>
+              </article>
+            }
+          </div>
+        </section>
+      }
+
+      <!-- PANNEAU MAINTENANCE : Interventions approuvées par la Direction -->
+      @if (roomsService.currentRole() === Role.MAINTENANCE) {
+        <section
+          class="bg-blue-50 border-2 border-blue-300 rounded-2xl p-4 sm:p-5 shadow-sm flex flex-col gap-3"
+          data-testid="maintenance-approved-interventions-panel"
+        >
+          <div class="flex items-center justify-between gap-2 flex-wrap">
+            <div class="flex items-center gap-2">
+              <span class="material-symbols-outlined text-blue-700 text-[22px]">build</span>
+              <h2 class="text-base font-bold text-blue-950">
+                Interventions techniques approuvées par la Direction ({{ roomsService.approvedInterventions().length }})
+              </h2>
+            </div>
+            <span class="text-xs font-semibold text-blue-800">
+              Seules les interventions validées par la Direction apparaissent ici
+            </span>
+          </div>
+
+          @if (roomsService.approvedInterventions().length === 0) {
+            <div class="bg-white rounded-xl border border-blue-200 p-4 text-xs text-blue-900 font-medium">
+              Aucune intervention technique approuvée en cours pour le moment.
+            </div>
+          } @else {
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+              @for (req of roomsService.approvedInterventions(); track req.id) {
+                <article
+                  class="bg-white rounded-xl border border-blue-200 p-4 flex flex-col justify-between gap-3 shadow-xs"
+                  [attr.data-testid]="'maintenance-intervention-card-' + req.id"
+                >
+                  <div class="space-y-1">
+                    <div class="flex items-center justify-between gap-2">
+                      <span class="font-bold text-sm text-on-surface">
+                        Chambre {{ req.roomNumber }} · {{ req.roomCategory || 'Standard' }} (Étage {{ req.roomFloor }})
+                      </span>
+                      <span class="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-900 text-[11px] font-bold">
+                        Approuvée
+                      </span>
+                    </div>
+                    <p class="text-xs text-on-surface-variant">
+                      Validée par <strong>{{ req.approvedByName || 'Direction' }}</strong>
+                    </p>
+                    <p class="text-xs font-semibold text-on-surface bg-surface-container-low p-2.5 rounded-lg">
+                      {{ req.issueDescription }}
+                    </p>
+                  </div>
+
+                  <button
+                    type="button"
+                    (click)="completeIntervention(req.id)"
+                    [disabled]="isInterventionActionBusy()"
+                    [attr.data-testid]="'btn-complete-intervention-' + req.id"
+                    class="w-full h-10 px-4 rounded-xl bg-emerald-700 hover:bg-emerald-800 disabled:opacity-50 text-white text-xs font-bold inline-flex items-center justify-center gap-1.5 cursor-pointer transition-colors"
+                  >
+                    <span class="material-symbols-outlined text-[18px]">check_circle</span>
+                    <span>Marquer comme réparé</span>
+                  </button>
+                </article>
+              }
+            </div>
+          }
+        </section>
+      }
+
       <!-- 4. GRILLE DES CHAMBRES SANS SCROLL HORIZONTAL -->
       <div class="rooms-grid grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6" data-testid="rooms-grid">
         @for (room of roomsService.filteredRooms(); track room.id) {
@@ -281,6 +420,10 @@ import { ModalShellComponent } from '../../shared/components/modal-shell/modal-s
             (onDelete)="openDeleteModal(room)"
             (onView)="openEditDrawer(room)"
             (onStatusChange)="changeStatus(room.id, $event.status, $event.reason)"
+            (onReportProblem)="openInterventionModal(room)"
+            (onApproveIntervention)="approveIntervention($event)"
+            (onRejectIntervention)="openRejectInterventionModal($event)"
+            (onCompleteIntervention)="completeIntervention($event)"
           ></app-room-status-card>
         } @empty {
           <div class="col-span-full py-12 text-center text-on-surface-variant bg-surface-container-lowest rounded-2xl border border-outline-variant/60">
@@ -914,6 +1057,120 @@ import { ModalShellComponent } from '../../shared/components/modal-shell/modal-s
           </div>
         </app-modal-shell>
       }
+
+      <!-- 6. MODALE SIGNALER UN PROBLÈME (ModalShellComponent — Réception / Ménage) -->
+      @if (interventionModalRoom(); as targetRoom) {
+        <app-modal-shell
+          [isOpen]="true"
+          title="Signaler un problème"
+          [subtitle]="'Chambre ' + targetRoom.number + ' · Étage ' + targetRoom.floor"
+          icon="report_problem"
+          testId="modal-report-intervention"
+          (close)="closeInterventionModal()"
+          (closed)="closeInterventionModal()"
+        >
+          <div modal-body class="space-y-4">
+            <div class="p-3.5 rounded-xl bg-amber-50 border border-amber-300 text-amber-900 text-xs flex items-start gap-2.5">
+              <span class="material-symbols-outlined text-[18px] text-amber-700 shrink-0 mt-0.5">info</span>
+              <p>
+                Votre signalement sera transmis à la <strong>Direction</strong> pour validation préalable avant toute intervention de l'équipe technique.
+              </p>
+            </div>
+
+            <div class="space-y-1.5">
+              <label for="input-intervention-description" class="block text-xs font-semibold text-on-surface">
+                Description du problème constaté <span class="text-rose-500">*</span>
+              </label>
+              <textarea
+                id="input-intervention-description"
+                rows="3"
+                maxlength="500"
+                [ngModel]="interventionDescription()"
+                (ngModelChange)="interventionDescription.set($event)"
+                placeholder="Ex : Fuite d'eau sous le lavabo, climatisation en panne..."
+                data-testid="input-intervention-description"
+                class="w-full p-3 rounded-xl bg-surface-container-lowest border border-outline-variant/80 text-on-surface text-sm outline-none focus:ring-2 focus:ring-primary/25 resize-none"
+              ></textarea>
+            </div>
+          </div>
+
+          <div modal-footer class="w-full flex items-center justify-end gap-2.5">
+            <button
+              type="button"
+              (click)="closeInterventionModal()"
+              data-testid="btn-cancel-intervention"
+              class="h-10 px-4 rounded-xl border border-outline-variant/60 bg-surface-container-high hover:bg-surface-variant text-on-surface text-xs font-semibold cursor-pointer"
+            >
+              Annuler
+            </button>
+            <button
+              type="button"
+              (click)="submitIntervention()"
+              [disabled]="!interventionDescription().trim() || isInterventionActionBusy()"
+              data-testid="btn-submit-intervention"
+              class="h-10 px-5 rounded-xl bg-primary hover:bg-primary-container disabled:opacity-40 text-on-primary text-xs font-bold inline-flex items-center gap-1.5 shadow-xs cursor-pointer"
+            >
+              <span class="material-symbols-outlined text-[16px]">send</span>
+              <span>{{ isInterventionActionBusy() ? 'Envoi...' : 'Envoyer à la Direction' }}</span>
+            </button>
+          </div>
+        </app-modal-shell>
+      }
+
+      <!-- 7. MODALE REFUS DE DEMANDE D'INTERVENTION (ModalShellComponent — Direction) -->
+      @if (rejectingIntervention(); as req) {
+        <app-modal-shell
+          [isOpen]="true"
+          [title]="'Refuser la demande — Chambre ' + (req.roomNumber || '')"
+          subtitle="La Réception et le Ménage recevront le motif de refus"
+          icon="cancel"
+          testId="modal-reject-intervention"
+          (close)="closeRejectInterventionModal()"
+          (closed)="closeRejectInterventionModal()"
+        >
+          <div modal-body class="space-y-4">
+            <div class="p-3 rounded-xl bg-surface-container-low text-xs text-on-surface">
+              <strong>Problème signalé :</strong> {{ req.issueDescription }}
+            </div>
+            <div class="space-y-1.5">
+              <label for="input-reject-reason" class="block text-xs font-semibold text-on-surface">
+                Motif du refus
+              </label>
+              <textarea
+                id="input-reject-reason"
+                rows="3"
+                maxlength="500"
+                [ngModel]="rejectReasonInput()"
+                (ngModelChange)="rejectReasonInput.set($event)"
+                placeholder="Ex : Intervention reportée après le départ du client..."
+                data-testid="input-reject-reason"
+                class="w-full p-3 rounded-xl bg-surface-container-lowest border border-outline-variant/80 text-on-surface text-sm outline-none focus:ring-2 focus:ring-rose-500/25 resize-none"
+              ></textarea>
+            </div>
+          </div>
+
+          <div modal-footer class="w-full flex items-center justify-end gap-2.5">
+            <button
+              type="button"
+              (click)="closeRejectInterventionModal()"
+              data-testid="btn-cancel-reject"
+              class="h-10 px-4 rounded-xl border border-outline-variant/60 bg-surface-container-high hover:bg-surface-variant text-on-surface text-xs font-semibold cursor-pointer"
+            >
+              Annuler
+            </button>
+            <button
+              type="button"
+              (click)="confirmRejectIntervention()"
+              [disabled]="isInterventionActionBusy()"
+              data-testid="btn-confirm-reject"
+              class="h-10 px-5 rounded-xl bg-rose-600 hover:bg-rose-700 disabled:opacity-40 text-white text-xs font-bold inline-flex items-center gap-1.5 shadow-xs cursor-pointer"
+            >
+              <span class="material-symbols-outlined text-[16px]">close</span>
+              <span>Confirmer le refus</span>
+            </button>
+          </div>
+        </app-modal-shell>
+      }
     </div>
     }
   `,
@@ -1004,6 +1261,13 @@ export class RoomsComponent {
   readonly deleteErrorMessage = signal<string | null>(null);
   readonly isDeleting = signal<boolean>(false);
 
+  // Modales du workflow d'intervention technique (ModalShellComponent)
+  readonly interventionModalRoom = signal<RoomUiItem | null>(null);
+  readonly interventionDescription = signal<string>('');
+  readonly rejectingIntervention = signal<RoomInterventionRequestDto | null>(null);
+  readonly rejectReasonInput = signal<string>('');
+  readonly isInterventionActionBusy = signal<boolean>(false);
+
   readonly isDeleteDisabled = computed(() => {
     const room = this.roomToDelete();
     if (!room) return true;
@@ -1091,6 +1355,76 @@ export class RoomsComponent {
 
   async changeStatus(roomId: string, targetStatus: RoomStatus, reason?: string): Promise<void> {
     await this.roomsService.changeRoomStatus(roomId, targetStatus, reason);
+  }
+
+  openInterventionModal(room: RoomUiItem): void {
+    this.interventionModalRoom.set(room);
+    this.interventionDescription.set('');
+  }
+
+  closeInterventionModal(): void {
+    this.interventionModalRoom.set(null);
+    this.interventionDescription.set('');
+  }
+
+  async submitIntervention(): Promise<void> {
+    const room = this.interventionModalRoom();
+    const desc = this.interventionDescription().trim();
+    if (!room || !desc || this.isInterventionActionBusy()) return;
+
+    this.isInterventionActionBusy.set(true);
+    try {
+      const ok = await this.roomsService.requestIntervention(room.id, desc);
+      if (ok) {
+        this.closeInterventionModal();
+      }
+    } finally {
+      this.isInterventionActionBusy.set(false);
+    }
+  }
+
+  async approveIntervention(interventionId: string): Promise<void> {
+    if (this.isInterventionActionBusy()) return;
+    this.isInterventionActionBusy.set(true);
+    try {
+      await this.roomsService.approveIntervention(interventionId);
+    } finally {
+      this.isInterventionActionBusy.set(false);
+    }
+  }
+
+  openRejectInterventionModal(req: RoomInterventionRequestDto): void {
+    this.rejectingIntervention.set(req);
+    this.rejectReasonInput.set('');
+  }
+
+  closeRejectInterventionModal(): void {
+    this.rejectingIntervention.set(null);
+    this.rejectReasonInput.set('');
+  }
+
+  async confirmRejectIntervention(): Promise<void> {
+    const req = this.rejectingIntervention();
+    if (!req || this.isInterventionActionBusy()) return;
+    this.isInterventionActionBusy.set(true);
+    try {
+      const ok = await this.roomsService.rejectIntervention(req.id, this.rejectReasonInput());
+      if (ok) {
+        this.closeRejectInterventionModal();
+      }
+    } finally {
+      this.isInterventionActionBusy.set(false);
+    }
+  }
+
+  async completeIntervention(interventionId: string): Promise<void> {
+    if (this.isInterventionActionBusy()) return;
+    this.isInterventionActionBusy.set(true);
+    try {
+      await this.roomsService.completeIntervention(interventionId);
+    } finally {
+      this.isInterventionActionBusy.set(false);
+    }
   }
 
   /**

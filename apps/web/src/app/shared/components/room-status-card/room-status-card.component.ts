@@ -10,7 +10,13 @@ import {
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RoomUiItem } from '../../../core/services/rooms.service';
-import { RoomStatus, Role, formatFcfa } from '@residence-blue/shared';
+import {
+  RoomStatus,
+  Role,
+  RoomInterventionRequestDto,
+  RoomInterventionStatus,
+  formatFcfa,
+} from '@residence-blue/shared';
 import { ImageComponent } from '../image/image.component';
 import { StatusBadgeComponent } from '../status-badge/status-badge.component';
 import { ActionButtonComponent } from '../action-button/action-button.component';
@@ -211,6 +217,67 @@ import { AuthService } from '../../../core/services/auth.service';
               </div>
             }
 
+            <!-- Workflow intervention technique : demande en attente d'accord Direction -->
+            @if (pendingIntervention; as pending) {
+              <div
+                class="flex flex-col gap-2 px-2.5 py-2 bg-amber-50 border border-amber-300 text-amber-950 text-xs rounded-lg mb-2"
+                [attr.data-testid]="'room-card-pending-intervention-' + room.number"
+              >
+                <div class="flex items-start gap-1.5 font-bold">
+                  <span class="material-symbols-outlined text-[16px] text-amber-700 shrink-0 mt-0.5">hourglass_top</span>
+                  <span>En attente d'accord du Directeur</span>
+                </div>
+                <p class="text-[11px] text-amber-900 break-words">{{ pending.issueDescription }}</p>
+                @if (currentRole === Role.DIRECTION) {
+                  <div class="grid grid-cols-2 gap-1.5 pt-1">
+                    <button
+                      type="button"
+                      (click)="onApproveIntervention.emit(pending.id)"
+                      [attr.data-testid]="'card-btn-approve-' + pending.id"
+                      class="h-8 px-2 rounded-lg bg-emerald-700 hover:bg-emerald-800 text-white text-[11px] font-bold inline-flex items-center justify-center gap-1 cursor-pointer"
+                    >
+                      <span class="material-symbols-outlined text-[14px]">check</span>
+                      <span>Approuver</span>
+                    </button>
+                    <button
+                      type="button"
+                      (click)="onRejectIntervention.emit(pending)"
+                      [attr.data-testid]="'card-btn-reject-' + pending.id"
+                      class="h-8 px-2 rounded-lg bg-rose-600 hover:bg-rose-700 text-white text-[11px] font-bold inline-flex items-center justify-center gap-1 cursor-pointer"
+                    >
+                      <span class="material-symbols-outlined text-[14px]">close</span>
+                      <span>Refuser</span>
+                    </button>
+                  </div>
+                }
+              </div>
+            }
+
+            <!-- Workflow intervention technique : ordre approuvé visible pour MAINTENANCE -->
+            @if (approvedIntervention; as approved) {
+              @if (currentRole === Role.MAINTENANCE) {
+                <div
+                  class="flex flex-col gap-2 px-2.5 py-2 bg-blue-50 border border-blue-300 text-blue-950 text-xs rounded-lg mb-2"
+                  [attr.data-testid]="'room-card-approved-intervention-' + room.number"
+                >
+                  <div class="flex items-start gap-1.5 font-bold">
+                    <span class="material-symbols-outlined text-[16px] text-blue-700 shrink-0 mt-0.5">build</span>
+                    <span>Intervention approuvée</span>
+                  </div>
+                  <p class="text-[11px] text-blue-900 break-words">{{ approved.issueDescription }}</p>
+                  <button
+                    type="button"
+                    (click)="onCompleteIntervention.emit(approved.id)"
+                    [attr.data-testid]="'card-btn-complete-' + approved.id"
+                    class="w-full h-9 px-3 rounded-lg bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold inline-flex items-center justify-center gap-1.5 cursor-pointer"
+                  >
+                    <span class="material-symbols-outlined text-[16px]">check_circle</span>
+                    <span>Marquer comme réparé</span>
+                  </button>
+                </div>
+              }
+            }
+
             <!-- Alerte modification hors ligne -->
             @if (room.syncPending) {
               <div class="sync-pending-card-alert flex items-center gap-1.5 p-1.5 bg-amber-50 text-amber-800 text-xs rounded-lg mb-2 font-medium">
@@ -236,69 +303,114 @@ import { AuthService } from '../../../core/services/auth.service';
             <div class="actions-grid">
               @switch (room.status) {
                 @case (RoomStatus.FREE) {
-                  <!-- Action principale : Check-in -->
-                  <app-action-button
-                    label="Check-in"
-                    icon="login"
-                    variant="solid"
-                    color="success"
-                    [attr.data-action]="'check-in-' + room.number"
-                    [testId]="'action-btn-check-in-' + room.number"
-                    (action)="onStatusChange.emit({ status: RoomStatus.OCCUPIED, reason: 'Check-in client' })"
-                  ></app-action-button>
-                  <!-- Action secondaire : Maintenance -->
-                  <app-action-button
-                    label="Maintenance"
-                    icon="build"
-                    variant="outline"
-                    [attr.data-action]="'maintenance-' + room.number"
-                    [testId]="'action-btn-maintenance-' + room.number"
-                    (action)="onStatusChange.emit({ status: RoomStatus.MAINTENANCE, reason: 'Signalement panne' })"
-                  ></app-action-button>
+                  @if (currentRole === Role.DIRECTION || currentRole === Role.RECEPTION) {
+                    <!-- Action principale : Check-in -->
+                    <app-action-button
+                      label="Check-in"
+                      icon="login"
+                      variant="solid"
+                      color="success"
+                      [attr.data-action]="'check-in-' + room.number"
+                      [testId]="'action-btn-check-in-' + room.number"
+                      (action)="onStatusChange.emit({ status: RoomStatus.OCCUPIED, reason: 'Check-in client' })"
+                    ></app-action-button>
+                  }
+                  @if (canReportProblem) {
+                    @if (pendingIntervention) {
+                      <button
+                        type="button"
+                        disabled
+                        [attr.data-testid]="'btn-pending-director-' + room.number"
+                        class="h-10 px-3 rounded-xl bg-stone-200 text-stone-500 text-xs font-semibold inline-flex items-center justify-center gap-1.5 cursor-not-allowed"
+                      >
+                        <span class="material-symbols-outlined text-[16px]">hourglass_top</span>
+                        <span>En attente d'accord du Directeur</span>
+                      </button>
+                    } @else {
+                      <app-action-button
+                        label="Signaler un problème"
+                        icon="report_problem"
+                        variant="outline"
+                        [attr.data-action]="'report-problem-' + room.number"
+                        [testId]="'btn-report-problem-' + room.number"
+                        (action)="onReportProblem.emit(room)"
+                      ></app-action-button>
+                    }
+                  }
                 }
 
                 @case (RoomStatus.OCCUPIED) {
-                  <!-- Action principale : Check-out -->
-                  <app-action-button
-                    label="Check-out"
-                    icon="logout"
-                    variant="solid"
-                    color="primary"
-                    [attr.data-action]="'check-out-' + room.number"
-                    [testId]="'action-btn-check-out-' + room.number"
-                    (action)="onStatusChange.emit({ status: RoomStatus.CLEANING, reason: 'Check-out client' })"
-                  ></app-action-button>
-                  <!-- Action secondaire : Maintenance -->
-                  <app-action-button
-                    label="Maintenance"
-                    icon="build"
-                    variant="outline"
-                    [attr.data-action]="'maintenance-' + room.number"
-                    [testId]="'action-btn-maintenance-' + room.number"
-                    (action)="onStatusChange.emit({ status: RoomStatus.MAINTENANCE, reason: 'Incident en chambre' })"
-                  ></app-action-button>
+                  @if (currentRole === Role.DIRECTION || currentRole === Role.RECEPTION) {
+                    <!-- Action principale : Check-out -->
+                    <app-action-button
+                      label="Check-out"
+                      icon="logout"
+                      variant="solid"
+                      color="primary"
+                      [attr.data-action]="'check-out-' + room.number"
+                      [testId]="'action-btn-check-out-' + room.number"
+                      (action)="onStatusChange.emit({ status: RoomStatus.CLEANING, reason: 'Check-out client' })"
+                    ></app-action-button>
+                  }
+                  @if (canReportProblem) {
+                    @if (pendingIntervention) {
+                      <button
+                        type="button"
+                        disabled
+                        [attr.data-testid]="'btn-pending-director-' + room.number"
+                        class="h-10 px-3 rounded-xl bg-stone-200 text-stone-500 text-xs font-semibold inline-flex items-center justify-center gap-1.5 cursor-not-allowed"
+                      >
+                        <span class="material-symbols-outlined text-[16px]">hourglass_top</span>
+                        <span>En attente d'accord du Directeur</span>
+                      </button>
+                    } @else {
+                      <app-action-button
+                        label="Signaler un problème"
+                        icon="report_problem"
+                        variant="outline"
+                        [attr.data-action]="'report-problem-' + room.number"
+                        [testId]="'btn-report-problem-' + room.number"
+                        (action)="onReportProblem.emit(room)"
+                      ></app-action-button>
+                    }
+                  }
                 }
 
                 @case (RoomStatus.CLEANING) {
-                  <!-- Action principale : Marquer propre -->
-                  <app-action-button
-                    label="Marquer propre"
-                    icon="done_all"
-                    variant="solid"
-                    color="success"
-                    [attr.data-action]="'mark-free-' + room.number"
-                    [testId]="'action-btn-mark-clean-' + room.number"
-                    (action)="onStatusChange.emit({ status: RoomStatus.FREE, reason: 'Ménage achevé et contrôlé' })"
-                  ></app-action-button>
-                  <!-- Action secondaire : Maintenance -->
-                  <app-action-button
-                    label="Maintenance"
-                    icon="build"
-                    variant="outline"
-                    [attr.data-action]="'maintenance-' + room.number"
-                    [testId]="'action-btn-maintenance-' + room.number"
-                    (action)="onStatusChange.emit({ status: RoomStatus.MAINTENANCE, reason: 'Panne constatée au ménage' })"
-                  ></app-action-button>
+                  @if (currentRole !== Role.MAINTENANCE) {
+                    <!-- Action principale : Marquer propre -->
+                    <app-action-button
+                      label="Marquer propre"
+                      icon="done_all"
+                      variant="solid"
+                      color="success"
+                      [attr.data-action]="'mark-free-' + room.number"
+                      [testId]="'action-btn-mark-clean-' + room.number"
+                      (action)="onStatusChange.emit({ status: RoomStatus.FREE, reason: 'Ménage achevé et contrôlé' })"
+                    ></app-action-button>
+                  }
+                  @if (canReportProblem) {
+                    @if (pendingIntervention) {
+                      <button
+                        type="button"
+                        disabled
+                        [attr.data-testid]="'btn-pending-director-' + room.number"
+                        class="h-10 px-3 rounded-xl bg-stone-200 text-stone-500 text-xs font-semibold inline-flex items-center justify-center gap-1.5 cursor-not-allowed"
+                      >
+                        <span class="material-symbols-outlined text-[16px]">hourglass_top</span>
+                        <span>En attente d'accord du Directeur</span>
+                      </button>
+                    } @else {
+                      <app-action-button
+                        label="Signaler un problème"
+                        icon="report_problem"
+                        variant="outline"
+                        [attr.data-action]="'report-problem-' + room.number"
+                        [testId]="'btn-report-problem-' + room.number"
+                        (action)="onReportProblem.emit(room)"
+                      ></app-action-button>
+                    }
+                  }
                 }
 
                 @case (RoomStatus.MAINTENANCE) {
@@ -426,6 +538,10 @@ export class RoomStatusCardComponent {
   @Output() onReactivate = new EventEmitter<RoomUiItem>();
   @Output() onDelete = new EventEmitter<RoomUiItem>();
   @Output() onView = new EventEmitter<RoomUiItem>();
+  @Output() onReportProblem = new EventEmitter<RoomUiItem>();
+  @Output() onApproveIntervention = new EventEmitter<string>();
+  @Output() onRejectIntervention = new EventEmitter<RoomInterventionRequestDto>();
+  @Output() onCompleteIntervention = new EventEmitter<string>();
 
   readonly RoomStatus = RoomStatus;
   readonly Role = Role;
@@ -538,6 +654,26 @@ export class RoomStatusCardComponent {
   onActionDelete(): void {
     this.closeMenu(true);
     this.onDelete.emit(this.room);
+  }
+
+  get canReportProblem(): boolean {
+    return this.currentRole === Role.RECEPTION || this.currentRole === Role.HOUSEKEEPING;
+  }
+
+  get pendingIntervention(): RoomInterventionRequestDto | null {
+    return (
+      (this.room?.activeInterventions || []).find(
+        (i) => i.status === RoomInterventionStatus.PENDING_DIRECTOR,
+      ) || null
+    );
+  }
+
+  get approvedIntervention(): RoomInterventionRequestDto | null {
+    return (
+      (this.room?.activeInterventions || []).find(
+        (i) => i.status === RoomInterventionStatus.APPROVED,
+      ) || null
+    );
   }
 
   get canRestoreFromMaintenance(): boolean {

@@ -48,14 +48,17 @@ describe('API Chambres & Porte de Sécurité (E2E & Intégration)', () => {
       roleTokens[r] = (await issueDbTestToken(prisma, r)).token;
     }
 
-    // Récupérer une chambre et une catégorie existante (ou semer si la base est vide)
+    // Récupérer une chambre du seed (101..302, possédant un historique) ou semer si absente
+    const seedRoomNumbers = ['101', '102', '103', '104', '105', '106', '201', '202', '203', '204', '301', '302'];
     let existingRoom = await prisma.room.findFirst({
+      where: { number: { in: seedRoomNumbers } },
       include: { type: true },
     });
 
     if (!existingRoom) {
       await seedRooms();
       existingRoom = await prisma.room.findFirst({
+        where: { number: { in: seedRoomNumbers } },
         include: { type: true },
       });
     }
@@ -185,11 +188,30 @@ describe('API Chambres & Porte de Sécurité (E2E & Intégration)', () => {
     });
 
     it('doit interdire à HOUSEKEEPING et RECEPTION de remettre une chambre MAINTENANCE en service (403) mais l’autoriser à DIRECTION et MAINTENANCE avec motif persisté', async () => {
-      // 1. Ménage signale une fuite d'eau depuis CLEANING -> MAINTENANCE avec motif
+      // 1. Verrou strict : impossible de passer en MAINTENANCE sans demande approuvée par la Direction
+      await prisma.roomInterventionRequest.deleteMany({ where: { roomId: testRoomId } });
       await prisma.room.update({
         where: { id: testRoomId },
         data: { status: 'CLEANING', maintenanceReason: null },
       });
+
+      await request(app.getHttpServer())
+        .patch(`/api/rooms/${testRoomId}/status`)
+        .set('Authorization', `Bearer ${roleTokens[Role.HOUSEKEEPING]}`)
+        .send({ status: RoomStatus.MAINTENANCE, reason: "Fuite d'eau — lavabo" })
+        .expect(403);
+
+      // Constat par HOUSEKEEPING puis approbation par DIRECTION -> autorise le passage en MAINTENANCE
+      const createdInt = await request(app.getHttpServer())
+        .post(`/api/rooms/${testRoomId}/intervention`)
+        .set('Authorization', `Bearer ${roleTokens[Role.HOUSEKEEPING]}`)
+        .send({ issueDescription: "Fuite d'eau — lavabo" })
+        .expect(201);
+
+      await request(app.getHttpServer())
+        .post(`/api/rooms/interventions/${createdInt.body.id}/approve`)
+        .set('Authorization', `Bearer ${roleTokens[Role.DIRECTION]}`)
+        .expect(200);
 
       const reportRes = await request(app.getHttpServer())
         .patch(`/api/rooms/${testRoomId}/status`)
@@ -243,7 +265,7 @@ describe('API Chambres & Porte de Sécurité (E2E & Intégration)', () => {
       expect(techRestore.body.status).toBe(RoomStatus.CLEANING);
       expect(techRestore.body.maintenanceReason).toBeNull();
 
-      // 4. HOUSEKEEPING peut signaler un problème même depuis OCCUPIED
+      // 4. Avec demande approuvée, passage en MAINTENANCE autorisé même depuis OCCUPIED
       await prisma.room.update({ where: { id: testRoomId }, data: { status: 'OCCUPIED', maintenanceReason: null } });
       await request(app.getHttpServer())
         .patch(`/api/rooms/${testRoomId}/status`)
@@ -259,6 +281,8 @@ describe('API Chambres & Porte de Sécurité (E2E & Intégration)', () => {
         .expect(200);
       expect(dirRestore.body.status).toBe(RoomStatus.FREE);
       expect(dirRestore.body.maintenanceReason).toBeNull();
+
+      await prisma.roomInterventionRequest.deleteMany({ where: { roomId: testRoomId } });
     });
 
     it('doit interdire à RESTAURANT de modifier le statut d’une chambre (403 Forbidden)', async () => {

@@ -1,5 +1,5 @@
 import { signal } from '@angular/core';
-import { Role, RoomStatus } from '@residence-blue/shared';
+import { Role, RoomInterventionStatus, RoomStatus } from '@residence-blue/shared';
 import { MenageChambresComponent, MENAGE_PROBLEM_CHOICES } from './menage-chambres.component';
 import { RoomsService, RoomUiItem } from '../../core/services/rooms.service';
 import { NetworkService } from '../../core/offline/network.service';
@@ -9,6 +9,7 @@ describe('MenageChambresComponent', () => {
   let component: MenageChambresComponent;
   let roomsSig: ReturnType<typeof signal<RoomUiItem[]>>;
   let changeRoomStatusMock: jest.Mock;
+  let requestInterventionMock: jest.Mock;
 
   beforeEach(() => {
     roomsSig = signal<RoomUiItem[]>([
@@ -74,12 +75,38 @@ describe('MenageChambresComponent', () => {
       return true;
     });
 
+    requestInterventionMock = jest.fn().mockImplementation(async (roomId: string, issueDescription: string) => {
+      roomsSig.update((list) =>
+        list.map((r) =>
+          r.id === roomId
+            ? {
+                ...r,
+                activeInterventions: [
+                  {
+                    id: 'int-1',
+                    roomId,
+                    reportedById: 'u-hk',
+                    issueDescription,
+                    status: RoomInterventionStatus.PENDING_DIRECTOR,
+                    createdAt: new Date().toISOString(),
+                    updatedAt: new Date().toISOString(),
+                  },
+                ],
+              }
+            : r,
+        ),
+      );
+      return true;
+    });
+
     const mockRoomsService = {
       activeRooms: () => roomsSig().filter((r) => r.isActive !== false),
       errorMessage: signal<string | null>(null),
       successMessage: signal<string | null>(null),
       currentRole: () => Role.HOUSEKEEPING,
       changeRoomStatus: changeRoomStatusMock,
+      requestIntervention: requestInterventionMock,
+      pendingInterventions: signal([]),
       syncOutbox: jest.fn(),
     } as unknown as RoomsService;
 
@@ -118,19 +145,19 @@ describe('MenageChambresComponent', () => {
     expect(component.cleaningRooms().map((r) => r.number)).toEqual(['101', '103']);
   });
 
-  it('envoie un signalement de problème avec choix + note vers PATCH status MAINTENANCE', async () => {
+  it('envoie un constat de problème vers requestIntervention (PENDING_DIRECTOR) sans passer directement en MAINTENANCE', async () => {
     const occupiedRoom = component.occupiedRooms()[0];
     component.openProblemModal(occupiedRoom);
     component.selectedProblemChoice.set('Climatisation');
     component.problemDetails.set('Souffle chaud');
     await component.submitProblem();
 
-    expect(changeRoomStatusMock).toHaveBeenCalledWith(
+    expect(requestInterventionMock).toHaveBeenCalledWith(
       occupiedRoom.id,
-      RoomStatus.MAINTENANCE,
       'Climatisation — Souffle chaud',
     );
+    expect(changeRoomStatusMock).not.toHaveBeenCalled();
     expect(component.problemModalRoom()).toBeNull();
-    expect(component.maintenanceRooms().map((r) => r.number)).toEqual(['102', '104']);
+    expect(component.hasPendingIntervention(component.occupiedRooms()[0])).toBe(true);
   });
 });

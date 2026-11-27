@@ -11,6 +11,44 @@ export enum RoomStatus {
   MAINTENANCE = 'MAINTENANCE',
 }
 
+export enum RoomInterventionStatus {
+  PENDING_DIRECTOR = 'PENDING_DIRECTOR',
+  APPROVED = 'APPROVED',
+  REJECTED = 'REJECTED',
+  COMPLETED = 'COMPLETED',
+  CANCELLED = 'CANCELLED',
+}
+
+export interface RoomInterventionRequestDto {
+  id: string;
+  roomId: string;
+  roomNumber?: string;
+  roomFloor?: number;
+  roomCategory?: string;
+  reportedById: string;
+  reportedByName?: string;
+  reportedByRole?: string;
+  issueDescription: string;
+  status: RoomInterventionStatus;
+  approvedById?: string | null;
+  approvedByName?: string | null;
+  approvedAt?: string | null;
+  rejectionReason?: string | null;
+  completedById?: string | null;
+  completedByName?: string | null;
+  completedAt?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateRoomInterventionDto {
+  issueDescription: string;
+}
+
+export interface RejectRoomInterventionDto {
+  reason?: string;
+}
+
 /**
  * Catégories de chambres à la Résidence Blue.
  */
@@ -53,6 +91,7 @@ export interface RoomDto {
   description?: string;
   internalNote?: string;
   maintenanceReason?: string | null;
+  activeInterventions?: RoomInterventionRequestDto[];
   isActive?: boolean;
   createdAt?: string | Date;
   updatedAt?: string | Date;

@@ -74,12 +74,42 @@ export class RoomsService {
    * triées par étage puis par numéro de chambre.
    */
   async findAll() {
-    return this.prisma.room.findMany({
+    const rooms = await this.prisma.room.findMany({
       include: {
         type: true,
+        interventionRequests: {
+          where: { status: { in: ['PENDING_DIRECTOR', 'APPROVED'] } },
+          orderBy: { createdAt: 'desc' },
+          include: {
+            reportedBy: { select: { id: true, fullName: true, email: true, role: true } },
+            approvedBy: { select: { id: true, fullName: true, email: true, role: true } },
+          },
+        },
       },
       orderBy: [{ floor: 'asc' }, { number: 'asc' }],
     });
+
+    return rooms.map((room: any) => ({
+      ...room,
+      activeInterventions: (room.interventionRequests || []).map((req: any) => ({
+        id: req.id,
+        roomId: req.roomId,
+        roomNumber: room.number,
+        roomFloor: room.floor,
+        roomCategory: room.category,
+        reportedById: req.reportedById,
+        reportedByName: req.reportedBy?.fullName || req.reportedBy?.email || 'Équipe',
+        reportedByRole: req.reportedBy?.role,
+        issueDescription: req.issueDescription,
+        status: req.status,
+        approvedById: req.approvedById ?? null,
+        approvedByName: req.approvedBy?.fullName || req.approvedBy?.email || null,
+        approvedAt: req.approvedAt instanceof Date ? req.approvedAt.toISOString() : req.approvedAt ?? null,
+        rejectionReason: req.rejectionReason ?? null,
+        createdAt: req.createdAt instanceof Date ? req.createdAt.toISOString() : req.createdAt,
+        updatedAt: req.updatedAt instanceof Date ? req.updatedAt.toISOString() : req.updatedAt,
+      })),
+    }));
   }
 
   /**
@@ -598,6 +628,27 @@ export class RoomsService {
         throw new ForbiddenException(msg);
       }
       throw new BadRequestException(msg);
+    }
+
+    // Verrou métier strict : aucune chambre ne peut passer en MAINTENANCE
+    // sans une demande d'intervention approuvée par la Direction.
+    if (
+      targetStatus === SharedRoomStatus.MAINTENANCE &&
+      currentStatus !== SharedRoomStatus.MAINTENANCE &&
+      this.prisma.roomInterventionRequest?.findFirst
+    ) {
+      const approvedIntervention = await this.prisma.roomInterventionRequest.findFirst({
+        where: {
+          roomId: id,
+          status: 'APPROVED',
+        },
+        select: { id: true },
+      });
+      if (!approvedIntervention) {
+        throw new ForbiddenException(
+          "Aucune chambre ne peut passer en statut MAINTENANCE sans une demande d'intervention approuvée par la Direction.",
+        );
+      }
     }
 
     const trimmedReason = dto.reason?.trim();

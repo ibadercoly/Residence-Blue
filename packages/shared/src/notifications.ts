@@ -1,6 +1,11 @@
-export type NotificationCategory = 'RESTAURANT' | 'HOUSEKEEPING';
+export type NotificationCategory = 'RESTAURANT' | 'HOUSEKEEPING' | 'MAINTENANCE';
 
 export type NotificationSeverity = 'INFO' | 'WARNING' | 'CRITICAL' | 'SUCCESS';
+
+export type InterventionNotificationType =
+  | 'INTERVENTION_DEMANDEE'
+  | 'INTERVENTION_APPROUVEE'
+  | 'INTERVENTION_REFUSEE';
 
 export type RestaurantNotificationType =
   | 'PLAT_CONFIRME_TEMPS'
@@ -13,7 +18,7 @@ export type RestaurantNotificationType =
 export interface AppNotificationDto {
   id: string;
   category: NotificationCategory;
-  type: RestaurantNotificationType | string;
+  type: RestaurantNotificationType | InterventionNotificationType | string;
   severity: NotificationSeverity;
   /** Ligne 1 : ce qui se passe (nom des plats + action/heure, jamais de prix). */
   title: string;
@@ -21,6 +26,7 @@ export interface AppNotificationDto {
   detail: string;
   orderId?: string | null;
   roomNumber?: string | null;
+  targetRoles?: string[];
   /** Route cible lors du clic sur la carte (ex. /restaurant?highlightOrder=...). */
   link: string;
   importantAlert: boolean;
