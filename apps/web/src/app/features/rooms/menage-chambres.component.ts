@@ -1,7 +1,7 @@
 import { Component, computed, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { RoomStatus } from '@residence-blue/shared';
+import { RoomInterventionStatus, RoomStatus } from '@residence-blue/shared';
 import { RoomsService, RoomUiItem } from '../../core/services/rooms.service';
 import { NetworkService } from '../../core/offline/network.service';
 import { OutboxService } from '../../core/offline/outbox.service';
@@ -161,16 +161,28 @@ export const MENAGE_PROBLEM_CHOICES: ProblemChoiceOption[] = [
                     <span>J'ai nettoyé</span>
                   </button>
 
-                  <button
-                    type="button"
-                    (click)="openProblemModal(room)"
-                    [disabled]="isRoomBusy(room.id)"
-                    [attr.data-testid]="'menage-btn-report-' + room.number"
-                    class="min-h-[64px] px-5 py-3 rounded-2xl border-2 border-rose-300 bg-rose-50 hover:bg-rose-100 disabled:opacity-50 text-rose-900 text-[20px] font-bold inline-flex items-center justify-center gap-2.5 transition-colors cursor-pointer"
-                  >
-                    <span class="material-symbols-outlined text-[26px]" aria-hidden="true">report_problem</span>
-                    <span>Signaler un problème</span>
-                  </button>
+                  @if (hasPendingIntervention(room)) {
+                    <button
+                      type="button"
+                      disabled
+                      [attr.data-testid]="'menage-btn-pending-director-' + room.number"
+                      class="min-h-[64px] px-5 py-3 rounded-2xl border-2 border-stone-300 bg-stone-200 text-stone-600 text-[18px] font-bold inline-flex items-center justify-center gap-2.5 cursor-not-allowed"
+                    >
+                      <span class="material-symbols-outlined text-[24px]" aria-hidden="true">hourglass_top</span>
+                      <span>En attente d'accord du Directeur</span>
+                    </button>
+                  } @else {
+                    <button
+                      type="button"
+                      (click)="openProblemModal(room)"
+                      [disabled]="isRoomBusy(room.id)"
+                      [attr.data-testid]="'menage-btn-report-' + room.number"
+                      class="min-h-[64px] px-5 py-3 rounded-2xl border-2 border-rose-300 bg-rose-50 hover:bg-rose-100 disabled:opacity-50 text-rose-900 text-[20px] font-bold inline-flex items-center justify-center gap-2.5 transition-colors cursor-pointer"
+                    >
+                      <span class="material-symbols-outlined text-[26px]" aria-hidden="true">report_problem</span>
+                      <span>Signaler un problème</span>
+                    </button>
+                  }
                 </div>
               </article>
             }
@@ -212,16 +224,28 @@ export const MENAGE_PROBLEM_CHOICES: ProblemChoiceOption[] = [
                   </span>
                 </div>
 
-                <button
-                  type="button"
-                  (click)="openProblemModal(room)"
-                  [disabled]="isRoomBusy(room.id)"
-                  [attr.data-testid]="'menage-btn-report-' + room.number"
-                  class="w-full min-h-[64px] px-4 py-3 rounded-2xl border-2 border-outline-variant bg-surface-container-lowest hover:bg-rose-50 hover:border-rose-300 text-on-surface text-[20px] font-bold inline-flex items-center justify-center gap-2.5 transition-colors cursor-pointer"
-                >
-                  <span class="material-symbols-outlined text-[24px] text-rose-700" aria-hidden="true">report_problem</span>
-                  <span>Signaler un problème</span>
-                </button>
+                @if (hasPendingIntervention(room)) {
+                  <button
+                    type="button"
+                    disabled
+                    [attr.data-testid]="'menage-btn-pending-director-' + room.number"
+                    class="w-full min-h-[64px] px-4 py-3 rounded-2xl border-2 border-stone-300 bg-stone-200 text-stone-600 text-[18px] font-bold inline-flex items-center justify-center gap-2.5 cursor-not-allowed"
+                  >
+                    <span class="material-symbols-outlined text-[24px]" aria-hidden="true">hourglass_top</span>
+                    <span>En attente d'accord du Directeur</span>
+                  </button>
+                } @else {
+                  <button
+                    type="button"
+                    (click)="openProblemModal(room)"
+                    [disabled]="isRoomBusy(room.id)"
+                    [attr.data-testid]="'menage-btn-report-' + room.number"
+                    class="w-full min-h-[64px] px-4 py-3 rounded-2xl border-2 border-outline-variant bg-surface-container-lowest hover:bg-rose-50 hover:border-rose-300 text-on-surface text-[20px] font-bold inline-flex items-center justify-center gap-2.5 transition-colors cursor-pointer"
+                  >
+                    <span class="material-symbols-outlined text-[24px] text-rose-700" aria-hidden="true">report_problem</span>
+                    <span>Signaler un problème</span>
+                  </button>
+                }
               </article>
             }
           </div>
@@ -274,16 +298,28 @@ export const MENAGE_PROBLEM_CHOICES: ProblemChoiceOption[] = [
                     <span>À nettoyer</span>
                   </button>
 
-                  <button
-                    type="button"
-                    (click)="openProblemModal(room)"
-                    [disabled]="isRoomBusy(room.id)"
-                    [attr.data-testid]="'menage-btn-report-' + room.number"
-                    class="w-full min-h-[64px] px-4 py-3 rounded-2xl border-2 border-outline-variant bg-surface-container-lowest hover:bg-rose-50 hover:border-rose-300 text-on-surface text-[20px] font-bold inline-flex items-center justify-center gap-2.5 transition-colors cursor-pointer"
-                  >
-                    <span class="material-symbols-outlined text-[24px] text-rose-700" aria-hidden="true">report_problem</span>
-                    <span>Signaler un problème</span>
-                  </button>
+                  @if (hasPendingIntervention(room)) {
+                    <button
+                      type="button"
+                      disabled
+                      [attr.data-testid]="'menage-btn-pending-director-' + room.number"
+                      class="w-full min-h-[64px] px-4 py-3 rounded-2xl border-2 border-stone-300 bg-stone-200 text-stone-600 text-[18px] font-bold inline-flex items-center justify-center gap-2.5 cursor-not-allowed"
+                    >
+                      <span class="material-symbols-outlined text-[24px]" aria-hidden="true">hourglass_top</span>
+                      <span>En attente d'accord du Directeur</span>
+                    </button>
+                  } @else {
+                    <button
+                      type="button"
+                      (click)="openProblemModal(room)"
+                      [disabled]="isRoomBusy(room.id)"
+                      [attr.data-testid]="'menage-btn-report-' + room.number"
+                      class="w-full min-h-[64px] px-4 py-3 rounded-2xl border-2 border-outline-variant bg-surface-container-lowest hover:bg-rose-50 hover:border-rose-300 text-on-surface text-[20px] font-bold inline-flex items-center justify-center gap-2.5 transition-colors cursor-pointer"
+                    >
+                      <span class="material-symbols-outlined text-[24px] text-rose-700" aria-hidden="true">report_problem</span>
+                      <span>Signaler un problème</span>
+                    </button>
+                  }
                 </div>
               </article>
             }
@@ -368,7 +404,7 @@ export const MENAGE_PROBLEM_CHOICES: ProblemChoiceOption[] = [
               data-testid="menage-problem-warning"
             >
               <span class="material-symbols-outlined text-[26px] text-rose-700 shrink-0 mt-0.5" aria-hidden="true">warning</span>
-              <span>Cette chambre ne pourra plus être louée tant qu'elle n'est pas réparée</span>
+              <span>Votre demande sera transmise à la Direction pour validation avant toute intervention technique.</span>
             </div>
           </div>
 
@@ -493,6 +529,18 @@ export class MenageChambresComponent {
     this.problemDetails.set('');
   }
 
+  hasPendingIntervention(room: RoomUiItem): boolean {
+    const onRoom = (room.activeInterventions || []).some(
+      (i) => i.status === RoomInterventionStatus.PENDING_DIRECTOR,
+    );
+    if (onRoom) return true;
+    const pendingList =
+      typeof this.roomsService.pendingInterventions === 'function'
+        ? this.roomsService.pendingInterventions()
+        : [];
+    return pendingList.some((i) => i.roomId === room.id);
+  }
+
   async submitProblem(): Promise<void> {
     const room = this.problemModalRoom();
     const choice = this.selectedProblemChoice();
@@ -503,7 +551,7 @@ export class MenageChambresComponent {
 
     this.isSubmittingProblem.set(true);
     try {
-      const ok = await this.roomsService.changeRoomStatus(room.id, RoomStatus.MAINTENANCE, reason);
+      const ok = await this.roomsService.requestIntervention(room.id, reason);
       if (ok) {
         this.closeProblemModal();
       }

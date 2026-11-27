@@ -7,6 +7,8 @@ import {
   CreateRoomDto,
   UpdateRoomDto,
   RoomStatus,
+  RoomInterventionStatus,
+  RoomInterventionRequestDto,
   RoomStatusStreamEvent,
   SEED_ROOMS,
   Role,
@@ -90,6 +92,15 @@ export class RoomsService {
 
   readonly errorMessage = signal<string | null>(null);
   readonly successMessage = signal<string | null>(null);
+
+  /** Demandes d'intervention technique en chambre (workflow validation Direction) */
+  readonly interventions = signal<RoomInterventionRequestDto[]>([]);
+  readonly pendingInterventions = computed(() =>
+    this.interventions().filter((i) => i.status === RoomInterventionStatus.PENDING_DIRECTOR),
+  );
+  readonly approvedInterventions = computed(() =>
+    this.interventions().filter((i) => i.status === RoomInterventionStatus.APPROVED),
+  );
 
   /** Alertes temps réel d'état des chambres (RECEPTION, DIRECTION, TECHNIQUE) */
   private readonly alertSoundStorageKey = 'residence_blue_room_alerts_sound';
@@ -228,6 +239,7 @@ export class RoomsService {
         const allowed = this.canReceiveRoomAlerts();
         if (authenticated) {
           void this.fetchFromServer();
+          void this.fetchInterventions();
         }
         if (authenticated && allowed) {
           this.startLiveAlerts();
@@ -958,6 +970,215 @@ export class RoomsService {
   async syncOutbox(): Promise<void> {
     await this.outbox.syncOutbox();
     await this.fetchFromServer();
+    await this.fetchInterventions();
+  }
+
+  /**
+   * Charge les demandes d'intervention technique visibles pour le rôle connecté.
+   */
+  async fetchInterventions(): Promise<RoomInterventionRequestDto[]> {
+    if (this.authService && !this.authService.isAuthenticated()) {
+      return [];
+    }
+    try {
+      const response = await fetch('/api/rooms/interventions', {
+        credentials: 'include',
+        headers: this.getAuthHeaders(),
+      });
+      if (!response.ok) {
+        return this.interventions();
+      }
+      const data: RoomInterventionRequestDto[] = await response.json();
+      this.interventions.set(Array.isArray(data) ? data : []);
+      return this.interventions();
+    } catch {
+      return this.interventions();
+    }
+  }
+
+  /**
+   * Constat d'un problème en chambre par Ménage ou Réception -> statut PENDING_DIRECTOR.
+   */
+  async requestIntervention(roomId: string, issueDescription: string): Promise<boolean> {
+    this.errorMessage.set(null);
+    this.successMessage.set(null);
+
+    const cleanDesc = issueDescription.trim();
+    if (!cleanDesc) {
+      this.errorMessage.set('La description du problème est obligatoire.');
+      return false;
+    }
+
+    const room = this.rooms().find((r) => r.id === roomId);
+    const tempId =
+      typeof crypto !== 'undefined' && crypto.randomUUID
+        ? crypto.randomUUID()
+        : `int-${Date.now()}`;
+    const nowIso = new Date().toISOString();
+    const optimistic: RoomInterventionRequestDto = {
+      id: tempId,
+      roomId,
+      roomNumber: room?.number,
+      roomFloor: room?.floor,
+      roomCategory: room?.category || room?.type?.name,
+      reportedById: this.authService?.currentUser()?.id || '',
+      reportedByName: this.authService?.currentUser()?.fullName || 'Équipe',
+      reportedByRole: this.currentRole(),
+      issueDescription: cleanDesc,
+      status: RoomInterventionStatus.PENDING_DIRECTOR,
+      createdAt: nowIso,
+      updatedAt: nowIso,
+    };
+
+    const applyLocal = (entry: RoomInterventionRequestDto) => {
+      this.interventions.update((list) => [entry, ...list.filter((i) => i.id !== tempId && i.id !== entry.id)]);
+      this.rooms.update((list) =>
+        list.map((r) =>
+          r.id === roomId
+            ? {
+                ...r,
+                activeInterventions: [
+                  entry,
+                  ...(r.activeInterventions || []).filter((i) => i.id !== tempId && i.id !== entry.id),
+                ],
+              }
+            : r,
+        ),
+      );
+    };
+
+    applyLocal(optimistic);
+
+    if (!this.network.isOnline()) {
+      await this.outbox.enqueue('POST_ROOM_INTERVENTION', `/api/rooms/${roomId}/intervention`, {
+        issueDescription: cleanDesc,
+      });
+      this.successMessage.set("Demande enregistrée hors-ligne (en attente d'accord du Directeur).");
+      return true;
+    }
+
+    try {
+      const response = await fetch(`/api/rooms/${roomId}/intervention`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: this.getAuthHeaders({
+          'Content-Type': 'application/json',
+          'Idempotency-Key': tempId,
+        }),
+        body: JSON.stringify({ issueDescription: cleanDesc }),
+      });
+
+      if (!response.ok) {
+        const errData = await response.json().catch(() => ({}));
+        this.errorMessage.set(errData.message || `Erreur serveur (${response.status}).`);
+        await this.fetchFromServer();
+        await this.fetchInterventions();
+        return false;
+      }
+
+      const created: RoomInterventionRequestDto = await response.json();
+      applyLocal(created);
+      this.successMessage.set(
+        `Problème signalé pour la chambre ${room?.number || ''} : en attente d'accord du Directeur.`,
+      );
+      await this.fetchFromServer();
+      await this.fetchInterventions();
+      return true;
+    } catch {
+      await this.outbox.enqueue('POST_ROOM_INTERVENTION', `/api/rooms/${roomId}/intervention`, {
+        issueDescription: cleanDesc,
+      });
+      this.successMessage.set("Connexion perturbée : demande mise en file d'attente hors-ligne.");
+      return true;
+    }
+  }
+
+  /**
+   * Validation par la Direction -> APPROVED + notification Maintenance.
+   */
+  async approveIntervention(interventionId: string): Promise<boolean> {
+    this.errorMessage.set(null);
+    this.successMessage.set(null);
+
+    try {
+      const response = await fetch(`/api/rooms/interventions/${interventionId}/approve`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: this.getAuthHeaders(),
+      });
+      if (!response.ok) {
+        const errData = await response.json().catch(() => ({}));
+        this.errorMessage.set(errData.message || `Erreur serveur (${response.status}).`);
+        return false;
+      }
+      this.successMessage.set(
+        "Intervention approuvée : l'ordre de mission a été transmis à l'équipe Technique.",
+      );
+      await Promise.all([this.fetchFromServer(), this.fetchInterventions()]);
+      return true;
+    } catch {
+      this.errorMessage.set("Impossible d'approuver l'intervention pour le moment.");
+      return false;
+    }
+  }
+
+  /**
+   * Refus par la Direction -> REJECTED + notification Réception & Ménage.
+   */
+  async rejectIntervention(interventionId: string, reason?: string): Promise<boolean> {
+    this.errorMessage.set(null);
+    this.successMessage.set(null);
+
+    try {
+      const response = await fetch(`/api/rooms/interventions/${interventionId}/reject`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: this.getAuthHeaders({ 'Content-Type': 'application/json' }),
+        body: JSON.stringify({ reason: reason?.trim() || undefined }),
+      });
+      if (!response.ok) {
+        const errData = await response.json().catch(() => ({}));
+        this.errorMessage.set(errData.message || `Erreur serveur (${response.status}).`);
+        return false;
+      }
+      this.successMessage.set(
+        'Demande refusée : la Réception et le Ménage ont été notifiés.',
+      );
+      await Promise.all([this.fetchFromServer(), this.fetchInterventions()]);
+      return true;
+    } catch {
+      this.errorMessage.set("Impossible de refuser l'intervention pour le moment.");
+      return false;
+    }
+  }
+
+  /**
+   * Clôture par l'équipe Technique (MAINTENANCE) -> COMPLETED + chambre remise en CLEANING.
+   */
+  async completeIntervention(interventionId: string): Promise<boolean> {
+    this.errorMessage.set(null);
+    this.successMessage.set(null);
+
+    try {
+      const response = await fetch(`/api/rooms/interventions/${interventionId}/complete`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: this.getAuthHeaders(),
+      });
+      if (!response.ok) {
+        const errData = await response.json().catch(() => ({}));
+        this.errorMessage.set(errData.message || `Erreur serveur (${response.status}).`);
+        return false;
+      }
+      this.successMessage.set(
+        'Intervention marquée comme réparée : la chambre passe en nettoyage (CLEANING).',
+      );
+      await Promise.all([this.fetchFromServer(), this.fetchInterventions()]);
+      return true;
+    } catch {
+      this.errorMessage.set('Impossible de clôturer cette intervention pour le moment.');
+      return false;
+    }
   }
 
 

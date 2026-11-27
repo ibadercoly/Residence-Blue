@@ -3,6 +3,8 @@ import {
   Controller,
   Delete,
   Get,
+  HttpCode,
+  HttpStatus,
   MessageEvent,
   NotFoundException,
   Optional,
@@ -23,13 +25,16 @@ import { map, merge, Observable, takeUntil, timer } from 'rxjs';
 import * as fs from 'fs';
 import * as path from 'path';
 import { RoomsService } from './rooms.service';
+import { RoomInterventionsService } from './room-interventions.service';
+import { CreateRoomInterventionDto } from './dto/create-room-intervention.dto';
+import { RejectRoomInterventionDto } from './dto/reject-room-intervention.dto';
 import { AvailableRoomsQueryDto } from './dto/available-rooms-query.dto';
 import { UpdateRoomStatusDto } from './dto/update-room-status.dto';
 import { CreateRoomDto } from './dto/create-room.dto';
 import { UpdateRoomDto } from './dto/update-room.dto';
 import { CreateRoomTypeDto, UpdateRoomTypeDto } from './dto/create-room-type.dto';
 import { Acces } from '../common/decorators/acces.decorator';
-import { Public, Roles } from '../common/decorators/roles.decorator';
+import { AllowDeferredRoles, Public, Roles } from '../common/decorators/roles.decorator';
 import { SessionRevocationService } from '../auth/session-revocation.service';
 import { hasSpecialPermission, isHousekeepingAccount, Role } from '@residence-blue/shared';
 import { maskAmountsInPayload } from '../common/utils/mask-amounts.util';
@@ -39,13 +44,15 @@ import { getUploadsDir, UploadedImageFile } from './rooms-image.util';
 export class RoomsController {
   constructor(
     private readonly roomsService: RoomsService,
+    private readonly roomInterventionsService: RoomInterventionsService,
     @Optional() private readonly sessionRevocation?: SessionRevocationService,
   ) {}
 
   /**
    * Consultation du catalogue et des statuts des chambres.
-   * Accessible à tous les rôles autorisés de l'hôtel.
+   * Accessible à tous les rôles autorisés de l'hôtel (y compris MAINTENANCE pour les interventions).
    */
+  @AllowDeferredRoles()
   @Acces({
     anyScreens: [
       { screen: 'chambres', level: 'LECTURE' },
@@ -151,8 +158,70 @@ export class RoomsController {
   }
 
   /**
+   * Liste des demandes d'intervention technique selon le rôle connecté.
+   */
+  @AllowDeferredRoles()
+  @Roles(Role.DIRECTION, Role.RECEPTION, Role.HOUSEKEEPING, Role.MAINTENANCE)
+  @Get('interventions')
+  async listInterventions(@Query('status') status: string | undefined, @Req() req: Request) {
+    return this.roomInterventionsService.listRequests((req as any).user, status);
+  }
+
+  /**
+   * Notifications d'intervention destinées au rôle connecté (DIRECTION, RECEPTION, HOUSEKEEPING, MAINTENANCE).
+   */
+  @AllowDeferredRoles()
+  @Roles(Role.DIRECTION, Role.RECEPTION, Role.HOUSEKEEPING, Role.MAINTENANCE)
+  @Get('interventions/notifications')
+  async listInterventionNotifications(@Req() req: Request) {
+    return this.roomInterventionsService.listNotificationsForUser((req as any).user);
+  }
+
+  /**
+   * Validation par la Direction d'une demande d'intervention -> APPROVED + notification MAINTENANCE.
+   */
+  @Roles(Role.DIRECTION)
+  @Post('interventions/:id/approve')
+  @HttpCode(HttpStatus.OK)
+  async approveIntervention(@Param('id') id: string, @Req() req: Request) {
+    const user = (req as any).user;
+    const ip = req.ip || req.socket.remoteAddress || undefined;
+    return this.roomInterventionsService.approveRequest(id, user, ip);
+  }
+
+  /**
+   * Refus par la Direction d'une demande d'intervention -> REJECTED + notification RECEPTION & HOUSEKEEPING.
+   */
+  @Roles(Role.DIRECTION)
+  @Post('interventions/:id/reject')
+  @HttpCode(HttpStatus.OK)
+  async rejectIntervention(
+    @Param('id') id: string,
+    @Body() dto: RejectRoomInterventionDto,
+    @Req() req: Request,
+  ) {
+    const user = (req as any).user;
+    const ip = req.ip || req.socket.remoteAddress || undefined;
+    return this.roomInterventionsService.rejectRequest(id, dto, user, ip);
+  }
+
+  /**
+   * Fin de réparation par l'équipe Technique (MAINTENANCE uniquement) -> COMPLETED + chambre en CLEANING.
+   */
+  @AllowDeferredRoles()
+  @Roles(Role.MAINTENANCE)
+  @Post('interventions/:id/complete')
+  @HttpCode(HttpStatus.OK)
+  async completeIntervention(@Param('id') id: string, @Req() req: Request) {
+    const user = (req as any).user;
+    const ip = req.ip || req.socket.remoteAddress || undefined;
+    return this.roomInterventionsService.completeRequest(id, user, ip);
+  }
+
+  /**
    * Détail d'une chambre par identifiant.
    */
+  @AllowDeferredRoles()
   @Acces({
     anyScreens: [
       { screen: 'chambres', level: 'LECTURE' },
@@ -245,9 +314,26 @@ export class RoomsController {
   }
 
   /**
+   * Constat d'un problème dans une chambre par le Ménage ou l'Assistant de Réception.
+   * Crée une demande PENDING_DIRECTOR en attente d'accord de la Direction.
+   */
+  @Roles(Role.HOUSEKEEPING, Role.RECEPTION)
+  @Post(':id/intervention')
+  async createIntervention(
+    @Param('id') id: string,
+    @Body() dto: CreateRoomInterventionDto,
+    @Req() req: Request,
+  ) {
+    const user = (req as any).user;
+    const ip = req.ip || req.socket.remoteAddress || undefined;
+    return this.roomInterventionsService.createRequest(id, dto, user, ip);
+  }
+
+  /**
    * Modification du statut d'une chambre selon la matrice des rôles et la machine à états.
    * Habilité pour DIRECTION, RECEPTION, HOUSEKEEPING et MAINTENANCE.
    */
+  @AllowDeferredRoles()
   @Acces({ screen: 'chambres', level: 'LECTURE', specialPermission: 'changer_etat_chambre' })
   @Patch(':id/status')
   async updateStatus(

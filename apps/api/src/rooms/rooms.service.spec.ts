@@ -2,7 +2,7 @@ import { jest } from '@jest/globals';
 import { Test, TestingModule } from '@nestjs/testing';
 import { RoomsService } from './rooms.service';
 import { PrismaService } from '../prisma/prisma.service';
-import { BadRequestException, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, NotFoundException } from '@nestjs/common';
 import { Role, RoomStatus } from '@residence-blue/shared';
 
 describe('RoomsService (Tests Unitaires Métier)', () => {
@@ -44,6 +44,9 @@ describe('RoomsService (Tests Unitaires Métier)', () => {
       },
       auditLog: {
         create: jest.fn().mockResolvedValue({ id: 'audit-uuid-1' }),
+      },
+      roomInterventionRequest: {
+        findFirst: jest.fn().mockResolvedValue(null),
       },
       $transaction: jest.fn().mockImplementation(async (callback) => callback(mockPrisma)),
     };
@@ -126,6 +129,31 @@ describe('RoomsService (Tests Unitaires Métier)', () => {
           Role.RESTAURANT,
         ),
       ).rejects.toThrow(BadRequestException);
+    });
+
+    it('doit REFUSER (403) le passage en MAINTENANCE sans demande d’intervention APPROVED par la Direction', async () => {
+      mockPrisma.roomInterventionRequest.findFirst.mockResolvedValueOnce(null);
+
+      await expect(
+        service.updateStatus(
+          sampleRoom.id,
+          { status: RoomStatus.MAINTENANCE, reason: 'Sans validation' },
+          Role.MAINTENANCE,
+        ),
+      ).rejects.toThrow(ForbiddenException);
+    });
+
+    it('doit AUTORISER le passage en MAINTENANCE si une demande d’intervention APPROVED existe', async () => {
+      mockPrisma.roomInterventionRequest.findFirst.mockResolvedValueOnce({
+        id: 'approved-int-1',
+      });
+
+      const updated = await service.updateStatus(
+        sampleRoom.id,
+        { status: RoomStatus.MAINTENANCE, reason: 'Intervention validée' },
+        Role.MAINTENANCE,
+      );
+      expect(updated.status).toBe(RoomStatus.MAINTENANCE);
     });
   });
 
