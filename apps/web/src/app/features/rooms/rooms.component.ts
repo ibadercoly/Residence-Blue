@@ -425,6 +425,7 @@ import { ReportInterventionModalComponent } from '../../shared/components/report
             (onApproveIntervention)="approveIntervention($event)"
             (onRejectIntervention)="openRejectInterventionModal($event)"
             (onCompleteIntervention)="completeIntervention($event)"
+            (onAssignCategory)="assignRoomCategory(room, $event)"
           ></app-room-status-card>
         } @empty {
           <div class="col-span-full py-12 text-center text-on-surface-variant bg-surface-container-lowest rounded-2xl border border-outline-variant/60">
@@ -525,7 +526,7 @@ import { ReportInterventionModalComponent } from '../../shared/components/report
               </div>
 
               <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <!-- Catégorie (Standard, Deluxe, Suite ou à la volée) -->
+                <!-- Catégorie réelle (Standard, Confort, Appartement ou À classer) -->
                 <div>
                   <label for="room-category" class="block text-xs font-semibold text-on-surface mb-1">
                     Catégorie <span class="text-rose-500">*</span>
@@ -537,20 +538,10 @@ import { ReportInterventionModalComponent } from '../../shared/components/report
                     class="w-full h-10 px-3 rounded-xl bg-surface-container-lowest border border-outline-variant/60 text-on-surface text-sm font-medium outline-none focus:ring-2 focus:ring-primary/20"
                   >
                     <option value="Standard">Standard</option>
-                    <option value="Deluxe">Deluxe</option>
-                    <option value="Suite">Suite</option>
-                    <option value="Autre">Autre catégorie (créée à la volée)...</option>
+                    <option value="Confort">Confort</option>
+                    <option value="Appartement">Appartement</option>
+                    <option value="À classer">À classer</option>
                   </select>
-
-                  @if (formCategory === 'Autre') {
-                    <input
-                      type="text"
-                      [(ngModel)]="formCustomCategory"
-                      placeholder="Nom de la nouvelle catégorie"
-                      data-testid="input-room-category-custom"
-                      class="w-full h-10 px-3 mt-2 rounded-xl bg-surface-container-lowest border border-primary text-on-surface text-xs font-medium outline-none focus:ring-2 focus:ring-primary/20"
-                    />
-                  }
                 </div>
 
                 <!-- Statut initial (Libre ou Maintenance) -->
@@ -654,20 +645,20 @@ import { ReportInterventionModalComponent } from '../../shared/components/report
                   </select>
                 </div>
 
-                <!-- Vue -->
+                <!-- Vue (facultative — aucune valeur inventée par défaut) -->
                 <div>
-                  <label for="room-view" class="block text-xs font-semibold text-on-surface mb-1">Vue</label>
+                  <label for="room-view" class="block text-xs font-semibold text-on-surface mb-1">Vue (facultatif)</label>
                   <select
                     id="room-view"
                     [(ngModel)]="formView"
                     data-testid="select-room-view"
                     class="w-full h-10 px-3 rounded-xl bg-surface-container-lowest border border-outline-variant/60 text-on-surface text-sm font-medium outline-none focus:ring-2 focus:ring-primary/20"
                   >
+                    <option value="">Non renseignée</option>
                     <option value="jardin">Jardin intérieur</option>
                     <option value="ville">Ville (Thiès)</option>
                     <option value="piscine">Piscine & Patio</option>
                     <option value="cour">Cour fleurie</option>
-                    <option value="mer">Mer (panoramique)</option>
                   </select>
                 </div>
               </div>
@@ -780,59 +771,12 @@ import { ReportInterventionModalComponent } from '../../shared/components/report
                 </h3>
               </div>
 
-              @if (roomsService.canViewAmounts()) {
-              <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <!-- Prix standard par nuit (obligatoire, entier positif FCFA) -->
-                <div>
-                  <label for="room-price" class="block text-xs font-semibold text-on-surface mb-1">
-                    Prix par nuit (FCFA) <span class="text-rose-500">*</span>
-                  </label>
-                  <input
-                    id="room-price"
-                    type="number"
-                    min="1"
-                    step="1000"
-                    [(ngModel)]="formPrice"
-                    data-testid="input-room-price"
-                    class="w-full h-10 px-3 rounded-xl bg-surface-container-lowest border border-outline-variant/60 text-on-surface text-sm font-bold text-primary outline-none focus:ring-2 focus:ring-primary/20"
-                  />
-                </div>
-
-                <!-- Tarif haute saison -->
-                <div>
-                  <label for="room-price-high" class="block text-xs font-semibold text-on-surface mb-1">
-                    Haute saison (FCFA)
-                  </label>
-                  <input
-                    id="room-price-high"
-                    type="number"
-                    min="0"
-                    step="1000"
-                    [(ngModel)]="formHighSeasonPrice"
-                    placeholder="Optionnel"
-                    data-testid="input-room-price-high"
-                    class="w-full h-10 px-3 rounded-xl bg-surface-container-lowest border border-outline-variant/60 text-on-surface text-sm font-medium outline-none focus:ring-2 focus:ring-primary/20"
-                  />
-                </div>
-
-                <!-- Tarif entreprise -->
-                <div>
-                  <label for="room-price-corporate" class="block text-xs font-semibold text-on-surface mb-1">
-                    Entreprise (FCFA)
-                  </label>
-                  <input
-                    id="room-price-corporate"
-                    type="number"
-                    min="0"
-                    step="1000"
-                    [(ngModel)]="formCorporatePrice"
-                    placeholder="Optionnel"
-                    data-testid="input-room-price-corporate"
-                    class="w-full h-10 px-3 rounded-xl bg-surface-container-lowest border border-outline-variant/60 text-on-surface text-sm font-medium outline-none focus:ring-2 focus:ring-primary/20"
-                  />
-                </div>
+              <!-- Les tarifs sont gérés par catégorie dans Administration -> Tarifs.
+                   Les anciens champs haute saison et entreprise sont masqués (colonnes conservées en base). -->
+              <div class="rounded-xl border border-primary/25 bg-primary/5 p-3 text-xs text-on-surface">
+                Les prix par nuit (selon le nombre de personnes et la catégorie) sont gérés depuis
+                <strong>Administration → Tarifs</strong>.
               </div>
-              }
 
               <!-- Petit-déjeuner inclus -->
               <div class="flex items-center gap-2">
@@ -1168,13 +1112,13 @@ export class RoomsComponent {
   formChildren: number = 0;
   formBedType: string = 'queen';
   formBedsCount: number = 1;
-  formSurfaceM2: number = 25;
-  formView: string = 'jardin';
+  formSurfaceM2: number | null = null;
+  formView: string = '';
   formSmoking: boolean = false;
   formConnectingRoom: string = '';
   formAmenities: string[] = ['Climatisation', 'Wi-Fi Fibre'];
   formCustomAmenity: string = '';
-  formPrice: number = 35000;
+  formPrice: number | null = null;
   formHighSeasonPrice: number | null = null;
   formCorporatePrice: number | null = null;
   formBreakfastIncluded: boolean = true;
@@ -1458,6 +1402,12 @@ export class RoomsComponent {
     await this.roomsService.deactivateRoom(roomId, true);
   }
 
+  async assignRoomCategory(room: RoomUiItem, category: string): Promise<void> {
+    if (!room?.id || !category) return;
+    await this.roomsService.updateRoom(room.id, { category });
+    await this.roomsService.fetchFromServer();
+  }
+
   resetForm(): void {
     this.formNumber = '';
     this.formFloor = 1;
@@ -1468,13 +1418,13 @@ export class RoomsComponent {
     this.formChildren = 0;
     this.formBedType = 'queen';
     this.formBedsCount = 1;
-    this.formSurfaceM2 = 25;
-    this.formView = 'jardin';
+    this.formSurfaceM2 = null;
+    this.formView = '';
     this.formSmoking = false;
     this.formConnectingRoom = '';
     this.formAmenities = ['Climatisation', 'Wi-Fi Fibre'];
     this.formCustomAmenity = '';
-    this.formPrice = 35000;
+    this.formPrice = null;
     this.formHighSeasonPrice = null;
     this.formCorporatePrice = null;
     this.formBreakfastIncluded = true;
@@ -1492,26 +1442,26 @@ export class RoomsComponent {
   populateForm(room: RoomUiItem): void {
     this.formNumber = room.number;
     this.formFloor = room.floor;
-    const cat = room.category || room.type?.name || 'Standard';
-    if (['Standard', 'Deluxe', 'Suite'].includes(cat)) {
+    const cat = room.tariffCategory?.name || room.category || room.type?.name || 'À classer';
+    if (['Standard', 'Confort', 'Appartement', 'À classer'].includes(cat)) {
       this.formCategory = cat;
       this.formCustomCategory = '';
     } else {
-      this.formCategory = 'Autre';
-      this.formCustomCategory = cat;
+      this.formCategory = 'À classer';
+      this.formCustomCategory = '';
     }
     this.formStatus = room.status;
     this.formAdults = room.adultsCapacity || 2;
     this.formChildren = room.childrenCapacity || 0;
     this.formBedType = room.bedType || 'queen';
     this.formBedsCount = room.bedsCount || 1;
-    this.formSurfaceM2 = room.surfaceM2 || 25;
-    this.formView = room.view || 'jardin';
+    this.formSurfaceM2 = room.surfaceM2 ?? null;
+    this.formView = room.view || '';
     this.formSmoking = Boolean(room.smoking);
     this.formConnectingRoom = room.connectingRoom || '';
     this.formAmenities = room.amenities ? [...room.amenities] : ['Climatisation', 'Wi-Fi Fibre'];
     this.formCustomAmenity = '';
-    this.formPrice = room.type?.pricePerNight || 35000;
+    this.formPrice = room.minTariffFcfa ?? room.pricePerNight ?? null;
     this.formHighSeasonPrice = room.highSeasonPricePerNight || null;
     this.formCorporatePrice = room.corporatePricePerNight || null;
     this.formBreakfastIncluded = room.breakfastIncluded ?? true;
@@ -1639,10 +1589,7 @@ export class RoomsComponent {
     if (this.formNumberError()) return false;
     const floor = Number(this.formFloor);
     if (isNaN(floor)) return false;
-    const price = Number(this.formPrice);
-    if (isNaN(price) || price <= 0) return false;
     if (this.formDescription.length > 200) return false;
-    if (this.formCategory === 'Autre' && !this.formCustomCategory.trim()) return false;
     return true;
   }
 
@@ -1651,11 +1598,16 @@ export class RoomsComponent {
 
     this.isSubmitting.set(true);
     try {
-      const categoryName = this.formCategory === 'Autre'
-        ? this.formCustomCategory.trim() || 'Standard'
-        : this.formCategory;
-
+      const categoryName = this.formCategory || 'À classer';
       const editing = this.roomsService.editingRoom();
+      const optionalPrice =
+        this.formPrice !== null && Number.isFinite(Number(this.formPrice)) && Number(this.formPrice) > 0
+          ? Math.round(Number(this.formPrice))
+          : undefined;
+      const optionalSurface =
+        this.formSurfaceM2 !== null && Number.isFinite(Number(this.formSurfaceM2)) && Number(this.formSurfaceM2) > 0
+          ? Math.round(Number(this.formSurfaceM2))
+          : undefined;
 
       if (editing) {
         const dto: UpdateRoomDto = {
@@ -1663,16 +1615,14 @@ export class RoomsComponent {
           floor: Number(this.formFloor),
           category: categoryName,
           status: this.formStatus,
-          pricePerNight: Math.round(Number(this.formPrice)),
-          highSeasonPricePerNight: this.formHighSeasonPrice ? Math.round(Number(this.formHighSeasonPrice)) : undefined,
-          corporatePricePerNight: this.formCorporatePrice ? Math.round(Number(this.formCorporatePrice)) : undefined,
+          ...(optionalPrice !== undefined ? { pricePerNight: optionalPrice } : {}),
           breakfastIncluded: this.formBreakfastIncluded,
           adultsCapacity: Number(this.formAdults),
           childrenCapacity: Number(this.formChildren),
           bedType: this.formBedType,
           bedsCount: Number(this.formBedsCount),
-          surfaceM2: Number(this.formSurfaceM2),
-          view: this.formView,
+          ...(optionalSurface !== undefined ? { surfaceM2: optionalSurface } : {}),
+          ...(this.formView ? { view: this.formView } : {}),
           smoking: this.formSmoking,
           connectingRoom: this.formConnectingRoom.trim(),
           amenities: this.formAmenities,
@@ -1691,16 +1641,14 @@ export class RoomsComponent {
           floor: Number(this.formFloor),
           category: categoryName,
           status: this.formStatus,
-          pricePerNight: Math.round(Number(this.formPrice)),
-          highSeasonPricePerNight: this.formHighSeasonPrice ? Math.round(Number(this.formHighSeasonPrice)) : undefined,
-          corporatePricePerNight: this.formCorporatePrice ? Math.round(Number(this.formCorporatePrice)) : undefined,
+          ...(optionalPrice !== undefined ? { pricePerNight: optionalPrice } : {}),
           breakfastIncluded: this.formBreakfastIncluded,
           adultsCapacity: Number(this.formAdults),
           childrenCapacity: Number(this.formChildren),
           bedType: this.formBedType,
           bedsCount: Number(this.formBedsCount),
-          surfaceM2: Number(this.formSurfaceM2),
-          view: this.formView,
+          ...(optionalSurface !== undefined ? { surfaceM2: optionalSurface } : {}),
+          ...(this.formView ? { view: this.formView } : {}),
           smoking: this.formSmoking,
           connectingRoom: this.formConnectingRoom.trim(),
           amenities: this.formAmenities,
