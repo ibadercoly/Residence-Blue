@@ -1,0 +1,200 @@
+INSTRUCTIONS DE DÉMARRAGE — RÉSIDENCE BLUE
+==========================================
+
+Deux modes sont possibles :
+- Mode A : deux serveurs séparés en local avec npm (API NestJS + Angular).
+- Mode B : tout avec Docker Compose (PostgreSQL + migrations + API + Web).
+
+Le mode B est le plus simple et le plus proche de la production.
+
+----------------------------------------------------------------------
+0. PRÉREQUIS
+----------------------------------------------------------------------
+- Node.js 22+ et npm 10+
+- Docker Desktop avec conteneurs Linux (pour le mode B)
+- PostgreSQL 16 accessible en local sur localhost:5432 si tu choisis le
+  mode A hors Docker (la base du docker-compose n'expose PAS de port à l'hôte)
+
+----------------------------------------------------------------------
+1. CONFIGURATION DES VARIABLES D'ENVIRONNEMENT
+----------------------------------------------------------------------
+À la racine du projet :
+
+  PowerShell :  Copy-Item .env.example .env
+  Bash/macOS :  cp .env.example .env
+
+Remplace TOUTES les valeurs "changeme_..." dans .env par des secrets forts :
+
+  node -e "console.log(require('crypto').randomBytes(24).toString('base64url'))"
+  node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"   # ENCRYPTION_MASTER_KEY
+
+Ne jamais committer .env.
+
+Important :
+- Le .env de la RACINE est utilisé par Docker Compose et par les scripts npm
+  lancés depuis la racine (seed, migration, sauvegarde).
+- Quand l'API est lancée avec npm, elle lit apps/api/.env (ConfigModule part
+  du dossier apps/api). Vérifie au minimum :
+    NODE_ENV, PORT, DATABASE_URL, ENCRYPTION_MASTER_KEY, JWT_SECRET.
+  DATABASE_URL doit pointer vers ton PostgreSQL local, par exemple :
+    postgresql://app_user:<mot_de_passe>@localhost:5432/residence_blue_db?schema=public
+
+----------------------------------------------------------------------
+2. MODE A — LES DEUX SERVEURS EN LOCAL (npm)
+----------------------------------------------------------------------
+Depuis la racine, une seule fois :
+
+  npm install
+  npm run prisma:generate
+  npx prisma migrate deploy --schema=apps/api/prisma/schema.prisma
+  npm run build
+  npm run seed        # facultatif mais recommandé la 1re fois (chambres + comptes)
+
+Puis ouvre DEUX terminaux à la racine du projet.
+
+Terminal 1 — API NestJS (port 3000) :
+
+  npm run start:dev --workspace=@residence-blue/api
+
+  (ou `npm run start --workspace=@residence-blue/api` sans watch)
+
+Terminal 2 — Application Web Angular PWA (port 4200) :
+
+  npm run start --workspace=@residence-blue/web
+
+URLs :
+- Application :        http://localhost:4200
+- API :                http://localhost:3000
+- Santé API :          http://localhost:3000/health
+- Santé API (préfixe): http://localhost:3000/api/health
+
+Le serveur Angular proxifie /api et /health vers http://127.0.0.1:3000
+(voir apps/web/proxy.conf.json) : gestion des tokens et SSE fonctionnent
+sans configuration supplémentaire.
+
+Arrêt : Ctrl+C dans chaque terminal.
+
+Compte directrice créé par le seed (développement uniquement, à changer
+immédiatement hors local) : aissatou.ba@residenceblue.sn / ThiesTeranga2024!
+
+----------------------------------------------------------------------
+3. MODE B — DOCKER COMPOSE (RECOMMANDÉ)
+----------------------------------------------------------------------
+Depuis la racine, avec .env renseigné :
+
+  docker compose up -d --build db migrate api web
+
+Services lancés :
+- db       : PostgreSQL 16, réseau interne uniquement, aucun port publié
+- migrate  : applique les migrations Prisma puis s'arrête
+- api      : NestJS sur http://localhost:3000
+- web      : Nginx sur http://localhost:4200
+
+Vérification :
+
+  docker compose ps
+  docker compose logs -f api web
+  curl http://localhost:3000/health
+
+Si la base est neuve et que tu veux le jeu de données initial :
+
+  docker compose exec api npx ts-node --project tsconfig.json prisma/seed.ts
+
+Remarque : le service "backup" du compose de développement n'est pas inclus
+dans la commande ci-dessus. Son script exige BACKUP_OFFSITE_DIR, qui n'est pas
+encore transmis dans docker-compose.yml : sans montage hors site il redémarre
+en erreur. Ne l'ajoute que lorsque cette configuration sera corrigée.
+
+Commandes utiles :
+
+  docker compose restart api web          # redémarrer après un changement
+  docker compose up -d --build api web    # reconstruire après un changement de code
+  docker compose down                     # arrêter en gardant les données
+  docker compose down -v                  # ATTENTION : supprime aussi les volumes DB
+
+Après l'ajout d'une migration :
+
+  docker compose run --rm migrate
+
+----------------------------------------------------------------------
+4. MODE PRODUCTION (serveur avec DNS)
+----------------------------------------------------------------------
+Renseigner HTTPS_DOMAIN, COOKIE_SECURE=true et BACKUP_OFFSITE_DIR dans .env,
+puis :
+
+  docker compose -f docker-compose.prod.yml up -d --build
+
+Le proxy Caddy publie 80/443 et termine le TLS. L'API et le Web ne publient
+aucun port directement. Utilise le même -f pour ps/logs/down :
+
+  docker compose -f docker-compose.prod.yml ps
+  docker compose -f docker-compose.prod.yml logs -f api web proxy
+
+----------------------------------------------------------------------
+5. DÉPANNAGE RAPIDE
+----------------------------------------------------------------------
+- "Port 3000 déjà utilisé" : change PORT dans .env (mode npm) ou arrête le
+  service qui occupe le port.
+- /health répond mais l'écran affiche des erreurs /api : vérifie que l'API
+  tourne et que le proxy Angular cible bien 127.0.0.1:3000.
+- Erreur Prisma "table does not exist" : la migration n'a pas été appliquée
+  (`npx prisma migrate deploy --schema=apps/api/prisma/schema.prisma` ou
+  `docker compose run --rm migrate`).
+- 403 sur toutes les routes : compte sans droits ou seed non exécuté ;
+  vérifier starterProfile/screenAccess du compte connecté.
+- Sous Windows, si `cp` n'existe pas, utiliser Copy-Item comme indiqué plus haut.
+
+----------------------------------------------------------------------
+ 6. ÉTAT DE REPRISE — 26 NOVEMBRE 2026
+----------------------------------------------------------------------
+À lire avant toute nouvelle commande : ce fichier contient les instructions
+de DÉMARRAGE. La tâche fonctionnelle en cours est décrite dans prompt.txt
+(branche feature/pannes-technique, travail non commité). Ne pas écraser
+accueil-stats-du-jour.component.ts ni rapport.txt.
+
+Ce qui a déjà été fait lors de cette session :
+- Mode B choisi (pas de PostgreSQL local installé → mode A impossible).
+- Docker Desktop démarré ; le daemon Docker répond.
+- .env (racine) et apps/api/.env : déjà renseignés, aucune valeur
+  « changeme_ » restante. Aucun secret n'a été modifié ni affiché.
+- `docker compose up -d --build db migrate api web` tenté : ÉCHEC sur le
+  téléchargement de l'image nginx:alpine (Docker Hub / auth.docker.io
+  injoignable : timeout). Un `docker pull nginx:alpine` isolé a échoué
+  de la même manière. Le rebuild de l'API s'est aussi arrêté après plus
+  de 10 minutes sur `npm install` (dépendances non téléchargées).
+- Les conteneurs préexistants ont redémarré et sont tous « Up » :
+  db (healthy), migrate (exité code 0), api, web. Le service backup tourne
+  aussi mais n'était pas demandé dans la commande.
+- Vérifications OK : http://localhost:3000/health et /api/health → 200
+  (« database: connected ») ; http://localhost:4200 → 200 ; logs api/web
+  sans erreur.
+- Migration 20261126120000_accord_directeur_pannes_majeures : déjà
+  appliquée en base (présente dans _prisma_migrations).
+- Seed non relancé (base déjà peuplée).
+- Aucun commit, push, merge ou tag effectué. Aucun fichier applicatif
+  modifié pendant cette session de démarrage.
+
+Point d'attention : les images Docker en cours ont été construites il y a
+3 jours. L'API qui tourne ne contient DONC PAS les modifications non
+commitées de feature/pannes-technique (les routes /approve n'apparaissent
+pas dans les routes mappées affichées par les logs). L'application est
+accessible mais « périmée » par rapport au working tree.
+
+Pour reprendre, dans cet ordre :
+1. Vérifier l'état : git status -sb ; docker compose ps -a
+2. Tester l'accès réseau : docker pull nginx:alpine
+   (et, pour l'API, s'assurer que npm install peut télécharger depuis
+   registry.npmjs.org).
+3. Si le réseau est rétabli :
+     docker compose up -d --build db migrate api web
+     docker compose ps
+     curl http://localhost:3000/health
+   Puis confirmer dans docker compose logs api que les routes
+   /api/rooms/problems/:id/approve et /api/technique/problems/:id/approve
+   sont bien mappées.
+4. Si Docker Hub reste injoignable : ne pas insister indéfiniment. Soit
+   garder les images actuelles en précisant que le code non commité n'est
+   pas déployé, soit installer PostgreSQL localement et appliquer le mode A
+   (section 2), soit demander à l'utilisateur.
+5. Ensuite seulement, reprendre prompt.txt à l'ÉTAPE A (document de porte
+   de sécurité), puis B, C, D. Ne jamais désactiver un test.

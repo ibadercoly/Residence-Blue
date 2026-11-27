@@ -1,0 +1,173 @@
+PROMPT DE REPRISE — Résidence Blue
+Branche : feature/pannes-technique (synchronisée avec origin/feature/pannes-technique)
+
+Tu reprends le chantier en cours. Respecte AGENTS.md (français UI, code anglais,
+FCFA entiers, une seule fonctionnalité, Conventional Commits, master stable,
+jamais de test désactivé/affaibli pour le faire passer).
+
+=====================================================================
+1. OBJECTIF DE LA FONCTIONNALITÉ EN COURS
+=====================================================================
+Règle métier : même si le cuisinier, un assistant, le ménage ou la réception
+signale une panne technique majeure en chambre, l’équipe technique ne peut
+venir ni réparer qu’avec l’autorisation PRÉALABLE EXPRESSE du directeur.
+
+Décisions déjà arrêtées :
+- « Panne majeure » = type != AMPOULE (voir isMajorRoomProblem), pas seulement
+  blocksRental.
+- Basculer « chambre louable malgré ce problème » (toggleBlocking) ne doit
+  JAMAIS accorder l’accord de réparation.
+- Autorisation réservée à DIRECTION sur :
+  - PATCH /api/rooms/problems/:id/approve
+  - PATCH /api/technique/problems/:id/approve
+- DIRECTION peut ouvrir /api/technique/problems pour autoriser ; les autres
+  profils restent à 403.
+- Pas de nouvel écran de signalement pour CUISINIER / ASSISTANT_RESTAURANT :
+  le verrou s’applique à toute panne majeure enregistrée. Si une exigence
+  contraire apparaît, l’ajouter avec RBAC explicite + tests (actuellement
+  POST /api/rooms/:id/problems leur renvoie 403, cohérent avec access.ts).
+
+=====================================================================
+2. ÉTAT ACTUEL (vérifié avant la pause)
+=====================================================================
+Déjà implémenté et NON COMMITÉ dans le working tree :
+- packages/shared/src/rooms.ts : isMajorRoomProblem,
+  isProblemAwaitingDirectorApproval, champs directorApproved dans RoomProblemDto.
+- apps/api/src/rooms/room-problems.service.ts : cœur de la règle (report,
+  acknowledge, resolve, approve, toggleBlocking) + audit chaîné + notifications.
+- apps/api/src/rooms/rooms.controller.ts : route approve @Roles(DIRECTION).
+- apps/api/src/technique/technique.controller.ts / technique.service.ts :
+  DIRECTION autorisé sur le dashboard + route approve.
+- apps/api/prisma/migrations/20261126120000_accord_directeur_pannes_majeures/
+  (dossier non suivi) : backfill des pannes majeures non approuvées.
+- apps/web : alerte « accord directeur requis », bouton désactivé,
+  approbation optimistic dans rooms.service.ts et technique.service.ts.
+- docs/chambres/PANNES-ET-NETTOYAGE.md : section 5 mise à jour.
+- apps/api/src/rooms/room-problems.service.spec.ts et
+  apps/api/test/technique.e2e-spec.ts : tests de la règle (409 avant accord,
+  403 technicien sur approve, puis prise en charge après accord directeur).
+
+Commandes déjà vertes :
+- npm run build : OK
+- npm run lint : OK (relancé après suppression d’un import inutilisé dans
+  apps/api/src/rooms/rooms.service.ts)
+- npm run test:unit : shared 32/32, api 74/74, web 171/171
+- test technique ciblé : PASS
+
+État Git : aucun commit, aucun push, aucun merge, aucun tag effectué pour
+cette règle. Ne pas écraser :
+- apps/web/src/app/features/dashboard/components/accueil-stats-du-jour/
+  accueil-stats-du-jour.component.ts (travail antérieur sans rapport)
+- rapport.txt (fichier non suivi sans rapport)
+
+=====================================================================
+3. RESTE À FAIRE (dans cet ordre)
+=====================================================================
+ÉTAPE A — Document de porte de sécurité (obligatoire)
+Créer docs/security/accord-directeur-pannes-majeures.md :
+- Attaques testées et résultats attendus :
+  * technicien tente /api/technique/problems/:id/approve -> 403
+  * technicien tente /api/rooms/problems/:id/approve -> 403 (à ajouter si
+    absent des E2E)
+  * technicien take/resolve avant accord -> 409
+  * réception / ménage / cuisinier sur approve -> 403
+  * signalement par non-directeur d’une panne majeure ->
+    directorApproved=false + notification CRITICAL ACCORD_DIRECTEUR_REQUIS
+  * toggleBlocking(false) puis take -> 409 malgré blocksRental=false
+  * AMPOULE -> aucune approbation requise
+  * MAINTENANCE sur /api/guests, /api/invoices -> 403 ; dashboard Technique
+    sans prix ni nom client
+  * audit_log : ROOM_PROBLEM_REPORTED, ROOM_PROBLEM_DIRECTOR_APPROVED,
+    ROOM_PROBLEM_ACKNOWLEDGED / RESOLVED
+- Défenses : ValidationPipe whitelist + forbidNonWhitelisted, Prisma
+  paramétré uniquement, @Roles(DIRECTION), contrôle serveur dans le service
+  (pas seulement UI), secret hors code, chiffrement AES-256-GCM des pièces.
+- Conclusion : passer / non passer, avec les commandes et dates.
+
+ÉTAPE B — Corriger les 4 échecs de npm run test:integration
+Résultat actuel : 148 PASS / 4 FAIL sur 152. Ce sont des tests devenus obsolètes
+à la suite des commits e7b6fd2 et 9a98bff (module Technique passé en V1),
+pas des régressions de la règle d’accord. Corriger sans affaiblir :
+
+B1. apps/api/test/base-securisee.e2e-spec.ts (~l.247-272)
+    Erreur : `[BACKUP][ERREUR] Variable BACKUP_OFFSITE_DIR manquante`.
+    Correctif : créer un second dossier temporaire et le passer dans
+    scriptEnv via BACKUP_OFFSITE_DIR (comme BACKUP_DIR), puis assert que la
+    copie hors site existe et a la même taille que la copie locale. Le test
+    doit rester indépendant de l’environnement de la machine.
+
+B2. apps/api/test/modules-status.e2e-spec.ts (~l.79-92)
+    Erreur : attend 403 pour MAINTENANCE, reçoit 200.
+    Cause : config/modules.json a MAINTENANCE.enabled=true et le module
+    technique V1 activé (commit e7b6fd2). Mettre l’attente à 200 avec un
+    commentaire expliquant que MAINTENANCE est actif en V1 ; conserver le test
+    de surcharge dynamique (l.94-104) et le test 404 des modules reportés.
+
+B3. apps/api/test/accueil-jour.e2e-spec.ts (~l.482-489)
+    Erreur : attend 200 pour MAINTENANCE avec visibleBlocks=['CLIENTS'],
+    reçoit 403.
+    Cause : commit 9a98bff a retiré `accueil: 'LECTURE'` du profil TECHNIQUE
+    dans packages/shared/src/access.ts (resolveDefaultAccessForRole).
+    Choisir UNE option cohérente et documenter :
+    - option recommandée : « Technique uniquement » -> le test doit attendre
+      403 (comme HOUSEKEEPING/CUISINE), et supprimer les assertions sur
+      visibleBlocks CLIENTS pour MAINTENANCE ;
+    - option alternative : rétablir `accueil: 'LECTURE'` pour MAINTENANCE
+      dans access.ts ET garder le test tel quel (à valider métier).
+
+B4. apps/api/test/rooms.e2e-spec.ts (~l.237-244)
+    Erreur : MAINTENANCE -> CLEANING reçoit 403 au lieu de 200 malgré
+    setModuleOverride('maintenance', true) (l.46).
+    Cause : PATCH /api/rooms/:id/status exige
+    @Acces({ screen:'chambres', level:'LECTURE',
+    specialPermission:'changer_etat_chambre' }) orsque le profil TECHNIQUE a
+    chambres='AUCUN' et seulement technique='ECRITURE'.
+    Correctif recommandé (conservatoire) : dans rooms.controller.ts,
+    updateStatus, remplacer `screen: 'chambres'` par
+    `anyScreens: [{ screen:'chambres', level:'LECTURE' },
+    { screen:'technique', level:'ECRITURE' }]` en gardant
+    specialPermission:'changer_etat_chambre'. Ainsi DIRECTION/RÉCEPTION/MÉNAGE
+    gardent leur accès, le technicien peut remettre la chambre en service,
+    et aucun droit supplémentaire n’est donné aux autres rôles. Vérifier
+    que rooms.service.ts applique toujours sa matrice DIRECTION/MAINTENANCE
+    pour la sortie de MAINTENANCE.
+
+Après B : relancer npm run lint, npm run build, npm run test:unit et
+npm run test:integration. Tout doit être vert. Ne jamais désactiver un test.
+
+ÉTAPE C — Vérification finale de la règle
+- Relire isProblemAwaitingDirectorApproval : elle doit utiliser le TYPE
+  (isMajorRoomProblem), pas blocksRental, sinon un toggleBlocking contourne.
+- Vérifier qu’aucun chemin (take, resolve, cancel, updateStatus direct, UI)
+  ne permet une intervention avant accord.
+- Vérifier que le bouton « J’ai nettoyé » / « C’est réparé » est bien désactivé
+  côté web quand directorApproved=false, et que le serveur renvoie 409 quand
+  même si le front est contourné.
+
+ÉTAPE D — Git (une fois TOUT vert)
+- Conventional Commits sur feature/pannes-technique (ex.
+  `feat(rooms): require director approval before major repairs`,
+  `test: align integration suites with technique V1`,
+  `docs: document security gate for director approval`).
+- Inclure le dossier de migration non suivi. Ne PAS inclure rapport.txt.
+- git push sur origin/feature/pannes-technique, puis vérifier avec
+  git fetch && git status -sb && git log origin/feature/pannes-technique -1
+  avant de conclure à un échec de push. Jamais de --force.
+- NE PAS fusionner dans master ni créer de tag sans validation explicite
+  de l’utilisateur. Fournir en fin de tâche : branche, commits, tests lancés
+  avec résultats, commandes de fusion proposées, prochaine étape.
+
+=====================================================================
+4. FICHIERS À CRÉER / MODIFIER (reste à faire)
+=====================================================================
+CRÉER   docs/security/accord-directeur-pannes-majeures.md
+MODIFIER apps/api/test/base-securisee.e2e-spec.ts
+MODIFIER apps/api/test/modules-status.e2e-spec.ts
+MODIFIER apps/api/test/accueil-jour.e2e-spec.ts
+MODIFIER apps/api/src/rooms/rooms.controller.ts (option recommandée B4)
+MODIFIER apps/api/test/rooms.e2e-spec.ts (si changement de matrice retenu)
+MODIFIER (si besoin) apps/api/test/technique.e2e-spec.ts : ajouter le 403
+         sur /api/rooms/problems/:id/approve pour un non-directeur
+MODIFIER (si option alternative B3) packages/shared/src/access.ts
+
+Ne pas toucher : accueil-stats-du-jour.component.ts, rapport.txt.

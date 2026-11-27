@@ -1147,6 +1147,8 @@ export class RoomsService {
     const previousStatus = room.status;
 
     const isBlocking = isProblemTypeBlockingByDefault(dto.type);
+    const isDirector = this.currentRole() === Role.DIRECTION;
+    const isDirectorApproved = isDirector || !isBlocking;
     let nextStatus = room.status;
     if (room.status !== RoomStatus.OCCUPIED && isBlocking) {
       nextStatus = RoomStatus.MAINTENANCE;
@@ -1168,6 +1170,9 @@ export class RoomsService {
       wasOccupied: room.status === RoomStatus.OCCUPIED,
       isCurrentlyOccupied: room.status === RoomStatus.OCCUPIED,
       blocksRental: isBlocking,
+      directorApproved: isDirectorApproved,
+      approvedByDirectorName: isDirector ? (this.authService?.currentUser()?.fullName || 'Direction') : null,
+      approvedByDirectorAt: isDirector ? new Date().toISOString() : null,
       status: 'REPORTED',
     };
 
@@ -1224,6 +1229,59 @@ export class RoomsService {
       await this.outbox.enqueue('POST_ROOM_PROBLEM', `/api/rooms/${roomId}/problems`, dto);
       this.successMessage.set(`Connexion perturbée : signalement enregistré dans la file hors-ligne.`);
       return true;
+    }
+  }
+
+  /**
+   * Validation / autorisation de l'intervention technique par le directeur.
+   */
+  async approveProblem(problemId: string): Promise<boolean> {
+    this.errorMessage.set(null);
+    this.successMessage.set(null);
+
+    // Optimistic UI
+    this.rooms.update((list) =>
+      list.map((r) => {
+        if (!r.activeProblems) return r;
+        const hasProb = r.activeProblems.some((p) => p.id === problemId);
+        if (!hasProb) return r;
+        const updatedProblems = r.activeProblems.map((p) =>
+          p.id === problemId
+            ? {
+                ...p,
+                directorApproved: true,
+                approvedByDirectorName: this.authService?.currentUser()?.fullName || 'Direction',
+                approvedByDirectorAt: new Date().toISOString(),
+              }
+            : p
+        );
+        return { ...r, activeProblems: updatedProblems };
+      })
+    );
+
+    try {
+      const response = await (this.authService
+        ? this.authService.authenticatedFetch(`/api/rooms/problems/${problemId}/approve`, {
+            method: 'PATCH',
+          })
+        : fetch(`/api/rooms/problems/${problemId}/approve`, {
+            method: 'PATCH',
+            credentials: 'include',
+            headers: this.getAuthHeaders(),
+          }));
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || `Erreur serveur (${response.status})`);
+      }
+
+      this.successMessage.set('Intervention autorisée par la direction.');
+      await this.fetchFromServer();
+      return true;
+    } catch (err: any) {
+      this.errorMessage.set(err?.message || 'Impossible d’autoriser l’intervention.');
+      await this.fetchFromServer();
+      return false;
     }
   }
 

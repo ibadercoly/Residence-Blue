@@ -479,14 +479,11 @@ describe('Accueil du jour — GET /api/accueil/jour (e2e)', () => {
     expect('clients' in rResto.body).toBe(false);
     expect('billing' in rResto.body).toBe(false);
 
-    const rMaint = await request(app.getHttpServer())
+    // MAINTENANCE (profil Technique uniquement) n'a pas accès à Accueil -> 403
+    await request(app.getHttpServer())
       .get('/api/accueil/jour')
       .set('Authorization', `Bearer ${roleTokens[Role.MAINTENANCE]}`)
-      .expect(200);
-    expect(rMaint.body.visibleBlocks).toEqual(['CLIENTS']);
-    expect('billing' in rMaint.body).toBe(false);
-    expect('restaurant' in rMaint.body).toBe(false);
-    expect(JSON.stringify(rMaint.body)).not.toContain('Fcfa');
+      .expect(403);
 
     // HOUSEKEEPING n'a accès qu'à Chambres (aucun accès Accueil)
     await request(app.getHttpServer())

@@ -69,6 +69,7 @@ describe('TechniquePageComponent', () => {
       fetchDashboard: jest.fn(),
       takeProblem: jest.fn().mockResolvedValue(true),
       resolveProblem: jest.fn().mockResolvedValue(true),
+      approveProblem: jest.fn().mockResolvedValue(true),
       toggleSound: jest.fn(),
       startSse: jest.fn(),
       stopSse: jest.fn(),
@@ -117,5 +118,39 @@ describe('TechniquePageComponent', () => {
 
     expect(mockTechniqueService.resolveProblem).toHaveBeenCalledWith('p-3', 'Disjoncteur réarmé et prise changée');
     expect(component.resolvingProblem()).toBeNull();
+  });
+
+  it('verrouille une panne majeure tant que directorApproved est faux, même si blocksRental est faux', () => {
+    expect(
+      component.isAwaitingDirectorApproval({
+        ...toTreatProblem,
+        type: 'CLIMATISATION',
+        blocksRental: false,
+        directorApproved: false,
+      }),
+    ).toBe(true);
+
+    expect(
+      component.isAwaitingDirectorApproval({
+        ...toTreatProblem,
+        type: 'CLIMATISATION',
+        blocksRental: true,
+        directorApproved: true,
+      }),
+    ).toBe(false);
+
+    expect(
+      component.isAwaitingDirectorApproval({
+        ...toTreatProblem,
+        type: 'AMPOULE',
+        blocksRental: false,
+        directorApproved: false,
+      }),
+    ).toBe(false);
+  });
+
+  it('appelle approveProblem lors de l’autorisation par le directeur', async () => {
+    await component.onApproveProblem('p-1');
+    expect(mockTechniqueService.approveProblem).toHaveBeenCalledWith('p-1');
   });
 });

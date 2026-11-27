@@ -253,7 +253,13 @@ export class RoomsController {
    * Modification du statut d'une chambre selon la matrice des rôles et la machine à états.
    * Habilité pour DIRECTION, RECEPTION, HOUSEKEEPING et MAINTENANCE.
    */
-  @Acces({ screen: 'chambres', level: 'LECTURE', specialPermission: 'changer_etat_chambre' })
+  @Acces({
+    anyScreens: [
+      { screen: 'chambres', level: 'LECTURE' },
+      { screen: 'technique', level: 'ECRITURE' },
+    ],
+    specialPermission: 'changer_etat_chambre',
+  })
   @Patch(':id/status')
   async updateStatus(
     @Param('id') id: string,
@@ -355,6 +361,20 @@ export class RoomsController {
     const user = (req as any).user;
     const ip = req.ip || req.socket.remoteAddress || undefined;
     return this.roomProblemsService.toggleBlocking(id, user, ip);
+  }
+
+  /**
+   * Autorisation d'intervention par le directeur sur une panne majeure.
+   */
+  @Roles(Role.DIRECTION)
+  @Patch('problems/:id/approve')
+  async approveProblem(
+    @Param('id') id: string,
+    @Req() req: Request,
+  ) {
+    const user = (req as any).user;
+    const ip = req.ip || req.socket.remoteAddress || undefined;
+    return this.roomProblemsService.approveProblem(id, user, ip);
   }
 
 }

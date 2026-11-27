@@ -154,6 +154,47 @@ export class TechniqueService {
     }
   }
 
+  async approveProblem(problemId: string): Promise<boolean> {
+    this.errorMessage.set(null);
+    this.successMessage.set(null);
+
+    // Optimistic UI : marquer directorApproved = true
+    const current = this.toTreat().find((p) => p.id === problemId);
+    if (current) {
+      const updated: RoomProblemDto = {
+        ...current,
+        directorApproved: true,
+        approvedByDirectorName: this.authService?.currentUser()?.fullName || 'Directeur',
+        approvedByDirectorAt: new Date().toISOString(),
+      };
+      this.toTreat.update((list) => list.map((p) => (p.id === problemId ? updated : p)));
+    }
+
+    try {
+      const response = await (this.authService
+        ? this.authService.authenticatedFetch(`/api/technique/problems/${problemId}/approve`, {
+            method: 'PATCH',
+          })
+        : fetch(`/api/technique/problems/${problemId}/approve`, {
+            method: 'PATCH',
+            credentials: 'include',
+          }));
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || `Erreur serveur (${response.status})`);
+      }
+
+      this.successMessage.set('Intervention autorisée par la direction. L’équipe technique peut intervenir.');
+      await this.fetchDashboard();
+      return true;
+    } catch (err: any) {
+      this.errorMessage.set(err?.message || 'Impossible d’autoriser l’intervention.');
+      await this.fetchDashboard();
+      return false;
+    }
+  }
+
   toggleSound(): void {
     const next = !this.soundEnabled();
     this.soundEnabled.set(next);

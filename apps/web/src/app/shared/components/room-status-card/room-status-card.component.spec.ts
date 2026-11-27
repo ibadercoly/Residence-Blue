@@ -134,4 +134,47 @@ describe('RoomStatusCardComponent', () => {
     };
     expect(component.shouldShowPrice).toBe(false);
   });
+
+  it('identifie les pannes majeures en attente d’accord directeur et émet onApproveProblem', () => {
+    component.room = {
+      ...component.room,
+      activeProblems: [
+        {
+          id: 'prob-major-1',
+          roomId: 'room-101',
+          roomNumber: '101',
+          type: 'CLIMATISATION',
+          reportedByRole: 'HOUSEKEEPING',
+          reportedByName: 'Awa',
+          reportedAt: new Date().toISOString(),
+          wasOccupied: false,
+          blocksRental: false,
+          status: 'REPORTED',
+          directorApproved: false,
+        },
+        {
+          id: 'prob-ampoule-1',
+          roomId: 'room-101',
+          roomNumber: '101',
+          type: 'AMPOULE',
+          reportedByRole: 'HOUSEKEEPING',
+          reportedByName: 'Awa',
+          reportedAt: new Date().toISOString(),
+          wasOccupied: false,
+          blocksRental: false,
+          status: 'REPORTED',
+          directorApproved: false,
+        },
+      ],
+    };
+
+    expect(component.problemsAwaitingDirectorApproval.map((p) => p.id)).toEqual(['prob-major-1']);
+
+    let approvedId: string | null = null;
+    component.onApproveProblem.subscribe((id) => {
+      approvedId = id;
+    });
+    component.onApproveProblem.emit('prob-major-1');
+    expect(approvedId).toBe('prob-major-1');
+  });
 });

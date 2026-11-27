@@ -1,0 +1,700 @@
+================================================================================
+ANALYSE COMPLETE DU MENU « RAPPORTS » — RESIDENCE BLUE
+================================================================================
+Date d'analyse : 26 novembre 2026
+Périmètre : écran /rapports (Angular) + API GET /api/rapports (NestJS)
+Fichier généré à la demande de l'utilisateur, à la racine du dépôt.
+Aucun code applicatif n'a été modifié.
+
+--------------------------------------------------------------------------------
+SOMMAIRE
+--------------------------------------------------------------------------------
+ 1. Ou se trouve le menu et comment on y accede
+ 2. Les regles generales (a lire avant les chiffres)
+ 3. Les 6 tuiles du resume, une par une
+ 4. La section « Evolution du chiffre d'affaires » et les phrases automatiques
+ 5. Les 8 graphiques, un par un
+ 6. Le tableau « Jour par jour »
+ 7. Les exports PDF et Excel
+ 8. Securite, confidentialite et fonctionnement hors ligne
+ 9. Tests et etat du module
+10. Points d'attention et limites a connaitre
+11. Guide de lecture rapide
+
+================================================================================
+1. OU SE TROUVE LE MENU ET COMMENT ON Y ACCEDE
+================================================================================
+
+1.1 Entree de menu
+------------------
+Fichier : apps/web/src/app/core/services/module-config.service.ts
+
+  - Identifiant du module : rapports
+  - Libelle affiche : « Rapports »
+  - Route : /rapports
+  - Icone Material Symbols : analytics
+  - Couleur dans la barre laterale : #F2785C (rgb(242, 120, 92))
+  - Version : v1, module active, sans dependance
+  - Description : « Rapports synthetiques des ventes, encaissements,
+    occupation et restaurant. »
+
+1.2 Route et chargement
+-----------------------
+Fichier : apps/web/src/app/app.routes.ts
+
+  Route protegee par authGuard (connexion obligatoire) et par
+  moduleCanMatch('rapports') (module active pour le compte). Le composant
+  RapportsPageComponent est charge en lazy loading.
+
+1.3 Qui peut voir le menu et les chiffres
+-----------------------------------------
+Cote front : seuls les profils DIRECTION et COMPTABLE ont « rapports » dans
+leurs modules autorises.
+
+Cote API (apps/api/src/rapports/rapports.controller.ts) :
+  - @RequireModule('rapports')
+  - @Acces({ screen: 'rapports', level: 'LECTURE', specialPermission: 'voir_montants' })
+  - verification supplementaire isReportsAllowedForAccount(user) :
+    direction, administrateur principal (isPrimaryAdmin) ou comptable
+    (role COMPTABLE / profil STARTER COMPTABLE).
+  - Sinon : 403 « Seul le comptable peut voir les rapports ».
+
+Detail important : le droit de voir la page et le droit de voir les MONTANTS
+sont distincts. Sans permission speciale « voir_montants », la reponse JSON
+passe par maskAmountsInPayload() : les montants sont masques. Les libelles,
+les pourcentages et la structure restent visibles.
+
+1.4 Ce que l'utilisateur voit en haut de page
+---------------------------------------------
+  - Titre de la page et selecteur de periode : 30 jours / 3 mois / 12 mois /
+    mois en cours (valeurs techniques : 30j, 3m, 12m, mois ; defaut 30j).
+  - Case a cocher « Comparer a la periode precedente » (cochee par defaut).
+    Elle n'effectue pas un nouvel appel API : elle affiche ou masque les deltas
+    deja calcules par le serveur.
+  - Boutons « Exporter en PDF » et « Exporter en Excel ».
+  - Rappel permanent en trois lignes :
+      1. Ventes comptees le jour du service (nuit passee, repas servi).
+      2. Annulations non comptees et avoirs deduits automatiquement.
+      3. Montants hors taxes, exprimes en FCFA entiers.
+
+Etats possibles de la page : hors ligne, acces refuse, chargement (6
+squelettes), erreur reseau, « Aucune donnee sur cette periode », contenu complet.
+
+================================================================================
+2. LES REGLES GENERALES (A LIRE AVANT LES CHIFFRES)
+================================================================================
+
+2.1 Fuseau horaire et bornes de periode
+---------------------------------------
+Tout est calcule dans le fuseau Africa/Dakar (UTC+0 toute l'annee). Un jour J
+est l'intervalle semi-ouvert [J 00:00:00.000, J+1 00:00:00.000). En SQL, la
+date Dakar est obtenue par :
+  ("colonne" AT TIME ZONE 'UTC' AT TIME ZONE 'Africa/Dakar')::date
+Fichier : apps/api/src/rapports/rapports-date.util.ts
+
+2.2 Les quatre periodes
+-----------------------
+  periode | debut                         | fin      | precedent            | granularite
+  --------+-------------------------------+----------+----------------------+------------
+  30j     | aujourd'hui - 29 jours        | aujourd. | 30 jours juste avant | jour
+  3m      | aujourd'hui - 89 jours        | aujourd. | 90 jours juste avant | semaine
+  12m     | 1er du mois M-11              | aujourd. | M-23 a veille du debut| mois
+  mois    | 1er du mois courant           | aujourd. | jours 1..N du mois   | jour
+                                                     precedent (bornes au
+                                                     dernier jour du mois)
+
+Le cas « mois » est important : on compare les jours 1 a N du mois courant aux
+memes jours 1 a N du mois precedent. Sans ce bornage, on comparerait par
+exemple 5 jours a 31 jours et on afficherait une fausse baisse.
+
+La semaine va du lundi au dimanche (index 0 = Lundi ... 6 = Dimanche).
+
+2.3 Unites et arrondis
+----------------------
+  - Tous les montants sont HORS TAXES (HT), stockes et calcules en FCFA
+    entiers : chaque valeur passe par Math.round(Number(...)).
+  - Les pourcentages sont arrondis a l'entier le plus proche.
+  - LesBigInt PostgreSQL sont convertis en nombres entiers cote serveur.
+  - Aucune valeur fictive n'est inventee : une section absente du JSON signifie
+    « pas assez de donnees reelles », pas « zero ».
+
+2.4 Regles d'inclusion / exclusion (communes a toutes les stats)
+----------------------------------------------------------------
+  - Factures et avoirs : statut CANCELLED exclu. Date retenue = issued_at
+    (date d'emission / de prestation) en heure de Dakar.
+  - Avoirs (CREDIT_NOTE) : montant HT deja negatif, deduit a leur propre date.
+    Si l'avoir est rattache a une facture parente, il est ventile au prorata
+    des categories de cette facture ; sinon au prorata de ses propres lignes,
+    sinon en « Autres ».
+  - Encaissements : date = payments.paid_at ; paiements inverses
+    (is_reversal = true) deja negatifs ; paiements lies a une facture annulee
+    exclus.
+  - Occupation : une nuit N est comptee si check_in_date <= N et
+    check_out_date > N, pour les reservations CONFIRMED, CHECKED_IN,
+    CHECKED_OUT. Les PENDING, CANCELLED et NO_SHOW sont exclus.
+  - Sources de reservation : CANCELLED et NO_SHOW exclus ; source vide exclue.
+  - Plats : commandes non annulees, date = orders.created_at.
+
+2.5 Ventilation Hébergement / Restaurant et bar / Autres
+--------------------------------------------------------
+Fichier : apps/api/src/rapports/rapports.service.ts, fonction
+apportionHtCategories().
+
+Le HT d'une facture est reparti au prorata du brut de ses lignes :
+  categorie HEBERGEMENT -> « Hebergement »
+  categorie RESTAURANT  -> « Restaurant et bar »
+  toute autre categorie sauf TAX -> « Autres » (ex. : prestations annexes)
+  TAX est exclu du HT.
+
+Formule : heb = round(HT * brutHeb / sommeBruts), idem pour rest et other.
+Un eventuel ecart d'arrondi (drift) est ajoute a « Autres », sinon a la
+categorie la plus importante, afin que l'egalite suivante soit TOUJOURS vraie :
+  Hebergement + Restaurant et bar + Autres = Chiffre d'affaires
+
+Cas particulier : si une facture n'a aucune ligne mais est rattachee a une
+chambre ou une reservation, tout le HT va en Hebergement ; sinon tout va en
+Autres. Cela garantit qu'aucun montant ne disparait.
+
+2.6 Detection de donnees et comparaisons
+----------------------------------------
+  hasData = (factures dans la periode) OU (encaissements != 0) OU (nuitees > 0)
+            OU (sources de reservation) OU (ventes restaurant)
+  previousPeriodHasData = memes tests sur la periode precedente.
+
+Si hasData est faux, la reponse ne contient QUE les metadonnees (periode,
+dates, fuseau, nom de l'hotel, nombre de chambres actives). Aucune tuile,
+aucun graphe, aucun tableau : l'ecran affiche « Aucune donnee sur cette periode ».
+
+Delta relatif : round((courant - precedent) * 100 / precedent), uniquement si
+la periode precedente a des donnees ET si sa base est > 0. Sinon le delta est
+omis (pas de « +0 % » trompeur). Le delta est calcule pour : Chiffre
+d'affaires, Argent encaissé et, sous un autre forme, Occupation.
+
+2.7 Nombre de chambres de reference
+-----------------------------------
+  activeRoomsCount = nombre reel de chambres avec isActive = true,
+  avec repli sur hotelSetting.roomCount puis sur 12 (valeur plancher 1).
+C'est le denominateur du taux d'occupation : il s'agit donc des chambres
+actives AUJOURD'HUI, pas de l'effectif historique a la date de la nuit.
+
+================================================================================
+3. LES 6 TUILES DU RESUME, UNE PAR UNE
+================================================================================
+Fichiers : apps/api/src/rapports/rapports.service.ts (calcul) et
+apps/web/src/app/features/rapports/rapports-page.component.ts (affichage).
+Les tuiles sont conditionnelles : absentes si leur valeur est nulle sans
+activite. Elles sont affichees sur 1 colonne (mobile), 2 colonnes (>= 768 px),
+3 colonnes (>= 1200 px).
+
+--------------------------------------------------------------------------------
+3.1 Chiffre d'affaires (icone payments)
+--------------------------------------------------------------------------------
+Definition : total des ventes de l'hotel sur la periode, avoirs deduits.
+
+Formule : somme de subtotal_ht_fcfa de toutes les factures non annulees emises
+dans la periode, plus les avoirs (valeurs negatives) emis dans la periode.
+Cela inclut hebergement, restaurant/bar et prestations annexes (« Autres »).
+
+Source : tables invoices + invoice_lines + reservations + rooms + room_types,
+via fetchInvoicesInRange() (SQL Prisma parametre).
+
+Condition d'affichage : totalRevenue != 0 OU presence d'au moins une facture
+dans la periode (une facture a 0 FCFA affiche donc la tuile a 0).
+
+Delta : comparaison en % avec le chiffre d'affaires de la periode precedente,
+si celle-ci a des donnees et un total > 0. Affiche en vert si >= 0, en rouge
+si < 0, avec formatage francais du signe (ex. : « +12 % », « -8 % »).
+
+Lecture : c'est l'indicateur de production commerciale. Il ne dit rien de
+l'encaissement effectif : on peut avoir du chiffre d'affaires sans argent
+recu (voir 3.5 et 3.6). Il est hors taxes, donc different d'un total TTC
+affiche sur une facture.
+
+--------------------------------------------------------------------------------
+3.2 Hebergement (icone bed)
+--------------------------------------------------------------------------------
+Definition : ventes liees aux nuitees des chambres sur la periode.
+
+Formule : somme de la part « heb » de la ventilation (voir 2.5) de chaque
+facture et avoir de la periode.
+
+Affichage : montant FCFA + ligne « Part : X % du chiffre d'affaires », avec
+  X = round(hebTotal * 100 / totalRevenue), 0 si le CA n'est pas positif.
+
+Condition : hebTotal != 0 (la tuile disparait si aucune vente d'hebergement).
+
+Pas de delta compare sur cette tuile en V1.
+
+Lecture : elle mesure la valeur des nuits vendues, pas le nombre de nuits
+(qui est donne par la tuile Occupation et le graphe correspondant). Une meme
+nuit peut rapporter plus ou moins selon la categorie (Standard, Deluxe, Suite).
+Attention : les remises et avoirs reduisent ce montant au prorata de la
+facture parente ; ce point est encore a valider cote comptable (voir §10).
+
+--------------------------------------------------------------------------------
+3.3 Restaurant et bar (icone restaurant)
+--------------------------------------------------------------------------------
+Definition : repas et boissons servis en salle ou portes sur les chambres.
+
+Formule : somme de la part « rest » de la ventilation (voir 2.5).
+
+Affichage : montant FCFA + part en % du chiffre d'affaires.
+
+Condition : restTotal != 0. Pas de delta.
+
+Lecture : inclut les consommations facturees sur la chambre. Les ventes
+enregistrees uniquement dans les commandes (order_lines) sans facture
+n'alimentent PAS cette tuile : elles alimentent le classement des plats (§5.8).
+Ce sont deux sources differentes, a ne pas confondre.
+
+--------------------------------------------------------------------------------
+3.4 Chambres occupées (icone hotel)
+--------------------------------------------------------------------------------
+Definition : part moyenne des chambres actives occupees chaque nuit.
+
+Formule :
+  nuiteesOccupees = somme, sur tous les jours de la periode, du nombre de
+                    chambres occupees ce jour-la (une chambre = 1 nuit).
+  capacite       = activeRoomsCount * nombre de jours de la periode.
+  taux           = round(nuiteesOccupees * 100 / capacite).
+
+Affichage : « X % », puis « N nuitées sur M possibles ».
+
+Condition : nuiteesOccupees > 0.
+
+Delta : IL S'AGIT DE POINTS DE POURCENTAGE, pas d'un pourcentage relatif :
+  delta = tauxCourant - tauxPrecedent.
+Exemple : 62 % contre 55 % donne un delta de +7 (points), pas de +13 %.
+C'est une distinction essentielle pour ne pas sur-interpreter la comparison.
+
+Lecture : un sejour du lundi au mercredi compte 2 nuits (lundi et mardi),
+pas 3 : la date de sortie n'est pas une nuit occupee. Le denominateur utilise
+les chambres actives actuelles, ce qui peut legerement fausser la comparison
+avec une periode ou une chambre etait indisponible (voir §10).
+
+--------------------------------------------------------------------------------
+3.5 Argent encaissé (icone account_balance_wallet)
+--------------------------------------------------------------------------------
+Definition : encaissements reçus (especes, mobile, carte, virement).
+
+Formule : somme de p.amount_fcfa pour les paiements dont paid_at est dans la
+periode, dont la facture n'est pas annulee, en incluant les ecritures inverses
+(montants negatifs) qui deduisent les remboursements.
+
+Source : tables payments + invoices, via fetchPaymentsInRange().
+
+Condition : total encaisse != 0.
+
+Delta : en % par rapport a la periode precedente, avec les memes regles que
+le chiffre d'affaires.
+
+Lecture : indicateur de tresorerie, independant de la date de vente. Un
+acompte paye aujourd'hui sur un sejour futur compte aujourd'hui ; une facture
+d'aujourd'hui reglee le mois prochain comptera le mois prochain. Comparer
+cette tuile au chiffre d'affaires permet de voir le decalage de tresorerie.
+Detail technique : la tuile somme TOUS les modes de paiement, alors que le
+graphe « par mode » ne retient que les 5 codes connus (voir §5.4).
+
+--------------------------------------------------------------------------------
+3.6 Reste à encaisser (icone hourglass_top, tuile rouge)
+--------------------------------------------------------------------------------
+Definition : montants des notes de la periode encore en attente de reglement.
+
+Formule : somme de balance_fcfa pour les factures (doc_type = INVOICE) dont
+le statut est OPEN ou PARTIAL et le solde > 0, emises dans la periode.
+Les avoirs, les factures SOLDEES et les factures ANNULEES sont exclus.
+
+Condition : solde > 0 (la tuile disparait s'il n'y a aucune creance).
+
+Pas de delta en V1.
+
+Lecture : c'est une photographie des creances nees sur la periode, pas un
+etat de l'ensemble du portefeuille client : une facture emise le mois dernier
+et toujours impayee n'apparait pas ici si on consulte le mois courant. C'est
+un choix comptable encore a valider (voir §10). La tuile est volontairement
+rouge pour signaler une action de recouvrement.
+
+================================================================================
+4. LA SECTION « EVOLUTION DU CHIFFRE D'AFFAIRES » ET LES PHRASES AUTOMATIQUES
+================================================================================
+Fichier : apps/api/src/rapports/rapports-evolution.util.ts
+Affichage : apps/web/src/app/features/rapports/rapports-charts.component.ts
+
+Cette section n'existe que si le graphe d'evolution existe (au moins 2 points
+non nuls). Elle contient : le total, la moyenne par point, le total precedent,
+le delta, les points détailles, le top 3, le meilleur et le pire point, les
+plus forts mouvements et de 3 a 6 phrases « Ce que dit ce graphique ».
+
+4.1 Granularite et courbe de tendance
+-------------------------------------
+  - 30j et mois : 1 point par jour. La « Tendance sur 7 jours » est une
+    moyenne mobile glissante : pour chaque jour, moyenne des ventes des 7
+    derniers jours (ou moins en debut de periode), bornee a 0.
+  - 3m : 1 point par semaine lundi-dimanche (pas de moyenne mobile).
+  - 12m : 1 point par mois calendaire.
+Le trace utilise une interpolation cubique monotone (Fritsch-Carlson) : la
+courbe ne descend jamais sous 0 et ne depasse pas les valeurs voisines, donc
+elle ne suggere pas de variations qui n'existent pas dans les donnees.
+
+4.2 Seuils (constantes documentees)
+-----------------------------------
+  EVOLUTION_MIN_POINTS_BEST_WORST = 2   -> minimum pour meilleur/pire
+  EVOLUTION_MIN_POINTS_TREND       = 5   -> minimum pour la tendance
+  EVOLUTION_TREND_WINDOW_DAYS      = 7   -> moyenne mobile et alerte 7j
+  EVOLUTION_HABIT_MIN_WEEKS        = 3   -> 21 jours pour parler d'habitude
+  EVOLUTION_ALERT_DROP_PERCENT     = 20  -> seuil de l'alerte de baisse
+
+4.3 Les six types de phrases, et leur declenchement
+---------------------------------------------------
+1) « total » (toujours present) : total FCFA de la periode. Si comparison
+   possible : hausse / baisse / stabilite en % par rapport a la periode
+   precedente. Sinon : simple constat du total.
+
+2) « best_worst » (>= 2 points non nuls, meilleur different du pire) :
+   meilleur jour (ou meilleure semaine/mois) et jour (ou periode) le plus
+   faible, avec le montant FCFA de chacun.
+
+3) « trend » (>= 5 points et 1re moitie > 0) :
+   compare la somme de la seconde moitie des points a celle de la premiere :
+   round((2e - 1ere) * 100 / 1ere). A partir de 14 points en vue journaliere,
+   le libelle devient « La deuxieme quinzaine ».
+
+4) « biggest_moves » : plus forte hausse et/ou plus forte baisse entre deux
+   points consecutifs, exprimees en FCFA et encadrees par les dates.
+
+5) « habit » (>= 21 jours) : « Vos meilleurs jours sont les <pluriel>. »
+   Uniquement si un jour de la semaine est UNIQUEMENT le meilleur (moyenne
+   maximale strictement superieure a 0 et sans ex aequo).
+
+6) « alert » (>= 14 jours) : si la baisse des 7 derniers jours par rapport
+   aux 7 jours precedents atteint 20 % ou plus, phrase « Attention : ... »
+   affichee dans un cadre orange.
+
+Regle absolue : ces phrases sont deterministes, generees cote serveur a
+partir des seules donnees reelles. Aucune cause n'est mentionnee (jamais
+« a cause de », « en raison de », « parce que », « grace a »), aucune
+interpretation n'est inventee. C'est un descriptif, pas un diagnostic.
+
+================================================================================
+5. LES 8 GRAPHIQUES, UN PAR UN
+================================================================================
+Fichier de rendu : apps/web/src/app/features/rapports/rapports-charts.component.ts
+Graphes pleine largeur : evolution, ventes par semaine, occupation par jour,
+jours de la semaine. Graphes en 2 colonnes sur desktop : paiements, sources,
+categories de chambre, top plats. Tout passe en 1 colonne sous 768 px.
+
+--------------------------------------------------------------------------------
+5.1 Évolution du chiffre d'affaires (graphe a, cle revenueEvolution)
+--------------------------------------------------------------------------------
+Valeurs : total des ventes HT par jour / semaine / mois selon la periode.
+Complement : ligne pointillee de la periode precedente (si comparable),
+courbe de tendance, top 3 des points, marqueurs de plus forte hausse/baisse,
+cadre orange si alerte, et les phrases du §4.
+
+Condition : au moins 2 points non nuls. Les points a zero restent dans la
+serie pour ne pas deformer l'axe du temps.
+
+Lecture : montre QUAND les ventes ont eu lieu. La ligne de la periode
+precedente est un repere, pas un objectif. Les 3 meilleurs points sont
+surlignes pour repérer les pics sans en expliquer la cause.
+
+--------------------------------------------------------------------------------
+5.2 Ventes par type et par semaine (graphe b, cle salesByTypeByWeek)
+--------------------------------------------------------------------------------
+Valeurs : pour chaque semaine lundi-dimanche :
+  accommodationFcfa (Hebergement), restaurantFcfa (Restaurant et bar),
+  otherFcfa (Autres), totalFcfa = somme des trois.
+Libelle : « 12 mars - 18 mars » (bornes de la semaine en date courte Dakar).
+
+Condition : au moins une semaine avec totalFcfa != 0.
+Granularite : toujours hebdomadaire, y compris pour la periode 30j.
+
+Lecture : graphe empile. Il permet de voir la structure des ventes dans le
+temps et de detecter, par exemple, une semaine ou le restaurant compense un
+hebergement plus faible. La somme des trois couleurs est exactement le total.
+
+--------------------------------------------------------------------------------
+5.3 Chambres occupées par jour (graphe c, cle occupancyByDay)
+--------------------------------------------------------------------------------
+Valeurs par jour : occupiedRooms (chambres occupees la nuit), activeRooms,
+percent = round(occupiedRooms * 100 / activeRooms).
+En-tete : averageRooms = round(nuitees / jours * 10) / 10 (une decimale,
+seule exception au regle des entiers, car c'est une moyenne de nombre de
+chambres, pas un montant) et averagePercent = taux global de la tuile.
+
+Condition : au moins une nuit occupee sur la periode. Un jour sans occupation
+est affiche a 0 (la ligne du temps reste complete).
+
+Lecture : contrairement au taux global, ce graphe montre la REGULARITE.
+Un taux moyen de 60 % peut venir de 60 % chaque nuit ou de 100 % puis 20 % :
+le graphe le distingue. Nuits calculees selon la regle §2.4.
+
+--------------------------------------------------------------------------------
+5.4 Argent encaissé par mode de paiement (graphe d, cle paymentsByMethod)
+--------------------------------------------------------------------------------
+Valeurs : somme des paiements par methode, avec libelles :
+  CASH -> Espèces, ORANGE_MONEY -> Orange Money, WAVE -> Wave,
+  CARD -> Carte bancaire, BANK_TRANSFER -> Virement.
+  percent = round(montant * 100 / basePositive) ou basePositive = somme des
+  methodes strictement positives affichees.
+
+Condition : encaissements > 0 ET base positive > 0.
+Les methodes a montant nul ou negatif ne sont pas affichees.
+
+Lecture : montre le mix de moyen de paiement (important pour les frais et la
+gestion de la caisse). Attention : seuls les 5 codes ci-dessus sont graphes.
+Un mode non reconnu contribue a la tuile « Argent encaissé » mais pas au
+graphe : les pourcentages peuvent donc ne pas representer 100 % de la tuile.
+
+--------------------------------------------------------------------------------
+5.5 D'où viennent les réservations (graphe e, cle reservationSources)
+--------------------------------------------------------------------------------
+Valeurs : nombre de reservations par source, pourcentage = round(count * 100
+/ totalCount), tri du plus grand au plus petit.
+Libelles traduits : RECEPTION -> Réception directe, DIRECT -> Réservation
+directe, BOOKING -> Booking.com, AIRBNB -> Airbnb, EXPEDIA -> Expedia,
+TELEPHONE/TEL -> Téléphone, WHATSAPP -> WhatsApp, AGENCE -> Agence de voyages,
+CORPORATE -> Entreprise, SITE_WEB -> Site internet, WALK_IN -> Client de passage.
+Une source non repertoriee est affichee telle quelle.
+
+Perimetre : reservations actives (hors CANCELLED et NO_SHOW) dont le sejour
+chevauche la periode OU qui ont ete creees pendant la periode ; source vide
+exclue.
+
+Condition : au moins une reservation avec source non vide.
+
+Lecture : indicateur de canal d'acquisition. Compte des reservations, pas des
+nuitees ni des euros : une reservation de 5 nuits compte 1. Le chevauchement
+avec la periode explique qu'une reservation future deja enregistree puisse
+apparaitre.
+
+--------------------------------------------------------------------------------
+5.6 Ventes par catégorie de chambre (graphe f, cle salesByRoomCategory)
+--------------------------------------------------------------------------------
+Valeurs : montant HT d'hebergement par categorie (Standard, Deluxe, Suite...),
+sharePercent = round(montant * 100 / total des categories), nightsCount = nombre
+de nuits occupees dans cette categorie sur la periode.
+Source complementaire : fetchRoomCategoryNights() (nuits par categorie).
+
+Condition : au moins une categorie avec montant non nul.
+
+Lecture : permet de voir quelles categories génèrent le chiffre d'hebergement
+et de rapprocher montant et volume (nightsCount). Le pourcentage est calcule
+sur le total des categories affichees, qui correspond au total Hebergement.
+Une categorie sans vente sur la periode n'apparait pas.
+
+--------------------------------------------------------------------------------
+5.7 Jours de la semaine (graphe g, cle weekdayAverages)
+--------------------------------------------------------------------------------
+Valeurs pour Lundi ... Dimanche :
+  totalFcfa = somme des ventes HT des jours de ce type dans la periode,
+  daysCount = nombre de jours de ce type dans la periode,
+  averageFcfa = round(totalFcfa / daysCount).
+
+Condition : au moins une moyenne > 0.
+
+Lecture : lisse le nombre inegal de lundis, mardis, etc. sur une periode (par
+exemple 30 jours contiennent 4 ou 5 occurrences de chaque jour). C'est une
+moyenne par jour de la semaine, utile pour repérer une tendance hebdomadaire,
+mais ce n'est PAS une prevision. La phrase d'habitude du §4.3 utilise les
+memes donnees mais exige au moins 21 jours.
+
+--------------------------------------------------------------------------------
+5.8 Les 10 plats les plus vendus (graphe h, cle topDishes)
+--------------------------------------------------------------------------------
+Valeurs : nom du plat, quantity = somme des quantites, amountFcfa = HT.
+
+Calcul du HT cote SQL (requete parametree) :
+  - si le total TTC de la commande est > 0 et son HT >= 0 :
+      HT_ligne = round(prix_ligne_TTC * HT_commande / TTC_commande)
+  - sinon : HT_ligne = round(prix_ligne_TTC * 100 / 110)  (TVA 10 % par defaut)
+Tri : quantite decroissante, puis HT decroissant, puis nom alphabetique.
+Limite : 10 lignes.
+
+Source : tables order_lines + orders (date = created_at, commandes annulees
+exclues), distincte des factures de la tuile Restaurant.
+
+Condition : au moins une ligne de commande non annulee.
+
+Lecture : classement VOLUME (quantite), pas classement chiffre d'affaires.
+Un plat peu vendu mais cher peut rapporter plus que le premier du classement ;
+c'est pourquoi le montant est affiche a cote. Le HT est estime au prorata
+quand le taux de TVA reel n'est pas exploitable.
+
+================================================================================
+6. LE TABLEAU « JOUR PAR JOUR »
+================================================================================
+Fichier : apps/api/src/rapports/rapports.service.ts (§10 de getReport) et
+apps/web/src/app/features/rapports/rapports-daily-table.component.ts
+
+Une ligne par jour de la periode, TRIEE DU PLUS RECENT AU PLUS ANCIEN, y
+compris les jours sans activite (affiches a zero). Colonnes :
+  - date libellee en francais complet (ex. : « mercredi 26 novembre 2026 »)
+  - chambres occupees / chambres actives
+  - hebergement FCFA, restaurant FCFA, autres FCFA, total FCFA
+
+Ligne de totaux : nuits occupees, capacite, hebergement, restaurant, autres,
+total. Ces totaux sont les memes que ceux des tuiles et du graphe par semaine.
+
+Lecture : c'est le niveau de detail le plus fin, ideal pour verifier un jour
+suspect repere sur le graphe d'evolution. La somme des colonnes categorie
+doit toujours egaler la colonne total (garantie par la ventilation §2.5).
+
+================================================================================
+7. LES EXPORTS PDF ET EXCEL
+================================================================================
+Fichiers : apps/api/src/rapports/rapports-export.service.ts,
+rapports-pdf.helper.ts, rapports-excel.helper.ts.
+
+Routes :
+  GET /api/rapports/export/pdf?periode=...&comparer=true|false|1|0
+  GET /api/rapports/export/excel?periode=...
+
+Nom de fichier : rapport-<AAAA-MM-JJ-Dakar>.pdf / .xlsx.
+Refus explicite si hasData = false : « Aucune donnee sur cette periode :
+export PDF/Excel impossible. » (aucun document vide n'est produit).
+
+Chaque export ecrit une entree d'audit dans la table audit_log avec un
+empreinte chainee SHA-256 (RAPPORT_EXPORT_PDF / RAPPORT_EXPORT_EXCEL),
+l'utilisateur, son role, son nom et l'adresse IP.
+
+Classeur Excel, 4 feuilles :
+  1. « Résumé » : identite de l'hotel, periode, tuiles, phrases d'evolution.
+  2. « Jour par jour » : lignes detaillees et totaux.
+  3. « Par type et paiement » : ventes hebdomadaires et modes de paiement.
+  4. « Restaurant » : top plats.
+Toutes les cellules texte passent par sanitizeSpreadsheetCell() pour bloquer
+l'injection de formules (caracteres =, +, -, @ en debut de cellule).
+
+Cote front, RapportsService.downloadExport() utilise fetch avec cache:
+'no-store', valide le nom de fichier recu (/^[a-zA-Z0-9_.-]+$/) puis declenche
+le telechargement via Blob et balise <a download>.
+
+================================================================================
+8. SECURITE, CONFIDENTIALITE ET FONCTIONNEMENT HORS LIGNE
+================================================================================
+
+8.1 Validation et acces
+------------------------
+  - RapportsQueryDto : periode dans ['30j','3m','12m','mois'], comparer dans
+    ['true','false','1','0']. Sous ValidationPipe avec whitelist et
+    forbidNonWhitelisted, tout parametre supplementaire est rejete.
+  - Acces refuse par defaut : @RequireModule + @Acces + verification du compte.
+  - Sans « voir_montants », maskAmountsInPayload() masque les montants.
+  - Toutes les requetes SQL utilisent prisma.$queryRaw avec gabarits
+    parametres (aucune concatenation de SQL).
+  - Aucun secret dans le code : variables d'environnement.
+
+8.2 Exception offline-first assumee
+-----------------------------------
+Conformement a la regle generale du projet, le reste de l'application fonctionne
+hors ligne (IndexedDB + file d'attente outbox). Le module Rapports fait
+exception DELIBEREMENT : aucun chiffre financier n'est ecrit dans IndexedDB,
+localStorage, sessionStorage, ni dans ngsw-config.json. Hors ligne, l'ecran
+affiche « Rapports indisponibles hors ligne » avec icone cloud_off et
+l'explication « Les chiffres financiers ne sont jamais conserves sur
+l'appareil... ». La confidentialite prime sur la disponibilite.
+
+8.3 Etats d'erreur
+------------------
+  403 -> « Acces reserve a la Direction et a la Comptabilite. »
+  Erreur reseau -> « Connexion au serveur impossible pour charger les rapports. »
+  Aucune donnee -> « Aucune donnee sur cette periode » + conseil de changer
+  de periode ou d'enregistrer des sejours et ventes.
+
+================================================================================
+9. TESTS ET ETAT DU MODULE
+================================================================================
+Le module est couvert par une suite complete (aucun test desactive ou
+affaibli). Fichiers principaux :
+
+  API   src/rapports/rapports.service.spec.ts               (5 tests)
+        src/rapports/rapports-evolution.util.spec.ts        (5 tests)
+        src/rapports/rapports-export.service.spec.ts        (3 tests)
+        test/rapports.e2e-spec.ts                           (5 tests)
+        test/rapports-acces-restreint.e2e-spec.ts           (4 tests)
+  Web   src/app/features/rapports/rapports-page.component.spec.ts (4 tests)
+        src/app/features/rapports/rapports-charts.util.spec.ts    (9 tests)
+        e2e/rapports.spec.ts                                (4 tests)
+        e2e/rapports-acces-restreint.spec.ts                (1 test)
+        e2e/reference-offline.spec.ts                       (1 test rapports)
+        e2e/menu-lateral.spec.ts                            (couleur du menu)
+
+Ils couvrent : calculs et ventilation, avoirs, periodes, absences de donnees,
+seuils d'evolution, absence de causalite des phrases, refus d'export sans
+donnees, audit, RBAC 403, masquage des montants, rendu des tuiles
+conditionnelles, geometrie SVG (courbe monotone, bornes >= 0), fidélite a la
+reference hors ligne (ecart max 2 % hors zones adaptees), et absence de textes
+provenant de la maquette.
+
+Documentation associee :
+  docs/rapports/DEFINITIONS.md   -> regles officielles de calcul
+  docs/rapports/A-VALIDER.md     -> points comptables en attente de validation
+  docs/security/rapports.md      -> porte de securite
+  docs/design/ANALYSE-MAQUETTES.md, ADAPTATION-THIES.md
+  design/maquettes/rapports_statistiques_financi_res/code.html (source de verite
+  du style) et design/reference/rapports_statistiques_financi_res.html
+
+Fidelite aux maquettes : la production NE reproduit PAS les chiffres et textes
+historiques de la maquette (RevPAR, ADR, ALOS, OHADA, Teranga, Mai 2024,
+pourcentages fictifs). Ces chaines sont interdites en production et verifiees
+en E2E. Les textes sont adaptes a Thiès / Grand Standing, sans ocean, plage,
+maree ni vague.
+
+================================================================================
+10. POINTS D'ATTENTION ET LIMITES A CONNAITRE
+================================================================================
+
+1) Six choix comptables restent a valider (docs/rapports/A-VALIDER.md) :
+   - date d'attribution des factures : issued_at ou nuit par nuit ;
+   - imputation des remises et avoirs ;
+   - classement des prestations annexes (piscine, blanchisserie) en « Autres » ;
+   - denominateur du taux d'occupation (chambres actives actuelles) ;
+   - perimetre du « Reste à encaisser » (factures de la periode uniquement) ;
+   - arrondis FCFA entiers et correction de l'ecart d'arrondi.
+
+2) docs/security/rapports.md mentionne encore @Roles(DIRECTION, COMPTABLE)
+   alors que le controleur utilise @Acces + isReportsAllowedForAccount.
+   Couverture fonctionnelle identique, formulation a mettre a jour.
+
+3) Le delta de la tuile Occupation est en POINTS de pourcentage, pas en % relatif.
+
+4) La tuile « Argent encaissé » peut depasser la somme du graphe par mode si un
+   mode de paiement non repertorie est utilise.
+
+5) « Restaurant et bar » (factures) et « Top plats » (commandes) ne partent pas
+   de la meme source : ecarts attendus si une consommation n'est pas facturee.
+
+6) « D'où viennent les réservations » compte des reservations, pas des nuitees.
+
+7) Les factions du graphe « Jours de la semaine » sont des moyennes, pas des
+   previsions ; la phrase d'habitude exige 21 jours et un unique meilleur jour.
+
+8) L'alerte 20 % sur 7 jours est un signal neutre, sans explication de cause.
+
+9) Le rapport n'est pas disponible hors ligne (choix de confidentialite).
+
+================================================================================
+11. GUIDE DE LECTURE RAPIDE
+================================================================================
+
+Question : « Combien avons-nous vendu ? » -> tuile Chiffre d'affaires + graphe
+   d'evolution. (HT, avoirs deduits, annulations exclues.)
+Question : « Quelle est la structure des ventes ? » -> tuiles Hebergement et
+   Restaurant et bar + graphe « Ventes par type et par semaine ».
+Question : « Les chambres sont-elles pleines ? » -> tuile Chambres occupees +
+   graphe « Chambres occupees par jour » (regularite) + tableau jour par jour.
+Question : « L'argent est-il rentre ? » -> tuile Argent encaissé comparee au
+   CA, graphe par mode de paiement, tuile Reste à encaisser.
+Question : « Quels canaux amenent les clients ? » -> graphe des sources de
+   reservation (comptage des reservations).
+Question : « Que consomme-t-on au restaurant ? » -> graphe des 10 plats les
+   plus vendus (quantite) et tuile Restaurant (montant facture).
+Question : « Quelle periode a ete la meilleure ? » -> section Evolution,
+   phrases meilleur/pire, tendance et plus forts mouvements.
+Question : « Pourquoi ? » -> le rapport ne repond pas : il decrit les faits
+   sans causalite. L'analyse doit etre faite par la direction a partir des
+   donnees detaillees du tableau jour par jour.
+
+Fin de l'analyse.
+================================================================================

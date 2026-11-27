@@ -56,3 +56,16 @@ La migration Prisma :
 - **Départ client (check-out)** :
   - La chambre passe à `isClean = false`.
   - Si un problème bloquant est en cours, elle passe immédiatement à `MAINTENANCE` après nettoyage (ou dès le départ), la réception reçoit une notification cloche (« Chambre X : le client est parti, problème non réparé (type), chambre non louable ») et le technicien voit « Chambre vide, vous pouvez entrer ».
+
+---
+
+## 5. Accord préalable du directeur avant toute intervention technique
+
+- **Règle (décision de la direction)** : même si le cuisinier, un assistant, le ménage ou la réception signale une panne technique majeure dans une chambre, l'équipe technique **ne vient pas et ne répare pas** sans l'autorisation préalable explicite du directeur.
+- **Panne majeure** : tout type de problème sauf `AMPOULE` (climatisation, fuite d'eau, électricité, autre). Le caractère majeur dépend de la **nature** du problème, et non du seul indicateur `blocksRental`.
+- **Conséquence du basculement « chambre louable malgré ce problème »** : la chambre redevient louable, mais l'accord du directeur reste requis pour réparer. Ce basculement ne modifie jamais `directorApproved`.
+- **Signalement par le directeur** : `directorApproved = true` immédiatement (il donne son accord en signalant).
+- **Signalement par toute autre personne** : `directorApproved = false` ; une notification critique `ACCORD_DIRECTEUR_REQUIS` prévient la direction ; sur l'écran Technique, le bouton « Je m'en occupe » est remplacé par « En attente de l'accord du directeur ».
+- **Autorisation** : `PATCH /api/rooms/problems/:id/approve` ou `PATCH /api/technique/problems/:id/approve`, strictement réservé à `DIRECTION` (403 pour tous les autres, appel direct compris). Elle écrit `directorApproved`, `approvedByDirectorId`, `approvedByDirectorName`, `approvedByDirectorAt` et une entrée d'audit `ROOM_PROBLEM_DIRECTOR_APPROVED`.
+- **Application côté serveur** : la prise en charge (`take`) et la résolution (`resolve`) refusent la requête avec `409 Conflict` tant que l'accord n'est pas donné, y compris si le blocage de location a été retiré entre-temps. Le contrôle ne dépend jamais de l'interface.
+- **Traçabilité** : signalement, basculement, autorisation, prise en charge et résolution sont tous journalisés avec empreinte chaînée.

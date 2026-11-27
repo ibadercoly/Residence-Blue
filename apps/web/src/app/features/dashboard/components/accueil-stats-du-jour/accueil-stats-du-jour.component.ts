@@ -260,32 +260,31 @@ export function formatAccueilFcfa(amount: number | undefined | null): string {
                         }
                       }
                     </div>
-                  } @else {
-                    <div
-                      data-testid="accueil-billing-empty"
-                      class="rounded-lg bg-stone-100 px-3 py-1.5 text-center text-[11px] font-semibold text-stone-600"
-                    >
-                      Aucune vente aujourd'hui
-                    </div>
-                  }
 
-                  <ul data-testid="accueil-billing-legend" class="flex flex-col gap-1.5 text-xs m-0 p-0 list-none">
-                    @for (slice of b.collectedByMethod; track slice.method) {
-                      <li class="flex items-center justify-between gap-3 rounded-lg border border-stone-200/80 bg-stone-50/80 px-3 py-2 text-stone-700">
-                        <span class="inline-flex items-center gap-2.5 min-w-0">
+                    <ul data-testid="accueil-billing-legend" class="grid grid-cols-2 gap-1.5 text-xs m-0 p-0 list-none">
+                      @for (slice of b.collectedByMethod; track slice.method) {
+                        <li class="flex items-center gap-2 min-w-0 px-2 py-1.5 rounded-lg border border-stone-200/80 bg-stone-50/80 text-stone-700">
                           <span
-                            class="h-3 w-3 shrink-0 rounded-sm"
+                            class="h-2.5 w-2.5 shrink-0 rounded-sm"
                             [style.backgroundColor]="paymentColor(slice.method)"
                             aria-hidden="true"
                           ></span>
-                          <span class="font-semibold text-stone-800 whitespace-nowrap">{{ slice.label }}</span>
-                        </span>
-                        <span class="font-extrabold font-mono text-stone-900 whitespace-nowrap">
-                          {{ formatFcfa(slice.amountFcfa) }}
-                        </span>
-                      </li>
-                    }
-                  </ul>
+                          <span class="truncate font-semibold text-stone-800 text-[11px]">{{ slice.label }}</span>
+                          <span class="ml-auto shrink-0 font-extrabold font-mono text-stone-900 text-[11px]">
+                            {{ formatFcfa(slice.amountFcfa) }}
+                          </span>
+                        </li>
+                      }
+                    </ul>
+                  } @else {
+                    <div
+                      data-testid="accueil-billing-empty"
+                      class="rounded-lg bg-stone-100 px-3 py-2.5 text-center text-xs font-semibold text-stone-500"
+                    >
+                      <span class="material-symbols-outlined text-base align-middle mr-1" aria-hidden="true">point_of_sale</span>
+                      Aucune vente aujourd'hui
+                    </div>
+                  }
                 </div>
               </div>
             </article>

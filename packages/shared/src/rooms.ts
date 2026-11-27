@@ -149,6 +149,9 @@ export interface RoomProblemDto {
   cancelledAt?: string | null;
   cancellationReason?: string | null;
   isCurrentlyOccupied?: boolean;
+  directorApproved?: boolean;
+  approvedByDirectorName?: string | null;
+  approvedByDirectorAt?: string | null;
 }
 
 export interface TechniqueDashboardDto {
@@ -170,6 +173,30 @@ export interface UpdateRoomCleanlinessDto {
 
 export function isProblemTypeBlockingByDefault(type: RoomProblemType): boolean {
   return type !== 'AMPOULE';
+}
+
+/**
+ * Une panne est « majeure » par sa nature, pas par un simple basculement du blocage :
+ * seule l'ampoule est mineure. Ainsi, rendre une chambre louable malgré une panne
+ * majeure ne dispense pas de l'accord préalable du directeur pour intervenir.
+ */
+export function isMajorRoomProblem(problem: {
+  type?: RoomProblemType;
+  blocksRental?: boolean;
+}): boolean {
+  if (problem.type) {
+    return isProblemTypeBlockingByDefault(problem.type);
+  }
+  // Compatibilité avec les anciens objets qui n'exposent pas encore le type.
+  return Boolean(problem.blocksRental);
+}
+
+export function isProblemAwaitingDirectorApproval(problem: {
+  type?: RoomProblemType;
+  blocksRental?: boolean;
+  directorApproved?: boolean;
+}): boolean {
+  return isMajorRoomProblem(problem) && !problem.directorApproved;
 }
 
 export const ROOM_PROBLEM_TYPE_META: Record<

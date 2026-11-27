@@ -4,12 +4,19 @@ import {
   Component,
   OnDestroy,
   OnInit,
+  computed,
   inject,
   signal,
 } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { RoomProblemDto, ROOM_PROBLEM_TYPE_META } from '@residence-blue/shared';
+import {
+  Role,
+  RoomProblemDto,
+  ROOM_PROBLEM_TYPE_META,
+  isProblemAwaitingDirectorApproval,
+} from '@residence-blue/shared';
 import { TechniqueService } from '../../core/services/technique.service';
+import { AuthService } from '../../core/services/auth.service';
 import { ModalShellComponent } from '../../shared/components/modal-shell/modal-shell.component';
 
 @Component({
@@ -243,20 +250,65 @@ import { ModalShellComponent } from '../../shared/components/modal-shell/modal-s
                     Signalé {{ getRelativeTime(prob.reportedAt) }} par {{ prob.reportedByName || prob.reportedByRole }}
                   </span>
                 </div>
+
+                <!-- ALERTE & STATUT AUTORISATION DIRECTEUR -->
+                @if (isAwaitingDirectorApproval(prob)) {
+                  <div
+                    class="p-3 rounded-xl border border-rose-300 bg-rose-50 text-rose-900 flex items-center gap-2.5 text-xs font-bold"
+                    [attr.data-testid]="'alert-director-approval-required-' + prob.id"
+                  >
+                    <span class="material-symbols-outlined text-[20px] text-rose-600 shrink-0">lock</span>
+                    <span>Panne majeure : accord préalable du directeur obligatoire avant toute intervention</span>
+                  </div>
+                } @else if (prob.approvedByDirectorName) {
+                  <div
+                    class="px-3 py-1.5 rounded-lg border border-emerald-300 bg-emerald-50 text-emerald-900 flex items-center gap-2 text-xs font-semibold"
+                    [attr.data-testid]="'badge-director-approved-' + prob.id"
+                  >
+                    <span class="material-symbols-outlined text-[16px] text-emerald-600 shrink-0">verified</span>
+                    <span>Intervention autorisée par la direction ({{ prob.approvedByDirectorName }})</span>
+                  </div>
+                }
               </div>
 
-              <!-- Un seul bouton : Je m'en occupe -->
-              <div class="pt-2 border-t border-outline-variant/40">
-                <button
-                  type="button"
-                  (click)="onTakeProblem(prob.id)"
-                  [disabled]="isActionLoading(prob.id)"
-                  [attr.data-testid]="'btn-take-' + prob.id"
-                  class="w-full h-11 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-bold text-sm flex items-center justify-center gap-2 shadow-xs cursor-pointer transition-colors disabled:opacity-50"
-                >
-                  <span class="material-symbols-outlined text-[20px]" aria-hidden="true">handyman</span>
-                  <span>Je m'en occupe</span>
-                </button>
+              <!-- Zone d'action selon statut d'autorisation et rôle -->
+              <div class="pt-2 border-t border-outline-variant/40 flex flex-col gap-2">
+                @if (isAwaitingDirectorApproval(prob)) {
+                  @if (isDirector()) {
+                    <button
+                      type="button"
+                      (click)="onApproveProblem(prob.id)"
+                      [disabled]="isActionLoading(prob.id)"
+                      [attr.data-testid]="'btn-approve-' + prob.id"
+                      class="w-full h-11 rounded-xl bg-primary hover:bg-primary-hover text-white font-bold text-sm flex items-center justify-center gap-2 shadow-xs cursor-pointer transition-colors disabled:opacity-50"
+                    >
+                      <span class="material-symbols-outlined text-[20px]" aria-hidden="true">verified</span>
+                      <span>Autoriser la réparation</span>
+                    </button>
+                  } @else {
+                    <button
+                      type="button"
+                      disabled
+                      [attr.data-testid]="'btn-take-' + prob.id"
+                      class="w-full h-11 rounded-xl bg-stone-200 text-stone-500 font-bold text-xs sm:text-sm flex items-center justify-center gap-2 cursor-not-allowed opacity-80"
+                      title="L'accord du directeur est requis pour intervenir sur cette chambre"
+                    >
+                      <span class="material-symbols-outlined text-[20px] text-stone-400" aria-hidden="true">lock</span>
+                      <span>En attente de l'accord du directeur</span>
+                    </button>
+                  }
+                } @else {
+                  <button
+                    type="button"
+                    (click)="onTakeProblem(prob.id)"
+                    [disabled]="isActionLoading(prob.id)"
+                    [attr.data-testid]="'btn-take-' + prob.id"
+                    class="w-full h-11 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-bold text-sm flex items-center justify-center gap-2 shadow-xs cursor-pointer transition-colors disabled:opacity-50"
+                  >
+                    <span class="material-symbols-outlined text-[20px]" aria-hidden="true">handyman</span>
+                    <span>Je m'en occupe</span>
+                  </button>
+                }
               </div>
             </article>
           } @empty {
@@ -358,18 +410,50 @@ import { ModalShellComponent } from '../../shared/components/modal-shell/modal-s
                 </div>
               </div>
 
-              <!-- Un seul bouton : C'est réparé -->
-              <div class="pt-2 border-t border-outline-variant/40">
-                <button
-                  type="button"
-                  (click)="openResolveModal(prob)"
-                  [disabled]="isActionLoading(prob.id)"
-                  [attr.data-testid]="'btn-resolve-' + prob.id"
-                  class="w-full h-11 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-sm flex items-center justify-center gap-2 shadow-xs cursor-pointer transition-colors disabled:opacity-50"
-                >
-                  <span class="material-symbols-outlined text-[20px]" aria-hidden="true">check_circle</span>
-                  <span>C'est réparé</span>
-                </button>
+              <!-- Un seul bouton : C'est réparé (verrouillé si accord directeur manquant) -->
+              <div class="pt-2 border-t border-outline-variant/40 flex flex-col gap-2">
+                @if (isAwaitingDirectorApproval(prob)) {
+                  <div
+                    class="p-2.5 rounded-xl border border-rose-300 bg-rose-50 text-rose-900 flex items-center gap-2 text-xs font-bold"
+                    [attr.data-testid]="'alert-director-approval-inprogress-' + prob.id"
+                  >
+                    <span class="material-symbols-outlined text-[18px] text-rose-600 shrink-0">lock</span>
+                    <span>Accord préalable du directeur requis avant clôture</span>
+                  </div>
+                  @if (isDirector()) {
+                    <button
+                      type="button"
+                      (click)="onApproveProblem(prob.id)"
+                      [disabled]="isActionLoading(prob.id)"
+                      [attr.data-testid]="'btn-approve-inprogress-' + prob.id"
+                      class="w-full h-11 rounded-xl bg-primary hover:bg-primary-hover text-white font-bold text-sm flex items-center justify-center gap-2 shadow-xs cursor-pointer transition-colors disabled:opacity-50"
+                    >
+                      <span class="material-symbols-outlined text-[20px]" aria-hidden="true">verified</span>
+                      <span>Autoriser la réparation</span>
+                    </button>
+                  } @else {
+                    <button
+                      type="button"
+                      disabled
+                      [attr.data-testid]="'btn-resolve-' + prob.id"
+                      class="w-full h-11 rounded-xl bg-stone-200 text-stone-500 font-bold text-xs sm:text-sm flex items-center justify-center gap-2 cursor-not-allowed opacity-80"
+                    >
+                      <span class="material-symbols-outlined text-[20px] text-stone-400" aria-hidden="true">lock</span>
+                      <span>En attente de l'accord du directeur</span>
+                    </button>
+                  }
+                } @else {
+                  <button
+                    type="button"
+                    (click)="openResolveModal(prob)"
+                    [disabled]="isActionLoading(prob.id)"
+                    [attr.data-testid]="'btn-resolve-' + prob.id"
+                    class="w-full h-11 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-sm flex items-center justify-center gap-2 shadow-xs cursor-pointer transition-colors disabled:opacity-50"
+                  >
+                    <span class="material-symbols-outlined text-[20px]" aria-hidden="true">check_circle</span>
+                    <span>C'est réparé</span>
+                  </button>
+                }
               </div>
             </article>
           } @empty {
@@ -508,13 +592,26 @@ import { ModalShellComponent } from '../../shared/components/modal-shell/modal-s
 })
 export class TechniquePageComponent implements OnInit, OnDestroy {
   readonly technique: TechniqueService;
+  private readonly authService: AuthService | null = null;
+
+  readonly isDirector = computed(() => this.authService?.currentUser()?.role === Role.DIRECTION);
 
   readonly resolvingProblem = signal<RoomProblemDto | null>(null);
   resolveNoteInput: string = '';
   readonly isConfirmingResolve = signal<boolean>(false);
   private readonly loadingProblemIds = signal<Set<string>>(new Set());
 
-  constructor(techniqueOverride?: TechniqueService) {
+  constructor(techniqueOverride?: TechniqueService, authOverride?: AuthService) {
+    if (authOverride) {
+      this.authService = authOverride;
+    } else {
+      try {
+        this.authService = inject(AuthService, { optional: true });
+      } catch {
+        this.authService = null;
+      }
+    }
+
     if (techniqueOverride) {
       this.technique = techniqueOverride;
     } else {
@@ -564,6 +661,23 @@ export class TechniquePageComponent implements OnInit, OnDestroy {
 
   isActionLoading(problemId: string): boolean {
     return this.loadingProblemIds().has(problemId);
+  }
+
+  isAwaitingDirectorApproval(prob: RoomProblemDto): boolean {
+    return isProblemAwaitingDirectorApproval(prob);
+  }
+
+  async onApproveProblem(problemId: string): Promise<void> {
+    this.loadingProblemIds.update((set) => new Set(set).add(problemId));
+    try {
+      await this.technique.approveProblem(problemId);
+    } finally {
+      this.loadingProblemIds.update((set) => {
+        const next = new Set(set);
+        next.delete(problemId);
+        return next;
+      });
+    }
   }
 
   async onTakeProblem(problemId: string): Promise<void> {

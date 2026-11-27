@@ -66,8 +66,11 @@ export const authGuard: CanActivateFn = async (
     return router.createUrlTree(['/technique']);
   }
 
-  // L'écran Technique est réservé au compte Technique
-  if (state.url.startsWith('/technique') && !isTechniqueAccount(user)) {
+  // L'écran Technique est réservé au compte Technique et au Directeur (pour autoriser les pannes majeures)
+  if (state.url.startsWith('/technique')) {
+    if (isTechniqueAccount(user) || authService.isDirector()) {
+      return true;
+    }
     return router.createUrlTree([authService.getFirstAuthorizedRoute()]);
   }
 

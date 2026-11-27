@@ -75,23 +75,29 @@ describe('Modules Status & Deferred Routing (API)', () => {
     });
   });
 
-  describe('2. Rôles reportés V2 / V3 non assignables ou utilisables en V1', () => {
-    it('autorise HOUSEKEEPING (activé V1) et refuse un rôle reporté (ex: MAINTENANCE) sur une route même si le rôle y est listé', async () => {
+  describe('2. Rôles activés en V1 et surcharges dynamiques de modules', () => {
+    it('autorise HOUSEKEEPING et MAINTENANCE (tous deux actifs en V1 depuis le module Technique V1)', async () => {
       const hkRes = await request(app.getHttpServer())
         .get('/api/security-test/test-staff-role')
         .set('Authorization', `Bearer ${roleTokens['HOUSEKEEPING']}`);
       expect(hkRes.status).toBe(200);
 
+      // Le rôle MAINTENANCE est désormais actif en V1 (config/modules.json, module Technique V1) -> 200 OK
       const res = await request(app.getHttpServer())
         .get('/api/security-test/test-staff-role')
         .set('Authorization', `Bearer ${roleTokens['MAINTENANCE']}`);
-
-      // Le rôle MAINTENANCE est désactivé en V1 -> 403 Forbidden
-      expect(res.status).toBe(403);
-      expect(res.body.message).toContain('reporté en version ultérieure');
+      expect(res.status).toBe(200);
     });
 
-    it('doit accepter le rôle reporté si l’interrupteur est activé dynamiquement pour les tests CI', async () => {
+    it('refuse le rôle si son module est désactivé dynamiquement puis le réaccepte à la réactivation', async () => {
+      moduleConfigService.setModuleOverride('maintenance', false);
+
+      const refused = await request(app.getHttpServer())
+        .get('/api/security-test/test-staff-role')
+        .set('Authorization', `Bearer ${roleTokens['MAINTENANCE']}`);
+      expect(refused.status).toBe(403);
+      expect(refused.body.message).toContain('reporté en version ultérieure');
+
       moduleConfigService.setModuleOverride('maintenance', true);
 
       const res = await request(app.getHttpServer())

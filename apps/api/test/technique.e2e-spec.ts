@@ -78,8 +78,16 @@ describe('Porte de sécurité & E2E : Pannes, Nettoyage et Écran Technique', ()
       expect(res.body).toHaveProperty('resolvedToday');
     });
 
+    it('DIRECTION accède aussi au tableau Technique pour autoriser les interventions', async () => {
+      const res = await request(app.getHttpServer())
+        .get('/api/technique/problems')
+        .set('Authorization', `Bearer ${roleTokens[Role.DIRECTION]}`);
+
+      expect(res.status).toBe(200);
+    });
+
     it('Les autres profils reçoivent 403 Forbidden sur /api/technique/problems', async () => {
-      for (const r of [Role.RECEPTION, Role.DIRECTION, Role.HOUSEKEEPING, Role.RESTAURANT, Role.CUISINIER]) {
+      for (const r of [Role.RECEPTION, Role.HOUSEKEEPING, Role.RESTAURANT, Role.CUISINIER]) {
         const res = await request(app.getHttpServer())
           .get('/api/technique/problems')
           .set('Authorization', `Bearer ${roleTokens[r]}`);
@@ -134,6 +142,7 @@ describe('Porte de sécurité & E2E : Pannes, Nettoyage et Écran Technique', ()
       expect(res.status).toBe(201);
       expect(res.body.blocksRental).toBe(true);
       expect(res.body.status).toBe('REPORTED');
+      expect(res.body.directorApproved).toBe(false);
       createdProblemId = res.body.id;
 
       // Vérifier l'état de la chambre
@@ -160,6 +169,79 @@ describe('Porte de sécurité & E2E : Pannes, Nettoyage et Écran Technique', ()
 
       // Refusé car la chambre est en maintenance
       expect([400, 409]).toContain(res.status);
+    });
+
+    it('Sans accord du directeur, le technicien ne peut ni venir, ni réparer, ni contourner par toggleBlocking ou PATCH /status (409)', async () => {
+      const takeRes = await request(app.getHttpServer())
+        .patch(`/api/technique/problems/${createdProblemId}/take`)
+        .set('Authorization', `Bearer ${roleTokens[Role.MAINTENANCE]}`);
+
+      expect(takeRes.status).toBe(409);
+      expect(takeRes.body.message).toContain('accord préalable du directeur');
+
+      const resolveRes = await request(app.getHttpServer())
+        .patch(`/api/technique/problems/${createdProblemId}/resolve`)
+        .set('Authorization', `Bearer ${roleTokens[Role.MAINTENANCE]}`)
+        .send({ resolutionNote: 'Réparation sans autorisation' });
+
+      expect(resolveRes.status).toBe(409);
+
+      // Tentative de contournement via PATCH /api/rooms/:id/status direct
+      const statusBypassRes = await request(app.getHttpServer())
+        .patch(`/api/rooms/${testRoom.id}/status`)
+        .set('Authorization', `Bearer ${roleTokens[Role.MAINTENANCE]}`)
+        .send({ status: RoomStatus.CLEANING, reason: 'Contournement statut direct' });
+
+      expect(statusBypassRes.status).toBe(409);
+      expect(statusBypassRes.body.message).toContain('accord préalable du directeur');
+
+      // Basculer « chambre louable malgré ce problème » ne donne JAMAIS l'accord de réparation
+      const toggleOff = await request(app.getHttpServer())
+        .patch(`/api/rooms/problems/${createdProblemId}/toggle-blocking`)
+        .set('Authorization', `Bearer ${roleTokens[Role.RECEPTION]}`);
+      expect(toggleOff.status).toBe(200);
+      expect(toggleOff.body.blocksRental).toBe(false);
+      expect(toggleOff.body.directorApproved).toBe(false);
+
+      const takeAfterToggle = await request(app.getHttpServer())
+        .patch(`/api/technique/problems/${createdProblemId}/take`)
+        .set('Authorization', `Bearer ${roleTokens[Role.MAINTENANCE]}`);
+      expect(takeAfterToggle.status).toBe(409);
+
+      // Rétablir blocksRental = true pour la suite du cycle
+      const toggleBack = await request(app.getHttpServer())
+        .patch(`/api/rooms/problems/${createdProblemId}/toggle-blocking`)
+        .set('Authorization', `Bearer ${roleTokens[Role.RECEPTION]}`);
+      expect(toggleBack.status).toBe(200);
+      expect(toggleBack.body.blocksRental).toBe(true);
+    });
+
+    it('Seul le directeur peut autoriser l’intervention (403 sur /technique et /rooms pour tout autre rôle)', async () => {
+      for (const nonDir of [
+        Role.MAINTENANCE,
+        Role.RECEPTION,
+        Role.HOUSEKEEPING,
+        Role.RESTAURANT,
+        Role.CUISINIER,
+      ]) {
+        const refusedTech = await request(app.getHttpServer())
+          .patch(`/api/technique/problems/${createdProblemId}/approve`)
+          .set('Authorization', `Bearer ${roleTokens[nonDir]}`);
+        expect(refusedTech.status).toBe(403);
+
+        const refusedRooms = await request(app.getHttpServer())
+          .patch(`/api/rooms/problems/${createdProblemId}/approve`)
+          .set('Authorization', `Bearer ${roleTokens[nonDir]}`);
+        expect(refusedRooms.status).toBe(403);
+      }
+
+      const approved = await request(app.getHttpServer())
+        .patch(`/api/technique/problems/${createdProblemId}/approve`)
+        .set('Authorization', `Bearer ${roleTokens[Role.DIRECTION]}`);
+
+      expect(approved.status).toBe(200);
+      expect(approved.body.directorApproved).toBe(true);
+      expect(approved.body.approvedByDirectorName).toBeTruthy();
     });
 
     it('Le technicien prend en charge la panne (« Je m’en occupe »)', async () => {
@@ -196,9 +278,20 @@ describe('Porte de sécurité & E2E : Pannes, Nettoyage et Écran Technique', ()
       // La chambre propre redevient FREE
       const room = await prisma.room.findUnique({ where: { id: testRoom.id } });
       expect(room?.status).toBe(RoomStatus.FREE);
+
+      // Vérifier la traçabilité complète dans audit_log
+      const auditEntries = await prisma.auditLog.findMany({
+        where: { entity: 'RoomProblem', entityId: createdProblemId },
+        select: { action: true },
+      });
+      const actions = auditEntries.map((a) => a.action);
+      expect(actions).toContain('ROOM_PROBLEM_REPORTED');
+      expect(actions).toContain('ROOM_PROBLEM_DIRECTOR_APPROVED');
+      expect(actions).toContain('ROOM_PROBLEM_ACKNOWLEDGED');
+      expect(actions).toContain('ROOM_PROBLEM_RESOLVED');
     });
 
-    it('L’ampoule ne bloque pas la location par défaut', async () => {
+    it('L’ampoule ne bloque pas la location par défaut et n’exige pas l’accord du directeur', async () => {
       const res = await request(app.getHttpServer())
         .post(`/api/rooms/${testRoom.id}/problems`)
         .set('Authorization', `Bearer ${roleTokens[Role.HOUSEKEEPING]}`)
@@ -209,6 +302,7 @@ describe('Porte de sécurité & E2E : Pannes, Nettoyage et Écran Technique', ()
 
       expect(res.status).toBe(201);
       expect(res.body.blocksRental).toBe(false);
+      expect(res.body.directorApproved).toBe(true);
 
       // La chambre reste FREE
       const room = await prisma.room.findUnique({ where: { id: testRoom.id } });

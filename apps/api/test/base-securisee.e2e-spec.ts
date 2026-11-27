@@ -247,6 +247,9 @@ describe('Base de données sécurisée (feature/base-securisee) — Intégration
       const tmpBackupDir = fs
         .mkdtempSync(path.join(os.tmpdir(), 'rb-backups-'))
         .replace(/\\/g, '/');
+      const tmpOffsiteBackupDir = fs
+        .mkdtempSync(path.join(os.tmpdir(), 'rb-backups-offsite-'))
+        .replace(/\\/g, '/');
 
       const isWindows = process.platform === 'win32';
       const gitUsrBin = 'C:\\Program Files\\Git\\usr\\bin';
@@ -266,6 +269,7 @@ describe('Base de données sécurisée (feature/base-securisee) — Intégration
         PGPASSWORD: ownerPassword,
         PGDATABASE: dbName,
         BACKUP_DIR: tmpBackupDir,
+        BACKUP_OFFSITE_DIR: tmpOffsiteBackupDir,
         BACKUP_ENCRYPTION_KEY: process.env.TEST_BACKUP_ENCRYPTION_KEY,
         // Utilisé seulement si pg_dump/psql ne sont pas installés sur la machine
         PG_CONTAINER: process.env.TEST_PG_CONTAINER || 'residence_blue_postgres',
@@ -283,6 +287,11 @@ describe('Base de données sécurisée (feature/base-securisee) — Intégration
           .trim();
         expect(latestBackupPath).toMatch(/backup_residence_blue_\d{8}_\d{6}\.sql\.gpg$/);
         expect(fs.existsSync(latestBackupPath)).toBe(true);
+
+        // Vérifier que la seconde copie chiffrée hors site existe et a la même taille
+        const offsiteBackupPath = path.join(tmpOffsiteBackupDir, path.basename(latestBackupPath));
+        expect(fs.existsSync(offsiteBackupPath)).toBe(true);
+        expect(fs.statSync(offsiteBackupPath).size).toBe(fs.statSync(latestBackupPath).size);
 
         // Le fichier est chiffré : aucune donnée en clair
         const rawEncrypted = fs.readFileSync(latestBackupPath).toString('latin1');
@@ -319,6 +328,7 @@ describe('Base de données sécurisée (feature/base-securisee) — Intégration
         ).rejects.toThrow(/ajout seul|append-only/i);
       } finally {
         fs.rmSync(tmpBackupDir, { recursive: true, force: true });
+        fs.rmSync(tmpOffsiteBackupDir, { recursive: true, force: true });
       }
     }, 120000);
   });

@@ -27,6 +27,10 @@ export interface TechniqueCardItem {
   resolvedByName: string | null;
   resolvedAt: string | null;
   resolutionNote: string | null;
+  blocksRental: boolean;
+  directorApproved: boolean;
+  approvedByDirectorName: string | null;
+  approvedByDirectorAt: string | null;
 }
 
 export interface TechniqueDashboardResponse {
@@ -78,6 +82,10 @@ export class TechniqueService {
       resolvedByName: p.resolvedByName,
       resolvedAt: p.resolvedAt instanceof Date ? p.resolvedAt.toISOString() : p.resolvedAt,
       resolutionNote: p.resolutionNote,
+      blocksRental: p.blocksRental ?? true,
+      directorApproved: Boolean(p.directorApproved),
+      approvedByDirectorName: p.approvedByDirectorName || null,
+      approvedByDirectorAt: p.approvedByDirectorAt instanceof Date ? p.approvedByDirectorAt.toISOString() : p.approvedByDirectorAt || null,
     };
   }
 
@@ -141,6 +149,12 @@ export class TechniqueService {
     ip?: string,
   ): Promise<RoomProblemDto> {
     const result = await this.roomProblemsService.resolveProblem(problemId, dto, user, ip);
+    this.emitEvent('TECHNIQUE_PROBLEM_UPDATED', result, false);
+    return result;
+  }
+
+  async approveProblem(problemId: string, user: any, ip?: string): Promise<RoomProblemDto> {
+    const result = await this.roomProblemsService.approveProblem(problemId, user, ip);
     this.emitEvent('TECHNIQUE_PROBLEM_UPDATED', result, false);
     return result;
   }

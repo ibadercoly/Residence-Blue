@@ -11,6 +11,7 @@ import {
   isRoomStatusTransitionAllowed,
   RoomStatus as SharedRoomStatus,
   RoomStatusStreamEvent,
+  ROOM_PROBLEM_TYPE_META,
 } from '@residence-blue/shared';
 import { Observable, Subject, concat, from } from 'rxjs';
 import { ReservationStatus, RoomStatus } from '@prisma/client';
@@ -74,12 +75,46 @@ export class RoomsService {
    * triées par étage puis par numéro de chambre.
    */
   async findAll() {
-    return this.prisma.room.findMany({
+    const rooms = await this.prisma.room.findMany({
       include: {
         type: true,
+        problems: {
+          where: { status: { in: ['REPORTED', 'IN_PROGRESS'] } },
+          orderBy: { createdAt: 'desc' },
+        },
       },
       orderBy: [{ floor: 'asc' }, { number: 'asc' }],
     });
+
+    return rooms.map((r) => ({
+      ...r,
+      activeProblems: (r.problems || []).map((p) => ({
+        id: p.id,
+        roomId: p.roomId,
+        roomNumber: r.number,
+        roomFloor: r.floor,
+        roomCategory: r.category,
+        type: p.type,
+        typeLabel: ROOM_PROBLEM_TYPE_META[p.type]?.label || p.type,
+        icon: ROOM_PROBLEM_TYPE_META[p.type]?.icon || 'build',
+        description: p.description,
+        reportedByRole: p.reportedByRole,
+        reportedByName: p.reportedByName,
+        reportedAt: p.reportedAt instanceof Date ? p.reportedAt.toISOString() : p.reportedAt,
+        wasOccupied: p.wasOccupied,
+        blocksRental: p.blocksRental,
+        status: p.status,
+        directorApproved: Boolean(p.directorApproved),
+        approvedByDirectorName: p.approvedByDirectorName || null,
+        approvedByDirectorAt: p.approvedByDirectorAt instanceof Date ? p.approvedByDirectorAt.toISOString() : p.approvedByDirectorAt || null,
+        assignedToName: p.assignedToName,
+        acknowledgedAt: p.acknowledgedAt instanceof Date ? p.acknowledgedAt.toISOString() : p.acknowledgedAt,
+        resolvedByName: p.resolvedByName,
+        resolvedAt: p.resolvedAt instanceof Date ? p.resolvedAt.toISOString() : p.resolvedAt,
+        resolutionNote: p.resolutionNote,
+        isCurrentlyOccupied: r.status === 'OCCUPIED',
+      })),
+    }));
   }
 
   /**
@@ -598,6 +633,30 @@ export class RoomsService {
         throw new ForbiddenException(msg);
       }
       throw new BadRequestException(msg);
+    }
+
+    // Règle d'accord préalable du directeur : l'équipe technique ne peut pas sortir une chambre de
+    // MAINTENANCE par changement de statut direct tant qu'une panne majeure non autorisée existe.
+    if (
+      userRole === 'MAINTENANCE' &&
+      currentStatus === SharedRoomStatus.MAINTENANCE &&
+      (targetStatus === SharedRoomStatus.CLEANING || targetStatus === SharedRoomStatus.FREE) &&
+      this.prisma.roomProblem?.findFirst
+    ) {
+      const unapprovedMajor = await this.prisma.roomProblem.findFirst({
+        where: {
+          roomId: id,
+          status: { in: ['REPORTED', 'IN_PROGRESS'] },
+          type: { not: 'AMPOULE' },
+          directorApproved: false,
+        },
+        select: { id: true },
+      });
+      if (unapprovedMajor) {
+        throw new ConflictException(
+          `Intervention non autorisée : l'accord préalable du directeur est requis pour intervenir sur la panne majeure en chambre ${room.number}.`,
+        );
+      }
     }
 
     const trimmedReason = dto.reason?.trim();

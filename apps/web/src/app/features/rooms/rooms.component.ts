@@ -283,6 +283,7 @@ import { ModalShellComponent } from '../../shared/components/modal-shell/modal-s
             (onView)="openEditDrawer(room)"
             (onStatusChange)="changeStatus(room.id, $event.status, $event.reason)"
             (onReportProblem)="openProblemModal(room)"
+            (onApproveProblem)="approveRoomProblem($event)"
           ></app-room-status-card>
         } @empty {
           <div class="col-span-full py-12 text-center text-on-surface-variant bg-surface-container-lowest rounded-2xl border border-outline-variant/60">
@@ -1113,6 +1114,10 @@ export class RoomsComponent {
 
   async changeStatus(roomId: string, targetStatus: RoomStatus, reason?: string): Promise<void> {
     await this.roomsService.changeRoomStatus(roomId, targetStatus, reason);
+  }
+
+  async approveRoomProblem(problemId: string): Promise<void> {
+    await this.roomsService.approveProblem(problemId);
   }
 
   /**

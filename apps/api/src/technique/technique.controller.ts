@@ -16,7 +16,7 @@ import { ResolveRoomProblemDto } from '../rooms/dto/resolve-room-problem.dto';
 import { map, merge, Observable, timer } from 'rxjs';
 
 @Controller('technique')
-@Roles(Role.MAINTENANCE)
+@Roles(Role.MAINTENANCE, Role.DIRECTION)
 export class TechniqueController {
   constructor(private readonly techniqueService: TechniqueService) {}
 
@@ -51,6 +51,17 @@ export class TechniqueController {
     const user = (req as any).user;
     const ip = req.ip || req.socket.remoteAddress || undefined;
     return this.techniqueService.resolveProblem(id, dto, user, ip);
+  }
+
+  /**
+   * Autorisation préalable d'intervention par le directeur pour une panne majeure.
+   */
+  @Patch('problems/:id/approve')
+  @Roles(Role.DIRECTION)
+  async approveProblem(@Param('id') id: string, @Req() req: Request) {
+    const user = (req as any).user;
+    const ip = req.ip || req.socket.remoteAddress || undefined;
+    return this.techniqueService.approveProblem(id, user, ip);
   }
 
   /**

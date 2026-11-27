@@ -10,7 +10,7 @@ import {
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RoomUiItem } from '../../../core/services/rooms.service';
-import { RoomStatus, Role, formatFcfa } from '@residence-blue/shared';
+import { RoomStatus, Role, RoomProblemDto, formatFcfa, isProblemAwaitingDirectorApproval } from '@residence-blue/shared';
 import { ImageComponent } from '../image/image.component';
 import { StatusBadgeComponent } from '../status-badge/status-badge.component';
 import { ActionButtonComponent } from '../action-button/action-button.component';
@@ -222,6 +222,30 @@ import { AuthService } from '../../../core/services/auth.service';
               >
                 <span class="material-symbols-outlined text-[15px] text-rose-600 shrink-0 mt-0.5">warning</span>
                 <span>Hors service : {{ room.maintenanceReason || 'Problème signalé' }}</span>
+              </div>
+            }
+
+            <!-- Alerte accord préalable du directeur requis pour panne majeure -->
+            @for (prob of problemsAwaitingDirectorApproval; track prob.id) {
+              <div
+                class="flex flex-col gap-2 px-2.5 py-2 bg-rose-50 border border-rose-300 text-rose-950 text-xs rounded-lg mb-2"
+                [attr.data-testid]="'room-card-director-approval-pending-' + prob.id"
+              >
+                <div class="flex items-start gap-1.5 font-bold">
+                  <span class="material-symbols-outlined text-[16px] text-rose-600 shrink-0 mt-0.5">lock</span>
+                  <span>Panne majeure ({{ prob.typeLabel || prob.type }}) : accord du directeur requis avant réparation</span>
+                </div>
+                @if (currentRole === Role.DIRECTION) {
+                  <button
+                    type="button"
+                    (click)="onApproveProblem.emit(prob.id)"
+                    [attr.data-testid]="'room-card-btn-approve-' + prob.id"
+                    class="w-full h-9 px-3 rounded-lg bg-primary hover:bg-primary-container text-on-primary text-xs font-bold inline-flex items-center justify-center gap-1.5 cursor-pointer transition-colors"
+                  >
+                    <span class="material-symbols-outlined text-[16px]">verified</span>
+                    <span>Autoriser la réparation</span>
+                  </button>
+                }
               </div>
             }
 
@@ -441,6 +465,7 @@ export class RoomStatusCardComponent {
   @Output() onDelete = new EventEmitter<RoomUiItem>();
   @Output() onView = new EventEmitter<RoomUiItem>();
   @Output() onReportProblem = new EventEmitter<RoomUiItem>();
+  @Output() onApproveProblem = new EventEmitter<string>();
 
   readonly RoomStatus = RoomStatus;
   readonly Role = Role;
@@ -577,6 +602,15 @@ export class RoomStatusCardComponent {
   onActionDelete(): void {
     this.closeMenu(true);
     this.onDelete.emit(this.room);
+  }
+
+  get problemsAwaitingDirectorApproval(): RoomProblemDto[] {
+    if (!this.room?.activeProblems) return [];
+    return this.room.activeProblems.filter(
+      (p) =>
+        (p.status === 'REPORTED' || p.status === 'IN_PROGRESS') &&
+        isProblemAwaitingDirectorApproval(p),
+    );
   }
 
   get canRestoreFromMaintenance(): boolean {
