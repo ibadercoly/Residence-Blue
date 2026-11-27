@@ -1249,6 +1249,7 @@ export class RoomsService {
       description: r.description || '',
       internalNote: r.internalNote || '',
       maintenanceReason: r.status === RoomStatus.MAINTENANCE ? (r.maintenanceReason ?? null) : null,
+      activeInterventions: Array.isArray(r.activeInterventions) ? r.activeInterventions : undefined,
       isActive: r.isActive !== false,
       syncPending: Boolean(r.syncPending),
     };
@@ -1292,6 +1293,7 @@ export class RoomsService {
       this.roomPollingTimer = setInterval(() => {
         if (this.network.isOnline() && this.authService?.isAuthenticated()) {
           void this.fetchFromServer();
+          void this.fetchInterventions();
         }
       }, 10000);
     }
