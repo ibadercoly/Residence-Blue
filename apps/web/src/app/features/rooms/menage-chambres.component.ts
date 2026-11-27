@@ -5,7 +5,6 @@ import { RoomInterventionStatus, RoomStatus } from '@residence-blue/shared';
 import { RoomsService, RoomUiItem } from '../../core/services/rooms.service';
 import { NetworkService } from '../../core/offline/network.service';
 import { OutboxService } from '../../core/offline/outbox.service';
-import { ModalShellComponent } from '../../shared/components/modal-shell/modal-shell.component';
 import {
   INTERVENTION_PROBLEM_CHOICES,
   InterventionProblemChoice,
@@ -18,7 +17,7 @@ export const MENAGE_PROBLEM_CHOICES: ProblemChoiceOption[] = INTERVENTION_PROBLE
 @Component({
   selector: 'app-menage-chambres',
   standalone: true,
-  imports: [CommonModule, FormsModule, ModalShellComponent, ReportInterventionModalComponent],
+  imports: [CommonModule, FormsModule, ReportInterventionModalComponent],
   host: { class: 'block w-full max-w-full overflow-x-hidden' },
   template: `
     <div

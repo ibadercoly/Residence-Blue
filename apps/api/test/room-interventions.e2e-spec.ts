@@ -134,6 +134,34 @@ describe("Workflow d'Intervention Technique en Chambre — Intégration & Sécur
       const maintRoomA = (maintRooms.body as any[]).find((r) => r.id === roomA.id);
       expect(maintRoomA.activeInterventions).toEqual([]);
       expect(JSON.stringify(maintRooms.body)).not.toContain("Fuite d'eau importante sous le lavabo");
+
+      // L'Assistant de Réception PEUT VOIR le problème envoyé par le Ménage mais NE PEUT PAS interagir avec (409/403)
+      const recRooms = await request(app.getHttpServer())
+        .get('/api/rooms')
+        .set('Authorization', `Bearer ${roleUsers[Role.RECEPTION].token}`)
+        .expect(200);
+      const recRoomA = (recRooms.body as any[]).find((r) => r.id === roomA.id);
+      expect(recRoomA.activeInterventions).toHaveLength(1);
+      expect(recRoomA.activeInterventions[0].reportedByRole).toBe(Role.HOUSEKEEPING);
+      expect(recRoomA.activeInterventions[0].issueDescription).toBe(
+        "Fuite d'eau importante sous le lavabo",
+      );
+
+      await request(app.getHttpServer())
+        .post(`/api/rooms/${roomA.id}/intervention`)
+        .set('Authorization', `Bearer ${roleUsers[Role.RECEPTION].token}`)
+        .send({ issueDescription: 'Tentative doublon sur signalement ménage' })
+        .expect(409);
+
+      await request(app.getHttpServer())
+        .post(`/api/rooms/interventions/${housekeepingReqId}/approve`)
+        .set('Authorization', `Bearer ${roleUsers[Role.RECEPTION].token}`)
+        .expect(403);
+      await request(app.getHttpServer())
+        .post(`/api/rooms/interventions/${housekeepingReqId}/reject`)
+        .set('Authorization', `Bearer ${roleUsers[Role.RECEPTION].token}`)
+        .send({ reason: 'Interdit' })
+        .expect(403);
     });
 
     it("L'Assistant de Réception signale un problème (201) -> statut PENDING_DIRECTOR + reportedBy", async () => {

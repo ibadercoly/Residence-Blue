@@ -60,6 +60,7 @@ describe('RoomInterventionsService (Tests Unitaires Workflow Intervention)', () 
           updatedAt: new Date(),
         })),
         findUnique: jest.fn(),
+        findFirst: jest.fn().mockResolvedValue(null),
         findMany: jest.fn().mockResolvedValue([]),
         count: jest.fn().mockResolvedValue(0),
         update: jest.fn().mockImplementation(async ({ where, data }: any) => ({
@@ -236,5 +237,22 @@ describe('RoomInterventionsService (Tests Unitaires Workflow Intervention)', () 
     await expect(
       service.approveRequest('not-a-uuid', { id: dirUserId, role: Role.DIRECTION }),
     ).rejects.toThrow(NotFoundException);
+  });
+
+  it('refuse (409) à la Réception de créer ou modifier une demande lorsqu’un signalement du Ménage est déjà en attente', async () => {
+    mockPrisma.roomInterventionRequest.findFirst.mockResolvedValueOnce({
+      id: reqId,
+      roomId,
+      status: RoomInterventionStatus.PENDING_DIRECTOR,
+      reportedBy: { role: Role.HOUSEKEEPING },
+    });
+
+    await expect(
+      service.createRequest(
+        roomId,
+        { issueDescription: 'Tentative interaction assistant' },
+        { id: recUserId, role: Role.RECEPTION },
+      ),
+    ).rejects.toThrow(ConflictException);
   });
 });

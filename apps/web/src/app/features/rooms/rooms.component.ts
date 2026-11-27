@@ -18,11 +18,12 @@ import { AuthService } from '../../core/services/auth.service';
 import { MenageChambresComponent } from './menage-chambres.component';
 import { RoomStatusCardComponent } from '../../shared/components/room-status-card/room-status-card.component';
 import { ModalShellComponent } from '../../shared/components/modal-shell/modal-shell.component';
+import { ReportInterventionModalComponent } from '../../shared/components/report-intervention-modal/report-intervention-modal.component';
 
 @Component({
   selector: 'app-rooms',
   standalone: true,
-  imports: [CommonModule, FormsModule, RoomStatusCardComponent, ModalShellComponent, MenageChambresComponent],
+  imports: [CommonModule, FormsModule, RoomStatusCardComponent, ModalShellComponent, MenageChambresComponent, ReportInterventionModalComponent],
   host: { class: 'block w-full max-w-full overflow-x-hidden' },
   template: `
     @if (isHousekeepingProfile()) {
@@ -1058,64 +1059,15 @@ import { ModalShellComponent } from '../../shared/components/modal-shell/modal-s
         </app-modal-shell>
       }
 
-      <!-- 6. MODALE SIGNALER UN PROBLÈME (ModalShellComponent — Réception / Ménage) -->
-      @if (interventionModalRoom(); as targetRoom) {
-        <app-modal-shell
-          [isOpen]="true"
-          title="Signaler un problème"
-          [subtitle]="'Chambre ' + targetRoom.number + ' · Étage ' + targetRoom.floor"
-          icon="report_problem"
-          testId="modal-report-intervention"
-          (close)="closeInterventionModal()"
-          (closed)="closeInterventionModal()"
-        >
-          <div modal-body class="space-y-4">
-            <div class="p-3.5 rounded-xl bg-amber-50 border border-amber-300 text-amber-900 text-xs flex items-start gap-2.5">
-              <span class="material-symbols-outlined text-[18px] text-amber-700 shrink-0 mt-0.5">info</span>
-              <p>
-                Votre signalement sera transmis à la <strong>Direction</strong> pour validation préalable avant toute intervention de l'équipe technique.
-              </p>
-            </div>
-
-            <div class="space-y-1.5">
-              <label for="input-intervention-description" class="block text-xs font-semibold text-on-surface">
-                Description du problème constaté <span class="text-rose-500">*</span>
-              </label>
-              <textarea
-                id="input-intervention-description"
-                rows="3"
-                maxlength="500"
-                [ngModel]="interventionDescription()"
-                (ngModelChange)="interventionDescription.set($event)"
-                placeholder="Ex : Fuite d'eau sous le lavabo, climatisation en panne..."
-                data-testid="input-intervention-description"
-                class="w-full p-3 rounded-xl bg-surface-container-lowest border border-outline-variant/80 text-on-surface text-sm outline-none focus:ring-2 focus:ring-primary/25 resize-none"
-              ></textarea>
-            </div>
-          </div>
-
-          <div modal-footer class="w-full flex items-center justify-end gap-2.5">
-            <button
-              type="button"
-              (click)="closeInterventionModal()"
-              data-testid="btn-cancel-intervention"
-              class="h-10 px-4 rounded-xl border border-outline-variant/60 bg-surface-container-high hover:bg-surface-variant text-on-surface text-xs font-semibold cursor-pointer"
-            >
-              Annuler
-            </button>
-            <button
-              type="button"
-              (click)="submitIntervention()"
-              [disabled]="!interventionDescription().trim() || isInterventionActionBusy()"
-              data-testid="btn-submit-intervention"
-              class="h-10 px-5 rounded-xl bg-primary hover:bg-primary-container disabled:opacity-40 text-on-primary text-xs font-bold inline-flex items-center gap-1.5 shadow-xs cursor-pointer"
-            >
-              <span class="material-symbols-outlined text-[16px]">send</span>
-              <span>{{ isInterventionActionBusy() ? 'Envoi...' : 'Envoyer à la Direction' }}</span>
-            </button>
-          </div>
-        </app-modal-shell>
-      }
+      <!-- 6. MODALE SIGNALER UN PROBLÈME (identique à l'espace Ménage) -->
+      <app-report-intervention-modal
+        [isOpen]="interventionModalRoom() !== null"
+        [room]="interventionModalRoom()"
+        [isSubmitting]="isInterventionActionBusy()"
+        testId="modal-report-intervention"
+        (closed)="closeInterventionModal()"
+        (submitted)="submitInterventionDescription($event)"
+      ></app-report-intervention-modal>
 
       <!-- 7. MODALE REFUS DE DEMANDE D'INTERVENTION (ModalShellComponent — Direction) -->
       @if (rejectingIntervention(); as req) {
@@ -1367,9 +1319,9 @@ export class RoomsComponent {
     this.interventionDescription.set('');
   }
 
-  async submitIntervention(): Promise<void> {
+  async submitInterventionDescription(description: string): Promise<void> {
     const room = this.interventionModalRoom();
-    const desc = this.interventionDescription().trim();
+    const desc = (description || '').trim();
     if (!room || !desc || this.isInterventionActionBusy()) return;
 
     this.isInterventionActionBusy.set(true);
@@ -1381,6 +1333,10 @@ export class RoomsComponent {
     } finally {
       this.isInterventionActionBusy.set(false);
     }
+  }
+
+  async submitIntervention(): Promise<void> {
+    await this.submitInterventionDescription(this.interventionDescription());
   }
 
   async approveIntervention(interventionId: string): Promise<void> {

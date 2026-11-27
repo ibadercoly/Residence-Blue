@@ -1,5 +1,5 @@
 import { RoomStatusCardComponent } from './room-status-card.component';
-import { RoomStatus, Role } from '@residence-blue/shared';
+import { RoomStatus, RoomInterventionStatus, Role } from '@residence-blue/shared';
 
 describe('RoomStatusCardComponent', () => {
   let component: RoomStatusCardComponent;
@@ -133,5 +133,31 @@ describe('RoomStatusCardComponent', () => {
       type: { ...component.room.type!, pricePerNight: null },
     };
     expect(component.shouldShowPrice).toBe(false);
+  });
+
+  it('affiche le problème du Ménage en lecture seule pour Réception et le masque totalement pour Technique', () => {
+    component.room = {
+      ...component.room,
+      activeInterventions: [
+        {
+          id: 'int-hk-1',
+          roomId: 'room-101',
+          reportedById: 'u-hk',
+          reportedByName: 'Awa',
+          reportedByRole: Role.HOUSEKEEPING,
+          issueDescription: "Fuite d'eau — lavabo",
+          status: RoomInterventionStatus.PENDING_DIRECTOR,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        },
+      ],
+    };
+
+    component.currentRole = Role.RECEPTION;
+    expect(component.pendingIntervention?.id).toBe('int-hk-1');
+    expect(component.isReportedByHousekeeping(component.pendingIntervention)).toBe(true);
+
+    component.currentRole = Role.MAINTENANCE;
+    expect(component.pendingIntervention).toBeNull();
   });
 });
