@@ -24,6 +24,10 @@ export class UpdateHotelSettingsDto {
 
   @IsOptional()
   @IsString()
+  postalCode?: string;
+
+  @IsOptional()
+  @IsString()
   country?: string;
 
   @IsOptional()
@@ -44,7 +48,15 @@ export class UpdateHotelSettingsDto {
 
   @IsOptional()
   @IsString()
+  secondaryPhones?: string;
+
+  @IsOptional()
+  @IsString()
   supportEmail?: string;
+
+  @IsOptional()
+  @IsString()
+  website?: string;
 
   @IsOptional()
   @Type(() => Number)

@@ -431,8 +431,11 @@ export class RoomsService {
       return { success: false, error: err };
     }
 
-    const price = Math.round(Number(dto.pricePerNight) || 35000);
-    const category = dto.category?.trim() || 'Standard';
+    const price =
+      dto.pricePerNight !== undefined && dto.pricePerNight !== null && Number(dto.pricePerNight) > 0
+        ? Math.round(Number(dto.pricePerNight))
+        : null;
+    const category = dto.category?.trim() || 'À classer';
     const floor = Number(dto.floor) || 1;
     const newId = typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `room-${Date.now()}`;
 
@@ -452,12 +455,12 @@ export class RoomsService {
       imageUrl: dto.imageUrl || FALLBACK_ROOM_IMAGE,
       image: dto.imageUrl || FALLBACK_ROOM_IMAGE,
       imageAlt: `Chambre ${cleanNumber} - ${category}`,
-      adultsCapacity: Number(dto.adultsCapacity || 2),
+      adultsCapacity: Number(dto.adultsCapacity || (category === 'Appartement' ? 6 : 2)),
       childrenCapacity: Number(dto.childrenCapacity || 0),
       bedType: dto.bedType || 'queen',
       bedsCount: Number(dto.bedsCount || 1),
-      surfaceM2: Number(dto.surfaceM2 || 25),
-      view: dto.view || 'jardin',
+      surfaceM2: dto.surfaceM2 ?? null,
+      view: dto.view ?? null,
       smoking: Boolean(dto.smoking),
       connectingRoom: dto.connectingRoom?.trim() || '',
       highSeasonPricePerNight: dto.highSeasonPricePerNight ? Math.round(Number(dto.highSeasonPricePerNight)) : undefined,
@@ -497,7 +500,7 @@ export class RoomsService {
           formData.append('number', cleanNumber);
           formData.append('floor', String(floor));
           formData.append('category', category);
-          formData.append('pricePerNight', String(price));
+          if (price !== null) formData.append('pricePerNight', String(price));
           if (dto.status) formData.append('status', dto.status);
           if (dto.amenities) formData.append('amenities', JSON.stringify(dto.amenities));
           if (dto.description) formData.append('description', dto.description);
@@ -521,7 +524,7 @@ export class RoomsService {
               number: cleanNumber,
               floor,
               category,
-              pricePerNight: price,
+              ...(price !== null ? { pricePerNight: price } : {}),
             }),
           });
         }
@@ -588,10 +591,11 @@ export class RoomsService {
       }
     }
 
-    const updatedCategory = dto.category?.trim() || room.category || room.type?.name || 'Standard';
-    const updatedPrice = dto.pricePerNight !== undefined
-      ? Math.round(Number(dto.pricePerNight))
-      : (room.type?.pricePerNight || 35000);
+    const updatedCategory = dto.category?.trim() || room.category || room.type?.name || 'À classer';
+    const updatedPrice: number | null =
+      dto.pricePerNight !== undefined && dto.pricePerNight !== null
+        ? Math.round(Number(dto.pricePerNight))
+        : (room.pricePerNight ?? room.type?.pricePerNight ?? null);
     const cleanNumber = dto.number?.trim() || room.number;
 
     let pendingImageUrl = room.imageUrl;
@@ -646,7 +650,9 @@ export class RoomsService {
           formData.append('number', cleanNumber);
           if (dto.floor !== undefined) formData.append('floor', String(dto.floor));
           if (dto.category) formData.append('category', updatedCategory);
-          if (dto.pricePerNight !== undefined) formData.append('pricePerNight', String(updatedPrice));
+          if (dto.pricePerNight !== undefined && updatedPrice !== null) {
+            formData.append('pricePerNight', String(updatedPrice));
+          }
           if (dto.status) formData.append('status', dto.status);
           if (dto.amenities) formData.append('amenities', JSON.stringify(dto.amenities));
           if (dto.description !== undefined) formData.append('description', dto.description);
@@ -670,7 +676,7 @@ export class RoomsService {
               number: cleanNumber,
               floor: dto.floor !== undefined ? Number(dto.floor) : room.floor,
               category: updatedCategory,
-              pricePerNight: updatedPrice,
+              ...(updatedPrice !== null ? { pricePerNight: updatedPrice } : {}),
             }),
           });
         }
@@ -1206,17 +1212,21 @@ export class RoomsService {
   }
 
   private normalizeRoom(r: Partial<RoomUiItem> & { id: string; number: string }): RoomUiItem {
-    const category = r.category || r.type?.name || 'Standard';
+    const category = r.tariffCategory?.name || r.category || r.type?.name || 'À classer';
     const canViewAmounts = this.authService && typeof this.authService.hasPermission === 'function'
       ? this.authService.hasPermission('voir_montants')
       : true;
-    const rawPrice = r.type?.pricePerNight !== undefined ? r.type.pricePerNight : r.pricePerNight;
+    const rawPrice = r.minTariffFcfa ?? r.pricePerNight ?? r.type?.pricePerNight;
     const price: number | null =
-      canViewAmounts && typeof rawPrice === 'number' && Number.isFinite(rawPrice)
+      canViewAmounts && typeof rawPrice === 'number' && Number.isFinite(rawPrice) && rawPrice > 0
         ? rawPrice
         : null;
     const imageUrl = r.imageUrl || r.image || getRoomImageUrl(r.number);
     const imageAlt = r.imageAlt || getRoomImageAlt(r.number);
+    const isUnclassified =
+      r.isUnclassified !== undefined
+        ? Boolean(r.isUnclassified)
+        : !r.tariffCategory && !['Standard', 'Confort', 'Appartement'].includes(category);
 
     return {
       id: r.id,
@@ -1224,6 +1234,10 @@ export class RoomsService {
       floor: typeof r.floor === 'number' ? r.floor : 1,
       status: r.status || RoomStatus.FREE,
       category,
+      tariffCategoryId: r.tariffCategoryId ?? r.tariffCategory?.id ?? null,
+      tariffCategory: r.tariffCategory ?? null,
+      isUnclassified,
+      minTariffFcfa: canViewAmounts && typeof r.minTariffFcfa === 'number' ? r.minTariffFcfa : null,
       typeId: r.typeId || `type-${category.toLowerCase().replace(/\s+/g, '-')}`,
       pricePerNight: price,
       type: {
@@ -1235,12 +1249,12 @@ export class RoomsService {
       image: imageUrl,
       imageUrl,
       imageAlt,
-      adultsCapacity: r.adultsCapacity ?? (category === 'Suite' ? 4 : 2),
-      childrenCapacity: r.childrenCapacity ?? (category === 'Suite' ? 2 : 1),
-      bedType: r.bedType || (category === 'Suite' ? 'king' : category === 'Deluxe' ? 'king' : 'queen'),
+      adultsCapacity: r.adultsCapacity ?? (category === 'Appartement' ? 6 : 2),
+      childrenCapacity: r.childrenCapacity ?? 0,
+      bedType: r.bedType || 'queen',
       bedsCount: r.bedsCount ?? 1,
-      surfaceM2: r.surfaceM2 ?? (category === 'Suite' ? 45 : category === 'Deluxe' ? 32 : 22),
-      view: r.view || (category === 'Suite' ? 'mer' : category === 'Deluxe' ? 'piscine' : 'jardin'),
+      surfaceM2: r.surfaceM2 ?? null,
+      view: r.view ?? null,
       smoking: Boolean(r.smoking),
       connectingRoom: r.connectingRoom || '',
       highSeasonPricePerNight: canViewAmounts ? r.highSeasonPricePerNight : null,

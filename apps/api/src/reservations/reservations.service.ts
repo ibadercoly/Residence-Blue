@@ -1,12 +1,19 @@
 import {
   BadRequestException,
   ConflictException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
+  Optional,
 } from '@nestjs/common';
 import * as crypto from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
 import { appendChainedAuditLog } from '../common/audit/audit.service';
+import { TariffsService } from '../tariffs/tariffs.service';
+import {
+  UNCLASSIFIED_ROOM_CATEGORY,
+  normalizeTariffCategoryCode,
+} from '@residence-blue/shared';
 import { CreateReservationDto, UpdateReservationDto } from './dto/reservation.dto';
 import {
   InvoiceStatus,
@@ -26,7 +33,10 @@ export interface CreateReservationContext {
 
 @Injectable()
 export class ReservationsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    @Optional() private readonly tariffsService?: TariffsService,
+  ) {}
 
   private toUiStatus(status: ReservationStatus, checkOutDate: Date): { status: string; statusLabel: string } {
     const outIso = checkOutDate.toISOString().slice(0, 10);
@@ -78,8 +88,22 @@ export class ReservationsService {
       guestName: r.guest?.fullName || 'Client',
       roomId: r.roomId,
       roomNumber: r.room?.number || '',
-      roomCategory: r.room?.category || 'Standard',
-      ratePerNightFcfa: r.room?.pricePerNight ?? 0,
+      roomCategory: r.room?.tariffCategory?.name || r.room?.category || UNCLASSIFIED_ROOM_CATEGORY,
+      ratePerNightFcfa:
+        typeof r.ratePerNightFcfa === 'number'
+          ? r.ratePerNightFcfa
+          : Math.max(
+              0,
+              Math.round(
+                ((r.totalFcfa ?? 0) - (r.tourismTaxFcfa ?? 0) + (r.discountFcfa ?? 0)) /
+                  Math.max(1, r.nights || 1),
+              ),
+            ),
+      roomsUsed: r.roomsUsed ?? 1,
+      tariffLabel: r.tariffLabel ?? null,
+      priceOverriddenByDirector: Boolean(r.priceOverriddenByDirector),
+      priceOverrideReason: r.priceOverrideReason ?? null,
+      priceDisplayNote: r.priceOverriddenByDirector ? 'Prix fixé par la direction' : null,
       startDayIndex: 0,
       durationDays: r.nights || 1,
       checkInDate: checkInIso,
@@ -138,7 +162,7 @@ export class ReservationsService {
 
   async findAll() {
     const list = await this.prisma.reservation.findMany({
-      include: { guest: true, room: true },
+      include: { guest: true, room: { include: { tariffCategory: true } } },
       orderBy: { checkInDate: 'asc' },
     });
     return list.map((r) => this.formatReservation(r));
@@ -147,7 +171,7 @@ export class ReservationsService {
   async findOne(id: string) {
     const res = await this.prisma.reservation.findUnique({
       where: { id },
-      include: { guest: true, room: true },
+      include: { guest: true, room: { include: { tariffCategory: true } } },
     });
     if (!res) {
       throw new NotFoundException(`Réservation "${id}" introuvable.`);
@@ -204,10 +228,29 @@ export class ReservationsService {
 
     const settings = await this.prisma.hotelSetting.findUnique({
       where: { id: 'default' },
-      select: { tourismTaxPerNightPerPerson: true, vatRatePercent: true },
+      select: {
+        tourismTaxPerNightPerPerson: true,
+        tourismTaxIncludesChildren: true,
+        vatRatePercent: true,
+      },
     });
     const taxRatePerAdultPerNight = settings?.tourismTaxPerNightPerPerson ?? 1000;
+    const tourismTaxIncludesChildren = settings?.tourismTaxIncludesChildren ?? false;
     const vatRatePercent = settings?.vatRatePercent ?? 10;
+
+    if (dto.overridePricePerNightFcfa !== undefined) {
+      const role = (ctx.actorRole || '').toUpperCase();
+      if (role !== 'DIRECTION' && role !== 'ADMIN' && role !== 'MANAGER') {
+        throw new ForbiddenException(
+          'La modification manuelle du tarif de réservation est réservée à la direction.',
+        );
+      }
+      if (!dto.priceOverrideReason || dto.priceOverrideReason.trim().length < 3) {
+        throw new BadRequestException(
+          'Un motif obligatoire (au moins 3 caractères) est requis lorsque la direction fixe un prix manuel.',
+        );
+      }
+    }
 
     const status = this.mapFromUiOrDbStatus(dto.status);
     const source = dto.source || 'RECEPTION';
@@ -225,11 +268,11 @@ export class ReservationsService {
           const room = dto.roomId
             ? await tx.room.findUnique({
                 where: { id: dto.roomId },
-                include: { type: true },
+                include: { type: true, tariffCategory: true },
               })
             : await tx.room.findUnique({
                 where: { number: dto.roomNumber!.trim() },
-                include: { type: true },
+                include: { type: true, tariffCategory: true },
               });
 
           if (!room) {
@@ -241,27 +284,63 @@ export class ReservationsService {
             );
           }
 
+          const categoryCode =
+            room.tariffCategory?.code ?? normalizeTariffCategoryCode(room.category);
+          const isApartment = categoryCode === 'APPARTEMENT';
+          const guestsCount = adultsCount + childrenCount;
+
           // 2. Vérifier la capacité maximale de la chambre
-          const totalCapacity = room.adultsCapacity + room.childrenCapacity;
+          const maxAdults = isApartment ? Math.max(6, room.adultsCapacity) : room.adultsCapacity;
+          const totalCapacity = isApartment
+            ? Math.max(6, room.adultsCapacity + room.childrenCapacity)
+            : room.adultsCapacity + room.childrenCapacity;
           if (
-            adultsCount > room.adultsCapacity ||
+            adultsCount > maxAdults ||
             childrenCount > room.childrenCapacity ||
-            adultsCount + childrenCount > totalCapacity
+            guestsCount > totalCapacity
           ) {
             throw new BadRequestException(
-              `Capacité dépassée pour la chambre ${room.number} (max ${room.adultsCapacity} adulte(s), ${room.childrenCapacity} enfant(s)).`,
+              `Capacité dépassée pour la chambre ${room.number} (max ${maxAdults} adulte(s), ${room.childrenCapacity} enfant(s)).`,
             );
           }
 
-          // 3. Calcul autoritaire du montant côté serveur
-          const ratePerNight = room.pricePerNight || room.type?.pricePerNight || 35000;
-          const accommodationTotal = ratePerNight * nights;
+          // 3. Calcul autoritaire du montant côté serveur via la grille tarifaire (jamais de prix par défaut)
+          const requestedRoomsUsed = isApartment ? (dto.roomsUsed ?? 1) : 1;
+          const breakfastIncluded =
+            dto.breakfastIncluded !== undefined
+              ? dto.breakfastIncluded
+              : room.breakfastIncluded;
+
+          const directorOverride =
+            dto.overridePricePerNightFcfa !== undefined
+              ? {
+                  pricePerNightFcfa: Math.round(dto.overridePricePerNightFcfa),
+                  reason: (dto.priceOverrideReason || '').trim(),
+                  actorRole: ctx.actorRole || '',
+                }
+              : null;
+
+          const tariffsService =
+            this.tariffsService ?? new TariffsService(this.prisma);
+          const priceResult = await tariffsService.computeReservationPriceForRoom({
+            room,
+            guestsCount,
+            roomsUsed: requestedRoomsUsed,
+            nights,
+            breakfastIncluded,
+            directorOverride,
+            tx,
+          });
+
+          const ratePerNight = priceResult.ratePerNightFcfa;
+          const accommodationTotal = priceResult.accommodationTotalFcfa;
           if (discountFcfa > accommodationTotal) {
             throw new BadRequestException(
               "La remise ne peut pas dépasser le montant de l'hébergement.",
             );
           }
-          const tourismTaxFcfa = taxRatePerAdultPerNight * adultsCount * nights;
+          const taxablePersons = tourismTaxIncludesChildren ? guestsCount : adultsCount;
+          const tourismTaxFcfa = taxRatePerAdultPerNight * taxablePersons * nights;
           const totalFcfa = Math.max(0, accommodationTotal + tourismTaxFcfa - discountFcfa);
           if (depositFcfa > totalFcfa) {
             throw new BadRequestException(
@@ -335,12 +414,7 @@ export class ReservationsService {
             );
           }
 
-          // 6. Créer la réservation
-          const breakfastIncluded =
-            dto.breakfastIncluded !== undefined
-              ? dto.breakfastIncluded
-              : room.breakfastIncluded;
-
+          // 6. Créer la réservation (tarif figé à la création)
           const res = await tx.reservation.create({
             data: {
               reference,
@@ -350,7 +424,16 @@ export class ReservationsService {
               checkOutDate: checkOut,
               adultsCount,
               childrenCount,
+              roomsUsed: priceResult.roomsUsed,
               nights,
+              ratePerNightFcfa: ratePerNight,
+              tariffLabel: priceResult.tariffLabel,
+              priceOverriddenByDirector: priceResult.priceOverriddenByDirector,
+              priceOverrideReason: priceResult.priceOverrideReason,
+              priceOverriddenById: priceResult.priceOverriddenByDirector ? ctx?.userId || null : null,
+              priceOverriddenByName: priceResult.priceOverriddenByDirector
+                ? ctx?.actorName || null
+                : null,
               status,
               source,
               breakfastIncluded,
@@ -363,8 +446,28 @@ export class ReservationsService {
               createdByName: ctx?.actorName || null,
               checkedInAt: status === ReservationStatus.CHECKED_IN ? new Date() : null,
             },
-            include: { guest: true, room: true },
+            include: { guest: true, room: { include: { tariffCategory: true } } },
           });
+
+          if (priceResult.priceOverriddenByDirector) {
+            await appendChainedAuditLog(tx, {
+              userId: ctx.userId || null,
+              action: 'RESERVATION_PRICE_OVERRIDE',
+              entity: 'Reservation',
+              entityId: res.id,
+              ip: ctx.ip || null,
+              after: {
+                reference: res.reference,
+                roomNumber: room.number,
+                ratePerNightFcfa: ratePerNight,
+                nights,
+                accommodationTotalFcfa: accommodationTotal,
+                reason: priceResult.priceOverrideReason,
+                actorName: ctx.actorName || null,
+                actorRole: ctx.actorRole || 'DIRECTION',
+              },
+            });
+          }
 
           if (status === ReservationStatus.CHECKED_IN) {
             await tx.room.update({
@@ -502,7 +605,12 @@ export class ReservationsService {
     try {
       return await runTx();
     } catch (err: any) {
-      if (err instanceof ConflictException || err instanceof BadRequestException || err instanceof NotFoundException) {
+      if (
+        err instanceof ConflictException ||
+        err instanceof BadRequestException ||
+        err instanceof ForbiddenException ||
+        err instanceof NotFoundException
+      ) {
         throw err;
       }
       const msg = String(err?.message || '');

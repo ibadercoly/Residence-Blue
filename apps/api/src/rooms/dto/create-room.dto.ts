@@ -26,14 +26,18 @@ export class CreateRoomDto {
   category!: string;
 
   @IsOptional()
+  @IsString()
+  tariffCategoryId?: string | null;
+
+  @IsOptional()
   @IsEnum(RoomStatus, { message: 'Le statut doit être valide (FREE, OCCUPIED, CLEANING, MAINTENANCE).' })
   status?: RoomStatus;
 
-  @IsNotEmpty({ message: 'Le tarif par nuitée est obligatoire.' })
-  @Transform(({ value }) => (value !== undefined && value !== null && value !== '' ? Number(value) : value))
+  @IsOptional()
+  @Transform(({ value }) => (value !== undefined && value !== null && value !== '' ? Number(value) : undefined))
   @IsInt({ message: 'Le tarif par nuitée doit être un nombre entier strict en FCFA.' })
   @Min(0, { message: 'Le tarif ne peut pas être négatif.' })
-  pricePerNight!: number;
+  pricePerNight?: number | null;
 
   @IsOptional()
   @Transform(({ value }) => {

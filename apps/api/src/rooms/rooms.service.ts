@@ -9,8 +9,10 @@ import { PrismaService } from '../prisma/prisma.service';
 import { appendChainedAuditLog } from '../common/audit/audit.service';
 import {
   isRoomStatusTransitionAllowed,
+  normalizeTariffCategoryCode,
   RoomStatus as SharedRoomStatus,
   RoomStatusStreamEvent,
+  UNCLASSIFIED_ROOM_CATEGORY,
 } from '@residence-blue/shared';
 import { Observable, Subject, concat, from } from 'rxjs';
 import { ReservationStatus, RoomStatus } from '@prisma/client';
@@ -82,6 +84,14 @@ export class RoomsService {
     const rooms = await this.prisma.room.findMany({
       include: {
         type: true,
+        tariffCategory: {
+          include: {
+            tariffs: {
+              where: { isActive: true },
+              orderBy: { displayOrder: 'asc' },
+            },
+          },
+        },
         interventionRequests: {
           where: { status: { in: visibleStatuses as any } },
           orderBy: { createdAt: 'desc' },
@@ -95,18 +105,33 @@ export class RoomsService {
     });
 
     return rooms.map((room: any) => {
-      const { interventionRequests, ...roomData } = room;
+      const { interventionRequests, tariffCategory, ...roomData } = room;
       const filteredRequests = (interventionRequests || []).filter((req: any) =>
         isMaintenance ? req.status === 'APPROVED' : true,
       );
+      const definedTariffs = (tariffCategory?.tariffs || [])
+        .map((t: any) => t.pricePerNightFcfa)
+        .filter((p: any): p is number => typeof p === 'number' && p > 0);
+      const minTariffFcfa =
+        definedTariffs.length > 0 ? Math.min(...definedTariffs) : null;
+      const isUnclassified = !tariffCategory;
+      const effectiveCategory = tariffCategory?.name || room.category || UNCLASSIFIED_ROOM_CATEGORY;
+
       return {
         ...roomData,
+        category: effectiveCategory,
+        pricePerNight: minTariffFcfa ?? roomData.pricePerNight ?? null,
+        tariffCategory: tariffCategory
+          ? { id: tariffCategory.id, code: tariffCategory.code, name: tariffCategory.name }
+          : null,
+        isUnclassified,
+        minTariffFcfa,
         activeInterventions: filteredRequests.map((req: any) => ({
           id: req.id,
           roomId: req.roomId,
           roomNumber: room.number,
           roomFloor: room.floor,
-          roomCategory: room.category,
+          roomCategory: effectiveCategory,
           reportedById: req.reportedById,
           reportedByName: req.reportedBy?.fullName || req.reportedBy?.email || 'Équipe',
           reportedByRole: req.reportedBy?.role,
@@ -168,18 +193,35 @@ export class RoomsService {
           id: true,
           number: true,
           category: true,
+          tariffCategoryId: true,
+          tariffCategory: {
+            select: {
+              id: true,
+              code: true,
+              name: true,
+              tariffs: {
+                where: { isActive: true },
+                select: {
+                  guestsCount: true,
+                  roomsUsed: true,
+                  pricePerNightFcfa: true,
+                },
+              },
+            },
+          },
           floor: true,
           adultsCapacity: true,
           childrenCapacity: true,
           pricePerNight: true,
           breakfastIncluded: true,
         },
-        orderBy: [{ pricePerNight: 'asc' }, { number: 'asc' }],
+        orderBy: [{ floor: 'asc' }, { number: 'asc' }],
       }),
       this.prisma.hotelSetting.findUnique({
         where: { id: 'default' },
         select: {
           tourismTaxPerNightPerPerson: true,
+          tourismTaxIncludesChildren: true,
           vatRatePercent: true,
         },
       }),
@@ -192,19 +234,32 @@ export class RoomsService {
       total: rooms.length,
       rates: {
         tourismTaxPerNightPerPerson: settings?.tourismTaxPerNightPerPerson ?? 1000,
+        tourismTaxIncludesChildren: settings?.tourismTaxIncludesChildren ?? false,
         vatRatePercent: settings?.vatRatePercent ?? 10,
       },
-      items: rooms.map((r) => ({
-        id: r.id,
-        number: r.number,
-        category: r.category,
-        floor: r.floor,
-        adultsCapacity: r.adultsCapacity,
-        childrenCapacity: r.childrenCapacity,
-        capacity: r.adultsCapacity + r.childrenCapacity,
-        pricePerNight: r.pricePerNight,
-        breakfastIncluded: r.breakfastIncluded,
-      })),
+      items: rooms.map((r: any) => {
+        const definedPrices = (r.tariffCategory?.tariffs || [])
+          .map((t: any) => t.pricePerNightFcfa)
+          .filter((p: any): p is number => typeof p === 'number' && p > 0);
+        const minTariff = definedPrices.length > 0 ? Math.min(...definedPrices) : null;
+        const effectiveCategory = r.tariffCategory?.name || r.category || UNCLASSIFIED_ROOM_CATEGORY;
+        const isApartment = r.tariffCategory?.code === 'APPARTEMENT';
+        const effectiveAdultsCap = isApartment ? Math.max(6, r.adultsCapacity) : r.adultsCapacity;
+        return {
+          id: r.id,
+          number: r.number,
+          category: effectiveCategory,
+          tariffCategoryId: r.tariffCategoryId ?? null,
+          tariffCategoryCode: r.tariffCategory?.code ?? null,
+          isUnclassified: !r.tariffCategory,
+          floor: r.floor,
+          adultsCapacity: effectiveAdultsCap,
+          childrenCapacity: r.childrenCapacity,
+          capacity: effectiveAdultsCap + r.childrenCapacity,
+          pricePerNight: minTariff,
+          breakfastIncluded: r.breakfastIncluded,
+        };
+      }),
     };
   }
 
@@ -220,6 +275,14 @@ export class RoomsService {
       where: { id },
       include: {
         type: true,
+        tariffCategory: {
+          include: {
+            tariffs: {
+              where: { isActive: true },
+              orderBy: { displayOrder: 'asc' },
+            },
+          },
+        },
       },
     });
 
@@ -298,8 +361,25 @@ export class RoomsService {
       }
     }
 
-    // Trouver ou créer la catégorie (RoomType)
-    const categoryName = dto.category.trim();
+    // Trouver ou créer la catégorie (RoomType) et rattacher la catégorie tarifaire réelle (TariffCategory)
+    let resolvedTariffCategory: { id: string; code: string; name: string } | null = null;
+    if (dto.tariffCategoryId) {
+      resolvedTariffCategory = await this.prisma.tariffCategory.findUnique({
+        where: { id: dto.tariffCategoryId },
+        select: { id: true, code: true, name: true },
+      });
+    } else if (dto.category) {
+      const code = normalizeTariffCategoryCode(dto.category);
+      if (code) {
+        resolvedTariffCategory = await this.prisma.tariffCategory.findUnique({
+          where: { code },
+          select: { id: true, code: true, name: true },
+        });
+      }
+    }
+
+    const categoryName =
+      resolvedTariffCategory?.name || dto.category?.trim() || UNCLASSIFIED_ROOM_CATEGORY;
     let roomType = await this.prisma.roomType.findUnique({
       where: { name: categoryName },
     });
@@ -308,7 +388,7 @@ export class RoomsService {
       roomType = await this.prisma.roomType.create({
         data: {
           name: categoryName,
-          pricePerNight: dto.pricePerNight,
+          pricePerNight: dto.pricePerNight ?? null,
         },
       });
     }
@@ -320,6 +400,9 @@ export class RoomsService {
       savedImageUrl = saved.url;
     }
 
+    const defaultAdultsCap =
+      resolvedTariffCategory?.code === 'APPARTEMENT' ? 6 : 2;
+
     try {
       const created = await this.prisma.$transaction(async (tx) => {
         const room = await tx.room.create({
@@ -327,18 +410,19 @@ export class RoomsService {
             number: cleanNumber,
             floor: dto.floor,
             category: categoryName,
+            tariffCategoryId: resolvedTariffCategory?.id ?? null,
             status: (dto.status as unknown as RoomStatus) || RoomStatus.FREE,
             typeId: roomType.id,
-            adultsCapacity: dto.adultsCapacity ?? 2,
+            adultsCapacity: dto.adultsCapacity ?? defaultAdultsCap,
             childrenCapacity: dto.childrenCapacity ?? 0,
             bedType: dto.bedType || 'queen',
             bedsCount: dto.bedsCount ?? 1,
-            surfaceM2: dto.surfaceM2 ?? 25,
-            view: dto.view || 'jardin',
+            surfaceM2: dto.surfaceM2 ?? null,
+            view: dto.view ? dto.view.trim() : null,
             smoking: dto.smoking ?? false,
             connectingRoom: dto.connectingRoom || null,
             amenities: dto.amenities || [],
-            pricePerNight: dto.pricePerNight,
+            pricePerNight: dto.pricePerNight ?? null,
             highSeasonPricePerNight: dto.highSeasonPricePerNight ?? null,
             corporatePricePerNight: dto.corporatePricePerNight ?? null,
             breakfastIncluded: dto.breakfastIncluded ?? true,
@@ -349,6 +433,7 @@ export class RoomsService {
           },
           include: {
             type: true,
+            tariffCategory: true,
           },
         });
 
@@ -418,18 +503,58 @@ export class RoomsService {
       }
     }
 
-    // Gestion du type de chambre si modifié
+    // Gestion du type de chambre et de la catégorie tarifaire réelle si modifiés
     let targetTypeId = current.typeId;
-    if (dto.category) {
-      const categoryName = dto.category.trim();
+    let resolvedTariffCategoryId: string | null | undefined = undefined;
+    let resolvedCategoryName: string | undefined = dto.category?.trim();
+    let autoApartmentAdultsCap: number | undefined = undefined;
+
+    if (dto.tariffCategoryId !== undefined) {
+      if (!dto.tariffCategoryId) {
+        resolvedTariffCategoryId = null;
+        resolvedCategoryName = resolvedCategoryName || UNCLASSIFIED_ROOM_CATEGORY;
+      } else {
+        const tc = await this.prisma.tariffCategory.findUnique({
+          where: { id: dto.tariffCategoryId },
+          select: { id: true, code: true, name: true },
+        });
+        if (!tc) {
+          throw new BadRequestException('Catégorie tarifaire introuvable.');
+        }
+        resolvedTariffCategoryId = tc.id;
+        resolvedCategoryName = tc.name;
+        if (tc.code === 'APPARTEMENT' && dto.adultsCapacity === undefined && current.adultsCapacity < 6) {
+          autoApartmentAdultsCap = 6;
+        }
+      }
+    } else if (resolvedCategoryName) {
+      const code = normalizeTariffCategoryCode(resolvedCategoryName);
+      if (code) {
+        const tc = await this.prisma.tariffCategory.findUnique({
+          where: { code },
+          select: { id: true, code: true, name: true },
+        });
+        if (tc) {
+          resolvedTariffCategoryId = tc.id;
+          resolvedCategoryName = tc.name;
+          if (tc.code === 'APPARTEMENT' && dto.adultsCapacity === undefined && current.adultsCapacity < 6) {
+            autoApartmentAdultsCap = 6;
+          }
+        }
+      } else if (resolvedCategoryName === UNCLASSIFIED_ROOM_CATEGORY) {
+        resolvedTariffCategoryId = null;
+      }
+    }
+
+    if (resolvedCategoryName) {
       let targetType = await this.prisma.roomType.findUnique({
-        where: { name: categoryName },
+        where: { name: resolvedCategoryName },
       });
       if (!targetType) {
         targetType = await this.prisma.roomType.create({
           data: {
-            name: categoryName,
-            pricePerNight: dto.pricePerNight || current.type.pricePerNight,
+            name: resolvedCategoryName,
+            pricePerNight: dto.pricePerNight ?? current.type.pricePerNight ?? null,
           },
         });
       } else if (dto.pricePerNight !== undefined && dto.pricePerNight !== targetType.pricePerNight) {
@@ -470,10 +595,15 @@ export class RoomsService {
           data: {
             ...(dto.number && { number: dto.number.trim() }),
             ...(dto.floor !== undefined && { floor: dto.floor }),
-            ...(dto.category && { category: dto.category.trim() }),
+            ...(resolvedCategoryName && { category: resolvedCategoryName }),
+            ...(resolvedTariffCategoryId !== undefined && { tariffCategoryId: resolvedTariffCategoryId }),
             ...(dto.status && { status: dto.status as unknown as RoomStatus }),
             ...(targetTypeId && { typeId: targetTypeId }),
-            ...(dto.adultsCapacity !== undefined && { adultsCapacity: dto.adultsCapacity }),
+            ...(dto.adultsCapacity !== undefined
+              ? { adultsCapacity: dto.adultsCapacity }
+              : autoApartmentAdultsCap !== undefined
+                ? { adultsCapacity: autoApartmentAdultsCap }
+                : {}),
             ...(dto.childrenCapacity !== undefined && { childrenCapacity: dto.childrenCapacity }),
             ...(dto.bedType !== undefined && { bedType: dto.bedType }),
             ...(dto.bedsCount !== undefined && { bedsCount: dto.bedsCount }),
@@ -493,6 +623,7 @@ export class RoomsService {
           },
           include: {
             type: true,
+            tariffCategory: true,
           },
         });
 

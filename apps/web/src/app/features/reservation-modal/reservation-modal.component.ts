@@ -21,6 +21,11 @@ import {
   RoomCategoryType,
 } from '../../core/models/reservation-modal.model';
 import { ReservationModalService } from '../../core/services/reservation-modal.service';
+import { TariffsService } from '../../core/services/tariffs.service';
+import {
+  ReservationPriceQuoteDto,
+  normalizeTariffCategoryCode,
+} from '@residence-blue/shared';
 
 const SENEGAL_PHONE_REGEX = /^(?:\+221|00221)?[\s.-]?(?:77|78|76|70|75|33)(?:[\s.-]?\d){7}$/;
 const CARD_PAN_REGEX = /(?:\d[\s-]?){13,19}/;
@@ -287,15 +292,22 @@ function getTodayIso(): string {
                                 Chambre {{ room.number }} · {{ room.category }}
                               </span>
                               <span class="block text-xs text-slate-600">
-                                Capacité {{ room.adultsCapacity }} ad.{{ room.childrenCapacity > 0 ? ' + ' + room.childrenCapacity + ' enf.' : '' }}
-                                @if (!isRoomCapacityValid(room)) {
-                                  <strong class="text-red-700"> — Capacité dépassée</strong>
+                                @if (room.isUnclassified || room.category === 'À classer') {
+                                  <strong class="text-amber-800">À classer par la direction</strong>
+                                } @else {
+                                  Capacité {{ room.adultsCapacity }} ad.{{ room.childrenCapacity > 0 ? ' + ' + room.childrenCapacity + ' enf.' : '' }}
                                 }
                               </span>
                             </div>
-                            <span class="text-sm font-bold text-teal-800 whitespace-nowrap">
-                              {{ formatFcfa(room.pricePerNight) }} / nuit
-                            </span>
+                            @if (canViewAmounts()) {
+                              <span class="text-sm font-bold text-teal-800 whitespace-nowrap">
+                                @if (room.pricePerNight !== null && room.pricePerNight > 0) {
+                                  dès {{ formatFcfa(room.pricePerNight) }} / nuit
+                                } @else {
+                                  Tarif à définir
+                                }
+                              </span>
+                            }
                           </button>
                         }
                       </div>
@@ -310,6 +322,106 @@ function getTodayIso(): string {
                           Voir plus de chambres ({{ filteredRooms().length - visibleRooms().length }})
                         </button>
                       }
+                    }
+
+                    <!-- Sélecteur du nombre de chambres utilisées (uniquement pour Appartement) -->
+                    @if (isSelectedApartment()) {
+                      <div class="mt-3 p-3 rounded-lg border border-teal-200 bg-teal-50/60" data-testid="apartment-rooms-used-group">
+                        <span class="block text-xs font-bold text-slate-800 mb-2">
+                          Nombre de chambres utilisées dans l’appartement
+                        </span>
+                        <div class="grid grid-cols-3 gap-2">
+                          @for (rc of [1, 2, 3]; track rc) {
+                            <button
+                              type="button"
+                              (click)="setRoomsUsed(rc)"
+                              [attr.data-testid]="'rooms-used-' + rc"
+                              class="rb-res-btn px-2 rounded-lg text-xs font-bold border whitespace-nowrap"
+                              [class.bg-teal-800]="roomsUsed() === rc"
+                              [class.text-white]="roomsUsed() === rc"
+                              [class.border-teal-800]="roomsUsed() === rc"
+                              [class.bg-white]="roomsUsed() !== rc"
+                              [class.text-slate-700]="roomsUsed() !== rc"
+                              [class.border-slate-300]="roomsUsed() !== rc"
+                            >
+                              {{ rc }} {{ rc > 1 ? 'chambres' : 'chambre' }}
+                            </button>
+                          }
+                        </div>
+                      </div>
+                    }
+
+                    <!-- Ligne claire de tarif ou message d'erreur si aucun tarif n'existe -->
+                    @if (selectedRoom() && nights() > 0) {
+                      @if (tariffErrorMessage(); as errMsg) {
+                        <div
+                          role="alert"
+                          data-testid="reservation-tariff-error"
+                          class="mt-3 p-3 rounded-lg border border-rose-300 bg-rose-50 text-rose-900 text-sm font-semibold"
+                        >
+                          {{ errMsg }}
+                        </div>
+                      } @else if (tariffSummaryLine(); as line) {
+                        <div
+                          data-testid="reservation-tariff-summary-line"
+                          class="mt-3 p-3 rounded-lg border border-teal-300 bg-teal-50 text-teal-950 text-sm font-bold"
+                        >
+                          {{ line }}
+                        </div>
+                      }
+                    }
+
+                    <!-- Surcharge manuelle du tarif : strictement réservée à la DIRECTION (jamais affichée à la réception) -->
+                    @if (isDirector() && selectedRoom() && nights() > 0) {
+                      <div class="mt-3 p-3 rounded-lg border border-amber-300 bg-amber-50/70 space-y-2.5" data-testid="director-price-override-box">
+                        <label class="flex items-center gap-2 text-xs font-bold text-amber-950 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            [ngModel]="useDirectorOverride()"
+                            (ngModelChange)="toggleDirectorOverride($event)"
+                            name="useDirectorOverride"
+                            data-testid="toggle-director-override"
+                            class="w-4 h-4 accent-teal-800"
+                          />
+                          <span>Prix négocié (fixer un tarif manuel — Direction uniquement)</span>
+                        </label>
+                        @if (useDirectorOverride()) {
+                          <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                            <div>
+                              <label for="res-override-price" class="block text-xs font-semibold text-amber-950 mb-1">
+                                Prix par nuit (FCFA)
+                              </label>
+                              <input
+                                id="res-override-price"
+                                name="overridePricePerNightFcfa"
+                                type="number"
+                                min="1"
+                                step="1000"
+                                [ngModel]="overridePricePerNightFcfa()"
+                                (ngModelChange)="onOverridePriceChange($event)"
+                                data-testid="input-director-override-price"
+                                class="w-full min-h-[40px] px-3 py-2 text-sm bg-white border border-amber-400 rounded-lg text-slate-900 font-bold"
+                              />
+                            </div>
+                            <div>
+                              <label for="res-override-reason" class="block text-xs font-semibold text-amber-950 mb-1">
+                                Motif obligatoire
+                              </label>
+                              <input
+                                id="res-override-reason"
+                                name="priceOverrideReason"
+                                type="text"
+                                maxlength="300"
+                                [ngModel]="priceOverrideReason()"
+                                (ngModelChange)="onOverrideReasonChange($event)"
+                                placeholder="Ex. Convention entreprise"
+                                data-testid="input-director-override-reason"
+                                class="w-full min-h-[40px] px-3 py-2 text-sm bg-white border border-amber-400 rounded-lg text-slate-900"
+                              />
+                            </div>
+                          </div>
+                        }
+                      </div>
                     }
                   </div>
                 </section>
@@ -608,36 +720,38 @@ function getTodayIso(): string {
                     <dt>Durée</dt>
                     <dd class="font-semibold text-slate-900">{{ nights() }} {{ nights() > 1 ? 'nuits' : 'nuit' }}</dd>
                   </div>
-                  <div class="flex justify-between gap-2">
-                    <dt>Tarif / nuit</dt>
-                    <dd class="font-semibold text-slate-900">{{ formatFcfa(ratePerNight()) }}</dd>
-                  </div>
-                  <div class="flex justify-between gap-2">
-                    <dt>Sous-total</dt>
-                    <dd class="font-semibold text-slate-900">{{ formatFcfa(subtotalFcfa()) }}</dd>
-                  </div>
-                  <div class="flex justify-between gap-2">
-                    <dt>Taxe de séjour</dt>
-                    <dd class="font-semibold text-slate-900">{{ formatFcfa(tourismTaxFcfa()) }}</dd>
-                  </div>
-                  @if (discountFcfa() > 0) {
-                    <div class="flex justify-between gap-2 text-emerald-800">
-                      <dt>Remise</dt>
-                      <dd class="font-semibold">− {{ formatFcfa(appliedDiscountFcfa()) }}</dd>
+                  @if (canViewAmounts()) {
+                    <div class="flex justify-between gap-2">
+                      <dt>Tarif / nuit</dt>
+                      <dd class="font-semibold text-slate-900">{{ hasValidTariff() ? formatFcfa(ratePerNight()) : '—' }}</dd>
+                    </div>
+                    <div class="flex justify-between gap-2">
+                      <dt>Sous-total</dt>
+                      <dd class="font-semibold text-slate-900">{{ hasValidTariff() ? formatFcfa(subtotalFcfa()) : '—' }}</dd>
+                    </div>
+                    <div class="flex justify-between gap-2">
+                      <dt>Taxe de séjour</dt>
+                      <dd class="font-semibold text-slate-900">{{ formatFcfa(tourismTaxFcfa()) }}</dd>
+                    </div>
+                    @if (discountFcfa() > 0) {
+                      <div class="flex justify-between gap-2 text-emerald-800">
+                        <dt>Remise</dt>
+                        <dd class="font-semibold">− {{ formatFcfa(appliedDiscountFcfa()) }}</dd>
+                      </div>
+                    }
+                    <div class="flex justify-between gap-2 pt-2 border-t border-slate-200 text-sm font-extrabold text-slate-900">
+                      <dt>Total</dt>
+                      <dd data-testid="summary-total">{{ hasValidTariff() ? formatFcfa(totalFcfa()) : '—' }}</dd>
+                    </div>
+                    <div class="flex justify-between gap-2">
+                      <dt>Acompte</dt>
+                      <dd class="font-semibold text-teal-800">{{ formatFcfa(depositFcfa()) }}</dd>
+                    </div>
+                    <div class="flex justify-between gap-2 font-bold text-slate-900">
+                      <dt>Reste à payer</dt>
+                      <dd data-testid="summary-remaining">{{ hasValidTariff() ? formatFcfa(remainingFcfa()) : '—' }}</dd>
                     </div>
                   }
-                  <div class="flex justify-between gap-2 pt-2 border-t border-slate-200 text-sm font-extrabold text-slate-900">
-                    <dt>Total</dt>
-                    <dd data-testid="summary-total">{{ formatFcfa(totalFcfa()) }}</dd>
-                  </div>
-                  <div class="flex justify-between gap-2">
-                    <dt>Acompte</dt>
-                    <dd class="font-semibold text-teal-800">{{ formatFcfa(depositFcfa()) }}</dd>
-                  </div>
-                  <div class="flex justify-between gap-2 font-bold text-slate-900">
-                    <dt>Reste à payer</dt>
-                    <dd data-testid="summary-remaining">{{ formatFcfa(remainingFcfa()) }}</dd>
-                  </div>
                 </dl>
               </aside>
             </div>
@@ -653,10 +767,16 @@ function getTodayIso(): string {
             <span class="font-bold text-slate-900">{{ summaryRoomLabel() }}</span>
             <span class="text-slate-600 ml-1">· {{ nights() }} {{ nights() > 1 ? 'nuits' : 'nuit' }}</span>
           </div>
-          <div class="text-right">
-            <span class="font-extrabold text-slate-900">Total {{ formatFcfa(totalFcfa()) }}</span>
-            <span class="block text-slate-600">Reste {{ formatFcfa(remainingFcfa()) }}</span>
-          </div>
+          @if (canViewAmounts()) {
+            <div class="text-right">
+              <span class="font-extrabold text-slate-900">
+                Total {{ hasValidTariff() ? formatFcfa(totalFcfa()) : '—' }}
+              </span>
+              <span class="block text-slate-600">
+                Reste {{ hasValidTariff() ? formatFcfa(remainingFcfa()) : '—' }}
+              </span>
+            </div>
+          }
         </div>
 
         <!-- Zone 3 : Pied de fenêtre fixe -->
@@ -685,6 +805,7 @@ function getTodayIso(): string {
 })
 export class ReservationModalComponent implements OnInit, AfterViewInit, OnDestroy {
   readonly modalService: ReservationModalService;
+  private readonly tariffsService: TariffsService | null;
   readonly scrollbarSide: ScrollbarSide = SCROLLBAR_SIDE;
 
   readonly todayIso = getTodayIso();
@@ -697,27 +818,43 @@ export class ReservationModalComponent implements OnInit, AfterViewInit, OnDestr
   readonly categoryFilters: ReadonlyArray<{ label: string; value: 'ALL' | RoomCategoryType }> = [
     { label: 'Toutes', value: 'ALL' },
     { label: 'Standard', value: 'Standard' },
-    { label: 'Deluxe', value: 'Deluxe' },
-    { label: 'Suite', value: 'Suite' },
+    { label: 'Confort', value: 'Confort' },
+    { label: 'Appartement', value: 'Appartement' },
   ];
 
   readonly checkInDate = signal<string>(this.todayIso);
   readonly checkOutDate = signal<string>(addDaysIso(this.todayIso, 2));
   readonly adultsCount = signal<number>(1);
   readonly childrenCount = signal<number>(0);
+  readonly roomsUsed = signal<number>(1);
   readonly categoryFilter = signal<'ALL' | RoomCategoryType>('ALL');
 
   readonly availableRooms = signal<AvailableRoomItem[]>([]);
   readonly roomsLoading = signal<boolean>(false);
   readonly showAllRooms = signal<boolean>(false);
   readonly selectedRoom = signal<AvailableRoomItem | null>(null);
+  readonly liveQuote = signal<ReservationPriceQuoteDto | null>(null);
   readonly rates = signal<HotelRatesConfig>({
     tourismTaxPerNightPerPerson: 1000,
+    tourismTaxIncludesChildren: false,
     vatRatePercent: 10,
   });
 
-  constructor(modalService?: ReservationModalService) {
+  readonly useDirectorOverride = signal<boolean>(false);
+  readonly overridePricePerNightFcfa = signal<number>(0);
+  readonly priceOverrideReason = signal<string>('');
+
+  constructor(modalService?: ReservationModalService, tariffsService?: TariffsService) {
     this.modalService = modalService ?? inject(ReservationModalService);
+    let injectedTariffs: TariffsService | null = null;
+    if (!tariffsService) {
+      try {
+        injectedTariffs = inject(TariffsService, { optional: true });
+      } catch {
+        injectedTariffs = null;
+      }
+    }
+    this.tariffsService = tariffsService ?? injectedTariffs;
     this.rates.set(this.modalService.getCachedRates());
   }
 
@@ -759,11 +896,165 @@ export class ReservationModalComponent implements OnInit, AfterViewInit, OnDestr
     return this.showAllRooms() ? list : list.slice(0, MAX_VISIBLE_ROOMS);
   });
 
-  readonly ratePerNight = computed(() => this.selectedRoom()?.pricePerNight ?? 0);
+  readonly isDirector = computed(() => this.modalService.isDirector());
+  readonly canViewAmounts = computed(() => this.modalService.canViewAmounts());
+  readonly totalGuests = computed(() => this.adultsCount() + this.childrenCount());
+
+  readonly isSelectedApartment = computed(() => {
+    const room = this.selectedRoom();
+    if (!room) return false;
+    const code = normalizeTariffCategoryCode(room.tariffCategoryCode || room.category);
+    return code === 'APPARTEMENT';
+  });
+
+  /** Calcul local instantané depuis la grille réelle (toujours confirmé par /api/tariffs/quote et le serveur) */
+  private readonly localTariffEvaluation = computed<{
+    available: boolean;
+    ratePerNightFcfa: number | null;
+    summaryLine: string | null;
+    errorMessage: string | null;
+  }>(() => {
+    const room = this.selectedRoom();
+    const n = this.nights();
+    if (!room || n <= 0) {
+      return { available: false, ratePerNightFcfa: null, summaryLine: null, errorMessage: null };
+    }
+
+    const code = normalizeTariffCategoryCode(room.tariffCategoryCode || room.category);
+    const guests = this.totalGuests();
+    const usedRooms = code === 'APPARTEMENT' ? this.roomsUsed() : 1;
+
+    // Surcharge direction
+    if (this.isDirector() && this.useDirectorOverride()) {
+      const manual = Math.round(this.overridePricePerNightFcfa());
+      const reason = this.priceOverrideReason().trim();
+      if (manual <= 0 || reason.length < 3) {
+        return {
+          available: false,
+          ratePerNightFcfa: null,
+          summaryLine: null,
+          errorMessage: 'Saisissez un prix entier positif en FCFA et un motif (3 caractères minimum).',
+        };
+      }
+      const totalAcc = manual * n;
+      return {
+        available: true,
+        ratePerNightFcfa: manual,
+        summaryLine: `Prix fixé par la direction : ${this.formatFcfa(manual)} par nuit, total ${this.formatFcfa(totalAcc)} pour ${n} ${n > 1 ? 'nuits' : 'nuit'}`,
+        errorMessage: null,
+      };
+    }
+
+    // Priorité au devis autoritaire retourné par le serveur s'il correspond aux paramètres courants
+    const quote = this.liveQuote();
+    if (
+      quote &&
+      quote.guestsCount === guests &&
+      quote.nights === n &&
+      quote.roomsUsed === usedRooms &&
+      (quote.categoryCode === code || (!quote.categoryCode && !code))
+    ) {
+      return {
+        available: quote.available,
+        ratePerNightFcfa: quote.ratePerNightFcfa,
+        summaryLine: quote.summaryLine,
+        errorMessage: quote.errorMessage,
+      };
+    }
+
+    if (!code) {
+      return {
+        available: false,
+        ratePerNightFcfa: null,
+        summaryLine: null,
+        errorMessage:
+          "Cette chambre n'est pas encore classée (À classer). Demandez à la direction de définir sa catégorie avant de réserver.",
+      };
+    }
+
+    const grid = this.tariffsService?.tariffs() ?? [];
+    if (grid.length > 0) {
+      const catRows = grid.filter(
+        (t) => t.isActive && normalizeTariffCategoryCode(t.categoryCode || t.categoryName) === code,
+      );
+      const matched =
+        code === 'APPARTEMENT'
+          ? (catRows.find((t) => t.guestsCount === guests && t.roomsUsed === usedRooms) ??
+            catRows.find((t) => t.guestsCount === guests && t.roomsUsed === null))
+          : catRows.find((t) => t.guestsCount === guests);
+
+      const categoryName =
+        code === 'STANDARD' ? 'Standard' : code === 'CONFORT' ? 'Confort' : 'Appartement';
+      const personWord = guests > 1 ? 'personnes' : 'personne';
+
+      if (!matched) {
+        const msg =
+          code === 'APPARTEMENT'
+            ? `Pas de tarif pour ${guests} ${personWord} (${usedRooms} ${usedRooms > 1 ? 'chambres' : 'chambre'}) en Appartement. Choisissez une autre formule ou demandez à la direction.`
+            : `Pas de tarif pour ${guests} ${personWord} en chambre ${categoryName}. Choisissez un appartement ou demandez à la direction.`;
+        return { available: false, ratePerNightFcfa: null, summaryLine: null, errorMessage: msg };
+      }
+
+      if (matched.pricePerNightFcfa === null || matched.pricePerNightFcfa <= 0) {
+        const roomDetail =
+          code === 'APPARTEMENT'
+            ? ` (${usedRooms} ${usedRooms > 1 ? 'chambres' : 'chambre'})`
+            : '';
+        return {
+          available: false,
+          ratePerNightFcfa: null,
+          summaryLine: null,
+          errorMessage: `Tarif non défini pour ${guests} ${personWord}${roomDetail} en ${code === 'APPARTEMENT' ? 'Appartement' : `chambre ${categoryName}`}. Demandez à la direction de fixer ce tarif.`,
+        };
+      }
+
+      const rate = matched.pricePerNightFcfa;
+      const acc = rate * n;
+      const prefix = code === 'APPARTEMENT' ? 'Appartement' : `Chambre ${categoryName}`;
+      const roomsPart =
+        code === 'APPARTEMENT' ? `, ${usedRooms} ${usedRooms > 1 ? 'chambres' : 'chambre'}` : '';
+      const bfastPart = this.breakfastIncluded() ? ', petit-déjeuner inclus' : '';
+      const nightsPart = `${n} ${n > 1 ? 'nuits' : 'nuit'}`;
+      const fmt = (v: number) => String(Math.round(v)).replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
+      return {
+        available: true,
+        ratePerNightFcfa: rate,
+        summaryLine: `${prefix}, ${guests} ${personWord}${roomsPart}${bfastPart} : ${fmt(rate)} FCFA par nuit, total ${fmt(acc)} FCFA pour ${nightsPart}`,
+        errorMessage: null,
+      };
+    }
+
+    // Repli lecture seule uniquement si la grille n'est pas encore chargée (ex. tests unitaires sans TariffsService)
+    if (typeof room.pricePerNight === 'number' && room.pricePerNight > 0) {
+      const rate = room.pricePerNight;
+      const acc = rate * n;
+      const fmt = (v: number) => String(Math.round(v)).replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
+      return {
+        available: true,
+        ratePerNightFcfa: rate,
+        summaryLine: `Chambre ${room.category}, ${guests} ${guests > 1 ? 'personnes' : 'personne'}${this.breakfastIncluded() ? ', petit-déjeuner inclus' : ''} : ${fmt(rate)} FCFA par nuit, total ${fmt(acc)} FCFA pour ${n} ${n > 1 ? 'nuits' : 'nuit'}`,
+        errorMessage: null,
+      };
+    }
+
+    return {
+      available: false,
+      ratePerNightFcfa: null,
+      summaryLine: null,
+      errorMessage: 'Chargement du tarif en cours…',
+    };
+  });
+
+  readonly tariffSummaryLine = computed(() => this.localTariffEvaluation().summaryLine);
+  readonly tariffErrorMessage = computed(() => this.localTariffEvaluation().errorMessage);
+  readonly hasValidTariff = computed(() => this.localTariffEvaluation().available);
+
+  readonly ratePerNight = computed(() => this.localTariffEvaluation().ratePerNightFcfa ?? 0);
   readonly subtotalFcfa = computed(() => Math.round(this.ratePerNight() * this.nights()));
   readonly tourismTaxFcfa = computed(() => {
     if (!this.selectedRoom() || this.nights() <= 0) return 0;
-    const guests = this.adultsCount() + this.childrenCount();
+    const includesChildren = this.rates().tourismTaxIncludesChildren ?? false;
+    const guests = includesChildren ? this.adultsCount() + this.childrenCount() : this.adultsCount();
     return Math.round(this.nights() * guests * this.rates().tourismTaxPerNightPerPerson);
   });
   readonly appliedDiscountFcfa = computed(() =>
@@ -806,7 +1097,8 @@ export class ReservationModalComponent implements OnInit, AfterViewInit, OnDestr
 
   readonly canSubmit = computed(() => {
     const room = this.selectedRoom();
-    if (!room || this.nights() <= 0 || !this.isRoomCapacityValid(room)) return false;
+    if (!room || this.nights() <= 0 || !this.hasValidTariff()) return false;
+    if (!this.isSelectedApartment() && !this.isRoomCapacityValid(room)) return false;
     if (this.hasCardPanRisk()) return false;
     if (this.depositFcfa() < 0 || this.discountFcfa() < 0) return false;
     if (this.isQuickGuestMode()) {
@@ -850,6 +1142,7 @@ export class ReservationModalComponent implements OnInit, AfterViewInit, OnDestr
       }
     }
 
+    void this.tariffsService?.fetchGrid();
     void this.loadAvailableRooms();
   }
 
@@ -922,6 +1215,7 @@ export class ReservationModalComponent implements OnInit, AfterViewInit, OnDestr
     if (next === this.adultsCount()) return;
     this.isDirty.set(true);
     this.adultsCount.set(next);
+    void this.refreshLiveQuote();
   }
 
   changeChildren(delta: number): void {
@@ -929,6 +1223,32 @@ export class ReservationModalComponent implements OnInit, AfterViewInit, OnDestr
     if (next === this.childrenCount()) return;
     this.isDirty.set(true);
     this.childrenCount.set(next);
+    void this.refreshLiveQuote();
+  }
+
+  setRoomsUsed(count: number): void {
+    const next = Math.min(3, Math.max(1, Math.round(count)));
+    this.isDirty.set(true);
+    this.roomsUsed.set(next);
+    void this.refreshLiveQuote();
+  }
+
+  toggleDirectorOverride(enabled: boolean): void {
+    this.isDirty.set(true);
+    this.useDirectorOverride.set(Boolean(enabled));
+    if (enabled && this.overridePricePerNightFcfa() <= 0 && this.ratePerNight() > 0) {
+      this.overridePricePerNightFcfa.set(this.ratePerNight());
+    }
+  }
+
+  onOverridePriceChange(val: number | string): void {
+    this.isDirty.set(true);
+    this.overridePricePerNightFcfa.set(Math.max(0, Math.round(Number(val) || 0)));
+  }
+
+  onOverrideReasonChange(val: string): void {
+    this.isDirty.set(true);
+    this.priceOverrideReason.set(val);
   }
 
   selectCategory(cat: 'ALL' | RoomCategoryType): void {
@@ -941,6 +1261,13 @@ export class ReservationModalComponent implements OnInit, AfterViewInit, OnDestr
     this.localError.set(null);
     this.selectedRoom.set(room);
     this.breakfastIncluded.set(room.breakfastIncluded);
+    const isApt = normalizeTariffCategoryCode(room.tariffCategoryCode || room.category) === 'APPARTEMENT';
+    if (!isApt) {
+      this.roomsUsed.set(1);
+    } else if (this.totalGuests() >= 3 && this.roomsUsed() < 2) {
+      this.roomsUsed.set(2);
+    }
+    void this.refreshLiveQuote();
   }
 
   toggleQuickGuest(): void {
@@ -1021,6 +1348,7 @@ export class ReservationModalComponent implements OnInit, AfterViewInit, OnDestr
   setBreakfast(val: boolean): void {
     this.isDirty.set(true);
     this.breakfastIncluded.set(val);
+    void this.refreshLiveQuote();
   }
 
   onSourceChange(val: ReservationSourceType): void {
@@ -1066,6 +1394,7 @@ export class ReservationModalComponent implements OnInit, AfterViewInit, OnDestr
       checkOutDate: this.checkOutDate(),
       adultsCount: this.adultsCount(),
       childrenCount: this.childrenCount(),
+      roomsUsed: this.isSelectedApartment() ? this.roomsUsed() : 1,
       depositFcfa: Math.max(0, Math.round(this.depositFcfa())),
       discountFcfa: Math.max(0, Math.round(this.discountFcfa())),
       paymentMethod: this.depositFcfa() > 0 ? this.paymentMethod() : undefined,
@@ -1073,6 +1402,12 @@ export class ReservationModalComponent implements OnInit, AfterViewInit, OnDestr
       breakfastIncluded: this.breakfastIncluded(),
       source: this.source(),
       notes: this.notes().trim() || undefined,
+      ...(this.isDirector() && this.useDirectorOverride()
+        ? {
+            overridePricePerNightFcfa: Math.round(this.overridePricePerNightFcfa()),
+            priceOverrideReason: this.priceOverrideReason().trim(),
+          }
+        : {}),
       ...(this.isQuickGuestMode()
         ? {
             newGuest: {
@@ -1090,10 +1425,32 @@ export class ReservationModalComponent implements OnInit, AfterViewInit, OnDestr
     }
   }
 
+  private async refreshLiveQuote(): Promise<void> {
+    const room = this.selectedRoom();
+    const n = this.nights();
+    if (!room || n <= 0 || !this.tariffsService) {
+      this.liveQuote.set(null);
+      return;
+    }
+    const quote = await this.tariffsService.fetchQuote({
+      roomId: room.id,
+      guestsCount: this.totalGuests(),
+      roomsUsed: this.isSelectedApartment() ? this.roomsUsed() : 1,
+      nights: n,
+      adultsCount: this.adultsCount(),
+      childrenCount: this.childrenCount(),
+      breakfastIncluded: this.breakfastIncluded(),
+    });
+    if (quote) {
+      this.liveQuote.set(quote);
+    }
+  }
+
   private async loadAvailableRooms(): Promise<void> {
     if (this.nights() <= 0) {
       this.availableRooms.set([]);
       this.selectedRoom.set(null);
+      this.liveQuote.set(null);
       return;
     }
     this.roomsLoading.set(true);
@@ -1119,8 +1476,10 @@ export class ReservationModalComponent implements OnInit, AfterViewInit, OnDestr
         this.breakfastIncluded.set(match.breakfastIncluded);
         this.preferredRoomId = null;
         this.preferredRoomNumber = null;
+        void this.refreshLiveQuote();
       } else {
         this.selectedRoom.set(null);
+        this.liveQuote.set(null);
       }
     } catch (err: any) {
       if (err?.name !== 'AbortError') {

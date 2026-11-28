@@ -47,6 +47,14 @@ export const routes: Routes = [
       ),
   },
   {
+    path: 'administration/tarifs',
+    canActivate: [authGuard],
+    loadComponent: () =>
+      import('./features/administration/administration-tarifs-page.component').then(
+        (m) => m.AdministrationTarifsPageComponent,
+      ),
+  },
+  {
     path: 'administration/directeur',
     canActivate: [authGuard],
     loadComponent: () =>

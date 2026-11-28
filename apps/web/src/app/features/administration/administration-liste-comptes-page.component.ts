@@ -96,6 +96,32 @@ interface FilterPill {
           </a>
         </header>
 
+        <!-- Carte Tarifs (DIRECTION uniquement — aucune nouvelle entrée de menu latéral) -->
+        <section
+          data-testid="admin-tarifs-card"
+          class="rounded-2xl border border-[#005e6a]/25 bg-white p-5 shadow-sm flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between min-w-0"
+        >
+          <div class="flex items-start gap-3.5 min-w-0">
+            <div class="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-[#005e6a]/10 text-[#005e6a]">
+              <span class="material-symbols-outlined text-[26px]" aria-hidden="true">payments</span>
+            </div>
+            <div class="min-w-0">
+              <h2 class="text-xl font-bold text-[#0A2540]">Tarifs</h2>
+              <p class="mt-0.5 text-base text-slate-600">
+                Gérer la grille des chambres (Standard, Confort, Appartement) et les prestations (salle de séminaire, pauses).
+              </p>
+            </div>
+          </div>
+          <a
+            routerLink="/administration/tarifs"
+            data-testid="btn-open-admin-tarifs"
+            class="inline-flex min-h-[48px] shrink-0 items-center justify-center gap-2 rounded-xl bg-[#005e6a] px-5 py-2.5 text-base font-bold text-white hover:bg-[#004c56] focus:outline-none focus:ring-2 focus:ring-[#005e6a]"
+          >
+            <span>Gérer les tarifs</span>
+            <span class="material-symbols-outlined text-[20px]" aria-hidden="true">arrow_forward</span>
+          </a>
+        </section>
+
         @if (feedbackMessage()) {
           <div
             role="status"

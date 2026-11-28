@@ -396,27 +396,44 @@ export class BillingService {
     });
 
     for (const res of reservationsWithoutInvoice) {
-      const ratePerNight = res.room?.pricePerNight ?? Math.round(res.totalFcfa / Math.max(1, res.nights));
-      const accTotal = Math.max(0, ratePerNight * Math.max(1, res.nights));
+      const safeNights = Math.max(1, res.nights || 1);
+      const frozenRate =
+        typeof (res as any).ratePerNightFcfa === 'number' && (res as any).ratePerNightFcfa > 0
+          ? (res as any).ratePerNightFcfa
+          : Math.max(
+              0,
+              Math.round(
+                (res.totalFcfa - (res.tourismTaxFcfa ?? 0) + (res.discountFcfa ?? 0)) /
+                  safeNights,
+              ),
+            );
+      const ratePerNight = frozenRate;
+      const accTotal = Math.max(0, ratePerNight * safeNights);
       const checkInStr = new Date(res.checkInDate).toISOString().slice(0, 10);
       const tourismTaxCalc = this.computeTourismTaxFcfa({
         ratePerNightPerPerson: tourismTaxRate,
         adultsCount: res.adultsCount,
         childrenCount: res.childrenCount,
-        nights: res.nights,
+        nights: safeNights,
         includesChildren: tourismTaxIncludesChildren,
         overrideFcfa: res.tourismTaxFcfa,
       });
       const tourismTax = tourismTaxCalc.amountFcfa;
 
+      const tariffNote = (res as any).priceOverriddenByDirector
+        ? 'Prix fixé par la direction'
+        : ((res as any).tariffLabel || '');
+      const subParts = [`${safeNights} nuit(s) × ${ratePerNight} FCFA`];
+      if (tariffNote) subParts.push(tariffNote);
+
       const linesData: Prisma.InvoiceLineCreateWithoutInvoiceInput[] = [
         {
           dateLabel: checkInStr,
-          description: `Séjour Chambre ${res.room?.number || ''} (${res.room?.category || 'Standard'})`.trim(),
-          subDescription: `${res.nights} nuit(s) × ${ratePerNight} FCFA`,
+          description: `Séjour Chambre ${res.room?.number || ''} (${res.room?.category || 'À classer'})`.trim(),
+          subDescription: subParts.join(' • '),
           category: 'HEBERGEMENT',
-          quantity: res.nights,
-          quantityLabel: `${res.nights}n`,
+          quantity: safeNights,
+          quantityLabel: `${safeNights}n`,
           unitPriceFcfa: ratePerNight,
           totalPriceFcfa: accTotal,
           isSystem: true,
@@ -922,22 +939,53 @@ export class BillingService {
     }
 
     const linesInput = dto.lines || [];
-    const preparedLines = linesInput.map((l) => {
-      const qty = Math.max(1, Math.round(l.quantity || 1));
-      const unit = Math.round(l.unitPriceFcfa);
-      const total = qty * unit;
-      return {
-        dateLabel: l.dateLabel || new Date().toLocaleDateString('fr-FR'),
-        description: l.description.trim(),
-        subDescription: l.subDescription?.trim() || null,
-        category: l.category === 'TAX' ? 'TAX' : this.normalizeCategory(l.category),
-        quantity: qty,
-        quantityLabel: l.quantityLabel || `${qty}`,
-        unitPriceFcfa: unit,
-        totalPriceFcfa: total,
-        isSystem: false,
-      };
-    });
+    const preparedLines = await Promise.all(
+      linesInput.map(async (l) => {
+        const qty = Math.max(1, Math.round(l.quantity || 1));
+        if (l.extraServiceId) {
+          const svc = await this.prisma.extraServiceItem.findUnique({
+            where: { id: l.extraServiceId },
+          });
+          if (!svc || !svc.isActive) {
+            throw new NotFoundException('Prestation du catalogue introuvable ou inactive.');
+          }
+          const unit = svc.priceFcfa;
+          const total = qty * unit;
+          const unitPlural = qty > 1 ? `${svc.unitLabel}s` : svc.unitLabel;
+          return {
+            dateLabel: l.dateLabel || new Date().toLocaleDateString('fr-FR'),
+            description: l.description?.trim() || svc.name,
+            subDescription: l.subDescription?.trim() || `${qty} ${unitPlural} × ${unit} FCFA`,
+            category: 'AUTRES',
+            quantity: qty,
+            quantityLabel: l.quantityLabel || `${qty} ${unitPlural}`,
+            unitPriceFcfa: unit,
+            totalPriceFcfa: total,
+            isSystem: false,
+          };
+        }
+        const desc = (l.description || '').trim();
+        if (!desc) {
+          throw new BadRequestException('Le libellé de la ligne est obligatoire.');
+        }
+        if (l.unitPriceFcfa === undefined || l.unitPriceFcfa === null) {
+          throw new BadRequestException('Le prix unitaire en FCFA est obligatoire.');
+        }
+        const unit = Math.round(l.unitPriceFcfa);
+        const total = qty * unit;
+        return {
+          dateLabel: l.dateLabel || new Date().toLocaleDateString('fr-FR'),
+          description: desc,
+          subDescription: l.subDescription?.trim() || null,
+          category: l.category === 'TAX' ? 'TAX' : this.normalizeCategory(l.category),
+          quantity: qty,
+          quantityLabel: l.quantityLabel || `${qty}`,
+          unitPriceFcfa: unit,
+          totalPriceFcfa: total,
+          isSystem: false,
+        };
+      }),
+    );
 
     const grossLines = preparedLines
       .filter((l) => l.category !== 'TAX')
@@ -1093,15 +1141,44 @@ export class BillingService {
       throw new BadRequestException("Impossible d'ajouter une ligne à une facture annulée.");
     }
 
-    const requestedCat = dto.category ? this.normalizeCategory(dto.category) : 'RESTAURANT';
+    const qty = Math.max(1, Math.round(dto.quantity || 1));
+    let requestedCat = dto.category ? this.normalizeCategory(dto.category) : 'RESTAURANT';
+    let resolvedDescription = (dto.description || '').trim();
+    let resolvedSubDescription = dto.subDescription?.trim() || null;
+    let resolvedQuantityLabel = dto.quantityLabel || `${qty}`;
+    let unit = dto.unitPriceFcfa !== undefined && dto.unitPriceFcfa !== null
+      ? Math.round(dto.unitPriceFcfa)
+      : 0;
+
+    if (dto.extraServiceId) {
+      const svc = await this.prisma.extraServiceItem.findUnique({
+        where: { id: dto.extraServiceId },
+      });
+      if (!svc || !svc.isActive) {
+        throw new NotFoundException('Prestation du catalogue introuvable ou inactive.');
+      }
+      requestedCat = 'AUTRES';
+      resolvedDescription = resolvedDescription || svc.name;
+      unit = svc.priceFcfa;
+      const unitPlural = qty > 1 ? `${svc.unitLabel}s` : svc.unitLabel;
+      resolvedQuantityLabel = dto.quantityLabel || `${qty} ${unitPlural}`;
+      resolvedSubDescription =
+        resolvedSubDescription || `${qty} ${unitPlural} × ${unit} FCFA`;
+    } else {
+      if (!resolvedDescription) {
+        throw new BadRequestException('Le libellé de la ligne est obligatoire.');
+      }
+      if (dto.unitPriceFcfa === undefined || dto.unitPriceFcfa === null) {
+        throw new BadRequestException('Le prix unitaire en FCFA est obligatoire.');
+      }
+    }
+
     if (actor.actorRole === 'RESTAURANT' && requestedCat !== 'RESTAURANT') {
       throw new ForbiddenException(
         'Le rôle RESTAURANT ne peut ajouter que des lignes de catégorie RESTAURANT.',
       );
     }
 
-    const qty = Math.max(1, Math.round(dto.quantity || 1));
-    const unit = Math.round(dto.unitPriceFcfa);
     const lineTotal = qty * unit;
 
     const updated = await this.prisma.$transaction(async (tx) => {
@@ -1109,11 +1186,11 @@ export class BillingService {
         data: {
           invoiceId: id,
           dateLabel: dto.dateLabel || new Date().toLocaleDateString('fr-FR'),
-          description: dto.description.trim(),
-          subDescription: dto.subDescription?.trim() || null,
+          description: resolvedDescription,
+          subDescription: resolvedSubDescription,
           category: requestedCat,
           quantity: qty,
-          quantityLabel: dto.quantityLabel || `${qty}`,
+          quantityLabel: resolvedQuantityLabel,
           unitPriceFcfa: unit,
           totalPriceFcfa: lineTotal,
         },
@@ -1149,7 +1226,7 @@ export class BillingService {
         invoiceId: updated.id,
         roomNumber: updated.room?.number || null,
         category: requestedCat,
-        description: dto.description.trim(),
+        description: resolvedDescription,
         quantity: qty,
         totalPriceFcfa: lineTotal,
       };

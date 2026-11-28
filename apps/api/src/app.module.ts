@@ -15,6 +15,7 @@ import { AccueilModule } from './accueil/accueil.module';
 import { RapportsModule } from './rapports/rapports.module';
 import { AdministrationModule } from './administration/administration.module';
 import { NotificationsModule } from './notifications/notifications.module';
+import { TariffsModule } from './tariffs/tariffs.module';
 import { AuditModule } from './common/audit/audit.module';
 import { RolesGuard } from './common/guards/roles.guard';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
@@ -44,6 +45,7 @@ const securityTestControllers = process.env.NODE_ENV === 'test' ? [SecurityTestC
     RapportsModule,
     AdministrationModule,
     NotificationsModule,
+    TariffsModule,
   ],
   controllers: securityTestControllers,
   providers: [

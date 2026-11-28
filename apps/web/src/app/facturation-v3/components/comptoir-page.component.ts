@@ -16,8 +16,10 @@ import {
   BillingSortField,
   BillingSortOrder,
   BillingSummaryCard,
+  ExtraServiceItemDto,
 } from '@residence-blue/shared';
 import { FacturationService } from '../services/facturation.service';
+import { TariffsService } from '../../core/services/tariffs.service';
 import { ModalShellComponent } from '../../shared/components/modal-shell/modal-shell.component';
 import {
   BILLING_SHARED_TABLE_STYLES,
@@ -83,14 +85,28 @@ interface FilterPillOption {
           </p>
         </div>
 
-        <a
-          routerLink="/facturation/archives"
-          data-testid="link-all-invoices"
-          class="rb-btn rb-btn-outline self-start md:self-auto"
-        >
-          <span class="material-symbols-outlined text-[18px]" aria-hidden="true">inventory_2</span>
-          <span>Voir toutes les factures</span>
-        </a>
+        <div class="flex flex-wrap items-center gap-2 self-start md:self-auto">
+          @if (service.canCloseCash()) {
+            <button
+              type="button"
+              data-testid="btn-open-extra-sale"
+              (click)="openExtraSaleModal()"
+              class="rb-btn rb-btn-primary"
+            >
+              <span class="material-symbols-outlined text-[18px]" aria-hidden="true">add_shopping_cart</span>
+              <span>Vente / Prestation</span>
+            </button>
+          }
+
+          <a
+            routerLink="/facturation/archives"
+            data-testid="link-all-invoices"
+            class="rb-btn rb-btn-outline"
+          >
+            <span class="material-symbols-outlined text-[18px]" aria-hidden="true">inventory_2</span>
+            <span>Voir toutes les factures</span>
+          </a>
+        </div>
       </header>
 
       @if (service.errorMessage()) {
@@ -742,12 +758,119 @@ interface FilterPillOption {
           </button>
         </div>
       </app-modal-shell>
+
+      <!-- Modale Nouvelle vente / Prestation (entreprise ou client de passage) -->
+      <app-modal-shell
+        [isOpen]="extraSaleModalOpen()"
+        title="Nouvelle vente / Prestation"
+        subtitle="Facturer une salle de séminaire, une pause-café ou une pause déjeuner à une entreprise ou un client de passage"
+        icon="add_shopping_cart"
+        maxWidth="680px"
+        testId="extra-sale-modal"
+        (closed)="closeExtraSaleModal()"
+      >
+        <div modal-body class="space-y-4 min-w-0">
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div class="space-y-1">
+              <label for="sale-company" class="block text-xs font-extrabold uppercase tracking-wider text-[#161d20]">
+                Client ou entreprise (facultatif)
+              </label>
+              <input
+                id="sale-company"
+                type="text"
+                data-testid="extra-sale-company"
+                [value]="extraSaleCompany()"
+                (input)="onExtraSaleCompanyInput($event)"
+                placeholder="Ex. Client de passage ou Société Thiès SA"
+                class="w-full min-h-[44px] rounded-lg border border-[#b9cdd0] bg-white px-3 py-2 text-sm text-[#161d20]"
+              />
+            </div>
+            <div class="space-y-1">
+              <label for="sale-ninea" class="block text-xs font-extrabold uppercase tracking-wider text-[#161d20]">
+                NINEA (facultatif)
+              </label>
+              <input
+                id="sale-ninea"
+                type="text"
+                data-testid="extra-sale-ninea"
+                [value]="extraSaleNinea()"
+                (input)="onExtraSaleNineaInput($event)"
+                placeholder="Ex. 006927349 2F2"
+                class="w-full min-h-[44px] rounded-lg border border-[#b9cdd0] bg-white px-3 py-2 text-sm text-[#161d20]"
+              />
+            </div>
+          </div>
+
+          <div class="space-y-2">
+            <div class="text-xs font-extrabold uppercase tracking-wider text-[#161d20]">
+              Prestations au catalogue (quantité 0 = non incluse)
+            </div>
+            @if (catalogExtraServices().length === 0) {
+              <p class="text-sm text-[#3d494a]">Aucune prestation active au catalogue.</p>
+            } @else {
+              <div class="space-y-2">
+                @for (svc of catalogExtraServices(); track svc.id) {
+                  <div class="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-[#d6e2e4] bg-[#f8fbfc] p-3">
+                    <div class="min-w-0 flex-1">
+                      <div class="text-sm font-bold text-[#161d20]">{{ svc.name }}</div>
+                      <div class="text-xs font-medium text-[#3d494a]">
+                        {{ svc.priceFcfa !== null ? formatFcfa(svc.priceFcfa) : '—' }} / {{ svc.unit }}
+                      </div>
+                    </div>
+                    <div class="flex items-center gap-2">
+                      <label [for]="'extra-qty-' + svc.code" class="sr-only">Quantité {{ svc.name }}</label>
+                      <input
+                        [id]="'extra-qty-' + svc.code"
+                        type="number"
+                        min="0"
+                        max="500"
+                        step="1"
+                        [attr.data-testid]="'extra-sale-qty-' + svc.code"
+                        [value]="getExtraSaleQty(svc.id)"
+                        (input)="setExtraSaleQty(svc.id, $event)"
+                        class="w-24 min-h-[42px] rounded-lg border border-[#7c8c8e] bg-white px-2.5 text-center text-sm font-bold text-[#161d20]"
+                      />
+                    </div>
+                  </div>
+                }
+              </div>
+            }
+          </div>
+
+          <div class="rounded-xl border border-[#00666f]/30 bg-[#e6f3f4] px-4 py-3 flex items-center justify-between gap-2">
+            <span class="text-xs font-extrabold uppercase tracking-wider text-[#004f56]">Total estimé</span>
+            <span class="text-base font-extrabold text-[#004f56]" data-testid="extra-sale-total">
+              {{ formatFcfa(extraSaleEstimatedTotal()) }}
+            </span>
+          </div>
+        </div>
+
+        <div modal-footer class="w-full flex flex-wrap items-center justify-end gap-2">
+          <button
+            type="button"
+            (click)="closeExtraSaleModal()"
+            class="rb-btn rb-btn-outline"
+          >
+            Annuler
+          </button>
+          <button
+            type="button"
+            data-testid="btn-confirm-extra-sale"
+            [disabled]="service.busyAction() || !hasSelectedExtraSaleLines()"
+            (click)="submitExtraSale()"
+            class="rb-btn rb-btn-primary"
+          >
+            {{ service.busyAction() ? 'Création...' : 'Créer la note' }}
+          </button>
+        </div>
+      </app-modal-shell>
     </div>
   `,
 })
 export class ComptoirPageComponent implements OnInit, OnDestroy {
   readonly service = inject(FacturationService);
   private readonly router = inject(Router, { optional: true });
+  private readonly tariffsService = inject(TariffsService, { optional: true });
 
   @ViewChild('searchInput') searchInput?: ElementRef<HTMLInputElement>;
   @ViewChild('tableScroll') tableScroll?: ElementRef<HTMLElement>;
@@ -761,6 +884,13 @@ export class ComptoirPageComponent implements OnInit, OnDestroy {
   readonly confirmingReopen = signal<boolean>(false);
   readonly countedCashInput = signal<string>('0');
   readonly closureNotesInput = signal<string>('');
+
+  // Modale Vente / Prestation (entreprise ou client de passage)
+  readonly extraSaleModalOpen = signal<boolean>(false);
+  readonly catalogExtraServices = signal<ExtraServiceItemDto[]>([]);
+  readonly extraSaleCompany = signal<string>('');
+  readonly extraSaleNinea = signal<string>('');
+  readonly extraSaleQuantities = signal<Record<string, number>>({});
 
   readonly filterPills: readonly FilterPillOption[] = [
     { key: 'TO_PROCESS', label: 'À traiter' },
@@ -989,6 +1119,69 @@ export class ComptoirPageComponent implements OnInit, OnDestroy {
     if (saved) {
       this.closeCashClosureModal();
       this.reloadCounter();
+    }
+  }
+
+  readonly hasSelectedExtraSaleLines = computed<boolean>(() =>
+    Object.values(this.extraSaleQuantities()).some((qty) => qty > 0),
+  );
+
+  readonly extraSaleEstimatedTotal = computed<number>(() => {
+    const map = this.extraSaleQuantities();
+    return this.catalogExtraServices().reduce((acc, svc) => {
+      const qty = map[svc.id] ?? 0;
+      const price = svc.priceFcfa ?? 0;
+      return acc + qty * price;
+    }, 0);
+  });
+
+  async openExtraSaleModal(): Promise<void> {
+    this.extraSaleCompany.set('');
+    this.extraSaleNinea.set('');
+    this.extraSaleQuantities.set({});
+    this.extraSaleModalOpen.set(true);
+    if (this.tariffsService) {
+      const list = await this.tariffsService.fetchActiveExtraServices();
+      this.catalogExtraServices.set(list);
+    }
+  }
+
+  closeExtraSaleModal(): void {
+    this.extraSaleModalOpen.set(false);
+  }
+
+  onExtraSaleCompanyInput(event: Event): void {
+    this.extraSaleCompany.set((event.target as HTMLInputElement)?.value ?? '');
+  }
+
+  onExtraSaleNineaInput(event: Event): void {
+    this.extraSaleNinea.set((event.target as HTMLInputElement)?.value ?? '');
+  }
+
+  getExtraSaleQty(serviceId: string): number {
+    return this.extraSaleQuantities()[serviceId] ?? 0;
+  }
+
+  setExtraSaleQty(serviceId: string, event: Event): void {
+    const raw = (event.target as HTMLInputElement)?.value ?? '0';
+    const qty = Math.max(0, Math.min(500, Math.round(Number(raw) || 0)));
+    this.extraSaleQuantities.update((prev) => ({ ...prev, [serviceId]: qty }));
+  }
+
+  async submitExtraSale(): Promise<void> {
+    const lines = Object.entries(this.extraSaleQuantities())
+      .filter(([, qty]) => qty > 0)
+      .map(([extraServiceId, quantity]) => ({ extraServiceId, quantity }));
+    if (lines.length === 0) return;
+
+    const created = await this.service.createStandaloneInvoice({
+      billingCompanyName: this.extraSaleCompany().trim() || undefined,
+      billingNinea: this.extraSaleNinea().trim() || undefined,
+      lines,
+    });
+    if (created) {
+      this.closeExtraSaleModal();
+      void this.router?.navigate(['/facturation', created.id]);
     }
   }
 

@@ -5,10 +5,12 @@ import {
   IsInt,
   IsOptional,
   IsString,
+  IsUUID,
   Matches,
   Max,
   Min,
   MinLength,
+  ValidateIf,
   ValidateNested,
 } from 'class-validator';
 import { Type } from 'class-transformer';
@@ -58,12 +60,17 @@ export const ALLOWED_ARCHIVE_STATUSES = [
 
 export class CreateInvoiceLineDto {
   @IsOptional()
+  @IsUUID('4', { message: 'Identifiant de prestation invalide.' })
+  extraServiceId?: string;
+
+  @IsOptional()
   @IsString()
   dateLabel?: string;
 
+  @ValidateIf((o) => !o.extraServiceId)
   @IsString()
   @MinLength(1, { message: 'Le libellé de la ligne est obligatoire.' })
-  description!: string;
+  description?: string;
 
   @IsOptional()
   @IsString()
@@ -85,11 +92,12 @@ export class CreateInvoiceLineDto {
   @IsString()
   quantityLabel?: string;
 
+  @ValidateIf((o) => !o.extraServiceId)
   @Type(() => Number)
   @IsInt({ message: 'Le prix unitaire en FCFA doit être un entier.' })
   @Min(0)
   @Max(100_000_000)
-  unitPriceFcfa!: number;
+  unitPriceFcfa?: number;
 }
 
 export class CreateInvoiceDto {
