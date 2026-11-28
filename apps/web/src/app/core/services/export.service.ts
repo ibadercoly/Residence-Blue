@@ -315,11 +315,11 @@ export class ExportService {
       body = `
         <table style="width:100%; border-collapse:collapse; margin-top:16px; font-size:12px;">
           <tr style="background:#f1f5f9; border-bottom:2px solid #cbd5e1;"><th style="padding:8px;">Mode de paiement</th><th style="padding:8px; text-align:right;">Total encaissé FCFA</th></tr>
-          <tr style="border-bottom:1px solid #e2e8f0;"><td style="padding:8px;">Espèces (Caisse Réception & Resto)</td><td style="padding:8px; text-align:right; font-family:monospace;">85 000 FCFA</td></tr>
-          <tr style="border-bottom:1px solid #e2e8f0;"><td style="padding:8px;">Wave Mobile Money</td><td style="padding:8px; text-align:right; font-family:monospace;">142 500 FCFA</td></tr>
-          <tr style="border-bottom:1px solid #e2e8f0;"><td style="padding:8px;">Orange Money</td><td style="padding:8px; text-align:right; font-family:monospace subterranean;">35 000 FCFA</td></tr>
-          <tr style="border-bottom:1px solid #e2e8f0;"><td style="padding:8px;">Cartes Bancaires (TPE)</td><td style="padding:8px; text-align:right; font-family:monospace;">128 000 FCFA</td></tr>
-          <tr style="background:#f8fafc; font-weight:bold;"><td style="padding:10px;">TOTAL RECETTES DU JOUR</td><td style="padding:10px; text-align:right; font-family:monospace; color:#135bec; font-size:14px;">390 500 FCFA</td></tr>
+          <tr style="border-bottom:1px solid #e2e8f0;"><td style="padding:8px;">Espèces (Caisse Réception & Resto)</td><td style="padding:8px; text-align:right; font-family:monospace;">—</td></tr>
+          <tr style="border-bottom:1px solid #e2e8f0;"><td style="padding:8px;">Wave Mobile Money</td><td style="padding:8px; text-align:right; font-family:monospace;">—</td></tr>
+          <tr style="border-bottom:1px solid #e2e8f0;"><td style="padding:8px;">Orange Money</td><td style="padding:8px; text-align:right; font-family:monospace;">—</td></tr>
+          <tr style="border-bottom:1px solid #e2e8f0;"><td style="padding:8px;">Cartes Bancaires (TPE)</td><td style="padding:8px; text-align:right; font-family:monospace;">—</td></tr>
+          <tr style="background:#f8fafc; font-weight:bold;"><td style="padding:10px;">TOTAL RECETTES DU JOUR</td><td style="padding:10px; text-align:right; font-family:monospace; color:#135bec; font-size:14px;">Voir clôture officielle Facturation</td></tr>
         </table>
       `;
     }
@@ -342,7 +342,7 @@ export class ExportService {
         <div class="header">
           <div>
             <h1 class="title">RÉSIDENCE BLUE • HÔTEL BOUTIQUE</h1>
-            <div class="subtitle">${totalRoomsCount} Clés &bull; Quartier Grand Standing, Thiès, Sénégal &bull; NINEA: 009847291 &bull; RCCM: SN.THS.2023.A.1245</div>
+            <div class="subtitle">${totalRoomsCount} Clés &bull; Rue 47 Grand Standing, derrière station EDK, Thiès 21000, Sénégal</div>
           </div>
           <div style="text-align:right;">
             <div style="font-weight:bold; font-size:12px;">${today}</div>

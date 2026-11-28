@@ -55,6 +55,15 @@ export class ReservationModalService {
     return this.authService?.currentRole() || '';
   }
 
+  isDirector(): boolean {
+    return this.authService?.isDirector() ?? false;
+  }
+
+  canViewAmounts(): boolean {
+    if (!this.authService || typeof this.authService.hasPermission !== 'function') return true;
+    return this.authService.hasPermission('voir_montants');
+  }
+
   private buildHeaders(extra?: Record<string, string>): Record<string, string> {
     return {
       ...(this.authService ? this.authService.getAuthHeaders() : {}),
@@ -196,12 +205,15 @@ export class ReservationModalService {
           .map((r) => ({
             id: r.id,
             number: r.number,
-            category: r.category || r.type?.name || 'Standard',
+            category: r.category || r.type?.name || 'À classer',
+            tariffCategoryId: r.tariffCategoryId ?? null,
+            tariffCategoryCode: r.tariffCategory?.code ?? null,
+            isUnclassified: r.isUnclassified ?? !r.tariffCategory,
             floor: r.floor,
             adultsCapacity: r.adultsCapacity ?? 2,
             childrenCapacity: r.childrenCapacity ?? 0,
             capacity: (r.adultsCapacity ?? 2) + (r.childrenCapacity ?? 0),
-            pricePerNight: r.type?.pricePerNight ?? 35000,
+            pricePerNight: r.minTariffFcfa ?? r.pricePerNight ?? r.type?.pricePerNight ?? null,
             breakfastIncluded: r.breakfastIncluded ?? true,
           }));
       } catch {

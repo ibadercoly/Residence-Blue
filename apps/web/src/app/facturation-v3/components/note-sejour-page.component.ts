@@ -15,8 +15,10 @@ import {
   BillingLineDetail,
   BillingPaymentDetail,
   BillingPaymentMethod,
+  ExtraServiceItemDto,
 } from '@residence-blue/shared';
 import { FacturationService } from '../services/facturation.service';
+import { TariffsService } from '../../core/services/tariffs.service';
 import {
   BILLING_CATEGORY_OPTIONS,
   BILLING_PAYMENT_METHOD_OPTIONS,
@@ -617,8 +619,77 @@ interface GroupedCategoryLines {
               <div class="no-print rb-card p-4 md:p-6" data-testid="add-line-card">
                 <h2 class="rb-title text-lg font-bold text-[#161d20]">Ajouter une ligne</h2>
                 <p class="mt-0.5 text-xs font-medium text-[#3d494a]">
-                  Ajoutez directement une prestation à cette note ouverte (montant en entiers FCFA).
+                  Ajoutez une prestation du catalogue (salle de séminaire, pauses) ou une ligne libre en FCFA entiers.
                 </p>
+
+                <!-- Catalogue prestations (autres ventes) -->
+                @if (activeExtraServices().length > 0) {
+                  <div
+                    class="mt-4 rounded-xl border border-[#b7d6da] bg-[#f3fafe] p-3.5 space-y-3"
+                    data-testid="catalog-extra-services-box"
+                  >
+                    <div class="text-xs font-extrabold uppercase tracking-wider text-[#00666f]">
+                      Prestations au catalogue (Autres ventes)
+                    </div>
+                    <div class="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                      @for (svc of activeExtraServices(); track svc.id) {
+                        <button
+                          type="button"
+                          [attr.data-testid]="'catalog-service-btn-' + svc.code"
+                          (click)="selectExtraService(svc)"
+                          class="min-h-[44px] rounded-lg border px-3 py-2 text-left transition-colors"
+                          [class.border-[#00666f]]="selectedExtraServiceId() === svc.id"
+                          [class.bg-[#00666f]]="selectedExtraServiceId() === svc.id"
+                          [class.text-white]="selectedExtraServiceId() === svc.id"
+                          [class.border-[#bdc9ca]]="selectedExtraServiceId() !== svc.id"
+                          [class.bg-white]="selectedExtraServiceId() !== svc.id"
+                          [class.text-[#161d20]]="selectedExtraServiceId() !== svc.id"
+                        >
+                          <div class="text-sm font-bold leading-snug">{{ svc.name }}</div>
+                          <div
+                            class="text-xs font-semibold"
+                            [class.text-[#d8f0f2]]="selectedExtraServiceId() === svc.id"
+                            [class.text-[#3d494a]]="selectedExtraServiceId() !== svc.id"
+                          >
+                            {{ svc.priceFcfa !== null ? formatFcfa(svc.priceFcfa) : '—' }} / {{ svc.unit }}
+                          </div>
+                        </button>
+                      }
+                    </div>
+
+                    @if (selectedExtraService(); as svc) {
+                      <div class="flex flex-wrap items-end justify-between gap-3 pt-1">
+                        <div class="w-32">
+                          <label for="catalog-svc-qty" class="block text-xs font-bold text-[#161d20]">
+                            Quantité ({{ svc.unit }})
+                          </label>
+                          <input
+                            id="catalog-svc-qty"
+                            data-testid="catalog-service-qty"
+                            type="number"
+                            min="1"
+                            step="1"
+                            [ngModel]="catalogServiceQty()"
+                            (ngModelChange)="catalogServiceQty.set($event)"
+                            class="mt-1 min-h-[42px] w-full rounded-lg border border-[#7c8c8e] bg-white px-3 text-sm font-bold text-[#161d20]"
+                          />
+                        </div>
+                        <button
+                          type="button"
+                          data-testid="btn-submit-catalog-service"
+                          [disabled]="service.busyAction() || catalogServiceQtyNum() < 1"
+                          (click)="submitExtraService()"
+                          class="rb-btn rb-btn-primary"
+                        >
+                          Ajouter {{ svc.name }}
+                          @if (svc.priceFcfa !== null) {
+                            ({{ formatFcfa(svc.priceFcfa * catalogServiceQtyNum()) }})
+                          }
+                        </button>
+                      </div>
+                    }
+                  </div>
+                }
 
                 <div class="mt-4 space-y-4">
                   <div>
@@ -958,11 +1029,27 @@ export class NoteSejourPageComponent implements OnInit {
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
   readonly service = inject(FacturationService);
+  private readonly tariffsService = inject(TariffsService, { optional: true });
 
   readonly categoryOptions = BILLING_CATEGORY_OPTIONS;
   readonly paymentMethodOptions = BILLING_PAYMENT_METHOD_OPTIONS;
 
   readonly note = this.service.currentNote;
+
+  // Catalogue prestations (autres ventes)
+  readonly activeExtraServices = signal<ExtraServiceItemDto[]>([]);
+  readonly selectedExtraServiceId = signal<string | null>(null);
+  readonly catalogServiceQty = signal<number | string>(1);
+
+  readonly selectedExtraService = computed<ExtraServiceItemDto | null>(() => {
+    const id = this.selectedExtraServiceId();
+    if (!id) return null;
+    return this.activeExtraServices().find((s) => s.id === id) ?? null;
+  });
+
+  readonly catalogServiceQtyNum = computed<number>(() =>
+    Math.max(0, Math.round(Number(this.catalogServiceQty()) || 0)),
+  );
 
   // Formulaire ajout de ligne
   readonly newLineDescription = signal<string>('');
@@ -1044,6 +1131,37 @@ export class NoteSejourPageComponent implements OnInit {
         this.service.loadNote(id);
       }
     });
+    void this.loadCatalogServices();
+  }
+
+  private async loadCatalogServices(): Promise<void> {
+    if (!this.tariffsService) return;
+    const list = await this.tariffsService.fetchActiveExtraServices();
+    this.activeExtraServices.set(list);
+  }
+
+  selectExtraService(svc: ExtraServiceItemDto): void {
+    if (this.selectedExtraServiceId() === svc.id) {
+      this.selectedExtraServiceId.set(null);
+      return;
+    }
+    this.selectedExtraServiceId.set(svc.id);
+    this.catalogServiceQty.set(1);
+  }
+
+  async submitExtraService(): Promise<void> {
+    const n = this.note();
+    const svc = this.selectedExtraService();
+    const qty = this.catalogServiceQtyNum();
+    if (!n || !svc || qty < 1) return;
+    const ok = await this.service.addLine(n.id, {
+      extraServiceId: svc.id,
+      quantity: qty,
+    });
+    if (ok) {
+      this.selectedExtraServiceId.set(null);
+      this.catalogServiceQty.set(1);
+    }
   }
 
   statusLabel(n: { status: string; documentType: string; isIssued?: boolean }): string {

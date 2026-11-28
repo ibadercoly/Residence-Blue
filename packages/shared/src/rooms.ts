@@ -274,7 +274,7 @@ export interface SeedRoomDefinition {
 }
 
 export const SEED_ROOMS: SeedRoomDefinition[] = [
-  // 6 Chambres Standard - 35 000 FCFA (Étage 1)
+  // 6 Chambres Étage 1 (grille tarifaire réelle gérée dans Administration > Tarifs)
   {
     number: '101',
     typeName: RoomCategory.STANDARD,
@@ -324,7 +324,7 @@ export const SEED_ROOMS: SeedRoomDefinition[] = [
     imageAlt: 'Chambre 106, Standard, literie blanche épurée et douche à l’italienne',
   },
 
-  // 4 Chambres Deluxe - 55 000 FCFA (Étage 2)
+  // 4 Chambres Étage 2
   {
     number: '201',
     typeName: RoomCategory.DELUXE,
@@ -358,7 +358,7 @@ export const SEED_ROOMS: SeedRoomDefinition[] = [
     imageAlt: 'Chambre 204, Bungalow Deluxe, pavillon indépendant avec toit de chaume et végétation',
   },
 
-  // 2 Suites Prestige - 95 000 FCFA (Étage 3)
+  // 2 Unités Étage 3
   {
     number: '301',
     typeName: RoomCategory.SUITE,

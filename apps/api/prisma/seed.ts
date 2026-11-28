@@ -36,24 +36,25 @@ export async function seedRooms(customPrisma: PrismaClient = prisma) {
     typeMap.set(typeData.name, roomType.id);
   }
 
+  const fallbackType = await customPrisma.roomType.upsert({
+    where: { name: 'À classer' },
+    update: {},
+    create: { name: 'À classer', pricePerNight: null },
+  });
+
   const tariffCategories = await customPrisma.tariffCategory.findMany();
   const tariffCatByName = new Map(
     tariffCategories.map((c) => [c.name.toLowerCase(), c]),
   );
 
   for (const roomData of SEED_ROOMS) {
-    const typeId = typeMap.get(roomData.typeName);
-    if (!typeId) {
-      throw new Error(`Type de chambre introuvable pour ${roomData.typeName}`);
-    }
-
-    const defaultImg = getRoomImageUrl(roomData.number);
     const matchedTariffCat = tariffCatByName.get(roomData.typeName.toLowerCase());
+    const typeId = typeMap.get(roomData.typeName) ?? fallbackType.id;
+    const defaultImg = getRoomImageUrl(roomData.number);
 
     await customPrisma.room.upsert({
       where: { number: roomData.number },
       update: {
-        typeId,
         floor: roomData.floor,
         amenities: roomData.amenities,
       },

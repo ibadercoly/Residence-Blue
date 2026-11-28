@@ -1210,7 +1210,10 @@ export class RoomsComponent {
     this.reservationModal?.open({
       roomId: room.id,
       roomNumber: room.number,
-      category: category === 'Standard' || category === 'Deluxe' || category === 'Suite' ? category : undefined,
+      category:
+        category === 'Standard' || category === 'Confort' || category === 'Appartement'
+          ? category
+          : undefined,
     });
   }
 
