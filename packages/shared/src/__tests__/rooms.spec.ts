@@ -3,6 +3,9 @@ import {
   isRoomStatusTransitionAllowed,
   SEED_ROOMS,
   SEED_ROOM_TYPES,
+  REAL_TARIFF_CATEGORIES,
+  REAL_ROOM_TARIFFS,
+  REAL_EXTRA_SERVICES,
   Role,
   getRoomImageUrl,
   getRoomImageAlt,
@@ -156,31 +159,21 @@ describe('Règles métier des chambres & Machine à états', () => {
     });
   });
 
-  describe('6. Données de référence Seed (12 chambres)', () => {
-    it('doit comporter exactement 12 chambres et 3 catégories de prix entiers', () => {
+  describe('6. Données de référence réelles (catégories, grille tarifaire et prestations)', () => {
+    it('doit définir les 3 catégories réelles sans prix de démonstration figé sur les types', () => {
       expect(SEED_ROOMS).toHaveLength(12);
       expect(SEED_ROOM_TYPES).toHaveLength(3);
+      expect(SEED_ROOM_TYPES.map((t) => t.name)).toEqual(['Standard', 'Confort', 'Appartement']);
+      expect(SEED_ROOM_TYPES.every((t) => t.pricePerNight === null)).toBe(true);
 
-      const standardType = SEED_ROOM_TYPES.find((t) => t.name === 'Standard');
-      const deluxeType = SEED_ROOM_TYPES.find((t) => t.name === 'Deluxe');
-      const suiteType = SEED_ROOM_TYPES.find((t) => t.name === 'Suite');
-
-      expect(standardType?.pricePerNight).toBe(35000);
-      expect(deluxeType?.pricePerNight).toBe(55000);
-      expect(suiteType?.pricePerNight).toBe(95000);
-
-      const standardRooms = SEED_ROOMS.filter((r) => r.typeName === 'Standard');
-      const deluxeRooms = SEED_ROOMS.filter((r) => r.typeName === 'Deluxe');
-      const suites = SEED_ROOMS.filter((r) => r.typeName === 'Suite');
-
-      expect(standardRooms).toHaveLength(6);
-      expect(deluxeRooms).toHaveLength(4);
-      expect(suites).toHaveLength(2);
-
-      // Vérification des numéros exacts
-      expect(standardRooms.map((r) => r.number)).toEqual(['101', '102', '103', '104', '105', '106']);
-      expect(deluxeRooms.map((r) => r.number)).toEqual(['201', '202', '203', '204']);
-      expect(suites.map((r) => r.number)).toEqual(['301', '302']);
+      expect(REAL_TARIFF_CATEGORIES.map((c) => c.code)).toEqual(['STANDARD', 'CONFORT', 'APPARTEMENT']);
+      expect(REAL_ROOM_TARIFFS.find((t) => t.categoryCode === 'STANDARD' && t.guestsCount === 1)?.pricePerNightFcfa).toBe(30000);
+      expect(REAL_ROOM_TARIFFS.find((t) => t.categoryCode === 'CONFORT' && t.guestsCount === 2)?.pricePerNightFcfa).toBe(40000);
+      expect(
+        REAL_ROOM_TARIFFS.find((t) => t.categoryCode === 'APPARTEMENT' && t.guestsCount === 3 && t.roomsUsed === 3)
+          ?.pricePerNightFcfa,
+      ).toBeNull();
+      expect(REAL_EXTRA_SERVICES).toHaveLength(4);
     });
   });
 

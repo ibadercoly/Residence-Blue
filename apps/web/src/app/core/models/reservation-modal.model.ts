@@ -1,4 +1,4 @@
-export type RoomCategoryType = 'Standard' | 'Deluxe' | 'Suite';
+export type RoomCategoryType = 'Standard' | 'Confort' | 'Appartement';
 
 export type PaymentMethodType =
   | 'CASH'
@@ -18,16 +18,20 @@ export interface AvailableRoomItem {
   id: string;
   number: string;
   category: string;
+  tariffCategoryId?: string | null;
+  tariffCategoryCode?: string | null;
+  isUnclassified?: boolean;
   floor: number;
   adultsCapacity: number;
   childrenCapacity: number;
   capacity: number;
-  pricePerNight: number;
+  pricePerNight: number | null;
   breakfastIncluded: boolean;
 }
 
 export interface HotelRatesConfig {
   tourismTaxPerNightPerPerson: number;
+  tourismTaxIncludesChildren?: boolean;
   vatRatePercent: number;
 }
 
@@ -69,8 +73,11 @@ export interface CreateReservationPayload {
   checkOutDate: string;
   adultsCount: number;
   childrenCount: number;
+  roomsUsed?: number;
   depositFcfa: number;
   discountFcfa?: number;
+  overridePricePerNightFcfa?: number;
+  priceOverrideReason?: string;
   paymentMethod?: PaymentMethodType;
   transactionRef?: string;
   breakfastIncluded: boolean;

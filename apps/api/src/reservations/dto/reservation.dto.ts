@@ -118,6 +118,13 @@ export class CreateReservationDto {
 
   @IsOptional()
   @Type(() => Number)
+  @IsInt({ message: 'Le nombre de chambres utilisées doit être un entier.' })
+  @Min(1)
+  @Max(3)
+  roomsUsed?: number;
+
+  @IsOptional()
+  @Type(() => Number)
   @IsInt()
   @Min(1)
   nights?: number;
@@ -136,9 +143,14 @@ export class CreateReservationDto {
 
   @IsOptional()
   @Type(() => Number)
-  @IsInt()
-  @Min(0)
-  totalFcfa?: number;
+  @IsInt({ message: 'Le prix manuel par nuit doit être un entier positif en FCFA.' })
+  @Min(1)
+  overridePricePerNightFcfa?: number;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(300)
+  priceOverrideReason?: string;
 
   @IsOptional()
   @IsIn(RESERVATION_PAYMENT_METHODS, {

@@ -316,8 +316,8 @@ export class PlanningService implements OnDestroy {
     if (this.roomsService) {
       return this.roomsService.activeRooms().map((r) => ({
         number: r.number,
-        category: (r.category || r.type?.name || 'Standard') as any,
-        typeLabel: `${r.category || r.type?.name || 'Standard'} ${r.view || ''}`.trim(),
+        category: r.tariffCategory?.name || r.category || r.type?.name || 'À classer',
+        typeLabel: `${r.tariffCategory?.name || r.category || r.type?.name || 'À classer'} ${r.view || ''}`.trim(),
         description: r.description || `Étage ${r.floor}`,
         status: r.status,
         maintenanceReason: r.status === 'MAINTENANCE' ? (r.maintenanceReason || 'Problème signalé') : null,

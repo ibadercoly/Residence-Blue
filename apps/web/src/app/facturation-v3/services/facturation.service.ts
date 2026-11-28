@@ -441,10 +441,11 @@ export class FacturationService {
   async addLine(
     invoiceId: string,
     payload: {
-      description: string;
-      category: BillingLineCategory;
+      extraServiceId?: string;
+      description?: string;
+      category?: BillingLineCategory;
       quantity: number;
-      unitPriceFcfa: number;
+      unitPriceFcfa?: number;
     },
   ): Promise<boolean> {
     this.busyAction.set(true);
@@ -470,6 +471,44 @@ export class FacturationService {
     } catch {
       this.errorMessage.set("Erreur réseau lors de l'ajout de la ligne.");
       return false;
+    } finally {
+      this.busyAction.set(false);
+    }
+  }
+
+  async createStandaloneInvoice(payload: {
+    billingCompanyName?: string;
+    billingNinea?: string;
+    billingAddress?: string;
+    lines: Array<{
+      extraServiceId?: string;
+      description?: string;
+      category?: BillingLineCategory;
+      quantity: number;
+      unitPriceFcfa?: number;
+    }>;
+  }): Promise<BillingNoteDetail | null> {
+    this.busyAction.set(true);
+    this.clearMessages();
+    try {
+      const res = await fetch('/api/invoices', {
+        method: 'POST',
+        headers: this.buildHeaders(this.generateUuid()),
+        body: JSON.stringify(payload),
+      });
+      if (!res.ok) {
+        this.errorMessage.set(
+          await this.extractError(res, 'Impossible de créer la note de prestation.'),
+        );
+        return null;
+      }
+      const created = (await res.json()) as BillingNoteDetail;
+      this.currentNote.set(created);
+      this.successMessage.set('Note de prestation créée avec succès.');
+      return created;
+    } catch {
+      this.errorMessage.set('Erreur réseau lors de la création de la note.');
+      return null;
     } finally {
       this.busyAction.set(false);
     }

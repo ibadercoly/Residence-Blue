@@ -56,7 +56,7 @@ export interface RelocationSlot {
 
 export interface PlanningRoom {
   number: string;
-  category: 'Standard' | 'Deluxe' | 'Suite';
+  category: 'Standard' | 'Confort' | 'Appartement' | 'À classer' | string;
   typeLabel: string;
   description: string;
   status?: string;

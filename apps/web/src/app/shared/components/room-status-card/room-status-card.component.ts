@@ -50,8 +50,17 @@ import { AuthService } from '../../../core/services/auth.service';
               Chambre {{ room.number }}
             </span>
             <span class="room-category text-xs text-on-surface-variant font-medium leading-normal break-words [overflow-wrap:anywhere]">
-              {{ room.category || room.type?.name || 'Standard' }} • Étage {{ room.floor }}
+              {{ room.category || room.type?.name || 'À classer' }} • Étage {{ room.floor }}
             </span>
+            @if (isUnclassified) {
+              <span
+                class="mt-1 inline-flex w-fit items-center gap-1 rounded-full bg-amber-100 border border-amber-300 px-2 py-0.5 text-[11px] font-bold text-amber-950"
+                [attr.data-testid]="'room-unclassified-badge-' + room.number"
+              >
+                <span class="material-symbols-outlined text-[13px]" aria-hidden="true">label_off</span>
+                <span>À classer</span>
+              </span>
+            }
           </div>
 
           <!-- Bouton discret « ⋯ » (zone cliquable 40 x 40 px) avec menu déroulant s'ouvrant vers la gauche -->
@@ -192,7 +201,31 @@ import { AuthService } from '../../../core/services/auth.service';
                 <span class="price-amount font-label-currency text-xl font-bold text-primary">
                   {{ formatPrice(displayedPrice!) }}
                 </span>
-                <span class="price-unit text-xs text-on-surface-variant font-medium">/ nuitée</span>
+                <span class="price-unit text-xs text-on-surface-variant font-medium">dès / nuitée</span>
+              </div>
+            }
+
+            <!-- Choix rapide de la catégorie (DIRECTION uniquement) -->
+            @if (currentRole === Role.DIRECTION) {
+              <div class="mb-2.5 flex items-center justify-between gap-2 rounded-lg bg-surface-container-low px-2.5 py-1.5 border border-outline-variant/40">
+                <label
+                  [attr.for]="'card-cat-' + room.number"
+                  class="text-[11px] font-semibold text-on-surface-variant shrink-0"
+                >
+                  Catégorie
+                </label>
+                <select
+                  [id]="'card-cat-' + room.number"
+                  [value]="normalizedSelectCategory"
+                  (change)="onCategorySelectChange($event)"
+                  [attr.data-testid]="'room-category-select-' + room.number"
+                  class="min-h-[32px] max-w-[140px] rounded-lg border border-outline-variant/70 bg-white px-2 py-1 text-xs font-semibold text-on-surface outline-none focus:ring-2 focus:ring-primary/25 cursor-pointer"
+                >
+                  <option value="À classer">À classer</option>
+                  <option value="Standard">Standard</option>
+                  <option value="Confort">Confort</option>
+                  <option value="Appartement">Appartement</option>
+                </select>
               </div>
             }
 
@@ -562,6 +595,7 @@ export class RoomStatusCardComponent {
   @Output() onApproveIntervention = new EventEmitter<string>();
   @Output() onRejectIntervention = new EventEmitter<RoomInterventionRequestDto>();
   @Output() onCompleteIntervention = new EventEmitter<string>();
+  @Output() onAssignCategory = new EventEmitter<string>();
 
   readonly RoomStatus = RoomStatus;
   readonly Role = Role;
@@ -708,9 +742,37 @@ export class RoomStatusCardComponent {
     return this.currentRole === Role.DIRECTION || this.currentRole === Role.MAINTENANCE;
   }
 
+  get isUnclassified(): boolean {
+    if (this.room?.isUnclassified === true) return true;
+    const cat = (this.room?.category || this.room?.type?.name || '').trim();
+    return !cat || cat === 'À classer' || !['Standard', 'Confort', 'Appartement'].includes(cat);
+  }
+
+  get normalizedSelectCategory(): string {
+    const cat = (this.room?.tariffCategory?.name || this.room?.category || '').trim();
+    if (['Standard', 'Confort', 'Appartement'].includes(cat)) return cat;
+    return 'À classer';
+  }
+
+  onCategorySelectChange(event: Event): void {
+    const value = (event.target as HTMLSelectElement | null)?.value;
+    if (value) {
+      this.onAssignCategory.emit(value);
+    }
+  }
+
   get displayedPrice(): number | null {
-    const p = this.room?.type?.pricePerNight !== undefined ? this.room.type.pricePerNight : this.room?.pricePerNight;
-    return typeof p === 'number' && Number.isFinite(p) ? p : null;
+    const candidates = [
+      this.room?.minTariffFcfa,
+      this.room?.pricePerNight,
+      this.room?.type?.pricePerNight,
+    ];
+    for (const p of candidates) {
+      if (typeof p === 'number' && Number.isFinite(p) && p > 0) {
+        return p;
+      }
+    }
+    return null;
   }
 
   get shouldShowPrice(): boolean {

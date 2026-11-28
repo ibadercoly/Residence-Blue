@@ -15,17 +15,19 @@ import {
 } from '@residence-blue/shared';
 import { hashPassword, isArgon2idHash, isValidPasswordHash } from '../src/auth/password-hash.util';
 import { CryptoService } from '../src/common/security/crypto.service';
+import { loadRealTariffsAndIdentity } from './load-real-tariffs';
 
 const prisma = new PrismaClient();
 
 export async function seedRooms(customPrisma: PrismaClient = prisma) {
-  console.log('[SEED] Début du peuplement des types de chambres et des 12 chambres...');
+  console.log('[SEED] Chargement des tarifs publics réels et des chambres...');
+  await loadRealTariffsAndIdentity(customPrisma);
 
   const typeMap = new Map<string, string>();
   for (const typeData of SEED_ROOM_TYPES) {
     const roomType = await customPrisma.roomType.upsert({
       where: { name: typeData.name },
-      update: { pricePerNight: typeData.pricePerNight },
+      update: {},
       create: {
         name: typeData.name,
         pricePerNight: typeData.pricePerNight,
@@ -34,38 +36,43 @@ export async function seedRooms(customPrisma: PrismaClient = prisma) {
     typeMap.set(typeData.name, roomType.id);
   }
 
-  for (const roomData of SEED_ROOMS) {
-    const typeId = typeMap.get(roomData.typeName);
-    if (!typeId) {
-      throw new Error(`Type de chambre introuvable pour ${roomData.typeName}`);
-    }
+  const fallbackType = await customPrisma.roomType.upsert({
+    where: { name: 'À classer' },
+    update: {},
+    create: { name: 'À classer', pricePerNight: null },
+  });
 
+  const tariffCategories = await customPrisma.tariffCategory.findMany();
+  const tariffCatByName = new Map(
+    tariffCategories.map((c) => [c.name.toLowerCase(), c]),
+  );
+
+  for (const roomData of SEED_ROOMS) {
+    const matchedTariffCat = tariffCatByName.get(roomData.typeName.toLowerCase());
+    const typeId = typeMap.get(roomData.typeName) ?? fallbackType.id;
     const defaultImg = getRoomImageUrl(roomData.number);
-    const price = SEED_ROOM_TYPES.find((t) => t.name === roomData.typeName)?.pricePerNight || 35000;
 
     await customPrisma.room.upsert({
       where: { number: roomData.number },
       update: {
-        typeId,
-        category: roomData.typeName,
         floor: roomData.floor,
         amenities: roomData.amenities,
-        pricePerNight: price,
       },
       create: {
         number: roomData.number,
         typeId,
-        category: roomData.typeName,
+        tariffCategoryId: matchedTariffCat?.id ?? null,
+        category: matchedTariffCat?.name ?? 'À classer',
         floor: roomData.floor,
         status: RoomStatus.FREE,
         amenities: roomData.amenities,
-        pricePerNight: price,
+        pricePerNight: null,
         imageUrl: defaultImg,
       },
     });
   }
 
-  console.log('[SEED] Peuplement des 12 chambres achevé avec succès.');
+  console.log('[SEED] Peuplement des chambres achevé avec succès.');
 }
 
 export async function seedAll(customPrisma: PrismaClient = prisma) {

@@ -127,7 +127,7 @@ model RefreshToken {
 model RoomType {
   id            String   @id @default(uuid()) @db.Uuid
   name          String   @unique
-  pricePerNight Int      @map("price_per_night") // ENTIER strict en FCFA
+  pricePerNight Int?     @map("price_per_night") // ENTIER strict en FCFA (null si non défini)
   rooms         Room[]
   createdAt     DateTime @default(now()) @map("created_at")
   updatedAt     DateTime @updatedAt @map("updated_at")
@@ -135,40 +135,91 @@ model RoomType {
   @@map("room_types")
 }
 
+model TariffCategory {
+  id           String       @id @default(uuid()) @db.Uuid
+  code         String       @unique // STANDARD, CONFORT, APPARTEMENT
+  name         String       @unique // Standard, Confort, Appartement
+  displayOrder Int          @default(1) @map("display_order")
+  isActive     Boolean      @default(true) @map("is_active")
+  tariffs      RoomTariff[]
+  rooms        Room[]
+  createdAt    DateTime     @default(now()) @map("created_at")
+  updatedAt    DateTime     @updatedAt @map("updated_at")
+
+  @@map("tariff_categories")
+}
+
+model RoomTariff {
+  id                String         @id @default(uuid()) @db.Uuid
+  categoryId        String         @map("category_id") @db.Uuid
+  category          TariffCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  guestsCount       Int            @map("guests_count")
+  roomsUsed         Int?           @map("rooms_used")
+  label             String
+  pricePerNightFcfa Int?           @map("price_per_night_fcfa") // null = À définir (jamais inventé)
+  isActive          Boolean        @default(true) @map("is_active")
+  displayOrder      Int            @default(1) @map("display_order")
+  createdAt         DateTime       @default(now()) @map("created_at")
+  updatedAt         DateTime       @updatedAt @map("updated_at")
+
+  @@index([categoryId, guestsCount, roomsUsed])
+  @@map("room_tariffs")
+}
+
+model ExtraServiceItem {
+  id           String   @id @default(uuid()) @db.Uuid
+  code         String   @unique
+  name         String
+  unit         String   @default("PERSON") // DAY | PERSON
+  unitLabel    String   @default("personne") @map("unit_label")
+  priceFcfa    Int      @map("price_fcfa")
+  category     String   @default("AUTRES")
+  isActive     Boolean  @default(true) @map("is_active")
+  displayOrder Int      @default(1) @map("display_order")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  @@index([isActive, displayOrder])
+  @@map("extra_service_items")
+}
+
 model Room {
-  id                      String            @id @default(uuid()) @db.Uuid
-  number                  String            @unique
-  typeId                  String            @map("type_id") @db.Uuid
-  type                    RoomType          @relation(fields: [typeId], references: [id], onDelete: Restrict)
+  id                      String                    @id @default(uuid()) @db.Uuid
+  number                  String                    @unique
+  typeId                  String                    @map("type_id") @db.Uuid
+  type                    RoomType                  @relation(fields: [typeId], references: [id], onDelete: Restrict)
+  tariffCategoryId        String?                   @map("tariff_category_id") @db.Uuid
+  tariffCategory          TariffCategory?           @relation(fields: [tariffCategoryId], references: [id], onDelete: SetNull)
   floor                   Int
-  category                String            @default("Standard")
-  status                  RoomStatus        @default(FREE)
-  adultsCapacity          Int               @default(2) @map("adults_capacity")
-  childrenCapacity        Int               @default(0) @map("children_capacity")
-  bedType                 String            @default("queen") @map("bed_type")
-  bedsCount               Int               @default(1) @map("beds_count")
-  surfaceM2               Int               @default(25) @map("surface_m2")
-  view                    String            @default("jardin")
-  smoking                 Boolean           @default(false)
-  connectingRoom          String?           @map("connecting_room")
+  category                String                    @default("À classer")
+  status                  RoomStatus                @default(FREE)
+  adultsCapacity          Int                       @default(2) @map("adults_capacity")
+  childrenCapacity        Int                       @default(0) @map("children_capacity")
+  bedType                 String                    @default("queen") @map("bed_type")
+  bedsCount               Int                       @default(1) @map("beds_count")
+  surfaceM2               Int?                      @map("surface_m2")
+  view                    String?
+  smoking                 Boolean                   @default(false)
+  connectingRoom          String?                   @map("connecting_room")
   amenities               String[]
-  pricePerNight           Int               @default(35000) @map("price_per_night")
-  highSeasonPricePerNight Int?              @map("high_season_price_per_night")
-  corporatePricePerNight  Int?              @map("corporate_price_per_night")
-  breakfastIncluded       Boolean           @default(true) @map("breakfast_included")
-  imageUrl                String?           @map("image_url")
-  description             String?           @db.Text
-  internalNote            String?           @map("internal_note") @db.Text
-  maintenanceReason       String?           @map("maintenance_reason") @db.Text
-  isActive                Boolean           @default(true) @map("is_active")
-  createdAt               DateTime          @default(now()) @map("created_at")
-  updatedAt               DateTime          @updatedAt @map("updated_at")
+  pricePerNight           Int?                      @map("price_per_night")
+  highSeasonPricePerNight Int?                      @map("high_season_price_per_night")
+  corporatePricePerNight  Int?                      @map("corporate_price_per_night")
+  breakfastIncluded       Boolean                   @default(true) @map("breakfast_included")
+  imageUrl                String?                   @map("image_url")
+  description             String?                   @db.Text
+  internalNote            String?                   @map("internal_note") @db.Text
+  maintenanceReason       String?                   @map("maintenance_reason") @db.Text
+  isActive                Boolean                   @default(true) @map("is_active")
+  createdAt               DateTime                  @default(now()) @map("created_at")
+  updatedAt               DateTime                  @updatedAt @map("updated_at")
   reservations            Reservation[]
   invoices                Invoice[]
   orders                  RestaurantOrder[]
   interventionRequests    RoomInterventionRequest[]
 
   @@index([typeId])
+  @@index([tariffCategoryId])
   @@index([status])
   @@map("rooms")
 }
@@ -222,7 +273,14 @@ model Reservation {
   checkOutDate  DateTime          @map("check_out_date") @db.Date
   adultsCount   Int               @default(1) @map("adults_count")
   childrenCount Int               @default(0) @map("children_count")
+  roomsUsed     Int               @default(1) @map("rooms_used")
   nights             Int               @default(1)
+  ratePerNightFcfa   Int?              @map("rate_per_night_fcfa")
+  tariffLabel        String?           @map("tariff_label")
+  priceOverriddenByDirector Boolean    @default(false) @map("price_overridden_by_director")
+  priceOverrideReason       String?    @map("price_override_reason") @db.Text
+  priceOverriddenById       String?    @map("price_overridden_by_id") @db.Uuid
+  priceOverriddenByName     String?    @map("price_overridden_by_name")
   status             ReservationStatus @default(CONFIRMED)
   source             String            @default("RECEPTION")
   breakfastIncluded  Boolean           @default(true) @map("breakfast_included")
@@ -523,12 +581,15 @@ model HotelSetting {
   tagline                     String   @default("Hôtel Boutique • Grand Standing, Thiès")
   city                        String   @default("Thiès")
   neighborhood                String   @default("Grand Standing")
+  postalCode                  String?  @map("postal_code")
   country                     String   @default("Sénégal")
-  fullAddress                 String   @default("Quartier Grand Standing • Thiès, Sénégal") @map("full_address")
-  ninea                       String   @default("004819230")
-  rccm                        String   @default("SN-THS-2021-B-114")
-  supportPhone                String   @default("+221 33 957 00 00") @map("support_phone")
-  supportEmail                String   @default("support@residenceblue.sn") @map("support_email")
+  fullAddress                 String   @default("") @map("full_address")
+  ninea                       String   @default("")
+  rccm                        String   @default("")
+  supportPhone                String   @default("") @map("support_phone")
+  secondaryPhones             String?  @map("secondary_phones")
+  supportEmail                String   @default("") @map("support_email")
+  website                     String?  @map("website")
   roomCount                   Int      @default(12) @map("room_count")
   restaurantName              String   @default("La Teranga") @map("restaurant_name")
   currency                    String   @default("XOF")

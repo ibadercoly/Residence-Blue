@@ -543,26 +543,28 @@ import { ActionButtonComponent } from '../../shared/components/action-button/act
                 </span>
               </div>
 
-              <!-- 5. Total -->
-              <div class="flex items-center justify-between">
-                <span class="text-xs text-outline font-medium">Total séjour</span>
-                <span class="font-bold text-on-surface" data-testid="drawer-total">
-                  {{ formatAmount(detail.folio.totalFcfa) }}
-                </span>
-              </div>
+              <!-- 5. Total (visible uniquement avec la permission voir_montants) -->
+              @if (canViewAmounts()) {
+                <div class="flex items-center justify-between">
+                  <span class="text-xs text-outline font-medium">Total séjour</span>
+                  <span class="font-bold text-on-surface" data-testid="drawer-total">
+                    {{ formatAmount(detail.folio.totalFcfa) }}
+                  </span>
+                </div>
 
-              <!-- 6. Reste à payer -->
-              <div class="flex items-center justify-between">
-                <span class="text-xs text-outline font-medium">Reste à payer</span>
-                <span
-                  class="font-bold"
-                  [class.text-error]="detail.folio.remainingFcfa > 0"
-                  [class.text-emerald-700]="detail.folio.remainingFcfa === 0"
-                  data-testid="drawer-remaining"
-                >
-                  {{ formatAmount(detail.folio.remainingFcfa) }}
-                </span>
-              </div>
+                <!-- 6. Reste à payer -->
+                <div class="flex items-center justify-between">
+                  <span class="text-xs text-outline font-medium">Reste à payer</span>
+                  <span
+                    class="font-bold"
+                    [class.text-error]="detail.folio.remainingFcfa > 0"
+                    [class.text-emerald-700]="detail.folio.remainingFcfa === 0"
+                    data-testid="drawer-remaining"
+                  >
+                    {{ formatAmount(detail.folio.remainingFcfa) }}
+                  </span>
+                </div>
+              }
             </div>
           </div>
 
@@ -648,6 +650,10 @@ export class PlanningPageComponent {
     }
   }
 
+  readonly canViewAmounts = computed(() =>
+    this.roomsService ? this.roomsService.canViewAmounts() : true,
+  );
+
   readonly roomAlertsCount = computed(() =>
     this.roomsService?.canReceiveRoomAlerts() ? (this.roomsService?.unreadAlertsCount() ?? 0) : 0,
   );
@@ -717,8 +723,8 @@ export class PlanningPageComponent {
     const departure = addDaysToIso(arrival, 1);
 
     this.modalService.open({
-      roomNumber: roomNumber || '101',
-      category: roomNumber ? this.getCategoryForRoom(roomNumber) : 'Standard',
+      roomNumber: roomNumber || undefined,
+      category: roomNumber ? this.getCategoryForRoom(roomNumber) : undefined,
       checkInDate: arrival,
       checkOutDate: departure
     });
@@ -781,10 +787,12 @@ export class PlanningPageComponent {
     return formatFcfa(amount);
   }
 
-  private getCategoryForRoom(roomNumber: string): 'Standard' | 'Deluxe' | 'Suite' {
-    const num = parseInt(roomNumber, 10);
-    if (num >= 300) return 'Suite';
-    if (num >= 200) return 'Deluxe';
-    return 'Standard';
+  private getCategoryForRoom(roomNumber: string): 'Standard' | 'Confort' | 'Appartement' | undefined {
+    const room = this.planningService.filteredRooms().find((r) => r.number === roomNumber);
+    const raw = room?.category;
+    if (raw === 'Standard' || raw === 'Confort' || raw === 'Appartement') {
+      return raw;
+    }
+    return undefined;
   }
 }
